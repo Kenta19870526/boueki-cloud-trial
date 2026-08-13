@@ -3597,10 +3597,10 @@ $("#mob").addEventListener("click",e=>{const on=document.body.classList.toggle("
 let WEBON=false;
 const wtimeout=(p,ms)=>Promise.race([p,new Promise((_,rj)=>setTimeout(()=>rj(new Error("timeout")),ms))]);
 async function fxJob(){
-  const r=await fetch("https://api.frankfurter.app/latest?from=USD&to=JPY",{cache:"no-store"});
+  const r=await fetch("https://api.frankfurter.dev/v1/latest?base=USD&symbols=JPY",{cache:"no-store"});
   if(!r.ok) throw new Error("fx "+r.status);
   const j=await r.json();
-  return [{t:"為替レート（USD/JPY）ライブ取得",src:"frankfurter.app（欧州中央銀行の公表値）",d:j.date,live:1,
+  return [{t:"為替レート（USD/JPY）ライブ取得",src:"frankfurter.dev（欧州中央銀行の公表値）",d:j.date,live:1,
     s:`いま取得した参考レートは 1米ドル＝${j.rates.JPY}円（${j.date}公表）。実務ではこの値に銀行手数料（±1〜2円程度）が乗ります。`}];
 }
 async function wikiJob(q){
