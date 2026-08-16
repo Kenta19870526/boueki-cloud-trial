@@ -362,7 +362,7 @@ body.locked .pg-ft{display:none}
 <div class="dw" id="dw" data-open="false" role="dialog" aria-modal="true" aria-label="詳細">
   <div class="sc" data-close></div><div class="pn" id="pn"></div>
 </div>
-<input type="file" id="fin" hidden accept=".xlsx,.xls,.csv,.pdf,.docx,.txt">
+<input type="file" id="fin" hidden accept=".xlsx,.xlsm,.xls,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg">
 
 <script>
 "use strict";
@@ -2110,6 +2110,259 @@ function bnStats(now){
     catCount:ck?Math.round(bnTotal(now)*share):0};
 }
 
+/* ═══════════ 多形式ファイル解析（Word/PowerPoint=ローカル、PDF/画像=接続AI） ═══════════
+   Excel/CSV は logic_xlsx の実解析。docx/pptx はZIP+XMLをローカル抽出。
+   PDF/PNG/JPEG は接続中のAIエンジン（Gemini/Claude対応。Perplexityは画像のみ）で読む。
+   Googleドキュメント/スプレッドシート/スライドは「ファイル→ダウンロード」で
+   Word/Excel/PowerPoint形式に書き出してからアップロードする。 */
+const FEXT=n=>String(n||"").toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]||"";
+const FMIME={pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg"};
+const FACCEPT=".xlsx,.xlsm,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg";
+async function fileB64(file){
+  const b=new Uint8Array(await file.arrayBuffer());
+  let s=""; const CH=8192;
+  for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));
+  return btoa(s);
+}
+/* AIエンジンがこの形式を直接読めるか */
+function llmCanFile(ext){
+  if(typeof ppReady!=="function"||!ppReady()) return false;
+  const p=LLM.prov;
+  if(/^(png|jpg|jpeg)$/.test(ext)) return true;               /* 画像は4社対応 */
+  if(ext==="pdf") return p==="gemini"||p==="anthropic"||p==="openai";
+  return false;
+}
+/* ── docx / pptx のローカル抽出 ── */
+function xdoc(xml){ return new DOMParser().parseFromString(xml,"application/xml"); }
+async function extractDocx(file){
+  const fs=await unzip(await file.arrayBuffer());
+  if(!fs["word/document.xml"]) throw new Error("docx-format");
+  const d=xdoc(XT(fs["word/document.xml"]));
+  const text=[...d.getElementsByTagName("w:p")].map(p=>
+    [...p.getElementsByTagName("w:t")].map(t=>t.textContent).join("")).filter(Boolean).join("\n");
+  const grids=[...d.getElementsByTagName("w:tbl")].map(tb=>
+    [...tb.getElementsByTagName("w:tr")].map(tr=>
+      [...tr.getElementsByTagName("w:tc")].map(tc=>
+        [...tc.getElementsByTagName("w:t")].map(t=>t.textContent).join("").trim())));
+  return {text,grids,pages:1};
+}
+async function extractPptx(file){
+  const fs=await unzip(await file.arrayBuffer());
+  const keys=Object.keys(fs).filter(k=>/^ppt\/slides\/slide\d+\.xml$/.test(k))
+    .sort((a,b)=>+a.match(/\d+/)[0]-+b.match(/\d+/)[0]);
+  if(!keys.length) throw new Error("pptx-format");
+  let text=""; const grids=[];
+  keys.forEach(k=>{
+    const d=xdoc(XT(fs[k]));
+    text+=[...d.getElementsByTagName("a:p")].map(p=>
+      [...p.getElementsByTagName("a:t")].map(t=>t.textContent).join("")).filter(Boolean).join("\n")+"\n";
+    [...d.getElementsByTagName("a:tbl")].forEach(tb=>grids.push(
+      [...tb.getElementsByTagName("a:tr")].map(tr=>
+        [...tr.getElementsByTagName("a:tc")].map(tc=>
+          [...tc.getElementsByTagName("a:t")].map(t=>t.textContent).join("").trim()))));
+  });
+  return {text,grids,pages:keys.length};
+}
+/* テキスト＋表 → テナント（buildTenant と同じ手順をローカルで） */
+function tenantFromTextGrids(text,grids,filename,pages){
+  const lineGrid=text.split(/\n/).map(l=>l.split(/[：:\t┃|]/).map(s=>s.trim()));
+  const sheets=[{name:"本文",grid:lineGrid}].concat(grids.map((g,i)=>({name:"表"+(i+1),grid:g})));
+  const allTxt=text+"\n"+grids.map(g=>g.map(r=>r.join(" ")).join("\n")).join("\n");
+  const kv=findKV(sheets), cat=detectCat(allTxt);
+  const tabs=[]; grids.forEach(g=>findTables(g).forEach(t=>tabs.push(t)));
+  const pick=k=>{const c=tabs.filter(t=>classify(t)===k);
+    return c.sort((a,b)=>b.rows.length*b.cols.length-a.rows.length*a.cols.length)[0]||null;};
+  const pt=pick("price"),dt=pick("dim"),ct=pick("comp");
+  const HSR=(kv.hs&&/\d{4}/.test(kv.hs))
+    ?{hs:kv.hs.match(/\d{4}[.．-]?\d{2}/)[0].replace(/[．-]/,"."),ok:true}:pickHS(allTxt,cat);
+  const t={src:"upload",file:filename,sheets:sheets.map(s=>s.name),
+    cat:{food:"食品",cosme:"化粧品",parts:"工業部品",daily:"日用雑貨",car:"中古車",
+      liquor:"酒類",apparel:"アパレル",medical:"医療・衛生用品"}[cat]||"",catKey:cat,
+    co:(kv.co||findCompany(sheets,allTxt)||"").trim(),coEn:kv.coEn||"",item:kv.item||"",itemEn:kv.itemEn||"",
+    sku:kv.sku||"",origin:kv.origin||"",cert:kv.cert||"",shelf:kv.shelf||"",store:kv.store||"",
+    msrp:kv.msrp||"",term:kv.term||"",pay:kv.pay||"",pol:kv.pol||"",lead:kv.lead||"",moq:kv.moq||"",
+    ctn:kv.ctn||"",hs:HSR.hs,hsGuess:!HSR.ok,
+    priceCols:pt?pt.cols:[],priceRows:pt?pt.rows:[],dimCols:dt?dt.cols:[],dimRows:dt?dt.rows:[],
+    compCols:ct?ct.cols:[],compRows:ct?ct.rows:[],
+    compTitle:cat==="parts"?"材質・素材表":cat==="cosme"?"全成分表（INCI）":"成分表・材質表",
+    strengths:findStrengths(sheets),targets:[],nSheets:pages||1,nTables:tabs.length};
+  return t;
+}
+/* ── AIによる構造化抽出 ── */
+const XFIELDS=["co","coEn","item","itemEn","sku","hs","origin","cert","shelf","term","pay","pol","lead","moq","ctn","cat"];
+async function llmXtract(o){  /* o={text?|att?,filename} → 部分テナント */
+  const sys=`あなたは貿易書類の読み取り専門家。与えられた商品資料から情報を抽出し、JSONだけを返す（前後の文章・コードフェンス禁止）。
+スキーマ（読み取れた項目のみ。推測で埋めない）:
+{"co":"社名","coEn":"英文社名","item":"商品名","itemEn":"英文商品名","sku":"品番","hs":"HSコード(9999.99形式)",
+"origin":"産地","cert":"認証","shelf":"賞味期限/保証","term":"インコタームズ","pay":"支払条件","pol":"仕出港",
+"lead":"リードタイム","moq":"最小発注数量","ctn":"カートン/パレット入数",
+"cat":"食品|化粧品|工業部品|日用雑貨|中古車|酒類|アパレル|医療・衛生用品|その他",
+"targets":["進出希望国"],"strengths":[["強みの見出し","補足"]],
+"priceCols":["列名"],"priceRows":[["行"]],"dimCols":[],"dimRows":[],"compCols":[],"compRows":[],"compTitle":"表の名前"}`;
+  const user=(o.filename?`ファイル名: ${o.filename}\n`:"")+
+    (o.text?`=== 資料テキスト ===\n${String(o.text).slice(0,11000)}`:"添付ファイルを読み取り、スキーマに従って抽出してください。");
+  const r=await llmAsk(user,1800,{sys,noWeb:1,att:o.att,timeout:90000});
+  let t=r.txt.replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  if(a<0||b<=a) throw new Error("抽出結果の形式が不正");
+  return JSON.parse(t.slice(a,b+1));
+}
+/* 部分データ x を テナント t にマージ（空欄のみ埋める）。変更一覧を返す */
+function mergeTen(t,x){
+  const ch=[];
+  const nm=k=>({co:"会社名",coEn:"英文社名",item:"商品名",itemEn:"英文商品名",sku:"品番",hs:"HSコード",
+    origin:"産地",cert:"認証",shelf:"賞味期限",term:"取引条件",pay:"支払条件",pol:"仕出港",lead:"リードタイム",
+    moq:"MOQ",ctn:"入数",cat:"商材カテゴリ"}[k]||k);
+  XFIELDS.forEach(k=>{ const v=x[k];
+    if(v&&String(v).trim()&&!has(t[k])){
+      if(k==="hs"){ const m=String(v).match(/\d{4}[.．-]?\d{2}/); if(!m) return;
+        t.hs=m[0].replace(/[．-]/,"."); t.hsGuess=false; }
+      else if(k==="cat"){ t.cat=String(v); t.catKey=catKeyOf(v); }
+      else t[k]=String(v).trim();
+      ch.push(nm(k)); }});
+  if(Array.isArray(x.targets)&&x.targets.length){
+    const before=(t.targets||[]).length;
+    t.targets=[...new Set((t.targets||[]).concat(x.targets.filter(c=>typeof c==="string")))];
+    if(t.targets.length>before) ch.push("進出希望国");
+  }
+  if(Array.isArray(x.strengths)&&x.strengths.length){
+    const cur=t.strengths||[], n0=cur.length, seen=new Set(cur.map(s=>s[0]));
+    x.strengths.forEach(s=>{ const tt=Array.isArray(s)?s[0]:String(s);
+      if(tt&&!seen.has(tt)){ cur.push([String(tt).slice(0,60),Array.isArray(s)?String(s[1]||"").slice(0,90):""]); seen.add(tt);}});
+    if(cur.length>n0) ch.push("商品の強み");
+    t.strengths=cur;
+  }
+  [["price","価格表"],["dim","寸法・重量"],["comp","成分・材質表"]].forEach(([p,label])=>{
+    const R=x[p+"Rows"],C=x[p+"Cols"];
+    if(Array.isArray(R)&&R.length&&!(t[p+"Rows"]&&t[p+"Rows"].length)){
+      t[p+"Cols"]=Array.isArray(C)&&C.length?C.map(String):["項目","内容"];
+      t[p+"Rows"]=R.map(r=>Array.isArray(r)?r.map(v=>String(v??"")):[String(r)]);
+      ch.push(label); }});
+  if(x.compTitle&&(!t.compTitle||t.compTitle==="成分表・材質表")) t.compTitle=String(x.compTitle).slice(0,20);
+  return ch;
+}
+/* アップロード画面のマスターエントリ：どの形式でもテナントを返す */
+async function fileToTenant(file){
+  const ext=FEXT(file.name);
+  if(/^(xlsx|xlsm|csv|txt)$/.test(ext)) return await buildTenant(file);
+  if(ext==="docx"||ext==="pptx"){
+    const ex=ext==="docx"?await extractDocx(file):await extractPptx(file);
+    const t=tenantFromTextGrids(ex.text,ex.grids,file.name,ex.pages);
+    if(typeof ppReady==="function"&&ppReady()){
+      try{ const x=await llmXtract({text:ex.text.slice(0,11000),filename:file.name}); mergeTen(t,x); t.aiRead=1; }catch(e){}
+    }
+    return t;
+  }
+  if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
+    if(!llmCanFile(ext)){ const err=new Error("needai"); err.needai=1; err.ext=ext; throw err; }
+    const att={mime:FMIME[ext],b64:await fileB64(file),name:file.name};
+    const x=await llmXtract({att,filename:file.name});
+    const t=blankTenant(file.name,{sheets:1}); delete t.unparsed;
+    mergeTen(t,x); t.aiRead=1; t.nTables=(x.priceRows?1:0)+(x.dimRows?1:0)+(x.compRows?1:0);
+    return t;
+  }
+  const err=new Error("unsupported"); err.needai=0; throw err;
+}
+/* ── 充足度ヒアリング中の📎添付（不足分だけ一緒に埋める） ── */
+async function fillAttach(f){
+  if(!f||!TEN) return;
+  fillSay("u","📎 "+esc(f.name));
+  const ext=FEXT(f.name);
+  const canAI=llmCanFile(ext), office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
+  if(!office&&!canAI){
+    fillSay("ai",/^(pdf|png|jpg|jpeg)$/.test(ext)
+      ?`PDF・画像の読み取りには<b>AIエンジンの接続</b>が必要です（管理コンソールで設定）。Excel・Word・PowerPoint・CSVならこのままお読みできます。`
+      :`この形式（.${esc(ext)}）には対応していません。Excel・Word・PowerPoint・PDF・画像でお願いします。<br>Googleドキュメント類は「ファイル→ダウンロード」でOffice形式に書き出してください。`);
+    render(); return;
+  }
+  fillSay("ai",`読み取っています…${canAI&&!office?"（接続中のAIが解析します）":""}`);
+  render();
+  try{
+    let ch=[];
+    if(/^(xlsx|xlsm|csv|txt)$/.test(ext)){ const t2=await buildTenant(f); ch=mergeTen(TEN,t2); }
+    else if(ext==="docx"||ext==="pptx"){
+      const ex=ext==="docx"?await extractDocx(f):await extractPptx(f);
+      const t2=tenantFromTextGrids(ex.text,ex.grids,f.name,ex.pages);
+      ch=mergeTen(TEN,t2);
+      if(typeof ppReady==="function"&&ppReady()){
+        try{ const x=await llmXtract({text:ex.text.slice(0,11000),filename:f.name});
+          ch=[...new Set(ch.concat(mergeTen(TEN,x)))]; }catch(e){}
+      }
+    } else {
+      const x=await llmXtract({att:{mime:FMIME[ext],b64:await fileB64(f),name:f.name},filename:f.name});
+      ch=mergeTen(TEN,x);
+    }
+    syncTenant(); if(typeof saveTen==="function") saveTen();
+    const s=scoreOf(TEN);
+    fillSay("ai",ch.length
+      ?`<b>${esc(f.name)}</b> から <b>${ch.length}項目</b>を取り込みました：${ch.map(esc).join("・")}<br>充足度 <b>${s.pct}%</b> になりました。${s.missing.length?"残りを続けて伺います。":""}`
+      :`<b>${esc(f.name)}</b> を読み取りましたが、未登録の項目に該当する情報は見つかりませんでした。`);
+    if(typeof logU==="function") logU("upload","ヒアリング中に追加:"+f.name);
+    if(FILL.cur&&has(TEN[FILL.cur.k])) fillNext(); else render();
+  }catch(e){
+    fillSay("ai",`読み取れませんでした（${esc(String(e.message)).slice(0,60)}）。別の形式でお試しください。`);
+    render();
+  }
+}
+/* 抽出結果の要約（チャット表示用） */
+function xSummary(x){
+  const parts=[];
+  const nm={co:"会社名",item:"商品名",itemEn:"英文商品名",sku:"品番",hs:"HSコード",moq:"MOQ",
+    lead:"リードタイム",term:"取引条件",cert:"認証",origin:"産地",cat:"カテゴリ"};
+  Object.keys(nm).forEach(k=>{ if(x[k]&&String(x[k]).trim()) parts.push(nm[k]); });
+  if(x.priceRows&&x.priceRows.length) parts.push("価格表"+x.priceRows.length+"行");
+  if(x.dimRows&&x.dimRows.length) parts.push("寸法"+x.dimRows.length+"行");
+  if(x.compRows&&x.compRows.length) parts.push("成分・材質"+x.compRows.length+"行");
+  if(x.strengths&&x.strengths.length) parts.push("強み"+x.strengths.length+"件");
+  if(x.targets&&x.targets.length) parts.push("進出希望国"+x.targets.length);
+  return parts.length?parts.join("・"):"（該当項目なし）";
+}
+/* ── HSコードのAI提案（最終決定はユーザー） ── */
+async function hsAdvise(){
+  const sys=`あなたはHSコード分類の専門家。与えられた商品情報からHSコード（6桁 9999.99形式）を判別し、JSONだけを返す:
+{"best":{"code":"0902.10","name":"品目名","why":"根拠を50字以内"},
+ "alts":[{"code":"","name":"","why":""}],
+ "confidence":"高|中|低",
+ "needMore":["確定のために欲しい追加情報（不要なら空配列）"]}
+altsは最大2件。needMoreは具体的に（例：粉末か茶葉か、アルコール度数、材質の主成分など）。`;
+  const r=await llmAsk("=== 商品情報 ===\n"+ppContext(),700,{sys,noWeb:1,timeout:45000});
+  let t=r.txt.replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  const j=JSON.parse(t.slice(a,b+1));
+  if(!j.best||!j.best.code) throw new Error("提案なし");
+  return j;
+}
+const __fillAnsB4hs=fillAnswer;
+fillAnswer=function(v){
+  if(FILL.cur&&FILL.cur.k==="hs"&&!FILL.cur.x
+     &&typeof ppReady==="function"&&ppReady()
+     &&/不明|わか(ら|り)ま?せ?ん?ない?|任せ|おまかせ|提案して|教えて/.test(String(v))){
+    fillSay("u",esc(v));
+    fillSay("ai","承知しました。<b>登録済みの情報からAIがHSコードを判別しています…</b>");
+    render();
+    hsAdvise().then(j=>{
+      let m=`<b>AIの提案：${esc(j.best.code)}</b>（${esc(j.best.name)}）<span class="p ${j.confidence==="高"?"hi":j.confidence==="中"?"mid":"lo"}">確度 ${esc(j.confidence||"中")}</span><br>
+        <span style="font-size:11px;color:var(--ink-2)">${esc(j.best.why||"")}</span>`;
+      if(j.alts&&j.alts.length) m+=`<br>他の候補：${j.alts.map(a=>`<b>${esc(a.code)}</b>（${esc(a.name)}）`).join("／")}`;
+      if(j.needMore&&j.needMore.length)
+        m+=`<br><br><b>確定にはあと少し情報が必要です：</b>${j.needMore.map(esc).join("・")}<br>
+          分かる範囲で入力いただくか、📎から関連資料（仕様書・写真など）を追加してください。精度が上がります。`;
+      m+=`<div class="ci"><b>最終決定はお客様です。</b>候補をタップするか、正しいコードを直接入力してください。正式な分類は税関の事前教示で確定できます（STANDAGEが代行します）。</div>`;
+      FILL.cur=Object.assign({},FILL.cur,
+        {chips:[j.best.code+" を採用"].concat((j.alts||[]).slice(0,2).map(a=>a.code+" を採用"),["あとで決める"])});
+      fillSay("ai",m,{ask:FILL.cur});
+      render();
+    }).catch(e=>{
+      applyAnswer(TEN,"hs","不明");
+      fillSay("ai",`（AI判別に接続できませんでした：${esc(String(e.message)).slice(0,50)}）<br>
+        商品名から<b>${esc(TEN.hs)}</b>と推定して進めます。正式には税関の事前教示で確定できます。`);
+      syncTenant(); fillNext();
+    });
+    return;
+  }
+  return __fillAnsB4hs(v);
+};
+
 /* ═══════════ ① AI商社マン：自由入力に答える（ページ内エンジン） ═══════════
    外部APIは使わず、テナントの実データから答えを組み立てます。 */
 
@@ -2609,7 +2862,10 @@ function vMsg(p){
           style="display:block;width:100%;border:0;padding:11px 12px;font:inherit;font-size:12px;min-height:64px;
           resize:vertical;box-sizing:border-box;background:var(--surface);color:var(--ink);outline:none"></textarea>
         <div class="rw" style="justify-content:space-between;padding:8px 10px;border-top:1px solid var(--line-2)">
-          <span style="font-size:10px;color:var(--ink-3)">可視範囲：<b id="mscopeNow">共有</b></span>
+          <span class="rw" style="gap:7px;font-size:10px;color:var(--ink-3)">
+            <label class="btn g" style="padding:5px 9px;cursor:pointer" title="ファイルを添付（Excel/Word/PowerPoint/PDF/画像。AIに質問で送ると解析します）">📎<input type="file" id="matt" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv,.docx,.pptx,.pdf,.png,.jpg,.jpeg"}"></label>
+            <span id="mattn"></span>
+            <span>可視範囲：<b id="mscopeNow">共有</b></span></span>
           <button class="btn" id="msend">送信</button></div>
       </div>
       <p class="nn" style="margin-top:8px">トライアル環境のため、STANDAGE担当への実際の送信・通知は行われません（製品版では通知されます）。
@@ -2669,33 +2925,99 @@ function msgStore(){
   return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))
     ?(TEN.msgs=TEN.msgs||[]):D.msgs;
 }
+let MSGA=null, MSGX=null;   /* MSGA=送信待ちの添付／MSGX=直近の解析結果（「商品情報に追加して」用） */
 function sendMsg(){
   const ta=$("#mtext"); if(!ta) return;
-  const v=ta.value.trim(); if(!v){ toast("メッセージを入力してください"); return; }
+  const v=ta.value.trim();
+  const attF=MSGA; MSGA=null; const chip=$("#mattn"); if(chip) chip.innerHTML="";
+  if(!v&&!attF){ toast("メッセージを入力するか、ファイルを添付してください"); return; }
   const who=(typeof SES!=="undefined"&&SES&&SES.name)?SES.name:"貴社担当";
   const tstr=TODAYS+" "+new Date().toTimeString().slice(0,5);
   const askAI=msgNewScope==="AIに質問";
   msgStore().push({who,org:D.co,t:tstr,scope:askAI?"共有":msgNewScope,
-    body:esc(v).replace(/\n/g,"<br>"),read:1,mention:askAI?["AI商社マン"]:[]});
+    body:(v?esc(v).replace(/\n/g,"<br>"):"（ファイルを添付しました）"),read:1,
+    mention:askAI?["AI商社マン"]:[],
+    file:attF?{n:attF.name,kb:Math.max(1,Math.round(attF.size/1024))}:undefined});
   ta.value="";
   const fin=()=>{ if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) syncTenant();
     if(typeof saveTen==="function") saveTen();
     render();
     const ml=$("#mlist"); if(ml) ml.scrollTop=ml.scrollHeight; };
-  if(askAI){
-    msgStore().push({who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
-      body:"<i>回答を考えています…</i>",_tmp:1});
-    fin();
-    Promise.resolve(brain(v)).then(r=>{
-      const st=msgStore(), i=st.findIndex(m=>m._tmp);
-      const msg={who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
-        body:r.a+(r.c?`<div style="margin-top:7px;font-size:10px;color:var(--ink-3)">${r.c}</div>`:"")};
-      if(i>=0) st[i]=msg; else st.push(msg);
-      fin();
+  if(!askAI){
+    fin(); toast(attF?"添付つきで投稿しました（AIに解析させるには「🤖 AIに質問」で送信）":"投稿しました（"+msgNewScope+"）");
+    return;
+  }
+  msgStore().push({who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
+    body:"<i>"+(attF?"ファイルを解析しています…":"回答を考えています…")+"</i>",_tmp:1});
+  fin();
+  const put=(a,c)=>{ const st=msgStore(), i=st.findIndex(m=>m._tmp);
+    const msg={who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
+      body:a+(c?`<div style="margin-top:7px;font-size:10px;color:var(--ink-3)">${c}</div>`:"")};
+    if(i>=0) st[i]=msg; else st.push(msg); fin(); };
+  const fmt=s=>typeof ppFormat==="function"?ppFormat(s):esc(s).replace(/\n/g,"<br>");
+  (async()=>{
+    try{
+      if(attF){
+        const ext=FEXT(attF.name);
+        const office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
+        const online=(typeof ppReady==="function"&&ppReady());
+        if(office&&!online){
+          /* オフライン：ローカル解析のみ */
+          let t2;
+          if(/^(docx|pptx)$/.test(ext)){ const ex=ext==="docx"?await extractDocx(attF):await extractPptx(attF);
+            t2=tenantFromTextGrids(ex.text,ex.grids,attF.name,ex.pages); }
+          else t2=await buildTenant(attF);
+          MSGX={x:t2,file:attF.name};
+          put(`<b>${esc(attF.name)}</b> を解析しました。読み取れた項目：<b>${esc(xSummary(t2))}</b><br>
+            「<b>商品情報に追加して</b>」と送っていただければ、未登録の項目に反映します。`,
+            "エンジン：内蔵（ローカル解析）");
+        } else if(online&&(office||llmCanFile(ext))){
+          let att=null,text=null;
+          if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
+            if(!llmCanFile(ext)){ put(`接続中の${esc(PROV[LLM.prov].nm)}は${ext==="pdf"?"PDF":"この形式"}の直接読み取りに未対応です。GeminiまたはClaudeに切り替えるか、Excel/Word形式でお送りください。`,""); return; }
+            att={mime:FMIME[ext],b64:await fileB64(attF),name:attF.name};
+          } else if(/^(docx|pptx)$/.test(ext)){
+            const ex=ext==="docx"?await extractDocx(attF):await extractPptx(attF); text=ex.text.slice(0,11000);
+          } else { const t2=await buildTenant(attF);
+            text="（Excelの解析結果）\n"+JSON.stringify({co:t2.co,item:t2.item,sku:t2.sku,hs:t2.hs,moq:t2.moq,lead:t2.lead,
+              priceCols:t2.priceCols,priceRows:t2.priceRows,dimRows:t2.dimRows,compRows:t2.compRows,strengths:t2.strengths}).slice(0,11000); }
+          const q=(v||"このファイルの要点を、貿易実務の観点で教えてください。")+
+            `\n\n※回答の最後に、ファイルから読み取れた商品情報を\`\`\`json\`\`\`で出力してください。スキーマ:{"co":"","coEn":"","item":"","itemEn":"","sku":"","hs":"","origin":"","cert":"","shelf":"","term":"","pay":"","pol":"","lead":"","moq":"","ctn":"","cat":"","targets":[],"strengths":[["",""]],"priceCols":[],"priceRows":[],"dimCols":[],"dimRows":[],"compCols":[],"compRows":[],"compTitle":""}（読み取れた項目のみ。無ければ空のJSON {}）`;
+          const rr=await llmAsk(text?q+"\n\n=== ファイル内容 ===\n"+text:q,2000,{att,noWeb:1,timeout:90000});
+          let body=rr.txt, x=null;
+          const jm=body.match(/```json([\s\S]*?)```/);
+          if(jm){ try{ x=JSON.parse(jm[1].trim()); }catch(e){} body=body.replace(jm[0],"").trim(); }
+          if(x&&Object.keys(x).length){ MSGX={x,file:attF.name}; }
+          put(fmt(body)+(MSGX&&MSGX.file===attF.name
+              ?`<div style="margin-top:8px;padding:7px 10px;border-radius:var(--r2);background:var(--or-soft);font-size:11px">📎 商品情報として読み取れる項目があります。「<b>商品情報に追加して</b>」と送ると、未登録の項目に反映します。</div>`:""),
+            `エンジン：${esc(PROV[LLM.prov].nm)}（実AI・添付ファイル解析）`);
+          if(typeof logU==="function") logU("ai","添付解析:"+attF.name);
+        } else {
+          put(`この形式（.${esc(ext)}）の読み取りには対応していません。${/^(pdf|png|jpg|jpeg)$/.test(ext)?"PDF・画像の解析には<b>管理コンソールでAIエンジンの接続</b>が必要です。":"Excel・Word・PowerPoint・PDF・画像でお願いします。"}<br>Googleドキュメント類は「ファイル→ダウンロード」でOffice形式に書き出せます。`,"");
+        }
+        return;
+      }
+      if(/(商品情報|商品マスタ|マスタ)に?(追加|反映|登録)|追加して|反映して/.test(v)&&MSGX){
+        if(typeof TEN==="undefined"||!TEN){ TEN=blankTenant(MSGX.file||"チャット添付",{sheets:1}); PID="custom"; }
+        const ch=mergeTen(TEN,MSGX.x);
+        if(typeof TEN!=="undefined") syncTenant();
+        if(typeof saveTen==="function") saveTen();
+        const s=scoreOf(TEN);
+        put(ch.length
+          ?`<b>${esc(MSGX.file)}</b> の解析結果から <b>${ch.length}項目</b>を商品情報に反映しました：${ch.map(esc).join("・")}<br>
+            充足度は <b>${s.pct}%</b> になりました。「商品情報」の画面でご確認ください。登録済みの項目は上書きしていません。`
+          :`反映できる新しい項目はありませんでした（該当項目はすべて登録済みです）。`,
+          "根拠：チャット添付ファイルの解析結果");
+        MSGX=null;
+        return;
+      }
+      const r=await Promise.resolve(brain(v));
+      put(r.a,r.c);
       if(typeof logU==="function") logU("ai","やりとり:"+v.slice(0,30));
-    }).catch(()=>{ const st=msgStore(), i=st.findIndex(m=>m._tmp);
-      if(i>=0) st.splice(i,1); fin(); });
-  } else { fin(); toast("投稿しました（"+msgNewScope+"）"); }
+    }catch(e){
+      put("処理できませんでした："+esc(String(e.message)).slice(0,80),"");
+    }
+  })();
 }
 function bindMsgComposer(){
   document.querySelectorAll("[data-mscope]").forEach(b=>b.onclick=()=>{
@@ -2710,6 +3032,14 @@ function bindMsgComposer(){
   const s=$("#msend"); if(s) s.onclick=sendMsg;
   const ta=$("#mtext"); if(ta) ta.onkeydown=e=>{
     if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){ e.preventDefault(); sendMsg(); } };
+  const ma=$("#matt"); if(ma) ma.onchange=e=>{
+    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    MSGA=f;
+    const chip=$("#mattn"); if(chip) chip.innerHTML=`<span class="p on" style="font-size:9.5px">📎 ${esc(f.name).slice(0,24)}
+      <a style="cursor:pointer;font-weight:700;margin-left:3px" id="mattx">×</a></span>`;
+    const x=$("#mattx"); if(x) x.onclick=()=>{ MSGA=null; if(chip) chip.innerHTML=""; };
+    if(msgNewScope!=="AIに質問") toast("解析させる場合は「🤖 AIに質問」で送信してください");
+  };
 }
 
 /* ═════════ 書類・受注・入金（現行「ドキュメント」＋「受注」を統合） ═════════ */
@@ -2864,11 +3194,14 @@ function fillRender(){
       ${cu.multi?`<button class="btn" id="chipdone">選び終わった</button>`:""}</div>`:"")+
     `<div class="rw" style="gap:6px">
       <input class="sel" id="fans" style="flex:1;min-width:140px" placeholder="${esc(cu.ex||"ここに入力")}" autocomplete="off">
+      <label class="btn g" style="padding:8px 11px;cursor:pointer" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像）">📎<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
       <button class="btn" id="fsend">送信</button>
       <button class="btn g" id="fskip">わからない（あとで）</button></div>`;
   const send=()=>{const v=$("#fans").value.trim(); if(v) fillAnswer(v);};
   $("#fsend").onclick=send;
   $("#fans").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();send();}};
+  const fa=$("#fatt2"); if(fa) fa.onchange=e=>{const f=e.target.files[0]; e.target.value="";
+    if(f&&typeof fillAttach==="function") fillAttach(f);};
   $("#fskip").onclick=()=>{
     if(FILL.cur&&FILL.cur.x&&typeof llmExtraSkip==="function"){ llmExtraSkip(); return; }
     fillSay("u","分からない");
@@ -2965,9 +3298,45 @@ const CATMETA={food:{ic:"🍵",bg:"var(--good-soft)",cl:"var(--good)"},
  medical:{ic:"🩹",bg:"var(--crit-soft)",cl:"var(--crit)"},
  custom:{ic:"📄",bg:"var(--sunk)",cl:"var(--ink-2)"}};
 const cmeta=k=>CATMETA[k]||CATMETA.custom;
-const BASES=[{c:"香港",x:76,y:44,o:1},{c:"シンガポール",x:74,y:62,o:1},{c:"アメリカ",x:19,y:36,o:1},
- {c:"UAE",x:60,y:47},{c:"台湾",x:79,y:42},{c:"フランス",x:47,y:28},{c:"ベトナム",x:75,y:52},{c:"タイ",x:72,y:52},
- {c:"マレーシア",x:73,y:58},{c:"イギリス",x:45,y:23},{c:"オーストラリア",x:83,y:78},{c:"インドネシア",x:77,y:66}];
+/* 拠点ピン：経緯度から換算（x=(経度+180)/360, y=(90-緯度)/180） */
+const BASES=[{c:"香港",x:81.7,y:37.6,o:1},{c:"シンガポール",x:78.8,y:49.2,o:1},{c:"アメリカ",x:23.1,y:31.7,o:1},
+ {c:"UAE",x:65.1,y:36.4},{c:"台湾",x:83.6,y:36.7},{c:"フランス",x:50.6,y:22.8},{c:"ベトナム",x:79.6,y:44},
+ {c:"タイ",x:77.9,y:42.4},{c:"マレーシア",x:78.2,y:48.3},{c:"イギリス",x:50,y:21.4},
+ {c:"オーストラリア",x:91.9,y:68.8},{c:"インドネシア",x:79.7,y:53.4}];
+/* 簡略化した世界地図（正距円筒・手描きポリゴン） */
+const WORLD_SVG=`<svg viewBox="0 0 360 180" preserveAspectRatio="none" aria-hidden="true"
+ style="position:absolute;inset:0;width:100%;height:100%">
+ <g fill="var(--sunk)" stroke="var(--line)" stroke-width=".6" stroke-linejoin="round">
+  <path d="M14,22 25,19 50,20 70,17 90,17 105,17 120,27 125,38 115,45 110,48 105,54 99,64 90,61 83,64 83,69 75,70 85,74 96,80 102,82 88,76 71,67 66,59 59,55 56,49 56,42 48,35 30,31 15,36 Z"/>
+  <path d="M122,14 140,7 158,8 160,14 150,21 135,24 125,20 Z"/>
+  <path d="M102,82 110,78 119,80 128,86 136,93 145,98 141,107 132,115 127,124 122,129 115,131 112,140 108,144 105,138 108,127 109,120 110,108 104,104 99,96 100,90 Z"/>
+  <path d="M170,54 171,46 179,41 183,38 188,33 198,30 205,24 210,19 225,21 240,17 255,17 275,13 295,16 315,18 335,20 350,23 359,25 358,28 343,30 342,35 323,36 315,46 309,48 306,53 302,59 297,66 289,77 285,81 280,83 283,88 280,80 278,73 271,68 268,69 267,70 263,73 260,78 257,82 253,73 248,67 244,65 237,64 236,65 234,73 224,78 219,70 214,62 216,56 210,53 206,51 202,52 199,48 194,45 189,46 185,47 174,54 Z"/>
+  <path d="M163,75 163,69 170,61 174,55 183,53 191,53 200,57 212,59 215,62 217,72 223,79 231,78 221,91 219,97 215,110 213,116 207,123 199,125 192,108 193,102 189,91 189,86 176,85 167,81 Z"/>
+  <path d="M310,59 312,56 316,55 320,53 321,49 323,46 325,46 323,49 320,56 315,58 Z"/>
+  <path d="M175,40 178,37 176,32 173,35 Z"/>
+  <path d="M289,89 297,83 299,90 292,93 Z"/>
+  <path d="M275,85 284,94 286,96 278,89 Z"/>
+  <path d="M285,97 294,98 288,99 Z"/>
+  <path d="M300,72 303,78 306,83 301,79 Z"/>
+  <path d="M311,92 321,93 328,98 320,99 312,95 Z"/>
+  <path d="M294,112 302,107 310,102 317,102 322,101 327,106 330,112 333,118 330,127 324,128 318,126 312,122 304,123 296,124 293,117 Z"/>
+  <path d="M347,133 352,130 354,126 351,132 Z"/>
+ </g></svg>`;
+/* 各拠点のSTANDAGEメンバー（トライアル用の見本プロフィール・架空） */
+const STAFF={
+ "香港":[{n:"陳 美玲（Chan Mei-ling）",r:"拠点長",lg:"広東語・英語・日本語",yr:"商社12年",sp:"食品・日用品の小売/量販チャネル開拓",dl:184},
+   {n:"佐々木 蓮",r:"FS（現地商談）",lg:"日本語・英語・中国語",yr:"貿易実務8年",sp:"規制対応・見本市の同行商談",dl:96}],
+ "シンガポール":[{n:"Tan Wei Jie",r:"拠点長（ASEAN統括）",lg:"英語・中国語・マレー語",yr:"物流・SCM10年",sp:"EC×卸の両建て開拓・リーファー輸送",dl:152},
+   {n:"Nurul Aisyah",r:"FS（現地商談）",lg:"英語・マレー語・インドネシア語",yr:"食品輸入6年",sp:"ハラル対応・現地量販の棚づくり",dl:88}],
+ "アメリカ":[{n:"Kevin Nakamura",r:"拠点長",lg:"英語・日本語",yr:"北米小売15年",sp:"量販・専門店バイヤーとの価格交渉",dl:171},
+   {n:"Emily Torres",r:"FS（現地商談）",lg:"英語・スペイン語",yr:"食品流通7年",sp:"中南米系チャネル・FDA実務",dl:79}],
+ "UAE":[{n:"Omar Al-Farsi",r:"拠点長",lg:"アラビア語・英語",yr:"中東流通11年",sp:"GCC量販・ドバイ経由の再輸出",dl:143},
+   {n:"高橋 悠",r:"FS（現地商談）",lg:"日本語・英語",yr:"海外営業6年",sp:"ハラル・ESMA登録の伴走",dl:67}],
+ "台湾":[{n:"林 俊宏（Lin Chun-hung）",r:"拠点長",lg:"中国語・日本語",yr:"百貨店・EC9年",sp:"TFDA登録・日系売場の獲得",dl:121}],
+ "フランス":[{n:"Claire Dubois",r:"拠点長",lg:"フランス語・英語",yr:"欧州小売10年",sp:"CPNP/EU規制と商流の設計",dl:97}],
+ "ベトナム":[{n:"Nguyen Thi Lan",r:"拠点長",lg:"ベトナム語・英語・日本語",yr:"製造調達8年",sp:"現地卸・工業部品の調達商流",dl:84}],
+ "タイ":[{n:"Somchai Prasert",r:"拠点長",lg:"タイ語・英語",yr:"食品輸入12年",sp:"タイFDA・モダントレード開拓",dl:108}],
+};
 
 /* ═════════ 画面 ═════════ */
 const PAGES=[
@@ -3051,7 +3420,8 @@ function vUp(p){
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c">
       <h3>資料をアップロードする</h3>
-      <p class="nn">Excel・PDF・Word・CSV に対応。①商品情報 ②価格表・寸法 ③成分表・素材表 の3種類がそろうと、AIが最も正確に働きます。</p>
+      <p class="nn"><b>Excel・CSV・Word・PowerPoint・PDF・画像（PNG/JPEG）</b>に対応。①商品情報 ②価格表・寸法 ③成分表・素材表 の3種類がそろうと、AIが最も正確に働きます。<br>
+      <span style="font-size:10px;color:var(--ink-3)">PDF・画像・文書の高精度読み取りは、管理者がAIエンジン（ChatGPT/Gemini/Claude等）を接続している場合に有効。Googleドキュメント／スプレッドシート／スライドは「ファイル→ダウンロード」でWord/Excel/PowerPoint形式にしてからどうぞ。</span></p>
       <div class="drop" id="drop" role="button" tabindex="0" style="margin-top:11px">
         <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
           stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg></div>
@@ -3205,13 +3575,21 @@ function wireUp(){
   const dz=$("#drop"), fin=$("#fin");
   const take=async f=>{ if(!f) return;
     const info=await readFile(f);
+    const ext=FEXT(f.name);
     /* アップロードは常に「実データ」または「空の環境」から。サンプル商品には流し込まない */
-    if(/\.(xlsx|xlsm|csv|txt)$/i.test(f.name)){
-      try{ const t=await buildTenant(f); runParseReal(t,info,f); return; }
-      catch(e){ /* 解析不能 → 空の環境へ */ }
+    const aiRead=/^(pdf|png|jpg|jpeg)$/.test(ext)||(/^(docx|pptx)$/.test(ext)&&typeof ppReady==="function"&&ppReady());
+    if(aiRead&&llmCanFile(ext)||(/^(docx|pptx)$/.test(ext)&&typeof ppReady==="function"&&ppReady())){
+      const e=$("#prg"); if(e){ e.hidden=false;
+        e.innerHTML=`<div class="c" style="box-shadow:none;background:var(--surface-2)">
+          <div class="rw" style="gap:8px"><span class="spin"></span><b style="font-size:12px">${esc(f.name)} を読み取っています…</b></div>
+          <p class="nn" style="margin-top:6px">${/^(docx|pptx)$/.test(ext)?"文書を解析し、接続中のAIで構造化しています":"接続中のAIエンジンがファイルの中身を読んでいます（10〜60秒）"}</p></div>`; }
     }
-    const t=blankTenant(f.name,info);
-    runParseReal(t,info,f); };
+    try{ const t=await fileToTenant(f); runParseReal(t,info,f); return; }
+    catch(err){
+      if(err&&err.needai) toast("PDF・画像の読み取りには、管理コンソールでAIエンジンの接続が必要です");
+      const t=blankTenant(f.name,info);
+      runParseReal(t,info,f);
+    } };
   dz.addEventListener("click",()=>fin.click());
   dz.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fin.click();}});
   ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over");}));
@@ -3821,34 +4199,113 @@ function vDB(p){
       <div class="tw" style="margin-top:10px;max-height:300px"><table><thead><tr>
         <th>バイヤー</th><th>取扱・関心</th><th>規模</th><th>脈あり</th><th class="num">実績</th><th></th>
       </tr></thead><tbody id="dbb"></tbody></table></div>
-      <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。</p></div>
-    <div class="c"><h3>現地の担当に依頼する</h3>
-      <p class="nn">2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。</p>
-      <div class="mapw" style="height:206px;margin-top:10px">
-        ${BASES.map(b=>`<div class="pin ${b.o?"o":""}" style="left:${b.x}%;top:${b.y}%"><i></i><span>${b.c}</span></div>`).join("")}</div>
-      <div class="rw" style="margin-top:10px">
-        <select class="sel">${["香港拠点","シンガポール拠点","米国拠点","UAE拠点","台湾拠点"].map(o=>`<option>${o}</option>`).join("")}</select>
-        <button class="btn" onclick="toast('依頼しました。現地担当が48時間以内に着手します')">引き合いを依頼</button></div>
-      <p class="nn" style="margin-top:7px"><span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定。商談実績の多い順に配置しています。</p>
+      <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。<br>
+      <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。
+      <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。</p></div>
+    <div class="c"><h3>現地のSTANDAGEネットワーク</h3>
+      <p class="nn">2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。ピンを押すかプルダウンで<b>拠点メンバーのプロフィール</b>が見られます。</p>
+      <div class="mapw" style="height:212px;margin-top:10px;position:relative;overflow:hidden;border-radius:var(--r2);
+        border:1px solid var(--line);background:linear-gradient(180deg,var(--bl-soft) 0%,var(--surface-2) 100%)">
+        ${WORLD_SVG}
+        ${BASES.map(b=>`<div class="pin ${b.o?"o":""}" data-base="${b.c}" style="left:${b.x}%;top:${b.y}%;cursor:pointer"><i></i><span>${b.c}</span></div>`).join("")}</div>
+      <p class="nn" style="margin-top:6px"><span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定。それ以外は2028〜29年度に順次開設。</p>
+      <div class="rw" style="margin-top:8px">
+        <select class="sel" id="bsel">${Object.keys(STAFF).map(k=>`<option>${k}</option>`).join("")}</select>
+        <button class="btn" id="breq">この拠点に依頼する</button></div>
+      <p class="nn" style="margin-top:5px">※拠点への依頼（引き合い開拓・商談代行）は<b>別途費用</b>（稼働費・成果報酬）が発生します。費用をかけずに始めるなら、左の一覧から<b>「直接連絡」</b>をどうぞ。</p>
+      <div id="staffbox" style="margin-top:9px"></div>
       <div style="margin-top:10px;padding:9px 11px;border-radius:var(--r2);background:var(--or-soft);font-size:10.5px;line-height:1.7">
         <b style="color:var(--or-deep)">バイヤーはどう増えるのか</b><br>
         海外拠点の開拓営業・国際展示会・既存バイヤーからの紹介・貿易クラウド経由の引き合いの4経路で、
         <b>毎週リストに追加</b>されます。追加のたびに、貴社カテゴリに合う相手はこの画面に反映されます。</div></div>
   </div>`;
 }
+function outreachList(){
+  return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))
+    ?(TEN.outreach=TEN.outreach||[]):(D.outreach=D.outreach||[]);
+}
 function rDB(){
   const f={cty:$("#dC")?.value||"",cat:$("#dK")?.value||"",lv:$("#dL")?.value||""};
-  const rows=bnQuery(f);
-  $("#dbb").innerHTML=rows.length?rows.map(b=>`<tr>
+  const rows=bnQuery(f), sent=outreachList();
+  $("#dbb").innerHTML=rows.length?rows.map(b=>{
+    const done=sent.some(o=>o.id===b.id);
+    return `<tr>
     <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・正式契約後に開示</span></td>
     <td><span class="p lo">${esc(b.catNm)}</span><br><span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
     <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td>
     <td>${b.lv==="高"?'<span class="p hi">高</span>':b.lv==="中"?'<span class="p mid">中</span>':'<span class="p lo">−</span>'}</td>
     <td class="num">${b.deals}件</td>
-    <td><button class="btn g" style="padding:3px 8px;font-size:10.5px" data-req="${b.id}">依頼</button></td></tr>`).join("")
+    <td style="white-space:nowrap">${done?'<span class="p hi" title="直接メッセージを送信済み">連絡済</span> ':""}
+      <button class="btn g" style="padding:3px 7px;font-size:10px" data-dm="${b.id}" data-cty="${esc(b.cty)}" data-biz="${esc(b.biz)}"
+        title="無料：貿易クラウドが仲介し、匿名のまま直接メッセージを届けます">直接連絡</button>
+      <button class="btn g" style="padding:3px 7px;font-size:10px" data-req="${b.id}"
+        title="現地拠点メンバーが代行で接触・商談（別途費用：稼働費・成果報酬）">拠点に依頼</button></td></tr>`;}).join("")
    :`<tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:18px">該当なし</td></tr>`;
   document.querySelectorAll("[data-req]").forEach(b=>b.addEventListener("click",()=>
-    toast("ID "+b.dataset.req+" へ現地拠点から接触します（48時間以内に着手）")));
+    toast("ID "+b.dataset.req+" へ現地拠点から接触します（48時間以内に着手・別途費用）")));
+  document.querySelectorAll("[data-dm]").forEach(b=>b.addEventListener("click",()=>
+    openDM(b.dataset.dm,b.dataset.cty,b.dataset.biz)));
+}
+/* 拠点メンバーのプロフィール */
+function rStaff(){
+  const box=$("#staffbox"); if(!box) return;
+  const k=$("#bsel")?.value||Object.keys(STAFF)[0];
+  const mem=STAFF[k]||[];
+  box.innerHTML=mem.length?`<div style="display:flex;flex-direction:column;gap:7px">
+    ${mem.map(m=>`<div style="display:flex;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
+      <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
+        background:var(--or-soft);color:var(--or-deep);font-weight:700;font-size:13px">${esc(m.n.slice(0,1))}</span>
+      <span style="flex:1;min-width:0">
+        <b style="font-size:12px">${esc(m.n)}</b>　<span class="p or" style="font-size:9px">${esc(m.r)}</span><br>
+        <span style="font-size:10.5px;color:var(--ink-2)">${esc(m.sp)}</span><br>
+        <span style="font-size:9.5px;color:var(--ink-3)">🗣 ${esc(m.lg)}／経験 ${esc(m.yr)}／貿易クラウド対応実績 <b>${m.dl}</b>件</span></span></div>`).join("")}
+    </div><p class="nn" style="margin-top:5px">メンバー情報はトライアル用の見本表示です。</p>`
+   :`<p class="nn">この拠点は開設準備中です。開設まではシンガポール拠点（ASEAN統括）が対応します。</p>`;
+}
+/* バイヤーへの直接メッセージ（無料・仲介送信） */
+function openDM(id,cty,biz){
+  const item=D.itemEn||D.item||"our products";
+  const st=(D.strengths&&D.strengths[0]&&D.strengths[0][0])||"";
+  const subj=`Introduction: ${item} from Japan`;
+  const body=`Dear Buyer (${id}),
+
+We are ${D.coEn||D.co||"a Japanese manufacturer"}, producing ${item} in Japan.
+${st?`Our key strength: ${st}.
+`:""}${D.moq?`MOQ: ${D.moq}. `:""}${D.lead?`Lead time: ${D.lead}.`:""}
+
+We believe our product fits your market. Could we send you our catalog and samples?
+
+Best regards,
+${D.coEn||D.co||""}`;
+  openDW(`<h3>バイヤーへ直接メッセージ</h3>
+    <p class="nn" style="margin-top:5px">宛先：🔒 ${esc(cty)}の${esc(biz)}（ID ${esc(id)}）<br>
+      連絡先は開示されないまま、<b>貿易クラウドが仲介して届けます</b>。拠点への依頼と違い<b>費用はかかりません</b>（文面・交渉はお客様ご自身で）。</p>
+    <p class="lbl" style="margin-top:10px">件名</p>
+    <input class="sel" id="dmS" value="${esc(subj)}" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">本文（英語推奨）</p>
+    <textarea id="dmB" class="sel" style="width:100%;min-height:180px;font-size:11.5px;line-height:1.6;box-sizing:border-box;resize:vertical">${esc(body)}</textarea>
+    <div class="rw" style="margin-top:10px">
+      ${typeof ppReady==="function"&&ppReady()?`<button class="btn g" id="dmAI">🤖 AIで英文を整える</button>`:""}
+      <button class="btn" id="dmSend">送信する（無料）</button></div>
+    <p class="nn" id="dmN" style="margin-top:8px">トライアル環境のため実送信はされません。製品版では、返信は「やりとり」画面に届きます。</p>`);
+  const ai=$("#dmAI");
+  if(ai) ai.onclick=async()=>{
+    ai.disabled=true; ai.textContent="生成中…";
+    try{
+      const r=await llmAsk(`次の海外バイヤー向け営業メールを、簡潔でプロフェッショナルな英文に書き直してください。本文のみを返してください（件名・前置き不要）。\n\n${$("#dmB").value}`,
+        700,{noWeb:1,sys:"あなたは日本企業の輸出営業を支援するプロのコピーライター。自然で簡潔なビジネス英語で書く。"});
+      $("#dmB").value=r.txt.trim();
+      ai.textContent="🤖 もう一度整える";
+    }catch(e){ toast("AI生成に失敗："+String(e.message).slice(0,40)); ai.textContent="🤖 AIで英文を整える"; }
+    ai.disabled=false;
+  };
+  $("#dmSend").onclick=()=>{
+    outreachList().push({id,cty,d:TODAYS});
+    if(typeof saveTen==="function") saveTen();
+    if(typeof logU==="function") logU("ai","直接連絡:"+id);
+    closeDW(); rDB();
+    toast("送信しました（ID "+id+"）。返信が来ると「やりとり」に届きます");
+  };
 }
 
 /* ═════════ 改善サマリー ═════════ */
@@ -3930,7 +4387,13 @@ function render(){
       rDoc(b.dataset.doc);}));
     const f=document.querySelector('[data-doc="pi"]');
     f.style.background="var(--or)";f.style.color="#fff";f.style.borderColor="var(--or)";}
-  if(cur==="db"){rDB();["dC","dK","dL"].forEach(id=>{const e=$("#"+id);if(e)e.addEventListener("change",rDB);});}
+  if(cur==="db"){rDB();rStaff();
+    ["dC","dK","dL"].forEach(id=>{const e=$("#"+id);if(e)e.addEventListener("change",rDB);});
+    const bs=$("#bsel"); if(bs) bs.addEventListener("change",rStaff);
+    const br=$("#breq"); if(br) br.onclick=()=>toast("依頼を送信しました（"+($("#bsel")?.value||"")+"拠点）。現地担当が48時間以内に着手します ※別途費用");
+    document.querySelectorAll("[data-base]").forEach(p=>p.addEventListener("click",()=>{
+      const bs2=$("#bsel"); if(bs2&&STAFF[p.dataset.base]){ bs2.value=p.dataset.base; rStaff(); }
+      else if(bs2){ rStaff(); toast(p.dataset.base+"拠点は開設準備中です"); }}));}
   $("#ft").innerHTML=(D&&D.src==="upload"
     ?`<b>この環境について</b>　${esc(D.co)}の商品情報は、アップロードされた <b>${esc(D.file)}</b> をブラウザ内で解析した実データです（外部には送信していません）。関税率・必要書類は規制データベースからの概算で、正式な分類はHSコードの事前教示で確定します。商談記録・受注・運送会社の見積は、まだ実績がないため<b>想定シナリオ</b>として表示しています。<br>`
     :D&&D.src==="sample2"
@@ -4250,25 +4713,41 @@ async function llmAsk(q,maxTok,opts){
   let userQ=q, extHits=[];
   if(webOK&&!P.search){ const w=await llmWebCtx(q); userQ=q+w.txt; extHits=w.hits; }
 
+  const att=opts.att;   /* {mime,b64,name}：PDF・画像の添付（プロバイダ別に組み立て） */
   let req;
   if(prov==="gemini"){
+    const parts=[{text:userQ}];
+    if(att) parts.push({inline_data:{mime_type:att.mime,data:att.b64}});
     const body={system_instruction:{parts:[{text:sys}]},
-      contents:[{role:"user",parts:[{text:userQ}]}],
+      contents:[{role:"user",parts}],
       generationConfig:{maxOutputTokens:maxTok||900,temperature:0.2}};
-    if(webOK) body.tools=[{google_search:{}}];
+    if(webOK&&!att) body.tools=[{google_search:{}}];
     req=fetch(ep+"/models/"+encodeURIComponent(model)+":generateContent",
       {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
        body:JSON.stringify(body)});
   } else if(prov==="anthropic"){
     /* 注意：Claude 5系はtemperature非対応のため送らない。max_tokensはthinking込みなので大きめに */
+    let content=userQ;
+    if(att) content=[
+      att.mime==="application/pdf"
+        ?{type:"document",source:{type:"base64",media_type:att.mime,data:att.b64}}
+        :{type:"image",source:{type:"base64",media_type:att.mime,data:att.b64}},
+      {type:"text",text:userQ}];
     const body={model,max_tokens:Math.max(maxTok||900,700),system:sys,
-      messages:[{role:"user",content:userQ}]};
+      messages:[{role:"user",content}]};
     req=fetch(ep,{method:"POST",
       headers:{"Content-Type":"application/json","x-api-key":key,
         "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
       body:JSON.stringify(body)});
   } else { /* perplexity / openai：OpenAI互換Chat Completions */
-    const body={model,messages:[{role:"system",content:sys},{role:"user",content:userQ}]};
+    let uc=userQ;
+    if(att){
+      const dataUrl="data:"+att.mime+";base64,"+att.b64;
+      if(att.mime==="application/pdf"&&prov==="openai")
+        uc=[{type:"file",file:{filename:att.name||"file.pdf",file_data:dataUrl}},{type:"text",text:userQ}];
+      else uc=[{type:"image_url",image_url:{url:dataUrl}},{type:"text",text:userQ}];
+    }
+    const body={model,messages:[{role:"system",content:sys},{role:"user",content:uc}]};
     if(prov==="openai"){ body.max_completion_tokens=maxTok||900; }
     else { body.max_tokens=maxTok||900; body.temperature=0.2; }
     req=fetch(ep,{method:"POST",
