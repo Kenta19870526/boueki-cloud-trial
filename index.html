@@ -1189,6 +1189,136 @@ parts:{members:[["大森 健太","東邦精密 海外営業部","貴社"],["諏�
 Object.keys(MEMX).forEach(k=>Object.assign(OPSX[k],MEMX[k]));
 Object.keys(OPSX).forEach(k=>Object.assign(PRODUCTS[k],OPSX[k]));
 
+/* ═══════════ 業種サンプル（5業種・1日目の状態から始まる） ═══════════
+   3つのデモ商材（データ入り完成形）と違い、こちらはアップロード直後と同じ
+   「これから貯める」状態で始まる。すべて架空の企業。 */
+const SAMPLES2={
+ daily:{key:"daily",cat:"日用雑貨",co:"スドウ金属工業株式会社",coEn:"SUDO METAL WORKS Co., Ltd.",
+  city:"新潟県燕市",item:"ステンレス真空断熱タンブラー 350ml",itemEn:"Stainless Vacuum Insulated Tumbler 350ml",
+  sku:"SM-TB350",hs:"9617.00",file:"スドウ金属_商品資料一式.xlsx",
+  tagline:"燕三条の研磨仕上げ・保温6時間/保冷12時間",
+  strengths:[["真空二重構造で保温6時間・保冷12時間","JIS S 2006準拠の自社測定。結露せずデスクを汚さない"],
+   ["燕三条の職人研磨仕上げ","飲み口0.7mmの薄さ。金属臭が少なく飲料の味を変えない"],
+   ["食品衛生法 370号試験 合格済み","輸出時に求められる溶出試験の成績書を提出可能"],
+   ["名入れ・OEMは1,000個から","レーザー刻印・カラー粉体塗装・化粧箱の別注に対応"],
+   ["食洗機対応","業務用(ホテル・カフェ)の採用実績が国内120社"]],
+  priceCols:["数量帯","単価(FOB)","備考"],
+  priceRows:[["〜999個","US$6.80","化粧箱入り"],["1,000〜4,999個","US$6.10","名入れ無料"],["5,000個〜","US$5.40","OEM対応"]],
+  dimCols:["項目","寸法","重量"],
+  dimRows:[["単品","φ78×H132mm","168g"],["個装箱","85×85×140mm","215g"],["外装カートン(40入)","440×360×300mm","9.2kg"]],
+  compTitle:"材質・素材表",compCols:["部位","材質","備考"],
+  compRows:[["本体(内瓶・外瓶)","ステンレス SUS304(18-8)","食品衛生法適合"],["底板","SUS430",""],
+   ["外面塗装","粉体塗装","BPAフリー"],["飲み口パッキン","シリコーンゴム","-20〜180℃"],
+   ["検査","食品衛生法 昭和34年厚生省告示370号","試験成績書あり"],["梱包","化粧箱(FSC認証紙)",""]],
+  moq:"1,000個",lead:"受注後30日",ctn:"外装40個入／パレット48ケース",cert:"食品衛生法適合(370号試験)",
+  shelf:"該当なし(耐久消費財)",term:"FOB",pay:"T/T 30日",pol:"新潟港",
+  targets:["香港","台湾","シンガポール","アメリカ"]},
+
+ car:{key:"car",cat:"中古車",co:"オートリンク貿易株式会社",coEn:"AUTOLINK TRADING Co., Ltd.",
+  city:"神奈川県横浜市",item:"中古乗用車 トヨタ・アクア(2019年式・HV)",itemEn:"Used Toyota AQUA 2019 (Hybrid)",
+  sku:"AL-AQ19",hs:"8703.60",file:"オートリンク_在庫車両リスト.xlsx",
+  tagline:"オークション評価4点以上のみ・検査証明つき",
+  strengths:[["オークション評価4点以上の車両のみ","毎週のオートオークションで実車を確認して仕入れ"],
+   ["第三者検査(JEVIC/QISJ)の証明書つき","実走行・修復歴なしを輸出先の通関でも証明できる"],
+   ["輸出抹消・船積書類をワンストップ代行","注文から平均14日で船積み"],
+   ["RORO船・コンテナ(40ftに2台)の両対応","仕向地の港湾事情に合わせて選べる"],
+   ["船積前整備・防錆処理込み","バッテリー・オイル・下回り防錆を実施して積む"]],
+  priceCols:["走行距離帯","単価(FOB)","備考"],
+  priceRows:[["〜39,999km","US$9,800","評価4.5点"],["40,000〜59,999km","US$8,600","評価4点"],["60,000〜89,999km","US$7,200","評価4点"]],
+  dimCols:["項目","数値",""],
+  dimRows:[["全長×全幅×全高","4,050×1,695×1,455mm",""],["車両重量","1,080kg",""],["積載","RORO または 40ftコンテナ2台積み",""]],
+  compTitle:"車両情報表",compCols:["項目","内容","備考"],
+  compRows:[["型式","DAA-NHP10","ハイブリッド"],["排気量","1,496cc",""],["燃料","ガソリン×モーター",""],
+   ["走行距離","実走行(オークションシート添付)","改ざんなし"],["修復歴","なし","第三者検査済み"],
+   ["登録","輸出抹消登録済み","書類代行込み"],["ハンドル","右ハンドル","左H改造は非対応"]],
+  moq:"1台",lead:"落札後14日で船積み",ctn:"RORO／40ftコンテナ2台",cert:"JEVIC・QISJ検査証明",
+  shelf:"該当なし",term:"FOB",pay:"T/T 前払100%",pol:"横浜港",
+  targets:["UAE","ケニア","タンザニア","モンゴル"]},
+
+ liquor:{key:"liquor",cat:"酒類",co:"株式会社みなと酒造",coEn:"MINATO SAKE BREWING Co., Ltd.",
+  city:"兵庫県神戸市",item:"純米大吟醸 湊 720ml",itemEn:"Junmai Daiginjo MINATO 720ml",
+  sku:"MN-JD720",hs:"2206.00",file:"みなと酒造_輸出用商品資料.xlsx",
+  tagline:"IWC2025 GOLD・山田錦100%・リーファー輸送対応",
+  strengths:[["IWC2025(インターナショナル・ワイン・チャレンジ)SAKE部門 GOLD","海外バイヤーへの説明が1行で済む受賞歴"],
+   ["兵庫県産 山田錦100%・精米歩合45%","酒米の王様を高精白。香りで選ばれる一本"],
+   ["輸出向けは火入れ1回・急冷充填","現地までフレッシュな香味を保つ設計"],
+   ["リーファー(冷蔵)コンテナの混載輸送ノウハウ","5℃管理のまま香港・シンガポールへ毎月出荷実績"],
+   ["英語裏ラベル・成分表示は対応済み","輸入者名の差し替えだけで販売開始できる"]],
+  priceCols:["数量帯","単価(FOB)","備考"],
+  priceRows:[["〜499本","US$18.00","化粧箱入り"],["500〜1,999本","US$16.20",""],["2,000本〜","US$14.80","年間契約"]],
+  dimCols:["項目","寸法","重量"],
+  dimRows:[["単品(瓶)","φ90×H300mm","1,180g"],["化粧箱","100×100×310mm","1,350g"],["外装カートン(12入)","420×320×330mm","17.5kg"]],
+  compTitle:"成分・スペック表",compCols:["項目","内容","備考"],
+  compRows:[["原料米","山田錦(兵庫県産100%)",""],["精米歩合","45%",""],["アルコール分","15.5%",""],
+   ["日本酒度","+2","やや辛口"],["酸度","1.3",""],["保存","要冷蔵(5℃以下推奨)","リーファー輸送"],
+   ["賞味期限","製造から12ヶ月","裏ラベル記載"]],
+  moq:"300本",lead:"受注後21日",ctn:"外装12本入／リーファー混載可",cert:"IWC2025 GOLD／輸出用酒類卸売業免許",
+  shelf:"製造から12ヶ月(要冷蔵)",term:"FOB",pay:"T/T 30日",pol:"神戸港",
+  targets:["香港","台湾","シンガポール","アメリカ","フランス"]},
+
+ apparel:{key:"apparel",cat:"アパレル",co:"株式会社倉敷デニムワークス",coEn:"KURASHIKI DENIM WORKS Co., Ltd.",
+  city:"岡山県倉敷市児島",item:"セルビッジデニム 5Pジーンズ 14.8oz",itemEn:"Selvedge Denim 5-Pocket Jeans 14.8oz",
+  sku:"KD-SV148",hs:"6203.42",file:"倉敷デニム_輸出商品資料.xlsx",
+  tagline:"児島産セルビッジ・旧式シャトル織機・小ロット100本〜",
+  strengths:[["国産デニムの聖地・児島で織りから縫製まで一貫","産地ストーリーごと売れる商材"],
+   ["旧式シャトル織機×天然藍ロープ染色","大量生産では出ない耳(セルビッジ)と色落ち"],
+   ["Oeko-Tex Standard 100 取得","欧米セレクトショップの取引条件をクリア"],
+   ["小ロット100本から・サイズアソート自由","テスト販売から始められる"],
+   ["OEM・別注ウォッシュ加工に対応","現地ブランドの別注生産の受け皿になれる"]],
+  priceCols:["数量帯","単価(FOB)","備考"],
+  priceRows:[["〜299本","US$38.00","サイズアソート可"],["300〜999本","US$34.00",""],["1,000本〜","US$29.50","OEM対応"]],
+  dimCols:["項目","寸法","重量"],
+  dimRows:[["単品(畳み)","400×300×60mm","780g"],["外装カートン(20本)","600×400×400mm","16.5kg"],["サイズ展開","W28〜W38(2インチ刻み)",""]],
+  compTitle:"素材・仕様表",compCols:["項目","内容","備考"],
+  compRows:[["表地","綿100% 14.8oz セルビッジデニム","シャトル織機"],["染色","天然藍ロープ染色","中白の芯白糸"],
+   ["ボタン・リベット","銅合金","ニッケルフリー"],["革パッチ","牛革","タンニンなめし"],
+   ["縫製","岡山県児島(自社工場)",""],["認証","Oeko-Tex Standard 100","証明書提出可"],
+   ["洗い","ワンウォッシュ","防縮済み"]],
+  moq:"100本",lead:"受注後45日",ctn:"外装20本入",cert:"Oeko-Tex Standard 100",
+  shelf:"該当なし",term:"FOB",pay:"T/T 30日",pol:"神戸港",
+  targets:["アメリカ","フランス","イギリス","香港"]},
+
+ medical:{key:"medical",cat:"医療・衛生用品",co:"株式会社メディコア衛生材料",coEn:"MEDICORE Medical Supplies Co., Ltd.",
+  city:"大阪府大阪市",item:"滅菌ガーゼ・ファーストエイドキット",itemEn:"Sterile Gauze & First Aid Kit",
+  sku:"MC-FA100",hs:"3005.90",file:"メディコア_製品規格書一式.xlsx",
+  tagline:"ISO13485工場・クラスIで各国登録の負担が軽い",
+  strengths:[["ISO13485認証の自社工場で製造","医療機器の品質マネジメントを工場ごと証明できる"],
+   ["クラスI(一般医療機器)中心の構成","多くの国で登録・届出の負担が軽く、参入が速い"],
+   ["EOG滅菌を自社工程で実施(SAL 10⁻⁶)","滅菌バリデーション報告書を提出可能"],
+   ["現地語パッケージ・OEMに対応","薬局チェーンのPB(プライベートブランド)実績あり"],
+   ["有効期限3年","長い販売期間がとれ、輸入者の在庫リスクが低い"]],
+  priceCols:["数量帯","単価(FOB)","備考"],
+  priceRows:[["〜999セット","US$4.20",""],["1,000〜4,999セット","US$3.70","現地語表示対応"],["5,000セット〜","US$3.20","OEM対応"]],
+  dimCols:["項目","寸法","重量"],
+  dimRows:[["単品","180×120×40mm","95g"],["外装カートン(50入)","500×370×330mm","5.4kg"],["パレット","外装48ケース",""]],
+  compTitle:"構成・規格表",compCols:["項目","内容","備考"],
+  compRows:[["滅菌ガーゼ 10枚","EOG滅菌","SAL 10⁻⁶"],["救急絆創膏 20枚","防水タイプ",""],
+   ["サージカルテープ 1巻","低刺激アクリル系粘着",""],["伸縮包帯 2巻","",""],
+   ["製造","ISO13485認証工場","証明書提出可"],["分類","クラスI(一般医療機器)相当","国により要確認"],
+   ["有効期限","製造から3年","ロット管理"]],
+  moq:"1,000セット",lead:"受注後30日",ctn:"外装50セット入／パレット48ケース",cert:"ISO13485",
+  shelf:"製造から3年",term:"FOB",pay:"T/T 30日",pol:"大阪港",
+  targets:["タイ","ベトナム","インドネシア","UAE"]},
+};
+function tenantFromSample2(x){
+  return {src:"sample2",file:x.file,sheets:["①商品情報・強み","②価格表・寸法","③"+x.compTitle],
+    nSheets:3,nTables:3,cat:x.cat,catKey:x.key,co:x.co,coEn:x.coEn,item:x.item,itemEn:x.itemEn,
+    sku:x.sku,hs:x.hs,hsGuess:false,origin:x.city,cert:x.cert,shelf:x.shelf,
+    term:x.term,pay:x.pay,pol:x.pol,lead:x.lead,moq:x.moq,ctn:x.ctn,
+    priceCols:x.priceCols,priceRows:x.priceRows,dimCols:x.dimCols,dimRows:x.dimRows,
+    compCols:x.compCols,compRows:x.compRows,compTitle:x.compTitle,strengths:x.strengths,
+    targets:x.targets.slice()};
+}
+function adoptSample2(k){
+  const x=SAMPLES2[k]; if(!x) return;
+  PID="custom"; TEN=tenantFromSample2(x); shipStep=0; SHIPQA=[];
+  FILL={on:false,log:[],cur:null,sel:[]};
+  syncTenant(); if(typeof saveTen==="function") saveTen();
+  if(typeof logU==="function") logU("upload","業種サンプル:"+x.cat);
+  buildNav(); go("dash"); scrollTo({top:0});
+  toast(`${x.cat}のサンプル環境を作成しました：${x.co}（1日目の状態）`);
+}
+
 /* ═══════════ ② アップロードしたファイルを実際に解析する ═══════════
    XLSX は ZIP。ブラウザ標準の DecompressionStream('deflate-raw') で展開し、
    sharedStrings と各シートの XML を読んで実データを取り出します（外部ライブラリ不使用）。 */
@@ -1342,11 +1472,19 @@ function classify(t){
 function detectCat(all){
   const s=all.toLowerCase();
   const sc=(ws)=>ws.reduce((a,w)=>a+(s.split(w).length-1),0);
-  const f=sc(["食品","茶","飲料","原材料","アレルゲン","賞味期限","栄養成分","haccp","農薬"]);
-  const c=sc(["化粧品","inci","美容液","スキンケア","配合率","薬事","cpnp","mocra","nmpa","全成分"]);
-  const p=sc(["部品","材質","軸受","機械","rohs","reach","硬度","公差","jis","該非","ベアリング","鋼"]);
-  const m=Math.max(f,c,p);
-  return m<2?null:(p===m?"parts":c===m?"cosme":"food");
+  const scores={
+    food:sc(["食品","茶","飲料","原材料","アレルゲン","賞味期限","栄養成分","haccp","農薬"]),
+    cosme:sc(["化粧品","inci","美容液","スキンケア","配合率","薬事","cpnp","mocra","nmpa","全成分"]),
+    parts:sc(["部品","材質","軸受","機械","rohs","reach","硬度","公差","jis","該非","ベアリング","鋼"]),
+    daily:sc(["雑貨","タンブラー","タオル","食器","キッチン","文具","日用","収納","食洗機"]),
+    car:sc(["中古車","車両","走行距離","車検","年式","排気量","修復歴","オークション","車台番号","rono","ro-ro"]),
+    liquor:sc(["日本酒","清酒","純米","吟醸","酒税","アルコール分","醸造","精米歩合","ウイスキー","焼酎"]),
+    apparel:sc(["アパレル","衣料","デニム","縫製","生地","サイズ展開","綿100","ポリエステル","oeko"]),
+    medical:sc(["医療","滅菌","ガーゼ","絆創膏","包帯","iso13485","クラスi","衛生材料","医療機器"]),
+  };
+  let best=null,bv=0;
+  Object.entries(scores).forEach(([k,v])=>{ if(v>bv){bv=v;best=k;} });
+  return bv<2?null:best;
 }
 /* HSコードらしき数字を全部拾い、文脈に HS／関税／品目 がある候補を優先。日付は除外 */
 function pickHS(txt,cat){
@@ -1381,7 +1519,8 @@ async function buildTenant(file){
   const co=kv.co||findCompany(sheets,allTxt);
   const t={
     src:"upload", file:file.name, sheets:sheets.map(s=>s.name),
-    cat:{food:"食品",cosme:"化粧品",parts:"工業部品"}[cat]||"", catKey:cat,
+    cat:{food:"食品",cosme:"化粧品",parts:"工業部品",daily:"日用雑貨",car:"中古車",
+      liquor:"酒類",apparel:"アパレル",medical:"医療・衛生用品"}[cat]||"", catKey:cat,
     co:(co||"").trim(), coEn:kv.coEn||"", item:kv.item||"", itemEn:kv.itemEn||"",
     sku:kv.sku||"", origin:kv.origin||"", cert:kv.cert||"", shelf:kv.shelf||"",
     store:kv.store||"", msrp:kv.msrp||"", term:kv.term||"", pay:kv.pay||"",
@@ -1390,7 +1529,9 @@ async function buildTenant(file){
     priceCols:pt?pt.cols:[], priceRows:pt?pt.rows:[],
     dimCols:dt?dt.cols:[], dimRows:dt?dt.rows:[],
     compCols:ct?ct.cols:[], compRows:ct?ct.rows:[],
-    compTitle:cat==="parts"?"材質・素材表":cat==="cosme"?"全成分表（INCI）":"成分表",
+    compTitle:cat==="parts"?"材質・素材表":cat==="cosme"?"全成分表（INCI）"
+      :cat==="daily"?"材質・素材表":cat==="car"?"車両情報表":cat==="apparel"?"素材・仕様表"
+      :cat==="medical"?"構成・規格表":cat==="liquor"?"成分・スペック表":"成分表",
     strengths, targets:[], nSheets:sheets.length, nTables:tabs.length
   };
   if(!t.moq&&pt){ const i=pt.cols.findIndex(c=>/moq|最小|最低/i.test(norm(c)));
@@ -1411,7 +1552,7 @@ const NEED=[
  {k:"itemEn",n:"英文商品名",w:5,use:"インボイス・パッキングリストの品名",
   q:"英語の商品名を教えてください。<b>通関で見られるのはこの名前だけ</b>です。",ex:"例：Organic Matcha Powder 100g"},
  {k:"cat",n:"商材カテゴリ",w:5,use:"規制調査の対象範囲",q:"どの商材カテゴリに当てはまりますか？",
-  chips:["食品","化粧品","工業部品","日用品","アパレル","その他"]},
+  chips:["食品","化粧品","工業部品","日用雑貨","中古車","酒類","アパレル","医療・衛生用品","その他"]},
  {k:"sku",n:"品番",w:3,use:"受注・在庫の識別",q:"品番（型番）を教えてください。",ex:"例：MD-MAT-100"},
  {k:"hs",n:"HSコード",w:5,use:"関税率・必要書類の自動判定",
   q:"HSコード（世界共通の商品分類番号）はお分かりですか？<b>これが決まると関税率と必要書類が自動で出ます。</b>分からなければ「不明」と入力してください。こちらで候補を出します。",
@@ -1465,9 +1606,16 @@ function hsCandidates(t){
    [/シャンプー|ヘア|shampoo/,"3305.10","毛髪用製品"],[/石鹸|soap/,"3401.11","石けん"],
    [/軸受|ベアリング|bearing/,"8482.10","玉軸受"],[/ポンプ|pump/,"8413.70","ポンプ"],
    [/バルブ|valve/,"8481.80","バルブ"],[/モーター|motor/,"8501.10","電動機"],
+   [/タンブラー|魔法瓶|水筒|ボトル|tumbler|flask/,"9617.00","魔法瓶類"],
+   [/タオル|towel/,"6302.60","タオル（綿）"],[/陶器|磁器|食器|tableware/,"6912.00","陶磁器製食卓用品"],
+   [/中古車|乗用車|ハイブリッド|自動車|car|vehicle/,"8703.60","乗用車（HV）"],
+   [/日本酒|清酒|純米|大吟醸|sake/,"2206.00","清酒"],[/ウイスキー|whisky/,"2208.30","ウイスキー"],
+   [/デニム|ジーンズ|denim|jeans/,"6203.42","男子用ズボン（綿）"],
+   [/ガーゼ|絆創膏|包帯|gauze|bandage/,"3005.90","医療用衛生材料"],
    [/衣料|アパレル|シャツ|apparel/,"6205.20","男子用シャツ"],[/食品|food/,"2106.90","調製食料品"]];
   const hit=T.filter(([re])=>re.test(s)).map(([,c,n])=>[c,n]);
-  return hit.length?hit:[[{食品:"2106.90",化粧品:"3304.99",工業部品:"8479.89"}[t.cat]||"9999.99",
+  return hit.length?hit:[[{食品:"2106.90",化粧品:"3304.99",工業部品:"8479.89",日用雑貨:"7323.99",
+    中古車:"8703.60",酒類:"2206.00",アパレル:"6203.42","医療・衛生用品":"3005.90"}[t.cat]||"9999.99",
     "カテゴリからの推定（要確認）"]];
 }
 /* 入力の解釈 */
@@ -1475,6 +1623,7 @@ function applyAnswer(t,k,raw){
   const v=String(raw).trim();
   if(!v) return false;
   if(k==="targets"){ t.targets=v.split(/[、,\/／\s]+/).filter(Boolean); return true; }
+  if(k==="cat"){ t.cat=v; t.catKey=catKeyOf(v); return true; }
   if(k==="hs"){
     const m=v.match(/\d{4}[.．-]?\d{2}/);
     if(m){ t.hs=m[0].replace(/[．-]/,"."); t.hsGuess=false; return true; }
@@ -1618,16 +1767,78 @@ const RD={
       food:"関税30%。価格競争力を確保できるか事前に検討してください。"}},
 };
 const CIDX={food:0,cosme:1,parts:2};
+/* 追加カテゴリ（日用雑貨・中古車・酒類・アパレル・医療衛生）の規制テンプレート */
+const RD2={
+ daily:{base:["原産地証明書","インボイス","パッキングリスト"],
+  d:{香港:"0%",シンガポール:"0%",台湾:"5%",アメリカ:"3.4%",UAE:"5%",フランス:"0%（EPA）",イギリス:"0%（EPA）"},
+  x:{台湾:["繁体字表示"],アメリカ:["FDA食品接触材規制の確認（飲食器の場合）"],UAE:["アラビア語表示（小売時）"]},
+  w:{アメリカ:"飲食に使う器物はFDAの食品接触材規制の対象になり得ます。溶出試験の成績書を用意しておくと通関・商談が速くなります。"}},
+ car:{base:["インボイス","船荷証券（B/L）","輸出抹消仮登録証明書（英訳）","第三者検査証明書（JEVIC等）"],
+  d:{UAE:"5%",ケニア:"25%＋物品税",タンザニア:"25%",モンゴル:"5%",ロシア:"要確認"},
+  x:{UAE:["再輸出向け書類一式"],ケニア:["KEBS船積前検査（QISJ/JEVIC）"],タンザニア:["船積前検査（TBS）"],モンゴル:[]},
+  w:{ケニア:"初度登録から8年を超える車両は輸入禁止。年式の確認が最重要です。",
+     UAE:"UAEは右ハンドル車の公道登録が不可のため、ドバイ経由の再輸出取引が中心です。",
+     _:"中古車は仕向国ごとに年式規制・検査制度が大きく異なります。船積前検査の要否を必ず確認してください。"}},
+ liquor:{base:["インボイス","パッキングリスト","成分分析表","原産地証明書"],
+  d:{香港:"0%（アルコール30%以下）",台湾:"20%＋酒税",シンガポール:"0%＋酒税S$88/L（純アルコール）",
+     アメリカ:"従量税＋州税",フランス:"0%＋EU酒税",イギリス:"0%（EPA）＋酒税"},
+  x:{台湾:["輸入業者の酒類進口業許可"],シンガポール:["輸入者の酒類ライセンス"],
+     アメリカ:["TTB COLA（ラベル承認）","FDA食品施設登録","輸入者の酒類ライセンス"],
+     フランス:["EU規則1169/2011ラベル","EMCS（EU酒類移動管理）対応"],香港:[]},
+  w:{アメリカ:"連邦のCOLA（ラベル承認）取得に1〜2ヶ月。州ごとに流通規制（スリーティア制）があります。",
+     _:"酒税は輸入者側で発生します。見積書に「酒税別」であることを明記してください。"}},
+ apparel:{base:["原産地証明書","インボイス","パッキングリスト"],
+  d:{アメリカ:"16.6%（綿デニム）",フランス:"12%→0%（EPA自己申告）",イギリス:"12%→0%（EPA）",香港:"0%",シンガポール:"0%"},
+  x:{アメリカ:["繊維製品表示（組成・原産国）","CPSC燃焼性基準の確認"],
+     フランス:["EU繊維表示規則","日EU・EPA自己申告（関税0%化）"],イギリス:["UK繊維表示","日英EPA原産地申告"]},
+  w:{アメリカ:"綿ジーンズの関税は16.6%と高め。FOB価格の設定に織り込んでください。",
+     フランス:"日EU・EPAの自己申告で関税0%にできます（原産地規則の充足が条件）。"}},
+ medical:{base:["インボイス","パッキングリスト","ISO13485証明書","滅菌証明書（該当品）"],
+  d:{タイ:"0〜5%",ベトナム:"0〜5%",インドネシア:"0〜5%",UAE:"5%",シンガポール:"0%"},
+  x:{タイ:["タイFDA医療機器登録（クラス別）"],ベトナム:["保健省（MOH）クラスA届出"],
+     インドネシア:["保健省（Kemenkes）登録"],UAE:["MOHAP登録","アラビア語表示"]},
+  w:{インドネシア:"登録は現地法人・代理店の名義で行うため、代理店契約の設計が参入の鍵になります。",
+     _:"医療機器の分類（クラス）は国ごとに異なります。クラスIでも登録・届出が必要な国が多く、現地輸入者のライセンスが前提です。"}},
+};
+function catKeyOf(label){
+  const s=String(label||"");
+  if(/食品|food/i.test(s)) return "food";
+  if(/化粧|美容|cosme/i.test(s)) return "cosme";
+  if(/工業|部品|parts/i.test(s)) return "parts";
+  if(/日用|雑貨/.test(s)) return "daily";
+  if(/中古車|車両|自動車/.test(s)) return "car";
+  if(/酒/.test(s)) return "liquor";
+  if(/アパレル|衣料|繊維/.test(s)) return "apparel";
+  if(/医療|衛生/.test(s)) return "medical";
+  return "other";
+}
 function regsFor(cat,targets){
-  const i=CIDX[cat]!==undefined?CIDX[cat]:0, base={
-    food:["原産地証明書","成分分析表","インボイス","パッキングリスト"],
-    cosme:["全成分表（INCI）","英語ラベル","インボイス","パッキングリスト"],
-    parts:["原産地証明書","インボイス","パッキングリスト","該非判定書"]}[cat]||["インボイス","パッキングリスト","原産地証明書"];
   const out={};
+  if(CIDX[cat]!==undefined){
+    const i=CIDX[cat], base={
+      food:["原産地証明書","成分分析表","インボイス","パッキングリスト"],
+      cosme:["全成分表（INCI）","英語ラベル","インボイス","パッキングリスト"],
+      parts:["原産地証明書","インボイス","パッキングリスト","該非判定書"]}[cat];
+    (targets||[]).forEach(c=>{
+      const r=RD[c];
+      if(!r){ out[c]={duty:"要確認",docs:base,warn:"この国はまだ規制データベースに登録がありません。STANDAGEが個別に調査します。",lead:"要確認"}; return; }
+      out[c]={duty:r.d[i],lead:r.lead,docs:base.concat((r.x&&r.x[cat])||[]),warn:(r.w&&r.w[cat])||""};
+    });
+    return out;
+  }
+  const R2=RD2[cat];
+  const base=(R2&&R2.base)||["インボイス","パッキングリスト","原産地証明書"];
   (targets||[]).forEach(c=>{
     const r=RD[c];
-    if(!r){ out[c]={duty:"要確認",docs:base,warn:"この国はまだ規制データベースに登録がありません。STANDAGEが個別に調査します。",lead:"要確認"}; return; }
-    out[c]={duty:r.d[i],lead:r.lead,docs:base.concat((r.x&&r.x[cat])||[]),warn:(r.w&&r.w[cat])||""};
+    if(R2){
+      const duty=(R2.d&&R2.d[c])||"要確認";
+      out[c]={duty,lead:(r&&r.lead)||"要確認",
+        docs:base.concat((R2.x&&R2.x[c])||[]),
+        warn:(R2.w&&(R2.w[c]||R2.w._))||(duty==="要確認"?"この国×この商材はSTANDAGEが個別に調査し、ここに蓄積します。":"")};
+    } else {
+      out[c]={duty:"要確認",lead:(r&&r.lead)||"要確認",docs:base,
+        warn:"この商材カテゴリの規制はSTANDAGEが個別に調査し、ここに蓄積します。"};
+    }
   });
   return out;
 }
@@ -1646,13 +1857,13 @@ function tenantFromSample(x){
 
 /* アップロードしたテナント → 画面が使う D を構築（1日目の状態） */
 function tenantToD(t){
-  const cat=t.catKey||"food";
+  const cat=t.catKey||catKeyOf(t.cat);
   const av=(t.co||"?").replace(/^(株式会社|有限会社)/,"").slice(0,1)||"?";
   const top=(t.priceRows&&t.priceRows[0])||null;
   const d={
-    key:"custom",cat:t.cat||"未分類",av,co:t.co||"（社名 未登録）",coEn:t.coEn||"",
+    key:"custom",catKey:cat,cat:t.cat||"未分類",av,co:t.co||"（社名 未登録）",coEn:t.coEn||"",
     pj:"#NEW",city:t.origin||"",item:t.item||"（商品名 未登録）",itemEn:t.itemEn||"",
-    sku:t.sku||"",hs:t.hs||"",unit:"個",month:0,file:t.file,src:"upload",_filled:true,
+    sku:t.sku||"",hs:t.hs||"",unit:"個",month:0,file:t.file,src:t.src==="sample2"?"sample2":"upload",_filled:true,
     tagline:(t.strengths||[]).slice(0,2).map(s=>s[0]).join("・")||"アップロードした資料から作成",
     strengths:t.strengths||[],priceCols:t.priceCols||[],priceRows:t.priceRows||[],
     dimCols:t.dimCols||[],dimRows:t.dimRows||[],compCols:t.compCols||[],compRows:t.compRows||[],
@@ -1661,13 +1872,14 @@ function tenantToD(t){
     regs:regsFor(cat,t.targets),
     fb:[],lost:[],byc:(t.targets||[]).map(c=>[c,0]),
     funnel:[["バイヤーに接触",0],["商談を実施",0],["反応を記録",0],["見積を提示",0],["サンプル発送",0],["初回受注",0]],
-    dbr:(PRODUCTS[cat]||PRODUCTS.food).dbr,
+    dbr:[],
     kpi:{fbDone:0,fbGoal:42,buyers:0,hot:0,countries:(t.targets||[]).length,quotes:0,
       quoteAmt:"¥0",weighted:"¥0",won:0,wonNote:"これからです"},
     hotList:[],pipeline:[],orders:[],docs:[[t.file,"商品マスタ","アップロード",TODAYS,1]],
-    msgs:[],members:[[t.co||"貴社","（登録した担当者）","貴社"],["STANDAGE CS","STANDAGE","STANDAGE"],
+    msgs:(t.msgs||[]).slice(),members:[[t.co||"貴社","（登録した担当者）","貴社"],["STANDAGE CS","STANDAGE","STANDAGE"],
       ["AI商社マン","貴社データ専用","AI"]],
-    msgSummary:"まだやりとりがありません。STANDAGEの担当がついたら、ここに記録が残っていきます。",
+    msgSummary:(t.msgs&&t.msgs.length)?`これまでに<b>${t.msgs.length}件</b>のやりとりがあります。決定事項と宿題はここに要約されます（トライアルでは件数のみ）。`
+      :"まだやりとりがありません。STANDAGEの担当がついたら、ここに記録が残っていきます。",
     timeline:[[TODAYS+" 現在","商品情報をアップロードしました",t.file+"（"+t.nSheets+"シート）"]],
     approvals:[],
     oldNote:"（まだ商談記録がありません）",nextPoint:"価格の根拠と強みの説明",
@@ -1728,7 +1940,7 @@ function buildAiq(t,s){
   const out=[];
   if(t.targets&&t.targets.length) out.push({q:"この商品はどの国に売れますか？",
     a:`いま登録されている進出希望国は<b>${t.targets.length}か国</b>（${t.targets.join("・")}）です。<br><br>`+
-      t.targets.map(x=>{const r=regsFor(t.catKey||"food",[x])[x];
+      t.targets.map(x=>{const r=regsFor(t.catKey||catKeyOf(t.cat),[x])[x];
         return `<b>${x}</b>　関税 ${r.duty}／${r.lead}${r.warn?`<br><span style="color:var(--warn)">⚠ ${esc(r.warn)}</span>`:
           `<br><span style="color:var(--good)">いまの仕様のまま輸出できます。</span>`}`;}).join("<br><br>")+
       `<br><br>ただし<b>実際にどこで売れるかは、商談の記録が貯まってから</b>でないと分かりません。
@@ -1806,7 +2018,96 @@ function buildShip(d,t){
 function syncTenant(){
   if(!TEN) return;
   if(TEN.src==="sample"){ D=PRODUCTS[TEN.catKey]; return; }
-  D=tenantToD(TEN);
+  D=tenantToD(TEN);   /* upload / sample2（業種サンプル）は共に1日目の状態から */
+}
+
+/* ═══════════ バイヤーネットワーク（週次で増える・名称/連絡先は契約後に開示） ═══════════
+   件数と国別分布は貿易クラウド本番DBの集計値（2026-08時点 7,060名・83か国）に基づく。
+   個社が特定できる名称・連絡先はトライアルでは伏せ、決定論的な生成器で見本を表示する。 */
+const BN_BASE=7060, BN_EPOCH=new Date("2026-08-03T00:00:00");  /* 月曜起点 */
+const BN_CTY=[["UAE",754],["香港",602],["シンガポール",511],["アメリカ",498],["エジプト",223],
+ ["台湾",178],["フランス",174],["マレーシア",150],["インド",136],["イギリス",127],["タイ",121],
+ ["インドネシア",112],["韓国",108],["中国",101],["ベトナム",96],["ドイツ",95],["オーストラリア",93],
+ ["カナダ",85],["サウジアラビア",78],["ケニア",64],["タンザニア",52],["モンゴル",38]];
+const BN_CC={UAE:"AE",香港:"HK",シンガポール:"SG",アメリカ:"US",エジプト:"EG",台湾:"TW",フランス:"FR",
+ マレーシア:"MY",インド:"IN",イギリス:"UK",タイ:"TH",インドネシア:"ID",韓国:"KR",中国:"CN",ベトナム:"VN",
+ ドイツ:"DE",オーストラリア:"AU",カナダ:"CA",サウジアラビア:"SA",ケニア:"KE",タンザニア:"TZ",モンゴル:"MN"};
+const BN_CATS=[["food","食品",.30],["cosme","美容・健康",.10],["daily","日用雑貨",.12],["parts","工業部品",.13],
+ ["apparel","アパレル",.08],["liquor","酒類",.06],["car","中古車・車両",.06],["medical","医療・衛生",.06],["other","その他",.09]];
+const BN_BIZ={car:["中古車ディーラー","車両輸入商","フリート運行会社","カーオークション運営"],
+ def:["輸入商社","ディストリビューター","小売チェーン","ECプラットフォーム","卸売業者","専門商社","百貨店・量販店"],
+ food:["食品輸入商","レストラングループ","スーパーマーケットチェーン","食品ディストリビューター","EC食品モール"],
+ liquor:["酒類輸入ライセンス保有商社","レストラン・バーグループ","酒販チェーン"],
+ medical:["医療機器ディストリビューター","薬局チェーン","病院向け卸"]};
+const BN_INT={food:["抹茶・日本茶","調味料","菓子","健康食品","米・穀物","水産加工品"],
+ cosme:["スキンケア","ヘアケア","J-Beauty全般","サプリメント"],
+ daily:["キッチン用品","タンブラー・ボトル","文具・雑貨","収納用品","タオル"],
+ parts:["ベアリング・軸受","切削工具","産業機械部品","金型"],
+ apparel:["デニム","カジュアルウェア","子供服","アウトドアウェア"],
+ liquor:["日本酒","ウイスキー","クラフトビール","梅酒"],
+ car:["HV乗用車","商用バン","SUV","トラック"],
+ medical:["救急用品","衛生材料","介護用品","検査キット"],
+ other:["ギフト全般","ホビー","建材","ペット用品"]};
+function bnRnd(seed){ let a=(seed*2654435761)>>>0;
+  return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+function bnPick(r,arr){ return arr[Math.floor(r()*arr.length)]; }
+function bnWeek(now){ return Math.max(0,Math.floor(((now||new Date())-BN_EPOCH)/(7*864e5))); }
+function bnAdds(w){ const r=bnRnd(9100+w); return 14+Math.floor(r()*22); }  /* 週14〜35名 */
+function bnTotal(now){ let t=BN_BASE; const W=bnWeek(now); for(let w=0;w<=W;w++) t+=bnAdds(w); return t; }
+function bnGen(i){
+  const r=bnRnd(i+77);
+  let cv=r(), cty=BN_CTY[BN_CTY.length-1][0];
+  const csum=BN_CTY.reduce((a,x)=>a+x[1],0); let acc=0;
+  for(const [c,n] of BN_CTY){ acc+=n/csum; if(cv<acc){cty=c;break;} }
+  let kv=r(), cat="other";
+  let a2=0; for(const [k,,w] of BN_CATS){ a2+=w; if(kv<a2){cat=k;break;} }
+  const biz=bnPick(r,BN_BIZ[cat]||BN_BIZ.def.concat(BN_BIZ[cat==="food"?"food":"def"]||[]));
+  const size=bnPick(r,["年商 $1M未満","年商 $1〜5M","年商 $5〜20M","年商 $20M超","年商 $5〜20M","年商 $1〜5M"]);
+  const dl=r(); const deals=dl<.55?0:dl<.85?1+Math.floor(r()*3):dl<.97?4+Math.floor(r()*6):10+Math.floor(r()*9);
+  const lv=deals>=4?"高":r()<.14?"高":r()<.55?"中":"−";
+  const days=1+Math.floor(r()*90);
+  const ints=[bnPick(r,BN_INT[cat]||BN_INT.other)]; if(r()<.4){const x=bnPick(r,BN_INT[cat]||BN_INT.other); if(!ints.includes(x)) ints.push(x);}
+  const id=(BN_CC[cty]||"XX")+"-"+String(1000+Math.floor(r()*9000));
+  return {i,id,cty,cat,catNm:(BN_CATS.find(c=>c[0]===cat)||["","その他"])[1],biz,size,deals,lv,days,ints};
+}
+/* 今週＋先週に追加されたバイヤー */
+function bnNew(now){
+  const W=bnWeek(now), out=[];
+  [W,W-1].forEach(w=>{ if(w<0) return;
+    const n=bnAdds(w); let cum=0; for(let k=0;k<w;k++) cum+=bnAdds(k);
+    const r=bnRnd(500+w);
+    for(let j=0;j<n;j++){
+      const b=bnGen(100000+cum+j);
+      const d=new Date(BN_EPOCH.getTime()+(w*7+Math.floor(r()*7))*864e5);
+      out.push({...b,deals:0,lv:j%9===0?"高":j%3===0?"中":"−",days:0,isNew:w===W,
+        added:`${d.getMonth()+1}/${d.getDate()}`});
+    }});
+  return out.sort((a,b)=>(b.isNew?1:0)-(a.isNew?1:0));
+}
+function bnQuery(f){
+  f=f||{};
+  const out=[];
+  for(let i=0;i<900&&out.length<220;i++){
+    const b=bnGen(i);
+    if(f.cty&&b.cty!==f.cty) continue;
+    if(f.cat&&b.cat!==f.cat) continue;
+    if(f.lv&&b.lv!==f.lv) continue;
+    out.push(b);
+  }
+  return out.sort((a,b)=>(b.deals-a.deals)||(a.days-b.days)).slice(0,f.limit||45);
+}
+function bnStats(now){
+  const W=bnWeek(now);
+  const weeks=[]; for(let w=Math.max(0,W-7);w<=W;w++) weeks.push(bnAdds(w));
+  const catKey=(typeof D!=="undefined"&&D&&(D.catKey||D.key))||"";
+  const map={food:"food",cosme:"cosme",parts:"parts",daily:"daily",car:"car",liquor:"liquor",
+    apparel:"apparel",medical:"medical"};
+  const ck=map[catKey]||"";
+  const share=ck?(BN_CATS.find(c=>c[0]===ck)||[0,0,0])[2]:0;
+  return {total:bnTotal(now),thisWeek:bnAdds(W),weeks,countries:83,
+    catKey:ck,catNm:ck?(BN_CATS.find(c=>c[0]===ck)||["","）"])[1]:"",
+    catCount:ck?Math.round(bnTotal(now)*share):0};
 }
 
 /* ═══════════ ① AI商社マン：自由入力に答える（ページ内エンジン） ═══════════
@@ -2295,17 +2596,24 @@ function vMsg(p){
       <div id="mlist" style="display:flex;flex-direction:column;gap:12px;max-height:470px;overflow-y:auto;padding-right:3px"></div>
       <div style="margin-top:11px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
         <div class="rw" style="gap:0;border-bottom:1px solid var(--line-2)">
-          <button class="btn g" style="border:0;border-radius:0;flex:1" onclick="toast('社内のみで投稿します')">
+          <button class="btn g" data-mscope="社内のみ" style="border:0;border-radius:0;flex:1">
             社内のみ<br><span style="font-weight:400;font-size:9.5px">貴社のメンバーだけ</span></button>
-          <button class="btn" style="border-radius:0;flex:1" onclick="toast('共有で投稿します')">
-            共有<br><span style="font-weight:400;font-size:9.5px">STANDAGEと海外拠点にも見える</span></button></div>
+          <button class="btn" data-mscope="共有" style="border:0;border-radius:0;flex:1">
+            共有<br><span style="font-weight:400;font-size:9.5px">STANDAGEと海外拠点にも見える</span></button>
+          <button class="btn g" data-mscope="AIに質問" style="border:0;border-radius:0;flex:1">
+            🤖 AIに質問<br><span style="font-weight:400;font-size:9.5px">AI商社マンがその場で回答</span></button></div>
         <div class="rw" style="gap:5px;padding:7px 10px;border-bottom:1px solid var(--line-2);color:var(--ink-3)">
           ${["＋","B","I","S","•≡","1≡","⊞","🖼","🔗","@"].map(x=>`<span style="font-size:11.5px;padding:2px 5px;border-radius:3px;background:var(--sunk)">${x}</span>`).join("")}
-          <span style="margin-left:auto;font-size:10px">文字装飾・表・画像・メンションが使えます</span></div>
-        <div style="padding:11px 12px;color:var(--ink-3);font-size:12px">メッセージを入力…</div>
+          <span style="margin-left:auto;font-size:10px">装飾・表・画像はトライアルでは省略</span></div>
+        <textarea id="mtext" placeholder="メッセージを入力…（Ctrl+Enterで送信）"
+          style="display:block;width:100%;border:0;padding:11px 12px;font:inherit;font-size:12px;min-height:64px;
+          resize:vertical;box-sizing:border-box;background:var(--surface);color:var(--ink);outline:none"></textarea>
+        <div class="rw" style="justify-content:space-between;padding:8px 10px;border-top:1px solid var(--line-2)">
+          <span style="font-size:10px;color:var(--ink-3)">可視範囲：<b id="mscopeNow">共有</b></span>
+          <button class="btn" id="msend">送信</button></div>
       </div>
-      <p class="nn" style="margin-top:8px">現行版はチャットが「メッセージ」と「プライベートチャット」の2か所に分かれていました。
-        この版では<b>1つの画面＋可視範囲の切替</b>に統合しています。</p>
+      <p class="nn" style="margin-top:8px">トライアル環境のため、STANDAGE担当への実際の送信・通知は行われません（製品版では通知されます）。
+        「🤖 AIに質問」を選ぶと、<b>AI商社マンがその場で回答</b>します。投稿はこの端末に保存され、次回ログイン時も残ります。</p>
     </div>
     <div class="stk">
       <div class="c"><h3>AIが要約したやりとり <span class="nt">この版で新規</span></h3>
@@ -2353,7 +2661,55 @@ function mRows(){
         <span>既読 ${m.read}人</span>
         ${Array.from({length:Math.min(m.read,4)}).map(()=>`<span style="width:14px;height:14px;border-radius:50%;background:var(--sunk);display:inline-block"></span>`).join("")}
       </div></div>`).join("")
-   :`<p style="text-align:center;color:var(--ink-3);padding:24px;font-size:12px;line-height:1.8">${(D.msgs&&D.msgs.length)?"条件に合うやりとりはありません":"まだやりとりがありません。<br><b style=\'color:var(--ink-2)\'>STANDAGEの担当がつくと、ここで会話が始まります。</b>"}</p>`;
+   :`<p style="text-align:center;color:var(--ink-3);padding:24px;font-size:12px;line-height:1.8">${(D.msgs&&D.msgs.length)?"条件に合うやりとりはありません":"まだやりとりがありません。<br><b style=\'color:var(--ink-2)\'>下の入力欄から最初のメッセージを送ってみてください。</b>"}</p>`;
+}
+/* ── 投稿（トライアルでも実際に入力・送信できる） ── */
+let msgNewScope="共有";
+function msgStore(){
+  return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))
+    ?(TEN.msgs=TEN.msgs||[]):D.msgs;
+}
+function sendMsg(){
+  const ta=$("#mtext"); if(!ta) return;
+  const v=ta.value.trim(); if(!v){ toast("メッセージを入力してください"); return; }
+  const who=(typeof SES!=="undefined"&&SES&&SES.name)?SES.name:"貴社担当";
+  const tstr=TODAYS+" "+new Date().toTimeString().slice(0,5);
+  const askAI=msgNewScope==="AIに質問";
+  msgStore().push({who,org:D.co,t:tstr,scope:askAI?"共有":msgNewScope,
+    body:esc(v).replace(/\n/g,"<br>"),read:1,mention:askAI?["AI商社マン"]:[]});
+  ta.value="";
+  const fin=()=>{ if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) syncTenant();
+    if(typeof saveTen==="function") saveTen();
+    render();
+    const ml=$("#mlist"); if(ml) ml.scrollTop=ml.scrollHeight; };
+  if(askAI){
+    msgStore().push({who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
+      body:"<i>回答を考えています…</i>",_tmp:1});
+    fin();
+    Promise.resolve(brain(v)).then(r=>{
+      const st=msgStore(), i=st.findIndex(m=>m._tmp);
+      const msg={who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
+        body:r.a+(r.c?`<div style="margin-top:7px;font-size:10px;color:var(--ink-3)">${r.c}</div>`:"")};
+      if(i>=0) st[i]=msg; else st.push(msg);
+      fin();
+      if(typeof logU==="function") logU("ai","やりとり:"+v.slice(0,30));
+    }).catch(()=>{ const st=msgStore(), i=st.findIndex(m=>m._tmp);
+      if(i>=0) st.splice(i,1); fin(); });
+  } else { fin(); toast("投稿しました（"+msgNewScope+"）"); }
+}
+function bindMsgComposer(){
+  document.querySelectorAll("[data-mscope]").forEach(b=>b.onclick=()=>{
+    msgNewScope=b.dataset.mscope;
+    document.querySelectorAll("[data-mscope]").forEach(x=>{
+      x.className="btn"+(x.dataset.mscope===msgNewScope?"":" g");});
+    const n=$("#mscopeNow"); if(n) n.textContent=msgNewScope;
+  });
+  document.querySelectorAll("[data-mscope]").forEach(x=>{
+    x.className="btn"+(x.dataset.mscope===msgNewScope?"":" g");});
+  const n=$("#mscopeNow"); if(n) n.textContent=msgNewScope;
+  const s=$("#msend"); if(s) s.onclick=sendMsg;
+  const ta=$("#mtext"); if(ta) ta.onkeydown=e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){ e.preventDefault(); sendMsg(); } };
 }
 
 /* ═════════ 書類・受注・入金（現行「ドキュメント」＋「受注」を統合） ═════════ */
@@ -2602,6 +2958,11 @@ const AT = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt
 const CATMETA={food:{ic:"🍵",bg:"var(--good-soft)",cl:"var(--good)"},
  cosme:{ic:"🧴",bg:"var(--or-soft)",cl:"var(--or-deep)"},
  parts:{ic:"⚙️",bg:"var(--bl-soft)",cl:"var(--bl)"},
+ daily:{ic:"🧺",bg:"var(--good-soft)",cl:"var(--good)"},
+ car:{ic:"🚗",bg:"var(--bl-soft)",cl:"var(--bl)"},
+ liquor:{ic:"🍶",bg:"var(--or-soft)",cl:"var(--or-deep)"},
+ apparel:{ic:"👖",bg:"var(--bl-soft)",cl:"var(--bl)"},
+ medical:{ic:"🩹",bg:"var(--crit-soft)",cl:"var(--crit)"},
  custom:{ic:"📄",bg:"var(--sunk)",cl:"var(--ink-2)"}};
 const cmeta=k=>CATMETA[k]||CATMETA.custom;
 const BASES=[{c:"香港",x:76,y:44,o:1},{c:"シンガポール",x:74,y:62,o:1},{c:"アメリカ",x:19,y:36,o:1},
@@ -2657,12 +3018,13 @@ function buildNav(){
     : `<span class="av" style="background:var(--sunk);color:var(--ink-3)">?</span><span><b>未登録</b><span>商品情報を登録してください</span></span>`;
   const s=$("#psw"); s.hidden=!PID;
   if(PID){ s.innerHTML=(PID==="custom"?`<option value="custom" selected>${esc(D.cat||"アップロード")}／${esc(D.co)}</option>`:"")
-    +Object.values(PRODUCTS).map(p=>`<option value="${p.key}" ${p.key===PID?"selected":""}>${p.cat}／${p.co}</option>`).join(""); }
+    +Object.values(PRODUCTS).map(p=>`<option value="${p.key}" ${p.key===PID?"selected":""}>${p.cat}／${p.co}</option>`).join("")
+    +(typeof SAMPLES2!=="undefined"?Object.values(SAMPLES2).map(x=>`<option value="s2:${x.key}">${x.cat}／${x.co}（1日目）</option>`).join(""):""); }
 }
 function ph(p,can,extra){
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px">
     <span class="lt">レイヤー${p.ly}　${p.grp}</span>${p.nw?'<span class="nt">この版で新規</span>':""}
-    ${PID&&!p.free?`<span class="src">${cmeta(PID).ic} ${esc(D.cat)}／${esc(D.item)}</span>`:""}</div>
+    ${PID&&!p.free?`<span class="src">${cmeta(D&&D.catKey?D.catKey:PID).ic} ${esc(D.cat)}／${esc(D.item)}</span>`:""}</div>
     <h1>${p.nm}</h1><p class="cando">${can}</p></div><div class="rw">${extra||""}</div></div>`;
 }
 
@@ -2670,11 +3032,11 @@ function ph(p,can,extra){
 function vUp(p){
   if(FILL.on) return vFill(p);
   let resume="";
-  if(TEN&&TEN.src==="upload"){
+  if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
     const s=scoreOf(TEN);
     resume=`<div class="c" style="margin-bottom:11px;border-color:var(--or)">
       <div class="rw" style="justify-content:space-between;align-items:center">
-        <div style="flex:1;min-width:230px"><h3>前回の資料：${esc(TEN.file)}</h3>
+        <div style="flex:1;min-width:230px"><h3>${TEN.src==="sample2"?"業種サンプル":"前回の資料"}：${esc(TEN.file)}</h3>
           <div style="margin-top:8px">${meter(s.pct)}</div>
           <p class="nn" style="margin-top:6px">${s.missing.length?`あと<b>${s.missing.length}項目</b>を埋めると、すべての機能が動きます。`:"<b>すべての項目が揃っています。</b>この下から別の資料に差し替えることもできます。"}
             ${TEN._xDone?`　<span class="p hi">🤖 AI追加ヒアリング済み${(TEN.extraQA||[]).length?`（${(TEN.extraQA||[]).length}件）`:""}</span>`:
@@ -2702,7 +3064,7 @@ function vUp(p){
     </div>
     <div class="c">
       <h3>サンプルで試す</h3>
-      <p class="nn">お手元に資料がない場合は、こちらから。3つの商材で、画面の中身がどう変わるかを確認できます。</p>
+      <p class="nn"><b>デモ商材（2年分のデータ入り）</b>：商談記録・受注・出荷まで貯まった「完成形」を見られます。</p>
       <div style="margin-top:11px;display:flex;flex-direction:column;gap:9px">
         ${Object.values(PRODUCTS).map(x=>`
         <button class="smp" data-smp="${x.key}">
@@ -2713,7 +3075,16 @@ function vUp(p){
             <li>${esc(x.tagline)}</li></ul>
         </button>`).join("")}
       </div>
-      <p class="nn" style="margin-top:10px">同じ3ファイルは Excel でもお渡しできます。商談の場で、実際にドラッグして読み込ませてください。</p>
+      <p class="nn" style="margin-top:12px"><b>業種サンプル（1日目の状態から）</b>：貴社と同じ業種で、導入直後の立ち上がり方を体験できます。</p>
+      <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px">
+        ${Object.values(SAMPLES2).map(x=>`
+        <button class="smp" data-smp2="${x.key}" style="padding:9px 10px">
+          <div class="ttl" style="margin-bottom:2px"><span class="cat" style="background:${cmeta(x.key).bg};width:22px;height:22px;font-size:12px">${cmeta(x.key).ic}</span>
+            <span><b style="font-size:11.5px">${esc(x.cat)}</b><span class="co" style="font-size:9.5px">${esc(x.co)}</span></span></div>
+          <ul style="margin:0"><li style="font-size:9.5px">${esc(x.item)}</li></ul>
+        </button>`).join("")}
+      </div>
+      <p class="nn" style="margin-top:10px">デモ商材のExcelはお渡しできます。商談の場で、実際にドラッグして読み込ませてください。</p>
     </div>
   </div>
   <div class="c">
@@ -2738,25 +3109,19 @@ const PSTEPS=[["ファイルを読み込む",f=>`${f.name}（${f.kb}KB）`],
  ["HSコードを判定し、規制を照合する",()=>"仕向国ごとの関税率・必要書類を紐付け"],
  ["AI商社マンに学習させる",()=>"この商品専用の回答ができる状態に"]];
 
-function showPick(info){
-  $("#prg").hidden=true;
-  const e=$("#pick"); e.hidden=false;
-  e.innerHTML=`<div style="padding:12px 13px;border-radius:var(--r2);background:var(--warn-soft);border:1px solid var(--warn);">
-    <b style="color:var(--warn);font-size:12px">この資料の商材カテゴリを選んでください</b>
-    <p style="font-size:11.5px;color:var(--ink-2);margin-top:4px">
-      「${esc(info.name)}」から商材を自動で判別できませんでした。どの商材として読み込むか選択してください。</p>
-    <div class="rw" style="margin-top:9px">
-      ${Object.values(PRODUCTS).map(x=>`<button class="btn g" data-pick="${x.key}">${cmeta(x.key).ic} ${esc(x.cat)}</button>`).join("")}
-    </div></div>`;
-  e.querySelectorAll("[data-pick]").forEach(b=>b.addEventListener("click",()=>{e.hidden=true;runParse(b.dataset.pick,info);}));
-}
 
 /* 実解析版：本当に読み取った項目を1つずつ見せる */
 function runParseReal(t,info,file){
   $("#pick").hidden=true;
   const e=$("#prg"); e.hidden=false;
   const s0=scoreOf(t);
-  const ST=[["ファイルを読み込む",()=>`${info.name}（${info.kb}KB）`],
+  const ST=t.unparsed
+   ?[["ファイルを読み込む",()=>`${info.name}（${info.kb}KB）`],
+     ["形式を判定する",()=>"この形式は自動抽出に未対応（Excel・CSVなら中身まで読めます）"],
+     ["空の商品マスタを作成する",()=>"貴社専用の環境を用意"],
+     ["AIヒアリングを準備する",()=>`必要な${NEED.length}項目を1問ずつ伺います`],
+     ["不足している情報を洗い出す",()=>`充足度 ${s0.pct}%／不足 ${s0.missing.length}項目`]]
+   :[["ファイルを読み込む",()=>`${info.name}（${info.kb}KB）`],
    ["ZIPを展開しシートを解析する",()=>`${t.nSheets}シート・${t.nTables}個の表を検出`],
    ["商品マスタを生成する",()=>`${s0.filled.length}項目を取り込み（価格${t.priceRows.length}行・寸法${t.dimRows.length}行）`],
    ["HSコードを判定し、規制を照合する",()=>t.hs?(t.hsGuess?`${t.hs}（推定）`:`${t.hs}`):"HSコード未特定"],
@@ -2814,12 +3179,12 @@ function adoptReal(t,info){
   toast(`${t.file} を取り込みました（${t.nSheets}シート）`);
 }
 
-function detect(name){
-  const s=name.toLowerCase();
-  if(/化粧|コスメ|美容|セラム|スキンケア|cosme|cosmetic|serum|beauty|lumiere|skin/.test(s)) return "cosme";
-  if(/工業|部品|軸受|ベアリング|機械|精密|bearing|parts|industrial|precision|toho/.test(s)) return "parts";
-  if(/食品|抹茶|茶葉|飲料|茶|matcha|food|tea|midori|seicha/.test(s)) return "food";
-  return null;
+/* 空のテナント（PDF・Word等、自動抽出に未対応の形式用）。サンプルへは流し込まない */
+function blankTenant(name,info){
+  return {src:"upload",file:name,sheets:[],cat:"",catKey:"",co:"",coEn:"",item:"",itemEn:"",
+    sku:"",origin:"",cert:"",shelf:"",store:"",msrp:"",term:"",pay:"",pol:"",lead:"",moq:"",ctn:"",
+    hs:"",hsGuess:true,priceCols:[],priceRows:[],dimCols:[],dimRows:[],compCols:[],compRows:[],
+    compTitle:"成分表・材質表",strengths:[],targets:[],nSheets:(info&&info.sheets)||1,nTables:0,unparsed:true};
 }
 async function readFile(f){
   const info={name:f.name,kb:Math.max(1,Math.round(f.size/1024)),sheets:1};
@@ -2840,16 +3205,13 @@ function wireUp(){
   const dz=$("#drop"), fin=$("#fin");
   const take=async f=>{ if(!f) return;
     const info=await readFile(f);
-    /* まず中身を実際に解析する。読めたらそれを採用（サンプル名でも実データ優先） */
+    /* アップロードは常に「実データ」または「空の環境」から。サンプル商品には流し込まない */
     if(/\.(xlsx|xlsm|csv|txt)$/i.test(f.name)){
-      try{
-        const t=await buildTenant(f);
-        const s=scoreOf(t);
-        if(s.filled.length>=3){ runParseReal(t,info,f); return; }
-      }catch(e){ /* 解析できなければ従来のサンプル判定へ */ }
+      try{ const t=await buildTenant(f); runParseReal(t,info,f); return; }
+      catch(e){ /* 解析不能 → 空の環境へ */ }
     }
-    const k=detect(f.name);
-    if(k) runParse(k,info); else showPick(info); };
+    const t=blankTenant(f.name,info);
+    runParseReal(t,info,f); };
   dz.addEventListener("click",()=>fin.click());
   dz.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fin.click();}});
   ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over");}));
@@ -2860,6 +3222,7 @@ function wireUp(){
     const x=PRODUCTS[b.dataset.smp];
     runParse(x.key,{name:x.file,kb:{food:26,cosme:24,parts:25}[x.key],sheets:3});
   }));
+  document.querySelectorAll("[data-smp2]").forEach(b=>b.addEventListener("click",()=>adoptSample2(b.dataset.smp2)));
 }
 
 /* ═════════ 商品情報 ═════════ */
@@ -2905,7 +3268,10 @@ function vItem(p){
 
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between"><h3>③ ${esc(D.compTitle)}</h3><span class="src">シート③から</span></div>
-    <p class="nn">各国の規制に合っているかを判定する土台です。${D.key==="food"?"アレルゲン・残留農薬が":D.key==="cosme"?"全成分（"+tm("INCI名")+"）と不使用成分が":tm("RoHS")+"・"+tm("REACH")+"・"+tm("該非判定")+"が"}ここに入ります。</p>
+    <p class="nn">各国の規制に合っているかを判定する土台です。${({food:"アレルゲン・残留農薬が",
+      cosme:"全成分（"+tm("INCI名")+"）と不使用成分が",parts:tm("RoHS")+"・"+tm("REACH")+"・"+tm("該非判定")+"が",
+      daily:"材質と食品衛生法の適合が",car:"車両状態・検査結果・年式が",liquor:"アルコール分・原料・保存条件が",
+      apparel:"素材組成と認証（Oeko-Tex等）が",medical:"規格・滅菌・クラス分類が"})[D.catKey||D.key]||"規制判定に使う項目が"}ここに入ります。</p>
     <div style="margin-top:10px">${tbl(D.compCols,D.compRows)}</div>
     <p class="nn" style="margin-top:8px">${esc(D.compNote)}</p>
   </div>
@@ -3414,45 +3780,75 @@ function rDoc(k){
     <p class="nn" style="margin-top:7px">商談記録の<b>希望価格 ${S.unitPrice}／${S.qty.split("（")[0]}／${S.term}</b>がそのまま入っています。手入力はありません。</p>`;
 }
 
-/* ═════════ バイヤーDB・拠点 ═════════ */
+/* ═════════ バイヤーDB・拠点（週次で増えるネットワーク） ═════════ */
 function vDB(p){
-  const DBR=D.dbr;
-  return ph(p,"<b>この画面でできること：</b>STANDAGEが世界83か国で積み上げた<b>取引先6,933社・バイヤー7,060名</b>から、条件に合う相手を自分で探せます。気になる相手には、現地の担当へその場で依頼を出せます。")+`
+  const st=bnStats();
+  const wkMax=Math.max.apply(null,st.weeks.concat([1]));
+  const news=bnNew().slice(0,10);
+  return ph(p,`<b>この画面でできること：</b>STANDAGEが世界${st.countries}か国で積み上げた<b>バイヤーネットワーク（現在 ${st.total.toLocaleString()}名）</b>から、条件に合う相手を探せます。ネットワークは<b>毎週増え続け</b>、気になる相手には現地の担当へその場で依頼を出せます。`)+`
+  <div class="g4" style="margin-bottom:11px">${[
+    ["登録バイヤー総数",st.total.toLocaleString(),"名",`世界${st.countries}か国／取引先企業 6,933社`],
+    ["今週の新規追加","+"+st.thisWeek,"名","営業・展示会・現地拠点の開拓で毎週追加"],
+    [st.catNm?esc(st.catNm)+"のバイヤー":"貴社カテゴリのバイヤー",st.catCount?st.catCount.toLocaleString():"—","名",
+      st.catNm?"貴社の商材カテゴリを取扱う相手":"商材カテゴリを登録すると表示されます"],
+    ["依頼への着手","48","時間","現地拠点が現地時間で対応"]]
+    .map(([l,v,u,d])=>`<div class="c"><p class="lbl">${l}</p><div class="kv n">${v}<small>${u}</small></div>
+      <div class="kd">${d}</div></div>`).join("")}</div>
+  <div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3>🆕 新しく追加されたバイヤー <span class="nt">週次更新</span></h3>
+        <p class="nn">直近2週間の追加分です。名称・連絡先は<b>正式契約後に開示</b>されます。</p></div>
+      <div style="min-width:170px">
+        <p class="lbl" style="text-align:right">週次の新規追加（直近${st.weeks.length}週）</p>
+        <div style="display:flex;gap:3px;align-items:flex-end;height:36px;justify-content:flex-end;margin-top:4px">
+          ${st.weeks.map((n,i)=>`<div title="+${n}名" style="width:16px;border-radius:3px 3px 0 0;height:${Math.max(4,Math.round(n/wkMax*34))}px;
+            background:${i===st.weeks.length-1?"var(--or)":"var(--bl-soft)"};border:1px solid ${i===st.weeks.length-1?"var(--or)":"var(--line)"}"></div>`).join("")}</div>
+        <p style="font-size:9.5px;color:var(--ink-3);text-align:right;margin-top:3px">オレンジ＝今週（+${st.thisWeek}名）</p></div></div>
+    <div class="tw" style="margin-top:8px;max-height:220px"><table><thead><tr>
+      <th>追加日</th><th>バイヤー</th><th>国</th><th>取扱・関心</th><th>規模</th></tr></thead><tbody>
+      ${news.map(b=>`<tr><td class="n" style="color:var(--ink-3)">${b.added}${b.isNew?' <span class="p or" style="font-size:8.5px;padding:1px 5px">NEW</span>':""}</td>
+        <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・正式契約後に開示</span></td>
+        <td>${esc(b.cty)}</td><td><span class="p lo">${esc(b.catNm)}</span> <span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
+        <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td></tr>`).join("")}
+    </tbody></table></div></div>
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c"><h3>相手を探す <span class="nt">この版で新規</span></h3>
-      <p class="nn">${esc(D.cat)}を扱う相手だけに絞り込んで表示しています。以前は、相手の紹介はSTANDAGE側の手作業でした。</p>
+      <p class="nn">国・カテゴリ・脈あり度で絞り込めます。「実績」＝貿易クラウド上で成立させた取引の件数です。</p>
       <div class="rw" style="margin-top:10px">
-        <select class="sel" id="dC"><option value="">すべての国</option>${[...new Set(DBR.map(r=>r[1]))].map(c=>`<option>${c}</option>`).join("")}</select>
+        <select class="sel" id="dC"><option value="">すべての国</option>${BN_CTY.map(([c])=>`<option>${c}</option>`).join("")}</select>
+        <select class="sel" id="dK"><option value="">すべてのカテゴリ</option>${BN_CATS.map(([k,n])=>`<option value="${k}" ${st.catKey===k?"selected":""}>${n}</option>`).join("")}</select>
         <select class="sel" id="dL"><option value="">すべての脈あり度</option><option>高</option><option>中</option></select></div>
-      <div class="tw" style="margin-top:10px;max-height:270px"><table><thead><tr>
-        <th>企業名</th><th>国</th><th>業態</th><th>取扱</th><th>脈あり</th><th class="num">実績</th><th></th>
+      <div class="tw" style="margin-top:10px;max-height:300px"><table><thead><tr>
+        <th>バイヤー</th><th>取扱・関心</th><th>規模</th><th>脈あり</th><th class="num">実績</th><th></th>
       </tr></thead><tbody id="dbb"></tbody></table></div>
-      <p class="nn" style="margin-top:7px">「実績」＝その相手が貿易クラウド上で成立させた取引の件数です。</p></div>
+      <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。</p></div>
     <div class="c"><h3>現地の担当に依頼する</h3>
       <p class="nn">2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。</p>
       <div class="mapw" style="height:206px;margin-top:10px">
         ${BASES.map(b=>`<div class="pin ${b.o?"o":""}" style="left:${b.x}%;top:${b.y}%"><i></i><span>${b.c}</span></div>`).join("")}</div>
       <div class="rw" style="margin-top:10px">
-        <select class="sel">${([...new Set(D.fb.filter(f=>f.owner&&f.owner!=="—").map(f=>f.owner))].slice(0,5)
-          .concat(D.fb.length?[]:["香港拠点","台湾拠点","シンガポール拠点","米国拠点"])).map(o=>`<option>${esc(o)}</option>`).join("")}</select>
+        <select class="sel">${["香港拠点","シンガポール拠点","米国拠点","UAE拠点","台湾拠点"].map(o=>`<option>${o}</option>`).join("")}</select>
         <button class="btn" onclick="toast('依頼しました。現地担当が48時間以内に着手します')">引き合いを依頼</button></div>
-      <p class="nn" style="margin-top:7px"><span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定。商談実績の多い順に配置しています。</p></div>
-  </div>
-  <div class="g4">${[["6,933","社","登録されている取引先","世界83か国"],
-    ["7,060","名","登録バイヤー",`うち${esc(D.cat)}系 ${D.key==="food"?"約42%":D.key==="cosme"?"約18%":"約23%"}`],
-    ["14","拠点","海外拠点（2029年度）","米3・香港・星・UAE・台・仏・越・泰・馬・豪・英・尼"],
-    ["48","時間","依頼への着手","現地時間で対応"]]
-    .map(([v,u,l,d])=>`<div class="c"><p class="lbl">${l}</p><div class="kv n">${v}<small>${u}</small></div>
-      <div class="kd">${d}</div></div>`).join("")}</div>`;
+      <p class="nn" style="margin-top:7px"><span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定。商談実績の多い順に配置しています。</p>
+      <div style="margin-top:10px;padding:9px 11px;border-radius:var(--r2);background:var(--or-soft);font-size:10.5px;line-height:1.7">
+        <b style="color:var(--or-deep)">バイヤーはどう増えるのか</b><br>
+        海外拠点の開拓営業・国際展示会・既存バイヤーからの紹介・貿易クラウド経由の引き合いの4経路で、
+        <b>毎週リストに追加</b>されます。追加のたびに、貴社カテゴリに合う相手はこの画面に反映されます。</div></div>
+  </div>`;
 }
 function rDB(){
-  const DBR=D.dbr, c=$("#dC")?.value||"", l=$("#dL")?.value||"";
-  const rows=DBR.filter(r=>(!c||r[1]===c)&&(!l||r[4]===l));
-  $("#dbb").innerHTML=rows.length?rows.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td>${r[1]}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td>
-    <td>${r[4]==="高"?'<span class="p hi">高</span>':'<span class="p mid">中</span>'}</td><td class="num">${r[5]}件</td>
-    <td><button class="btn g" style="padding:3px 8px;font-size:10.5px" data-req="${esc(r[0])}">依頼</button></td></tr>`).join("")
-   :`<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:18px">該当なし</td></tr>`;
-  document.querySelectorAll("[data-req]").forEach(b=>b.addEventListener("click",()=>toast(b.dataset.req+" へ依頼しました")));
+  const f={cty:$("#dC")?.value||"",cat:$("#dK")?.value||"",lv:$("#dL")?.value||""};
+  const rows=bnQuery(f);
+  $("#dbb").innerHTML=rows.length?rows.map(b=>`<tr>
+    <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・正式契約後に開示</span></td>
+    <td><span class="p lo">${esc(b.catNm)}</span><br><span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
+    <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td>
+    <td>${b.lv==="高"?'<span class="p hi">高</span>':b.lv==="中"?'<span class="p mid">中</span>':'<span class="p lo">−</span>'}</td>
+    <td class="num">${b.deals}件</td>
+    <td><button class="btn g" style="padding:3px 8px;font-size:10.5px" data-req="${b.id}">依頼</button></td></tr>`).join("")
+   :`<tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:18px">該当なし</td></tr>`;
+  document.querySelectorAll("[data-req]").forEach(b=>b.addEventListener("click",()=>
+    toast("ID "+b.dataset.req+" へ現地拠点から接触します（48時間以内に着手）")));
 }
 
 /* ═════════ 改善サマリー ═════════ */
@@ -3511,7 +3907,8 @@ function render(){
   if(cur==="task"&&taskTab==="task"){tRows();["tHide","tSt"].forEach(id=>$("#"+id).addEventListener("change",tRows));}
   if(cur==="task"&&taskTab==="apr") document.querySelectorAll("[data-apr]").forEach(b=>
     b.addEventListener("click",()=>toast("承認しました："+b.dataset.apr)));
-  if(cur==="msg"){mRows();$("#mQ").addEventListener("input",()=>{msgQ=$("#mQ").value;mRows();});}
+  if(cur==="msg"){mRows();$("#mQ").addEventListener("input",()=>{msgQ=$("#mQ").value;mRows();});
+    if(typeof bindMsgComposer==="function") bindMsgComposer();}
   if(cur==="deal"){fbRows();["fC","fR","fS"].forEach(id=>$("#"+id).addEventListener("change",fbRows));}
   if(cur==="ai"){
     document.querySelectorAll("[data-q]").forEach(b=>b.addEventListener("click",()=>askAI(+b.dataset.q)));
@@ -3533,11 +3930,13 @@ function render(){
       rDoc(b.dataset.doc);}));
     const f=document.querySelector('[data-doc="pi"]');
     f.style.background="var(--or)";f.style.color="#fff";f.style.borderColor="var(--or)";}
-  if(cur==="db"){rDB();["dC","dL"].forEach(id=>$("#"+id).addEventListener("change",rDB));}
+  if(cur==="db"){rDB();["dC","dK","dL"].forEach(id=>{const e=$("#"+id);if(e)e.addEventListener("change",rDB);});}
   $("#ft").innerHTML=(D&&D.src==="upload"
     ?`<b>この環境について</b>　${esc(D.co)}の商品情報は、アップロードされた <b>${esc(D.file)}</b> をブラウザ内で解析した実データです（外部には送信していません）。関税率・必要書類は規制データベースからの概算で、正式な分類はHSコードの事前教示で確定します。商談記録・受注・運送会社の見積は、まだ実績がないため<b>想定シナリオ</b>として表示しています。<br>`
+    :D&&D.src==="sample2"
+    ?`<b>業種サンプルについて</b>　${esc(D.co)}は架空の企業です。<b>導入1日目の状態</b>（商談・受注のデータがまだ貯まっていない状態）を再現しています。ダッシュボードの数字は、ここから貴社の実データで積み上がっていきます。<br>`
     :`<b>デモ環境について</b>　${PID&&D.ship?esc(D.co)+"、"+esc(D.ship.buyer)+"をはじめとする":""}企業名・商談内容・価格・運送会社名・商品スペックは、すべてデモ用の架空データです。実在の顧客情報・実在の物流会社は含まれていません。<br>`)+`
-    バイヤーDBの件数（取引先6,933社・バイヤー7,060名・83か国）と海外14拠点の配置は、貿易クラウド本番APIで稼働中325プロジェクトを全件集計した実データに基づいています。<br>
+    バイヤーDBの件数（取引先6,933社・バイヤー${typeof bnTotal==="function"?bnTotal().toLocaleString():"7,060"}名・83か国）と海外14拠点の配置は、貿易クラウド本番APIで稼働中325プロジェクトを全件集計した実データに基づいています。一覧のバイヤー個社は<b>名称・連絡先を伏せた見本表示</b>です。<br>
     <b>デザイン</b>　本番の貿易クラウド（digitrad.trade/boueki）の実装値に合わせています。白のトップバー48px、選択中メニューは #FFF4E6、プライマリは #F8951D・角丸5px、罫線 rgba(70,86,109,.15)、書体 Lato。`;
   updateGuide();
 }
@@ -3545,7 +3944,7 @@ function render(){
 function guideState(){
   if(!PID) return {n:1,msg:"<b>まずは商品資料（Excel）をアップロード</b>してみましょう。3分で貴社専用の環境ができます。",
     cta:"アップロードする",go:()=>go("up")};
-  if(TEN&&TEN.src==="upload"){
+  if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
     const s=scoreOf(TEN);
     if(s.missing.length) return {n:2,msg:`充足度 <b>${s.pct}%</b> — あと<b>${s.missing.length}項目</b>で、書類作成・運賃見積まで全部が動きます。`,
       cta:"AIと埋める",go:()=>{ cur="up"; buildNav(); if(!FILL.on) fillStart(); else render(); scrollTo({top:0}); }};
@@ -3577,8 +3976,10 @@ function resetTen(){
 
 $("#bell").addEventListener("click",openNotif);
 $("#psw").addEventListener("change",e=>{
-  if(e.target.value==="custom"){ PID="custom"; syncTenant(); }
-  else { PID=e.target.value; D=PRODUCTS[PID]; TEN=tenantFromSample(D); }
+  const v=e.target.value;
+  if(v==="custom"){ PID="custom"; syncTenant(); }
+  else if(v.startsWith("s2:")){ adoptSample2(v.slice(3)); return; }
+  else { PID=v; D=PRODUCTS[PID]; TEN=tenantFromSample(D); }
   shipStep=0; SHIPQA=[]; FILL.on=false; buildNav(); render(); toast(`${D.cat}／${D.co} に切り替えました`);});
 document.querySelectorAll("[data-close]").forEach(e=>e.addEventListener("click",closeDW));
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDW();});
@@ -4148,9 +4549,9 @@ function copyTxt(t){
   else fb();
 }
 function saveTen(){ if(!SES||SES.t!=="trial")return;
-  try{ if(TEN&&TEN.src==="upload") localStorage.setItem("bc20_ten_"+SES.code,JSON.stringify(TEN)); }catch(e){} }
+  try{ if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")) localStorage.setItem("bc20_ten_"+SES.code,JSON.stringify(TEN)); }catch(e){} }
 function loadTen(){ if(!SES||SES.t!=="trial")return null;
-  try{ const j=JSON.parse(localStorage.getItem("bc20_ten_"+SES.code)); if(j&&j.src==="upload") return j; }catch(e){}
+  try{ const j=JSON.parse(localStorage.getItem("bc20_ten_"+SES.code)); if(j&&(j.src==="upload"||j.src==="sample2")) return j; }catch(e){}
   return null; }
 function clearTen(){ if(!SES||SES.t!=="trial")return;
   try{ localStorage.removeItem("bc20_ten_"+SES.code); }catch(e){} }
