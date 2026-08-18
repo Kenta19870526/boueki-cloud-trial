@@ -2398,6 +2398,48 @@ function hsAdviseFlow(v){
     syncTenant(); fillNext();
   });
 }
+/* ヒアリング入力の判定（接続AIが「回答／質問／スキップ」を見分けて対応する） */
+const QUESTION_RE=/[？?]$|どちら|どっち|ですか[？?]?$|とは(何|なん)|何を(書|入れ|埋め)|いいの[？?]?$|よい(です)?か|べき|教えて(ください)?[？?]?$|わからないので|意味/;
+async function llmFillTriage(cu,v){
+  const ctx=`商品: ${TEN.item||"未登録"}（${TEN.cat||"カテゴリ未定"}）／会社: ${TEN.co||"未登録"}`;
+  const r=await llmAsk(
+`いま「${cu.n}」を質問中です。質問文：${String(cu.q||"").replace(/<[^>]+>/g,"")}
+この項目の用途：${cu.use||""}
+${ctx}
+ユーザーの入力：「${v}」`,700,{noWeb:1,timeout:30000,
+    sys:`あなたは貿易クラウドのヒアリングAI（一流商社マン）。ユーザー入力を判定しJSONのみ返す:
+{"kind":"answer|question|skip",
+ "value":"kind=answerのとき登録値。入力の数値・単位は改変せず、余計な語（「です」等）だけ除いた形",
+ "reply":"kind=questionのとき、貿易実務の専門家としての簡潔な回答（3文以内、この項目の文脈で具体的に。例：NET=正味重量/Gross=総重量の違いと、どちらを書くべきか）",
+ "reask":"kind=questionのとき、続けて入力を促す一文"}
+判定基準：項目への値の提供=answer／項目や書き方への質問・確認=question／わからない旨=skip。`});
+  let t=r.txt.replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  if(a<0||b<=a) throw new Error("triage形式不正");
+  const j=JSON.parse(t.slice(a,b+1));
+  if(!/^(answer|question|skip)$/.test(j.kind||"")) throw new Error("kind不正");
+  return j;
+}
+/* 登録処理（ユーザー吹き出しは出力済みの前提。logic_fillの原本と同じ文言） */
+function fillCommit(v){
+  const cu=FILL.cur; if(!cu) return;
+  const k=cu.k, n=cu.n;
+  const ok=applyAnswer(TEN,k,v);
+  if(!ok){ fillSay("ai",`うまく読み取れませんでした。${cu.ex||"もう少し具体的にご記入ください。"}`); render(); return; }
+  const s=scoreOf(TEN);
+  let note="";
+  if(k==="hs"&&TEN.hsGuess&&TEN._hsNote)
+    note=`<br>商品名から<b>${TEN.hs}</b>（${TEN._hsNote[0][1]}）と推定しました。正式な分類は税関の事前教示で確定できます。`;
+  if(k==="targets"&&TEN.targets.length)
+    note=`<br><b>${TEN.targets.length}か国</b>の規制調査を開始しました。関税率と必要書類は「貿易実務・書類」で確認できます。`;
+  if(k==="dimRows") note="<br>これで<b>運送会社への見積依頼</b>ができるようになりました。";
+  if(k==="priceRows") note="<br>これで<b>見積書・請求書の自動作成</b>ができるようになりました。";
+  if(k==="strengths") note="<br>AIが商談準備の答えを作るとき、ここを根拠として引用します。";
+  fillSay("ai",`<b>${n}</b>を登録しました。充足度 <b>${s.pct}%</b>（+${Math.round(cu.w/WSUM*100)}pt）${note}`);
+  syncTenant(); if(typeof saveTen==="function") saveTen();
+  if(typeof logU==="function") logU("fill",n);
+  fillNext();
+}
 async function fieldSuggest(k){
   const src=k==="itemEn"?TEN.item:TEN.co;
   const label=k==="itemEn"?"英文商品名":"英文社名";
@@ -2471,6 +2513,34 @@ fillAnswer=function(v){
         return;
       }
       skipCurrent(); return;
+    }
+    /* 質問らしき入力：登録せず、AIが専門家として答えてから聞き直す */
+    if(QUESTION_RE.test(vs)&&!FILL.cur._sug){
+      fillSay("u",esc(vs));
+      if(typeof ppReady==="function"&&ppReady()){
+        fillSay("ai","<i>ご質問ですね。考えています…</i>");
+        render();
+        llmFillTriage(FILL.cur,vs).then(j=>{
+          FILL.log=FILL.log.filter(m=>!/ご質問ですね。考えています/.test(String(m.html)));
+          if(j.kind==="answer"&&j.value){ fillCommit(j.value); return; }
+          if(j.kind==="skip"){ skipCurrent(); return; }
+          const cu=FILL.cur;
+          fillSay("ai",`${esc(j.reply||"")}<div class="ci">${esc(j.reask||`それでは、あらためて「${cu.n}」をご入力ください。`)}</div>`,{ask:cu});
+          render();
+        }).catch(e=>{
+          FILL.log=FILL.log.filter(m=>!/ご質問ですね。考えています/.test(String(m.html)));
+          fillSay("ai",`（AIエンジンに接続できませんでした：${esc(String(e.message)).slice(0,40)}）<br>
+            ご質問の内容はSTANDAGEの担当が確認します。いったん<b>${FILL.cur.n}</b>を分かる範囲でご入力いただくか、「あとで」で飛ばしてください。`,{ask:FILL.cur});
+          render();
+        });
+      } else {
+        fillSay("ai",`ご質問ありがとうございます。${FILL.cur.k==="dimRows"
+            ?"梱包明細には正味重量（NET）と総重量（Gross）の両方を記載しますが、運賃見積に使うのは<b>外装カートンの総重量（Gross）</b>です。まずはGrossでご記入ください。"
+            :"この環境ではAIエンジンが未接続のため、その場での詳しい回答ができません（管理者が接続すると、専門的にお答えできるようになります）。ご質問はSTANDAGEの担当が確認します。"}<br>
+          分かる範囲でご入力いただくか、「あとで」で飛ばすこともできます。`,{ask:FILL.cur});
+        render();
+      }
+      return;
     }
     /* 整合性ガード：英文欄に日本語が入りそうなときは確認 */
     if((k==="itemEn"||k==="coEn")&&/[ぁ-んァ-ヶ一-龠]/.test(vs)&&!FILL.cur._jpOK){
@@ -3651,7 +3721,7 @@ function vFill(p){
         <h3>AI商社マンと埋める</h3><span class="p or">残り ${s.missing.length}項目</span></div>
       <div class="chat" id="fchat" style="max-height:400px"></div>
       <div id="fin2" style="margin-top:10px"></div>
-      <p class="nn" style="margin-top:8px">分からない項目は「不明」「あとで」と入力すれば飛ばせます。</p>
+      <p class="nn" style="margin-top:8px">分からない項目は「不明」「あとで」で飛ばせます。<b>項目についての質問もそのまま入力OK</b>（例：「NETとGrossどちら？」）— AI商社マンが答えてから続きを聞きます。</p>
     </div>
     <div class="stk">
       <div class="c"><h3>資料から取り込めたもの</h3>
