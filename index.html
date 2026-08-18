@@ -2398,26 +2398,40 @@ function hsAdviseFlow(v){
     syncTenant(); fillNext();
   });
 }
-/* ヒアリング入力の判定（接続AIが「回答／質問／スキップ」を見分けて対応する） */
+/* ヒアリング入力の判定（接続AIが自由入力をすべて理解して対応する）
+   answer=この項目への回答／question=質問（答えてから聞き直す）／
+   edit=別項目の修正依頼（例：「商品名を〇〇に変更して」→ その項目を書き換えて続行）／skip=わからない */
 const QUESTION_RE=/[？?]$|どちら|どっち|ですか[？?]?$|とは(何|なん)|何を(書|入れ|埋め)|いいの[？?]?$|よい(です)?か|べき|教えて(ください)?[？?]?$|わからないので|意味/;
+const EDIT_RE=/(変更して|変えて|直して|修正して|にして(ください)?$|を追加して|に更新して)/;
+const NEEDKEYS_NM={co:"会社名",coEn:"英文社名",item:"商品名",itemEn:"英文商品名",cat:"商材カテゴリ",
+  sku:"品番",hs:"HSコード",moq:"MOQ",lead:"リードタイム",ctn:"入数",cert:"認証",origin:"産地",
+  term:"取引条件",pay:"支払条件",pol:"仕出港",shelf:"賞味期限・保証期間",targets:"進出希望国",strengths:"商品の強み"};
 async function llmFillTriage(cu,v){
-  const ctx=`商品: ${TEN.item||"未登録"}（${TEN.cat||"カテゴリ未定"}）／会社: ${TEN.co||"未登録"}`;
+  const ctx=`登録済みデータ： 商品名=${TEN.item||"未登録"}／英文商品名=${TEN.itemEn||"未登録"}／会社名=${TEN.co||"未登録"}／英文社名=${TEN.coEn||"未登録"}／カテゴリ=${TEN.cat||"未定"}／品番=${TEN.sku||"未登録"}／MOQ=${TEN.moq||"未登録"}`;
   const r=await llmAsk(
-`いま「${cu.n}」を質問中です。質問文：${String(cu.q||"").replace(/<[^>]+>/g,"")}
+`いまヒアリング中の項目：「${cu.n}」
+質問文：${String(cu.q||"").replace(/<[^>]+>/g,"")}
 この項目の用途：${cu.use||""}
 ${ctx}
-ユーザーの入力：「${v}」`,700,{noWeb:1,timeout:30000,
-    sys:`あなたは貿易クラウドのヒアリングAI（一流商社マン）。ユーザー入力を判定しJSONのみ返す:
-{"kind":"answer|question|skip",
- "value":"kind=answerのとき登録値。入力の数値・単位は改変せず、余計な語（「です」等）だけ除いた形",
- "reply":"kind=questionのとき、貿易実務の専門家としての簡潔な回答（3文以内、この項目の文脈で具体的に。例：NET=正味重量/Gross=総重量の違いと、どちらを書くべきか）",
- "reask":"kind=questionのとき、続けて入力を促す一文"}
-判定基準：項目への値の提供=answer／項目や書き方への質問・確認=question／わからない旨=skip。`});
+ユーザーの入力：「${v}」`,800,{noWeb:1,timeout:30000,
+    sys:`あなたは貿易クラウドのヒアリングAI（一流商社マン）。ユーザー入力の意図を判定しJSONのみ返す:
+{"kind":"answer|question|edit|skip",
+ "value":"kind=answerのとき、この項目への登録値。数値・単位は改変せず、余計な語（「です」等）だけ除く",
+ "field":"kind=editのとき、修正対象の項目キー（co|coEn|item|itemEn|cat|sku|hs|moq|lead|ctn|cert|origin|term|pay|pol|shelf|targets|strengths のいずれか）",
+ "fieldValue":"kind=editのとき、設定する値",
+ "reply":"kind=questionのとき、貿易実務の専門家としての簡潔な回答（3文以内、具体的に）。kind=editのとき省略可",
+ "reask":"question/editのあと、いまの項目の入力を促す一文"}
+判定基準：
+・この項目への値の提供 → answer
+・項目や書き方についての質問・確認（〜どちら？、〜とは？ 等）→ question
+・別の項目を直してほしい依頼（「商品名を〇〇に変更して」「産地は△△にして」等）→ edit（fieldは意味から特定。「商品名」→item、「英文商品名」→itemEn、「会社名/社名」→co）
+・わからない旨 → skip
+迷ったら登録事故を避けること（不確かならquestionとして確認する）。`});
   let t=r.txt.replace(/```json|```/g,"").trim();
   const a=t.indexOf("{"),b=t.lastIndexOf("}");
   if(a<0||b<=a) throw new Error("triage形式不正");
   const j=JSON.parse(t.slice(a,b+1));
-  if(!/^(answer|question|skip)$/.test(j.kind||"")) throw new Error("kind不正");
+  if(!/^(answer|question|edit|skip)$/.test(j.kind||"")) throw new Error("kind不正");
   return j;
 }
 /* 登録処理（ユーザー吹き出しは出力済みの前提。logic_fillの原本と同じ文言） */
@@ -2514,42 +2528,7 @@ fillAnswer=function(v){
       }
       skipCurrent(); return;
     }
-    /* 質問らしき入力：登録せず、AIが専門家として答えてから聞き直す */
-    if(QUESTION_RE.test(vs)&&!FILL.cur._sug){
-      fillSay("u",esc(vs));
-      if(typeof ppReady==="function"&&ppReady()){
-        fillSay("ai","<i>ご質問ですね。考えています…</i>");
-        render();
-        llmFillTriage(FILL.cur,vs).then(j=>{
-          FILL.log=FILL.log.filter(m=>!/ご質問ですね。考えています/.test(String(m.html)));
-          if(j.kind==="answer"&&j.value){ fillCommit(j.value); return; }
-          if(j.kind==="skip"){ skipCurrent(); return; }
-          const cu=FILL.cur;
-          fillSay("ai",`${esc(j.reply||"")}<div class="ci">${esc(j.reask||`それでは、あらためて「${cu.n}」をご入力ください。`)}</div>`,{ask:cu});
-          render();
-        }).catch(e=>{
-          FILL.log=FILL.log.filter(m=>!/ご質問ですね。考えています/.test(String(m.html)));
-          fillSay("ai",`（AIエンジンに接続できませんでした：${esc(String(e.message)).slice(0,40)}）<br>
-            ご質問の内容はSTANDAGEの担当が確認します。いったん<b>${FILL.cur.n}</b>を分かる範囲でご入力いただくか、「あとで」で飛ばしてください。`,{ask:FILL.cur});
-          render();
-        });
-      } else {
-        fillSay("ai",`ご質問ありがとうございます。${FILL.cur.k==="dimRows"
-            ?"梱包明細には正味重量（NET）と総重量（Gross）の両方を記載しますが、運賃見積に使うのは<b>外装カートンの総重量（Gross）</b>です。まずはGrossでご記入ください。"
-            :"この環境ではAIエンジンが未接続のため、その場での詳しい回答ができません（管理者が接続すると、専門的にお答えできるようになります）。ご質問はSTANDAGEの担当が確認します。"}<br>
-          分かる範囲でご入力いただくか、「あとで」で飛ばすこともできます。`,{ask:FILL.cur});
-        render();
-      }
-      return;
-    }
-    /* 整合性ガード：英文欄に日本語が入りそうなときは確認 */
-    if((k==="itemEn"||k==="coEn")&&/[ぁ-んァ-ヶ一-龠]/.test(vs)&&!FILL.cur._jpOK){
-      fillSay("u",esc(vs));
-      FILL.cur=Object.assign({},FILL.cur,{_jpOK:vs,chips:["このまま登録する","入力し直す"].concat(
-        (typeof ppReady==="function"&&ppReady())?["AIに英訳してもらう"]:[])});
-      fillSay("ai",`「${esc(vs)}」には日本語が含まれているようです。<b>${FILL.cur.n}</b>は海外の通関・書類でそのまま使われるため、英語表記を推奨します。`,{ask:FILL.cur});
-      render(); return;
-    }
+    /* 日本語ガードの応答（チップ選択中） */
     if(FILL.cur._jpOK){
       const orig=FILL.cur._jpOK;
       if(/このまま/.test(vs)){ FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null}); return __fillAnsB4hs(orig); }
@@ -2561,15 +2540,83 @@ fillAnswer=function(v){
         const kk=FILL.cur.k;
         FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null});
         fillSay("ai","<b>AIが英文表記の案を作っています…</b>"); render();
-        (kk==="itemEn"?Promise.resolve(orig):Promise.resolve(orig)).then(()=>fieldSuggest(kk)).then(s=>{
+        fieldSuggest(kk).then(s=>{
           FILL.cur=Object.assign({},FILL.cur,{_sug:s,chips:["この案を採用","自分で入力する","あとで決める"]});
           fillSay("ai",`AIの提案：<b>${esc(s)}</b><div class="ci">よければ「この案を採用」、修正したい場合は正しい表記をご入力ください。</div>`,{ask:FILL.cur});
           render();
         }).catch(()=>{ skipCurrent(); });
         return;
       }
+      /* チップ外の入力＝新しい発話として最初から判定し直す（そのまま登録しない） */
       FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null});
+      return fillAnswer(v);
     }
+    /* 英文欄に日本語 → 確認（登録前ガード。値はまだ登録しない） */
+    const jpGuard=(val,echo)=>{
+      if(echo) fillSay("u",esc(val));
+      FILL.cur=Object.assign({},FILL.cur,{_jpOK:val,chips:["このまま登録する","入力し直す"].concat(
+        (typeof ppReady==="function"&&ppReady())?["AIに英訳してもらう"]:[])});
+      fillSay("ai",`「${esc(val)}」には日本語が含まれているようです。<b>${FILL.cur.n}</b>は海外の通関・書類でそのまま使われるため、英語表記を推奨します。`,{ask:FILL.cur});
+      render();
+    };
+    const isJPEnField=(kk,val)=>(kk==="itemEn"||kk==="coEn")&&/[ぁ-んァ-ヶ一-龠]/.test(val);
+    /* チップの選択はそのまま登録（LLMを介さない高速パス） */
+    const chipHit=FILL.cur.chips&&(FILL.cur.chips.includes(vs)
+      ||vs.split(/[、,]/).every(p=>FILL.cur.chips.includes(p.trim())));
+    /* ── 接続時：自由入力はすべてAIが判定（回答／質問／修正依頼／わからない） ── */
+    if(!chipHit&&typeof ppReady==="function"&&ppReady()){
+      fillSay("u",esc(vs));
+      fillSay("ai","<i>確認しています…</i>");
+      render();
+      const clean=()=>{ FILL.log=FILL.log.filter(m=>!/確認しています…/.test(String(m.html))); };
+      llmFillTriage(FILL.cur,vs).then(j=>{
+        clean();
+        if(j.kind==="edit"&&j.field&&NEEDKEYS_NM[j.field]&&j.fieldValue){
+          const label=NEEDKEYS_NM[j.field];
+          applyAnswer(TEN,j.field,String(j.fieldValue));
+          syncTenant(); if(typeof saveTen==="function") saveTen();
+          if(typeof logU==="function") logU("fill","修正:"+label);
+          const cu=FILL.cur;
+          fillSay("ai",`承知しました。<b>${label}</b>を「<b>${esc(String(j.fieldValue))}</b>」に変更しました。${j.reply?esc(j.reply):""}
+            <div class="ci">${esc(j.reask||`続けて「${cu.n}」をお願いします。`)}</div>`,{ask:cu});
+          render(); return;
+        }
+        if(j.kind==="question"){
+          const cu=FILL.cur;
+          fillSay("ai",`${esc(j.reply||"")}<div class="ci">${esc(j.reask||`それでは、あらためて「${cu.n}」をご入力ください。`)}</div>`,{ask:cu});
+          render(); return;
+        }
+        if(j.kind==="skip"){ skipCurrent(); return; }
+        const val=(j.kind==="answer"&&j.value)?String(j.value):vs;
+        if(isJPEnField(k,val)){ jpGuard(val,false); return; }
+        fillCommit(val);
+      }).catch(e=>{
+        clean();
+        /* AI判定に失敗：事故を避け、そのまま登録はしない */
+        if(QUESTION_RE.test(vs)||EDIT_RE.test(vs)){
+          fillSay("ai",`（AIエンジンに接続できませんでした：${esc(String(e.message)).slice(0,40)}）<br>
+            ご依頼の内容はSTANDAGEの担当が確認します。いったん<b>${FILL.cur.n}</b>の値のみご入力いただくか、「あとで」で飛ばしてください。`,{ask:FILL.cur});
+          render(); return;
+        }
+        if(isJPEnField(k,vs)){ jpGuard(vs,false); return; }
+        fillCommit(vs);
+      });
+      return;
+    }
+    /* ── 未接続：質問・修正依頼らしき入力は登録しない ── */
+    if(!chipHit&&(QUESTION_RE.test(vs)||EDIT_RE.test(vs))){
+      fillSay("u",esc(vs));
+      fillSay("ai",`${EDIT_RE.test(vs)
+          ?"修正のご依頼ですね。<b>登録済み項目の修正は、AIエンジン接続時にこのチャットから行えます</b>（管理者が管理コンソールで接続できます）。いまの環境では、該当商品を「削除してやり直す」か、STANDAGEの担当が承って修正します。"
+          :FILL.cur.k==="dimRows"
+            ?"梱包明細には正味重量（NET）と総重量（Gross）の両方を記載しますが、運賃見積に使うのは<b>外装カートンの総重量（Gross）</b>です。まずはGrossでご記入ください。"
+            :"ご質問ありがとうございます。この環境ではAIエンジンが未接続のため、その場での詳しい回答ができません（接続すると専門的にお答えできます）。ご質問はSTANDAGEの担当が確認します。"}<br>
+        いまは<b>${FILL.cur.n}</b>を伺っています。分かる範囲でご入力いただくか、「あとで」で飛ばせます。`,{ask:FILL.cur});
+      render();
+      return;
+    }
+    /* 未接続の英文欄日本語ガード */
+    if(!chipHit&&isJPEnField(k,vs)){ jpGuard(vs,true); return; }
   }
   return __fillAnsB4hs(v);
 };
@@ -3721,7 +3768,7 @@ function vFill(p){
         <h3>AI商社マンと埋める</h3><span class="p or">残り ${s.missing.length}項目</span></div>
       <div class="chat" id="fchat" style="max-height:400px"></div>
       <div id="fin2" style="margin-top:10px"></div>
-      <p class="nn" style="margin-top:8px">分からない項目は「不明」「あとで」で飛ばせます。<b>項目についての質問もそのまま入力OK</b>（例：「NETとGrossどちら？」）— AI商社マンが答えてから続きを聞きます。</p>
+      <p class="nn" style="margin-top:8px">分からない項目は「不明」「あとで」で飛ばせます。<b>質問や修正依頼もそのまま入力OK</b>（例：「NETとGrossどちら？」「商品名を〇〇に変更して」）— AI商社マンが対応してから続きを聞きます。</p>
     </div>
     <div class="stk">
       <div class="c"><h3>資料から取り込めたもの</h3>
