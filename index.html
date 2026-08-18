@@ -1311,7 +1311,7 @@ function tenantFromSample2(x){
 }
 function adoptSample2(k){
   const x=SAMPLES2[k]; if(!x) return;
-  PID="custom"; TEN=tenantFromSample2(x); shipStep=0; SHIPQA=[];
+  PID="custom"; pushTen(tenantFromSample2(x)); shipStep=0; SHIPQA=[];
   FILL={on:false,log:[],cur:null,sel:[]};
   syncTenant(); if(typeof saveTen==="function") saveTen();
   if(typeof logU==="function") logU("upload","業種サンプル:"+x.cat);
@@ -1703,7 +1703,23 @@ function fillAnswer(v){
 }
 
 /* ═══════════ 解析結果 → 全画面へ反映するテナント層 ═══════════ */
-let TEN=null;   // いま読み込んでいる商品情報（アップロード or サンプル）
+let TEN=null;   // いま表示中の商品情報（アップロード or サンプル）
+let TENS=[], TIDX=0;   // 登録済み商品のスロット（最大10件）
+const TEN_MAX=10;
+function pushTen(t){
+  if(TENS.length>=TEN_MAX){
+    if(typeof toast==="function") toast(`商品は最大${TEN_MAX}件までです。現在の商品を置き換えました（不要な商品は削除できます）`);
+    TENS[TIDX]=t;
+  } else { TENS.push(t); TIDX=TENS.length-1; }
+  TEN=t;
+}
+function switchTen(i){
+  if(i<0||i>=TENS.length) return;
+  TIDX=i; TEN=TENS[i]; PID="custom";
+  shipStep=0; SHIPQA=[]; FILL={on:false,log:[],cur:null,sel:[]};
+  syncTenant(); if(typeof saveTen==="function") saveTen();
+  buildNav(); render();
+}
 
 /* 国 × カテゴリの規制テンプレート（関税率は概算。正式には税関の事前教示で確定） */
 const RD={
@@ -2332,36 +2348,538 @@ altsは最大2件。needMoreは具体的に（例：粉末か茶葉か、アル�
   if(!j.best||!j.best.code) throw new Error("提案なし");
   return j;
 }
+/* ── 「わかりません」への賢い応答 ──
+   従来は「わかりません」という文字列がそのまま登録され「登録しました」と返っていた。
+   修正後：分からない旨の回答は登録せず、AI接続時は登録済みデータから提案（採用はユーザーが決定）、
+   未接続時は丁寧にスキップしてSTANDAGE担当への引き継ぎを案内する。 */
+const REFUSE_RE=/^(わかりません|わからない|分かりません|分からない|分かりかねます|不明です?|知りません|しりません|ないです|特にない(です)?|なし|スキップ|後で|あとで|おまかせ(します)?|お任せ(します)?|任せる|任せます|パス|unknown|no idea|idk|？|\?)$/i;
+const REFUSE_SOFT=/わか(ら|り)|不明|知らない|任せ|おまかせ|後で|あとで|スキップ/;
+function skipCurrent(note){
+  const cu=FILL.cur; if(!cu) return;
+  FILL.skip=(FILL.skip||[]).concat(cu.k);
+  fillSay("ai",note||`承知しました。<b>${cu.n}</b>は無理に埋めなくて大丈夫です。STANDAGEの担当からあらためて確認します。<br>
+    <span style="font-size:10.5px;color:var(--ink-3)">お手元の資料に載っていそうなら、📎からファイルを追加いただければAIが読み取ります。</span>`);
+  const s=scoreOf(TEN);
+  const nx=s.missing.filter(m=>!(FILL.skip||[]).includes(m.k)).sort((a,b)=>b.w-a.w)[0];
+  if(!nx){
+    if(typeof llmExtraHook==="function"&&llmExtraHook()) return;
+    FILL.cur=null;
+    fillSay("ai",`ここまでで登録できたのは<b>${s.filled.length}項目・充足度 ${s.pct}%</b>です。<br>
+      残りはSTANDAGEの担当が伺って埋めます。<b>この状態でも、埋まっている範囲では動きます。</b>`,{done:1});
+    syncTenant(); render(); return;
+  }
+  FILL.cur=nx; FILL.sel=[];
+  fillSay("ai",`<span class="p or">残り ${s.missing.length}項目・充足度 ${s.pct}%</span><br>
+    <b>${nx.n}</b>を教えてください。<br>${nx.q}
+    ${nx.ex?`<br><span style="color:var(--ink-3);font-size:11px">${nx.ex}</span>`:""}
+    <div class="ci">これは <b>${nx.use}</b> に使われます。</div>`,{ask:nx});
+  render();
+}
+function hsAdviseFlow(v){
+  fillSay("u",esc(v));
+  fillSay("ai","承知しました。<b>登録済みの情報からAIがHSコードを判別しています…</b>");
+  render();
+  hsAdvise().then(j=>{
+    let m=`<b>AIの提案：${esc(j.best.code)}</b>（${esc(j.best.name)}）<span class="p ${j.confidence==="高"?"hi":j.confidence==="中"?"mid":"lo"}">確度 ${esc(j.confidence||"中")}</span><br>
+      <span style="font-size:11px;color:var(--ink-2)">${esc(j.best.why||"")}</span>`;
+    if(j.alts&&j.alts.length) m+=`<br>他の候補：${j.alts.map(a=>`<b>${esc(a.code)}</b>（${esc(a.name)}）`).join("／")}`;
+    if(j.needMore&&j.needMore.length)
+      m+=`<br><br><b>確定にはあと少し情報が必要です：</b>${j.needMore.map(esc).join("・")}<br>
+        分かる範囲で入力いただくか、📎から関連資料（仕様書・写真など）を追加してください。精度が上がります。`;
+    m+=`<div class="ci"><b>最終決定はお客様です。</b>候補をタップするか、正しいコードを直接入力してください。正式な分類は税関の事前教示で確定できます（STANDAGEが代行します）。</div>`;
+    FILL.cur=Object.assign({},FILL.cur,{_hsProposed:1,
+      chips:[j.best.code+" を採用"].concat((j.alts||[]).slice(0,2).map(a=>a.code+" を採用"),["あとで決める"])});
+    fillSay("ai",m,{ask:FILL.cur});
+    render();
+  }).catch(e=>{
+    applyAnswer(TEN,"hs","不明");
+    fillSay("ai",`（AI判別に接続できませんでした：${esc(String(e.message)).slice(0,50)}）<br>
+      商品名から<b>${esc(TEN.hs)}</b>と推定して進めます。正式には税関の事前教示で確定できます。`);
+    syncTenant(); fillNext();
+  });
+}
+async function fieldSuggest(k){
+  const src=k==="itemEn"?TEN.item:TEN.co;
+  const label=k==="itemEn"?"英文商品名":"英文社名";
+  const r=await llmAsk(
+    `「${src}」の${label}として、インボイスなどの輸出書類にそのまま使える英語表記を1つだけ返してください。説明・引用符・改行は不要、表記そのものだけを返すこと。${k==="coEn"?"会社形態はCo., Ltd.やInc.等の一般的な表記で。":"商品の内容が英語圏のバイヤーに伝わる自然な表記で。容量等の数値は保持。"}`,
+    150,{noWeb:1,sys:"あなたは貿易書類の英文表記の専門家。回答は英語表記1行のみ。"});
+  const s=r.txt.trim().split("\n")[0].replace(/^["'「]|["'」]$/g,"").slice(0,80);
+  if(!s||/[ぁ-んァ-ン]/.test(s)) throw new Error("生成失敗");
+  return s;
+}
 const __fillAnsB4hs=fillAnswer;
 fillAnswer=function(v){
-  if(FILL.cur&&FILL.cur.k==="hs"&&!FILL.cur.x
-     &&typeof ppReady==="function"&&ppReady()
-     &&/不明|わか(ら|り)ま?せ?ん?ない?|任せ|おまかせ|提案して|教えて/.test(String(v))){
-    fillSay("u",esc(v));
-    fillSay("ai","承知しました。<b>登録済みの情報からAIがHSコードを判別しています…</b>");
-    render();
-    hsAdvise().then(j=>{
-      let m=`<b>AIの提案：${esc(j.best.code)}</b>（${esc(j.best.name)}）<span class="p ${j.confidence==="高"?"hi":j.confidence==="中"?"mid":"lo"}">確度 ${esc(j.confidence||"中")}</span><br>
-        <span style="font-size:11px;color:var(--ink-2)">${esc(j.best.why||"")}</span>`;
-      if(j.alts&&j.alts.length) m+=`<br>他の候補：${j.alts.map(a=>`<b>${esc(a.code)}</b>（${esc(a.name)}）`).join("／")}`;
-      if(j.needMore&&j.needMore.length)
-        m+=`<br><br><b>確定にはあと少し情報が必要です：</b>${j.needMore.map(esc).join("・")}<br>
-          分かる範囲で入力いただくか、📎から関連資料（仕様書・写真など）を追加してください。精度が上がります。`;
-      m+=`<div class="ci"><b>最終決定はお客様です。</b>候補をタップするか、正しいコードを直接入力してください。正式な分類は税関の事前教示で確定できます（STANDAGEが代行します）。</div>`;
-      FILL.cur=Object.assign({},FILL.cur,
-        {chips:[j.best.code+" を採用"].concat((j.alts||[]).slice(0,2).map(a=>a.code+" を採用"),["あとで決める"])});
-      fillSay("ai",m,{ask:FILL.cur});
-      render();
-    }).catch(e=>{
+  const vs=String(v).trim();
+  if(FILL.cur&&!FILL.cur.x){
+    const k=FILL.cur.k;
+    /* AI提案の採用／却下（_sug保持中） */
+    if(FILL.cur._sug){
+      const sug=FILL.cur._sug;
+      if(/採用|はい|ok|それで/i.test(vs)){
+        fillSay("u",esc(vs));
+        applyAnswer(TEN,k,sug);
+        const s=scoreOf(TEN);
+        fillSay("ai",`<b>${FILL.cur.n}</b>を「<b>${esc(sug)}</b>」で登録しました。充足度 <b>${s.pct}%</b>。`);
+        syncTenant(); if(typeof saveTen==="function") saveTen();
+        fillNext(); return;
+      }
+      if(/自分で|入力する/.test(vs)){
+        fillSay("u",esc(vs));
+        FILL.cur=Object.assign({},FILL.cur,{chips:null,_sug:null});
+        fillSay("ai",`承知しました。<b>${FILL.cur.n}</b>をご入力ください。`,{ask:FILL.cur});
+        render(); return;
+      }
+      if(REFUSE_RE.test(vs)||/あとで/.test(vs)){
+        fillSay("u",esc(vs)); FILL.cur._sug=null; skipCurrent(); return;
+      }
+      FILL.cur=Object.assign({},FILL.cur,{chips:null,_sug:null}); /* 直接入力とみなして続行 */
+    }
+    const refuse=REFUSE_RE.test(vs)||(vs.length<=14&&REFUSE_SOFT.test(vs));
+    /* HSコード：提案済みで「あとで決める」→ 推定のまま進む（再提案ループ防止） */
+    if(k==="hs"&&FILL.cur._hsProposed&&refuse){
+      fillSay("u",esc(vs));
       applyAnswer(TEN,"hs","不明");
-      fillSay("ai",`（AI判別に接続できませんでした：${esc(String(e.message)).slice(0,50)}）<br>
-        商品名から<b>${esc(TEN.hs)}</b>と推定して進めます。正式には税関の事前教示で確定できます。`);
-      syncTenant(); fillNext();
-    });
-    return;
+      fillSay("ai",`承知しました。いったん<b>${esc(TEN.hs)}</b>（推定）のまま進めます。正式には税関の事前教示で確定できます。`);
+      syncTenant(); fillNext(); return;
+    }
+    /* HSコード：分からない→AIが判別提案（接続時） */
+    if(k==="hs"&&(refuse||/提案|おしえて|教えて/.test(vs))){
+      if(typeof ppReady==="function"&&ppReady()){ hsAdviseFlow(vs); return; }
+      /* 未接続：従来どおり商品名から推定（「わかりません」を登録はしない） */
+      fillSay("u",esc(vs));
+      applyAnswer(TEN,"hs","不明");
+      const s=scoreOf(TEN);
+      fillSay("ai",`商品名から<b>${esc(TEN.hs)}</b>（${TEN._hsNote?esc(TEN._hsNote[0][1]):"推定"}）と推定しました。充足度 ${s.pct}%。<br>正式な分類は税関の事前教示で確定できます（STANDAGEが代行します）。`);
+      syncTenant(); fillNext(); return;
+    }
+    /* その他の項目：「わかりません」は登録しない */
+    if(refuse){
+      fillSay("u",esc(vs));
+      const canSug=(k==="itemEn"&&has(TEN.item))||(k==="coEn"&&has(TEN.co));
+      if(canSug&&typeof ppReady==="function"&&ppReady()){
+        fillSay("ai",`承知しました。登録済みの${k==="itemEn"?"商品名":"社名"}から、<b>AIが英文表記の案を作っています…</b>`);
+        render();
+        fieldSuggest(k).then(s=>{
+          FILL.cur=Object.assign({},FILL.cur,{_sug:s,chips:["この案を採用","自分で入力する","あとで決める"]});
+          fillSay("ai",`AIの提案：<b>${esc(s)}</b><br>
+            <span style="font-size:11px;color:var(--ink-2)">${k==="itemEn"?`「${esc(TEN.item)}」`:`「${esc(TEN.co)}」`}から生成しました。輸出書類にはこの表記がそのまま使われます。</span>
+            <div class="ci"><b>最終決定はお客様です。</b>この案でよければ「この案を採用」を、修正したい場合はそのまま正しい表記をご入力ください。</div>`,
+            {ask:FILL.cur});
+          render();
+        }).catch(e=>{ skipCurrent(`（AI提案を作れませんでした：${esc(String(e.message)).slice(0,40)}）<br>承知しました。<b>${FILL.cur.n}</b>は後回しにします。STANDAGEの担当からあらためて確認します。`); });
+        return;
+      }
+      skipCurrent(); return;
+    }
+    /* 整合性ガード：英文欄に日本語が入りそうなときは確認 */
+    if((k==="itemEn"||k==="coEn")&&/[ぁ-んァ-ヶ一-龠]/.test(vs)&&!FILL.cur._jpOK){
+      fillSay("u",esc(vs));
+      FILL.cur=Object.assign({},FILL.cur,{_jpOK:vs,chips:["このまま登録する","入力し直す"].concat(
+        (typeof ppReady==="function"&&ppReady())?["AIに英訳してもらう"]:[])});
+      fillSay("ai",`「${esc(vs)}」には日本語が含まれているようです。<b>${FILL.cur.n}</b>は海外の通関・書類でそのまま使われるため、英語表記を推奨します。`,{ask:FILL.cur});
+      render(); return;
+    }
+    if(FILL.cur._jpOK){
+      const orig=FILL.cur._jpOK;
+      if(/このまま/.test(vs)){ FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null}); return __fillAnsB4hs(orig); }
+      if(/入力し直す/.test(vs)){ fillSay("u",esc(vs));
+        FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null});
+        fillSay("ai",`英語表記でご入力ください。`,{ask:FILL.cur}); render(); return; }
+      if(/英訳/.test(vs)&&typeof ppReady==="function"&&ppReady()){
+        fillSay("u",esc(vs));
+        const kk=FILL.cur.k;
+        FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null});
+        fillSay("ai","<b>AIが英文表記の案を作っています…</b>"); render();
+        (kk==="itemEn"?Promise.resolve(orig):Promise.resolve(orig)).then(()=>fieldSuggest(kk)).then(s=>{
+          FILL.cur=Object.assign({},FILL.cur,{_sug:s,chips:["この案を採用","自分で入力する","あとで決める"]});
+          fillSay("ai",`AIの提案：<b>${esc(s)}</b><div class="ci">よければ「この案を採用」、修正したい場合は正しい表記をご入力ください。</div>`,{ask:FILL.cur});
+          render();
+        }).catch(()=>{ skipCurrent(); });
+        return;
+      }
+      FILL.cur=Object.assign({},FILL.cur,{_jpOK:null,chips:null});
+    }
   }
   return __fillAnsB4hs(v);
 };
+
+/* ═══════════ 外国語 営業資料の自動生成（PPTX・ブラウザ内で完結） ═══════════
+   登録済みの商品情報から、英語／中文簡体／中文繁體／Español／한국어 の営業資料を
+   1クリックで生成しPPTXダウンロード。値の翻訳は接続中のAIエンジンが行う（未接続時は
+   ラベルのみ各言語・値は登録データのまま）。Google Slidesへは PPTXをドライブに
+   アップロード→「Googleスライドで開く」で変換（OAuth不要の最短手順）。 */
+
+/* ── ZIP（無圧縮STORE方式）ライター ── */
+const CRC_T=(()=>{const t=new Uint32Array(256);
+  for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c;}return t;})();
+function crc32(u8){let c=0xFFFFFFFF;
+  for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function zipStore(files){ /* files: [ [name, string|Uint8Array], ... ] */
+  const enc=new TextEncoder(), parts=[], cd=[]; let off=0;
+  const W16=v=>[v&255,(v>>8)&255], W32=v=>[v&255,(v>>8)&255,(v>>16)&255,(v>>24)&255];
+  files.forEach(([name,data])=>{
+    const nm=enc.encode(name), d=typeof data==="string"?enc.encode(data):data;
+    const crc=crc32(d);
+    const lh=new Uint8Array([80,75,3,4,20,0,0,8,0,0,0,0,33,0,
+      ...W32(crc),...W32(d.length),...W32(d.length),...W16(nm.length),...W16(0)]);
+    parts.push(lh,nm,d);
+    cd.push({nm,crc,len:d.length,off});
+    off+=lh.length+nm.length+d.length;
+  });
+  const cdParts=[]; let cdLen=0;
+  cd.forEach(e=>{
+    const h=new Uint8Array([80,75,1,2,20,0,20,0,0,8,0,0,0,0,33,0,
+      ...W32(e.crc),...W32(e.len),...W32(e.len),...W16(e.nm.length),...W16(0),...W16(0),
+      ...W16(0),...W16(0),...W32(0),...W32(e.off)]);
+    cdParts.push(h,e.nm); cdLen+=h.length+e.nm.length;
+  });
+  const eocd=new Uint8Array([80,75,5,6,0,0,0,0,...W16(cd.length),...W16(cd.length),
+    ...W32(cdLen),...W32(off),...W16(0)]);
+  return new Blob([...parts,...cdParts,eocd],
+    {type:"application/vnd.openxmlformats-officedocument.presentationml.presentation"});
+}
+
+/* ── PPTX 最小骨格 ── */
+const XE=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const EMU=v=>Math.round(v*12700);   /* 1pt=12700EMU。スライドは960×540pt(16:9) */
+let _SPID=1;
+function pxml(inner){return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n${inner}`;}
+const NSA='xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"';
+const NSR='xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+const NSP='xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"';
+function themeXml(){
+  const f=(nm,c)=>`<a:${nm}><a:srgbClr val="${c}"/></a:${nm}>`;
+  return pxml(`<a:theme ${NSA} name="BC"><a:themeElements>
+<a:clrScheme name="BC">${f("dk1","1A1A1A")}${f("lt1","FFFFFF")}${f("dk2","0F2749")}${f("lt2","F6F7F9")}${f("accent1","F8951D")}${f("accent2","0064BF")}${f("accent3","2E7D32")}${f("accent4","B26B00")}${f("accent5","46566D")}${f("accent6","8A97A6")}${f("hlink","0064BF")}${f("folHlink","B26B00")}</a:clrScheme>
+<a:fontScheme name="BC"><a:majorFont><a:latin typeface="Arial"/><a:ea typeface="Yu Gothic UI"/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Arial"/><a:ea typeface="Yu Gothic UI"/><a:cs typeface=""/></a:minorFont></a:fontScheme>
+<a:fmtScheme name="BC"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst>
+<a:lnStyleLst><a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst>
+<a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>
+<a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme>
+</a:themeElements></a:theme>`);}
+const EMPTY_TREE=`<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree>`;
+function masterXml(){return pxml(`<p:sldMaster ${NSA} ${NSR} ${NSP}><p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>${EMPTY_TREE}</p:cSld>
+<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst></p:sldMaster>`);}
+function layoutXml(){return pxml(`<p:sldLayout ${NSA} ${NSR} ${NSP} type="blank" preserve="1"><p:cSld>${EMPTY_TREE}</p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`);}
+function rels(list){return pxml(`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${
+  list.map(([id,type,target])=>`<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${type}" Target="${target}"/>`).join("")}</Relationships>`);}
+
+/* 図形・テキスト部品（座標はpt） */
+function shpRect(x,y,w,h,fill,o){
+  o=o||{};
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="r${_SPID}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+<p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm>
+<a:prstGeom prst="${o.round?"roundRect":"rect"}"><a:avLst>${o.round?`<a:gd name="adj" fmla="val ${o.round}"/>`:""}</a:avLst></a:prstGeom>
+${fill?`<a:solidFill><a:srgbClr val="${fill}"${o.alpha?`><a:alpha val="${o.alpha}"/></a:srgbClr`:"/"}></a:solidFill>`:`<a:noFill/>`}
+${o.line?`<a:ln w="${EMU(o.lw||1)}"><a:solidFill><a:srgbClr val="${o.line}"/></a:solidFill>${o.dash?`<a:prstDash val="dash"/>`:""}</a:ln>`:`<a:ln><a:noFill/></a:ln>`}
+</p:spPr><p:txBody><a:bodyPr/><a:p/></p:txBody></p:sp>`;
+}
+function shpText(x,y,w,h,paras,o){
+  o=o||{};
+  const ps=paras.map(p=>{
+    const runs=(p.runs||[{t:p.t,b:p.b,c:p.c,sz:p.sz,i:p.i}]).map(r=>
+      `<a:r><a:rPr lang="en-US" sz="${Math.round((r.sz||p.sz||14)*100)}" b="${r.b||p.b?1:0}" i="${r.i?1:0}" dirty="0">
+<a:solidFill><a:srgbClr val="${r.c||p.c||"1A1A1A"}"/></a:solidFill>
+<a:latin typeface="${o.font||"Arial"}"/><a:ea typeface="${o.ea||"Yu Gothic UI"}"/></a:rPr><a:t>${XE(r.t)}</a:t></a:r>`).join("");
+    return `<a:p><a:pPr algn="${p.al||o.al||"l"}">${p.spcB?`<a:spcBef><a:spcPts val="${Math.round(p.spcB*100)}"/></a:spcBef>`:""}</a:pPr>${runs}</a:p>`;
+  }).join("");
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="t${_SPID}"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>
+<p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm>
+<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr>
+<p:txBody><a:bodyPr wrap="square" anchor="${o.an||"t"}" lIns="0" tIns="0" rIns="0" bIns="0"><a:normAutofit/></a:bodyPr>${ps}</p:txBody></p:sp>`;
+}
+function shpPhoto(x,y,w,h,label,ea){
+  return shpRect(x,y,w,h,"F6F7F9",{line:"8A97A6",dash:1,lw:1.2,round:4000})+
+    shpText(x,y+h/2-16,w,32,[{t:"📷",sz:22,al:"ctr"},{t:label,sz:10,c:"8A97A6",al:"ctr"}],{ea});
+}
+const OR="F8951D",NV="0F2749",BL="0064BF",INK="1A1A1A",SUB="46566D",LGT="F6F7F9";
+
+/* ── 言語ラベル辞書（静的・オフラインでも各言語） ── */
+const DECK_L={
+ en:{name:"English",flag:"🇺🇸",ea:"Arial",
+  deck:"GLOBAL SALES PRESENTATION",conf:"Confidential & Proprietary",made:"Made in Japan",
+  why:"WHY THIS PRODUCT",market:"TARGET MARKETS & MARKET ACCESS",str:"KEY STRENGTHS",
+  spec:"PRODUCT SPECIFICATIONS",photo:"Product Photo",dims:"Packaging & Dimensions",
+  price:"PRICE & TRADE TERMS",unit:"Unit Price",moq:"MOQ",lead:"Lead Time",term:"Incoterms",
+  pay:"Payment",port:"Port of Loading",comp:"COMPLIANCE & CERTIFICATIONS",cert:"Certifications",
+  docs:"Export documents ready",duty:"Import duty",contact:"CONTACT US",
+  cta:"Samples and detailed quotations available upon request.",tbc:"TBC",
+  dutyNote:"Duties are preliminary estimates; to be confirmed via advance tariff ruling.",
+  poweredBy:"Prepared with BOEKI CLOUD by STANDAGE"},
+ zhCN:{name:"中文（简体）",flag:"🇨🇳",ea:"Microsoft YaHei",
+  deck:"全球销售资料",conf:"机密文件",made:"日本制造",why:"产品价值",market:"目标市场与准入条件",
+  str:"核心优势",spec:"产品规格",photo:"产品照片",dims:"包装与尺寸",price:"价格与贸易条件",
+  unit:"单价",moq:"最小起订量",lead:"交货期",term:"贸易条款",pay:"付款条件",port:"装运港",
+  comp:"合规与认证",cert:"认证",docs:"出口单证齐备",duty:"进口关税",contact:"联系我们",
+  cta:"欢迎垂询样品与详细报价。",tbc:"待确认",
+  dutyNote:"关税为初步估算，以海关预裁定为准。",poweredBy:"由 STANDAGE BOEKI CLOUD 生成"},
+ zhTW:{name:"中文（繁體）",flag:"🇹🇼",ea:"Microsoft JhengHei",
+  deck:"全球銷售資料",conf:"機密文件",made:"日本製造",why:"產品價值",market:"目標市場與准入條件",
+  str:"核心優勢",spec:"產品規格",photo:"產品照片",dims:"包裝與尺寸",price:"價格與貿易條件",
+  unit:"單價",moq:"最小訂購量",lead:"交貨期",term:"貿易條款",pay:"付款條件",port:"裝運港",
+  comp:"合規與認證",cert:"認證",docs:"出口單證齊備",duty:"進口關稅",contact:"聯絡我們",
+  cta:"歡迎洽詢樣品與詳細報價。",tbc:"待確認",
+  dutyNote:"關稅為初步估算，以海關預先裁定為準。",poweredBy:"由 STANDAGE BOEKI CLOUD 生成"},
+ es:{name:"Español",flag:"🇪🇸",ea:"Arial",
+  deck:"PRESENTACIÓN GLOBAL DE VENTAS",conf:"Confidencial",made:"Hecho en Japón",
+  why:"POR QUÉ ESTE PRODUCTO",market:"MERCADOS OBJETIVO Y ACCESO",str:"FORTALEZAS CLAVE",
+  spec:"ESPECIFICACIONES DEL PRODUCTO",photo:"Foto del producto",dims:"Embalaje y dimensiones",
+  price:"PRECIO Y CONDICIONES",unit:"Precio unitario",moq:"Pedido mínimo",lead:"Plazo de entrega",
+  term:"Incoterms",pay:"Pago",port:"Puerto de embarque",comp:"CUMPLIMIENTO Y CERTIFICACIONES",
+  cert:"Certificaciones",docs:"Documentos de exportación listos",duty:"Arancel",contact:"CONTACTO",
+  cta:"Muestras y cotizaciones detalladas disponibles bajo pedido.",tbc:"Por confirmar",
+  dutyNote:"Aranceles preliminares; a confirmar mediante resolución anticipada.",
+  poweredBy:"Elaborado con BOEKI CLOUD de STANDAGE"},
+ ko:{name:"한국어",flag:"🇰🇷",ea:"Malgun Gothic",
+  deck:"글로벌 세일즈 자료",conf:"대외비",made:"메이드 인 재팬",why:"제품 가치",market:"타깃 시장 및 진입 조건",
+  str:"핵심 강점",spec:"제품 사양",photo:"제품 사진",dims:"포장 및 치수",price:"가격 및 거래 조건",
+  unit:"단가",moq:"최소 주문 수량",lead:"납기",term:"인코텀즈",pay:"결제 조건",port:"선적항",
+  comp:"규제 대응 및 인증",cert:"인증",docs:"수출 서류 준비 완료",duty:"수입 관세",contact:"문의하기",
+  cta:"샘플 및 상세 견적은 문의해 주세요.",tbc:"확인 예정",
+  dutyNote:"관세는 잠정치이며, 사전 심사로 확정됩니다.",poweredBy:"STANDAGE BOEKI CLOUD 생성"},
+};
+/* ── 値の翻訳（AI接続時のみ。キャッシュあり） ── */
+let DECKC={};
+async function deckTranslate(lang){
+  const src={item:D.item||"",tagline:D.tagline||"",cat:D.cat||"",
+    strengths:(D.strengths||[]).slice(0,5).map(s=>[s[0]||"",s[1]||""]),
+    specs:(D.compRows||[]).slice(0,6).map(r=>[String(r[0]||""),String(r[1]||"")]),
+    priceCols:(D.priceCols||[]).map(String),
+    dims:(D.dimRows||[]).slice(0,2).map(r=>(Array.isArray(r)?r.filter(Boolean).join(" / "):String(r))),
+    cert:D.cert||"",shelf:D.shelf||"",origin:D.city||D.origin||""};
+  if(lang==="en"&&D.itemEn) src.item=D.itemEn;
+  const key=lang+"|"+JSON.stringify(src).length+"|"+(D.item||"");
+  if(DECKC[key]) return DECKC[key];
+  if(!(typeof ppReady==="function"&&ppReady())){
+    return DECKC[key]={...src,_machine:false};
+  }
+  const tgt={en:"英語",zhCN:"中国語（簡体字）",zhTW:"中国語（繁体字）",es:"スペイン語",ko:"韓国語"}[lang];
+  try{
+    const r=await llmAsk(
+`次のJSONの各値を${tgt}に翻訳し、同じ構造のJSONだけを返してください（コードフェンス禁止）。
+規則：数値・単位・型番・通貨・HSコード・固有名詞（ブランド名）はそのまま。海外バイヤー向け営業資料として自然で簡潔な表現に。空文字は空のまま。
+${JSON.stringify(src)}`,1800,{noWeb:1,timeout:90000,
+      sys:"あなたはプロの産業翻訳者。返答は翻訳後のJSONのみ。"});
+    let t=r.txt.replace(/```json|```/g,"").trim();
+    const a=t.indexOf("{"),b=t.lastIndexOf("}");
+    if(a<0||b<=a) throw new Error("形式不正");
+    const j=JSON.parse(t.slice(a,b+1));
+    j._machine=true;
+    return DECKC[key]=j;
+  }catch(e){
+    return {...src,_machine:false};   /* 翻訳失敗時は原文のまま生成（キャッシュしない） */
+  }
+}
+/* ── スライド組み立て ── */
+function deckSlides(lang,T){
+  const L=DECK_L[lang], ea=L.ea, S=[];
+  const strengths=(T.strengths&&T.strengths.length?T.strengths:(D.strengths||[]).slice(0,5));
+  const eyebrow=(t)=>shpRect(48,44,44,4,OR)+shpText(48,54,600,22,[{t,sz:12,b:1,c:BL}],{ea});
+  const footer=(n)=>shpText(48,512,500,16,[{t:`${D.coEn||D.co||""}  |  ${L.conf}`,sz:8,c:"8A97A6"}],{ea})+
+    shpText(880,512,32,16,[{t:String(n),sz:9,c:"8A97A6",al:"r"}],{ea});
+  /* 1) 表紙 */
+  S.push(
+    shpRect(0,0,960,540,"FFFFFF")+
+    shpRect(0,0,12,540,OR)+
+    shpText(60,64,540,20,[{t:L.deck,sz:13,b:1,c:BL}],{ea})+
+    shpText(60,150,540,150,[{t:T.item||D.item||"",sz:40,b:1,c:INK}],{ea})+
+    (D.itemEn&&lang!=="en"?shpText(60,268,540,24,[{t:D.itemEn,sz:14,c:SUB}],{ea}):"")+
+    shpText(60,300,540,22,[{t:(T.cat||D.cat||"")+"　|　"+L.made,sz:12,b:1,c:OR}],{ea})+
+    shpText(60,420,540,60,[{t:D.coEn||D.co||"",sz:16,b:1,c:NV},{t:(D.city||"")+"  ·  "+TODAYS,sz:10,c:SUB,spcB:4}],{ea})+
+    shpPhoto(640,110,272,330,L.photo,ea)+
+    footer(1));
+  /* 2) ターゲット市場と関税 */
+  const tg=Object.entries(D.regs||{}).slice(0,6);
+  S.push(
+    eyebrow(L.market)+
+    shpText(48,86,860,56,[{t:T.tagline||D.tagline||T.item||D.item||"",sz:22,b:1,c:INK}],{ea})+
+    tg.map(([c,r],i)=>{
+      const x=48+(i%3)*292, y=170+Math.floor(i/3)*140;
+      const duty=/要確認/.test(r.duty)?L.tbc:r.duty;
+      return shpRect(x,y,272,120,LGT,{round:6000})+
+        shpRect(x,y,272,34,NV,{round:0})+
+        shpText(x+14,y+8,244,20,[{t:c,sz:13,b:1,c:"FFFFFF"}],{ea})+
+        shpText(x+14,y+46,244,60,[{t:L.duty,sz:9,c:SUB},{t:duty,sz:20,b:1,c:OR,spcB:2}],{ea});
+    }).join("")+
+    shpText(48,478,860,16,[{t:L.dutyNote,sz:8.5,c:"8A97A6"}],{ea})+
+    footer(2));
+  /* 3) 強み（大数字ハイライト） */
+  S.push(
+    eyebrow(L.str)+
+    strengths.slice(0,5).map((s,i)=>{
+      const big=i===0, x=big?48:48+((i-1)%2)*438, y=big?96:250+Math.floor((i-1)/2)*120;
+      const w=big?860:422, h=big?130:104;
+      const num=String(s[0]||"").match(/[\d.]+[%℃μgkm]*|\d+/);
+      return shpRect(x,y,w,h,big?NV:LGT,{round:5000})+
+        shpText(x+18,y+14,42,40,[{t:("0"+(i+1)).slice(-2),sz:big?26:18,b:1,c:big?OR:"C9D2DE"}],{ea})+
+        (big&&num?shpText(x+w-190,y+18,170,90,[{t:num[0],sz:48,b:1,c:OR,al:"r"}],{ea}):"")+
+        shpText(x+72,y+16,(big?w-280:w-90),h-30,
+          [{t:s[0]||"",sz:big?17:12.5,b:1,c:big?"FFFFFF":INK},
+           {t:s[1]||"",sz:big?11:9.5,c:big?"C9D2DE":SUB,spcB:3}],{ea});
+    }).join("")+
+    footer(3));
+  /* 4) スペック＋写真 */
+  const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]]));
+  const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
+  const dim1=(T.dims&&T.dims[1])||((D.dimRows&&D.dimRows[1])?(Array.isArray(D.dimRows[1])?D.dimRows[1].filter(Boolean).join(" / "):String(D.dimRows[1])):"");
+  S.push(
+    eyebrow(L.spec)+
+    specs.slice(0,6).map((r,i)=>{
+      const y=96+i*56;
+      return shpRect(48,y,500,48,i%2?"FFFFFF":LGT)+
+        shpText(64,y+8,180,32,[{t:String(r[0]||""),sz:10.5,b:1,c:BL}],{ea})+
+        shpText(250,y+8,290,36,[{t:String(r[1]||""),sz:10.5,c:INK}],{ea});
+    }).join("")+
+    shpPhoto(596,96,316,240,L.photo,ea)+
+    shpRect(596,352,316,84,LGT,{round:5000})+
+    shpText(612,364,284,64,[{t:L.dims,sz:9.5,b:1,c:BL},
+      {t:dim0,sz:9.5,c:SUB,spcB:3},
+      {t:dim1,sz:9.5,c:SUB,spcB:2}],{ea})+
+    footer(4));
+  /* 5) 価格と取引条件 */
+  const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
+  const pr=(D.priceRows||[]).slice(0,4);
+  S.push(
+    eyebrow(L.price)+
+    shpRect(48,96,540,36,NV)+
+    pc.map((c,i)=>shpText(60+i*130,104,124,22,[{t:String(c),sz:10,b:1,c:"FFFFFF"}],{ea})).join("")+
+    pr.map((row,ri)=>{
+      const y=132+ri*38;
+      return shpRect(48,y,540,38,ri%2?LGT:"FFFFFF")+
+        row.slice(0,4).map((v,ci)=>shpText(60+ci*130,y+9,124,22,[{t:String(v||""),sz:10,b:ci>0,c:ci>0?OR:INK}],{ea})).join("");
+    }).join("")+
+    [[L.moq,D.moq],[L.lead,D.lead],[L.term,(D.term||"")+(D.pol?" "+D.pol:"")],[L.pay,D.pay]]
+      .map(([k,v],i)=>{
+        const x=620+(i%2)*150, y=96+Math.floor(i/2)*104;
+        return shpRect(x,y,142,92,LGT,{round:6000})+
+          shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v||"—"),sz:12,b:1,c:INK,spcB:4}],{ea});
+      }).join("")+
+    shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
+    footer(5));
+  /* 6) 認証・書類・コンタクト */
+  const docs=(Object.values(D.regs||{})[0]||{docs:[]}).docs.slice(0,5);
+  S.push(
+    eyebrow(L.comp)+
+    shpText(48,96,420,20,[{t:L.cert,sz:11,b:1,c:INK}],{ea})+
+    shpRect(48,122,420,70,LGT,{round:5000})+
+    shpText(64,134,388,48,[{t:(T.cert||D.cert||"—"),sz:11.5,b:1,c:"2E7D32"},
+      {t:(T.shelf||D.shelf||""),sz:9.5,c:SUB,spcB:3}],{ea})+
+    shpText(48,214,420,20,[{t:L.docs,sz:11,b:1,c:INK}],{ea})+
+    docs.map((d,i)=>shpText(48,240+i*24,420,20,[{t:"✓  "+d,sz:9.5,c:SUB}],{ea})).join("")+
+    shpRect(520,96,392,340,NV,{round:5000})+
+    shpText(548,124,336,300,[
+      {t:L.contact,sz:12,b:1,c:OR},
+      {t:D.coEn||D.co||"",sz:17,b:1,c:"FFFFFF",spcB:8},
+      {t:(D.co&&D.coEn&&D.co!==D.coEn)?D.co:"",sz:10,c:"C9D2DE",spcB:2},
+      {t:(T.origin||D.city||"")+"  ·  "+L.made,sz:10,c:"C9D2DE",spcB:6},
+      {t:L.cta,sz:10,c:"FFFFFF",spcB:12},
+      {t:L.poweredBy,sz:8,c:"8A97A6",spcB:16}],{ea})+
+    footer(6));
+  return S;
+}
+function buildPptx(lang,T){
+  _SPID=1;
+  const slides=deckSlides(lang,T);
+  const files=[];
+  files.push(["[Content_Types].xml",pxml(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}
+</Types>`)]);
+  files.push(["_rels/.rels",rels([["rId1","officeDocument","ppt/presentation.xml"]])]);
+  files.push(["ppt/presentation.xml",pxml(`<p:presentation ${NSA} ${NSR} ${NSP}>
+<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
+<p:sldIdLst>${slides.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+2}"/>`).join("")}</p:sldIdLst>
+<p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`)]);
+  files.push(["ppt/_rels/presentation.xml.rels",rels(
+    [["rId1","slideMaster","slideMasters/slideMaster1.xml"]]
+    .concat(slides.map((_,i)=>[`rId${i+2}`,"slide",`slides/slide${i+1}.xml`])))]);
+  files.push(["ppt/slideMasters/slideMaster1.xml",masterXml()]);
+  files.push(["ppt/slideMasters/_rels/slideMaster1.xml.rels",rels(
+    [["rId1","slideLayout","../slideLayouts/slideLayout1.xml"],["rId2","theme","../theme/theme1.xml"]])]);
+  files.push(["ppt/slideLayouts/slideLayout1.xml",layoutXml()]);
+  files.push(["ppt/slideLayouts/_rels/slideLayout1.xml.rels",rels(
+    [["rId1","slideMaster","../slideMasters/slideMaster1.xml"]])]);
+  files.push(["ppt/theme/theme1.xml",themeXml()]);
+  slides.forEach((tree,i)=>{
+    files.push([`ppt/slides/slide${i+1}.xml`,pxml(`<p:sld ${NSA} ${NSR} ${NSP}><p:cSld><p:spTree>
+<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+${tree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`)]);
+    files.push([`ppt/slides/_rels/slide${i+1}.xml.rels`,rels(
+      [["rId1","slideLayout","../slideLayouts/slideLayout1.xml"]])]);
+  });
+  return zipStore(files);
+}
+async function deckMake(lang){
+  const st=$("#dkst"); const say=m=>{ if(st) st.innerHTML=m; };
+  try{
+    if(!D||!(D.item||D.file)){ toast("先に商品情報を登録してください"); return; }
+    const online=(typeof ppReady==="function"&&ppReady());
+    say(`⏳ 商品情報を収集しています…`);
+    let T;
+    try{
+      if(online) say(`⏳ ${DECK_L[lang].flag} ${DECK_L[lang].name} に翻訳しています…（AIエンジン使用・10〜40秒）`);
+      T=await deckTranslate(lang);
+    }catch(e){ T={_machine:false}; }
+    say(`⏳ スライドを組み立てています…`);
+    const blob=buildPptx(lang,T);
+    const nm=`${(D.itemEn||D.item||"product").replace(/[\\\/:*?"<>|]/g,"").slice(0,40)}_SalesDeck_${lang}.pptx`;
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=nm;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    say(`✅ <b>${esc(nm)}</b> をダウンロードしました（6枚組・${Math.round(blob.size/1024)}KB）${T._machine?"":"<br>⚠ AIエンジン未接続のため、見出しのみ各言語・商品の値は登録データのままです。接続すると全文が翻訳されます。"}<br>
+      <span style="font-size:10px;color:var(--ink-3)">Googleスライドにする場合：Googleドライブにアップロード → 右クリック →「アプリで開く」→ Googleスライド。claude.aiのプレビュー上ではダウンロードが動かないため、配布HTML／公開URLでお使いください。</span>`);
+    if(typeof logU==="function") logU("ai","営業資料生成:"+lang);
+  }catch(e){
+    say(`✗ 生成に失敗しました：${esc(String(e.message)).slice(0,80)}`);
+  }
+}
+/* ── 画面 ── */
+function vDeck(p){
+  const online=(typeof ppReady==="function"&&ppReady());
+  const n=(D.strengths||[]).length, pr=(D.priceRows||[]).length, cr=(D.compRows||[]).length, rg=Object.keys(D.regs||{}).length;
+  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙〜市場性〜強み〜価格〜認証の6枚組・PPTX形式。",
+    `<button class="btn g" onclick="go('item')">元データを確認する</button>`)+`
+  <div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between">
+      <div><h3>資料に入る内容（${esc(D.item||"—")}）</h3>
+        <p class="nn">強み${n}件・価格表${pr}行・${esc(D.compTitle||"規格")}${cr}項目・規制${rg}か国ぶんを自動レイアウトします。写真枠はプレースホルダー（PowerPoint上で貴社の製品写真に差し替え）です。</p></div>
+      <span class="p ${online?"hi":"lo"}">${online?"AI翻訳：有効（"+esc(llmLabel())+"）":"AI翻訳：未接続（見出しのみ各言語）"}</span></div>
+    <div class="g3" style="margin-top:10px;gap:8px">
+      ${Object.entries(DECK_L).map(([k,l])=>`
+        <button class="smp" data-deck="${k}" style="padding:12px 13px">
+          <div class="rw" style="justify-content:space-between">
+            <b style="font-size:13px">${l.flag} ${l.name}</b>
+            <span class="p or" style="font-size:9px">PPTX</span></div>
+          <span style="display:block;font-size:10px;color:var(--ink-3);margin-top:4px">${l.deck}</span>
+        </button>`).join("")}
+    </div>
+    <p id="dkst" class="nn" style="margin-top:10px"></p>
+  </div>
+  <div class="c">
+    <h3>出力形式について</h3>
+    <div class="g3" style="margin-top:9px;gap:8px">
+      ${[["PPTX（PowerPoint）","そのままダウンロード。写真枠に製品写真を入れて完成です。","hi"],
+         ["Googleスライド","PPTXをGoogleドライブへアップロード →「アプリで開く」→ Googleスライドで変換できます。","on"],
+         ["中国語は2種類","簡体字（中国本土向け）と繁体字（台湾・香港向け）を分けて生成します。","or"]]
+        .map(([t,d,c])=>`<div style="padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
+          <span class="p ${c}" style="font-size:9.5px">${t}</span>
+          <p style="font-size:10.5px;color:var(--ink-2);margin-top:6px;line-height:1.65">${d}</p></div>`).join("")}
+    </div>
+    <p class="nn" style="margin-top:9px">💡 生成後にPowerPointで自由に編集できます。数値・認証などの根拠は貿易クラウドの登録データそのままなので、<b>資料と実データがズレません</b>。</p>
+  </div>`;
+}
+function deckBind(){
+  document.querySelectorAll("[data-deck]").forEach(b=>b.addEventListener("click",()=>deckMake(b.dataset.deck)));
+}
 
 /* ═══════════ ① AI商社マン：自由入力に答える（ページ内エンジン） ═══════════
    外部APIは使わず、テナントの実データから答えを組み立てます。 */
@@ -3348,6 +3866,8 @@ const PAGES=[
   ic:'<path d="M20.5 7.3 12 2 3.5 7.3v9.4L12 22l8.5-5.3z"/><path d="M3.5 7.3 12 12.5l8.5-5.2M12 22V12.5"/>'},
  {id:"deal",ly:"①",nm:"商談・バイヤー",grp:"データを貯める",
   ic:'<rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'},
+ {id:"deck",ly:"①⑤",nm:"外国語 営業資料",grp:"データを貯める",nw:1,
+  ic:'<rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/><path d="M7 9h6M7 12h4"/>'},
  {id:"task",ly:"②",nm:"タスク・進行",grp:"業務を回す",nw:1,
   ic:'<path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>'},
  {id:"ops",ly:"②",nm:"貿易実務・書類",grp:"業務を回す",
@@ -3386,7 +3906,10 @@ function buildNav(){
     ? `<span class="av">${esc(D.av)}</span><span><b>${esc(D.co)}</b><span>${esc(D.cat)}／PJ ${D.pj}</span></span>`
     : `<span class="av" style="background:var(--sunk);color:var(--ink-3)">?</span><span><b>未登録</b><span>商品情報を登録してください</span></span>`;
   const s=$("#psw"); s.hidden=!PID;
-  if(PID){ s.innerHTML=(PID==="custom"?`<option value="custom" selected>${esc(D.cat||"アップロード")}／${esc(D.co)}</option>`:"")
+  if(PID){ s.innerHTML=(PID==="custom"
+      ?(TENS.length?TENS.map((t,i)=>`<option value="t:${i}" ${i===TIDX?"selected":""}>${esc(t.cat||"未分類")}／${esc((t.item||t.file||"").slice(0,18))}</option>`).join("")
+        :`<option value="custom" selected>${esc(D.cat||"アップロード")}／${esc(D.co)}</option>`)
+      :(TENS.length?TENS.map((t,i)=>`<option value="t:${i}">${esc(t.cat||"未分類")}／${esc((t.item||t.file||"").slice(0,18))}</option>`).join(""):""))
     +Object.values(PRODUCTS).map(p=>`<option value="${p.key}" ${p.key===PID?"selected":""}>${p.cat}／${p.co}</option>`).join("")
     +(typeof SAMPLES2!=="undefined"?Object.values(SAMPLES2).map(x=>`<option value="s2:${x.key}">${x.cat}／${x.co}（1日目）</option>`).join(""):""); }
 }
@@ -3400,6 +3923,22 @@ function ph(p,can,extra){
 /* ═════════ ① 商品情報を登録（アップロード） ═════════ */
 function vUp(p){
   if(FILL.on) return vFill(p);
+  let plist="";
+  if(TENS.length){
+    plist=`<div class="c" style="margin-bottom:11px">
+      <div class="rw" style="justify-content:space-between">
+        <h3>登録済みの商品 <span class="n" style="color:var(--ink-3);font-weight:400">${TENS.length}/${TEN_MAX}</span></h3>
+        ${TENS.length<TEN_MAX?`<span class="nn">新しい資料をアップロードすると、<b>別の商品として追加</b>されます</span>`
+          :`<span class="p no">上限（${TEN_MAX}件）です。不要な商品を削除してください</span>`}</div>
+      <div class="rw" style="margin-top:9px;gap:7px;flex-wrap:wrap">
+        ${TENS.map((t,i)=>{const s=scoreOf(t);
+          return `<button class="smp" data-tsw="${i}" style="padding:8px 11px;max-width:230px;flex:0 1 auto;
+            ${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+            <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,18))}</b>
+            <span style="display:block;font-size:9.5px;color:var(--ink-3)">${esc(t.cat||"未分類")}・充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
+          </button>`;}).join("")}
+      </div></div>`;
+  }
   let resume="";
   if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
     const s=scoreOf(TEN);
@@ -3416,7 +3955,7 @@ function vUp(p){
           <button class="btn ${s.missing.length?"g":""}" onclick="go('dash')">ダッシュボードへ</button>
           <button class="btn g" onclick="resetTen()">削除してやり直す</button></div></div></div>`;
   }
-  return resume+ph(p,"<b>ここから始まります。</b>お手元の商品資料をアップロードすると、貿易クラウドがその商材専用の環境をつくります。以降のすべての画面が、この情報をもとに動きます。")+`
+  return plist+resume+ph(p,"<b>ここから始まります。</b>お手元の商品資料をアップロードすると、貿易クラウドがその商材専用の環境をつくります。以降のすべての画面が、この情報をもとに動きます。")+`
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c">
       <h3>資料をアップロードする</h3>
@@ -3541,9 +4080,9 @@ function adopt(key,info){
   buildNav(); go("dash");
   toast(`${D.cat}の環境を作成しました：${D.co}`);
 }
-/* 実ファイルを解析して取り込む */
+/* 実ファイルを解析して取り込む（新しい商品スロットに追加） */
 function adoptReal(t,info){
-  PID="custom"; TEN=t; shipStep=0; SHIPQA=[]; upFile=info;
+  PID="custom"; pushTen(t); shipStep=0; SHIPQA=[]; upFile=info;
   syncTenant(); cur="up"; buildNav();
   fillStart(); buildNav(); render(); scrollTo({top:0});
   toast(`${t.file} を取り込みました（${t.nSheets}シート）`);
@@ -3601,6 +4140,7 @@ function wireUp(){
     runParse(x.key,{name:x.file,kb:{food:26,cosme:24,parts:25}[x.key],sheets:3});
   }));
   document.querySelectorAll("[data-smp2]").forEach(b=>b.addEventListener("click",()=>adoptSample2(b.dataset.smp2)));
+  document.querySelectorAll("[data-tsw]").forEach(b=>b.addEventListener("click",()=>switchTen(+b.dataset.tsw)));
 }
 
 /* ═════════ 商品情報 ═════════ */
@@ -3978,7 +4518,8 @@ function openFB(i){
 function vAI(p){
   const K=D.kpi;
   return ph(p,"<b>この画面でできること：</b>たまったデータに、ふつうの日本語で質問できます。答えには<b>必ず「何件の記録から出したか」</b>が付くので、新人の方でも根拠を確認しながら使えます。",
-    `<button class="btn" onclick="go('ship')">実務をまかせる →</button>`)+`
+    `<button class="btn" onclick="go('ship')">実務をまかせる →</button>`)+
+  (typeof planCardHtml==="function"?planCardHtml():"")+`
   <div class="g2" style="align-items:start">
     <div class="c">
       <div class="rw" style="justify-content:space-between;margin-bottom:8px">
@@ -4359,7 +4900,8 @@ function render(){
   const p=PAGES.find(x=>x.id===cur);
   if(!PID && !p.free){cur="up";return render();}
   well.innerHTML=({up:vUp,dash:vDash,item:vItem,deal:vDeal,task:vTask,ai:vAI,ship:vShip,
-    ops:vOps,msg:vMsg,db:vDB,gap:vGap})[cur](p);
+    ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp)})[cur](p);
+  if(cur==="deck"&&typeof deckBind==="function") deckBind();
   if(cur==="up") wireUp();
   if(cur==="task"&&taskTab==="task"){tRows();["tHide","tSt"].forEach(id=>$("#"+id).addEventListener("change",tRows));}
   if(cur==="task"&&taskTab==="apr") document.querySelectorAll("[data-apr]").forEach(b=>
@@ -4368,6 +4910,7 @@ function render(){
     if(typeof bindMsgComposer==="function") bindMsgComposer();}
   if(cur==="deal"){fbRows();["fC","fR","fS"].forEach(id=>$("#"+id).addEventListener("change",fbRows));}
   if(cur==="ai"){
+    if(typeof planBind==="function") planBind();
     document.querySelectorAll("[data-q]").forEach(b=>b.addEventListener("click",()=>askAI(+b.dataset.q)));
     document.querySelectorAll("[data-free]").forEach(b=>b.addEventListener("click",()=>askFree(b.dataset.free)));
     const send=()=>{const v=$("#aiq").value.trim(); if(v){askFree(v);$("#aiq").value="";}};
@@ -4431,16 +4974,22 @@ function updateGuide(){
   const b2=$("#gcta2"); if(b2) b2.onclick=st.go2;
 }
 function resetTen(){
-  if(!confirm("アップロードした商品情報を削除して、最初からやり直しますか？")) return;
-  if(typeof clearTen==="function") clearTen();
-  TEN=null; D=null; PID=null; FILL={on:false,log:[],cur:null,sel:[]}; shipStep=0; SHIPQA=[];
-  buildNav(); render(); toast("削除しました。新しい資料をアップロードできます");
+  const nm=TEN?(TEN.item||TEN.file||"この商品"):"この商品";
+  if(!confirm(`「${nm}」を削除しますか？${TENS.length>1?`（他の${TENS.length-1}商品は残ります）`:""}`)) return;
+  TENS.splice(TIDX,1); TIDX=Math.max(0,Math.min(TIDX,TENS.length-1));
+  TEN=TENS[TIDX]||null;
+  FILL={on:false,log:[],cur:null,sel:[]}; shipStep=0; SHIPQA=[];
+  if(TEN){ PID="custom"; syncTenant(); }
+  else { D=null; PID=null; if(typeof clearTen==="function") clearTen(); }
+  if(typeof saveTen==="function") saveTen();
+  buildNav(); render(); toast("削除しました"+(TEN?`。「${TEN.item||TEN.file}」を表示しています`:"。新しい資料をアップロードできます"));
 }
 
 $("#bell").addEventListener("click",openNotif);
 $("#psw").addEventListener("change",e=>{
   const v=e.target.value;
   if(v==="custom"){ PID="custom"; syncTenant(); }
+  else if(v.startsWith("t:")){ switchTen(+v.slice(2)); toast(`「${TEN.item||TEN.file}」に切り替えました`); return; }
   else if(v.startsWith("s2:")){ adoptSample2(v.slice(3)); return; }
   else { PID=v; D=PRODUCTS[PID]; TEN=tenantFromSample(D); }
   shipStep=0; SHIPQA=[]; FILL.on=false; buildNav(); render(); toast(`${D.cat}／${D.co} に切り替えました`);});
@@ -4467,25 +5016,17 @@ async function fxJob(){
   return [{t:"為替レート（USD/JPY）ライブ取得",src:"frankfurter.dev（欧州中央銀行の公表値）",d:j.date,live:1,
     s:`いま取得した参考レートは 1米ドル＝${j.rates.JPY}円（${j.date}公表）。実務ではこの値に銀行手数料（±1〜2円程度）が乗ります。`}];
 }
-async function wikiJob(q){
-  const qq=String(q).replace(/[？?。、!！]/g," ")
-    .replace(/(について|とは何ですか|とは|教えてください|教えて|ください|どうなってる|ですか)/g," ").trim();
-  if(!qq) return [];
-  const u="https://ja.wikipedia.org/w/api.php?action=query&list=search&format=json&origin=*&utf8=1&srlimit=2&srprop=snippet&srsearch="+encodeURIComponent(qq);
-  const r=await fetch(u,{cache:"no-store"});
-  if(!r.ok) throw new Error("wiki "+r.status);
-  const j=await r.json();
-  return ((j.query&&j.query.search)||[]).map(x=>({t:x.title,src:"Wikipedia（日本語版）",d:"ライブ取得",live:1,
-    s:String(x.snippet||"").replace(/<[^>]+>/g,"")+"…"}));
-}
+/* Wikipedia検索は「質問と無関係な記事が混ざる」ため廃止（顧客FB反映）。
+   ライブ取得は精度が保証できる為替APIのみ。一般的な貿易知識は内蔵ナレッジ、
+   本格的なWeb検索は接続中のAIエンジン（Perplexity／Geminiグラウンディング）が担う。 */
 async function liveSearch(q){
   const s=norm2(q), jobs=[];
   if(/(為替|かわせ|レート|ドル円|円相場|円安|円高|usd|jpy)/.test(s)) jobs.push(fxJob());
-  jobs.push(wikiJob(q));
+  if(!jobs.length) return {hits:[],blocked:false};
   const res=await Promise.allSettled(jobs.map(j=>wtimeout(j,4500)));
   const hits=[]; let fail=0;
   res.forEach(r=>{ if(r.status==="fulfilled") hits.push(...r.value); else fail++; });
-  return {hits:hits.slice(0,3),blocked:hits.length===0&&fail===res.length};
+  return {hits:hits.slice(0,3),blocked:hits.length===0&&fail===res.length&&jobs.length>0};
 }
 const WEBDB=[
  {cat:null,k:["為替","かわせ","ドル","円安","円高","レート","usd","jpy"],
@@ -4559,9 +5100,9 @@ function searchWeb(q){
   return scored.slice(0,3).map(x=>x.e);
 }
 function webBlock(hits,mode){
-  const head=mode==="live"?"🌐 Web検索の結果（ライブ）"
-    :mode==="mixed"?"🌐 Web検索の結果（ライブ＋内蔵の貿易ナレッジ）"
-    :"🌐 Web検索の結果（内蔵の貿易ナレッジ：この環境は外部通信が遮断されています）";
+  const head=mode==="live"?"🌐 参考情報（ライブ取得）"
+    :mode==="mixed"?"🌐 参考情報（ライブ取得＋内蔵の貿易ナレッジ）"
+    :"🌐 参考情報（内蔵の貿易ナレッジ）";
   return `<div style="margin-top:11px;border:1px solid var(--bl);border-radius:var(--r2);overflow:hidden">
    <div style="background:var(--bl-soft);padding:6px 11px;font-size:10.5px;font-weight:700;color:var(--bl)">${head}</div>
    <div style="padding:9px 12px;display:flex;flex-direction:column;gap:9px">
@@ -4640,11 +5181,60 @@ let LLM=(function(){
   return {on:false,prov:"perplexity",keys:{},models:{},eps:{}};
 })();
 function ppSave(){ try{localStorage.setItem(PPKEY,JSON.stringify(LLM));}catch(e){} }
+/* ── 利用プラン（ユーザーが選択。プランに応じて稼働モデルと利用料金が変わる） ── */
+const PLANS={
+ lite:{nm:"ライト",price:"月額利用料に含む",eng:"内蔵エンジン",
+   desc:"登録データからの即答。外部AIは使いません（外部AI費用ゼロ）"},
+ std:{nm:"スタンダード",price:"＋3万円/月",eng:"高速AIモデル",
+   desc:"実AIが回答・資料読み取り。日常利用向けの速度重視モデル",
+   models:{perplexity:"sonar",openai:"gpt-5.6-luna",gemini:"gemini-3.6-flash",anthropic:"claude-haiku-4-5"}},
+ pro:{nm:"プレミアム",price:"＋8万円/月",eng:"最上位AIモデル",
+   desc:"最高精度。HS判別・規制判断・外国語資料の生成に",
+   models:{perplexity:"sonar-pro",openai:"gpt-5.6",gemini:"gemini-3.5-flash",anthropic:"claude-opus-5"}},
+};
+let USERPLAN=(function(){ try{ const p=localStorage.getItem("bc20_plan_v1");
+  return PLANS[p]?p:"std"; }catch(e){ return "std"; } })();
+function setPlan(p){
+  if(!PLANS[p]) return;
+  USERPLAN=p; try{localStorage.setItem("bc20_plan_v1",p);}catch(e){}
+  if(typeof logU==="function") logU("ai","プラン変更:"+PLANS[p].nm);
+  toast(`プランを「${PLANS[p].nm}」に変更しました（${PLANS[p].price}）`);
+  if(typeof render==="function") render();
+}
 function llmKey(){ return (LLM.keys[LLM.prov]||"").trim(); }
-function llmModel(){ return (LLM.models[LLM.prov]||"").trim()||PROV[LLM.prov].def; }
+function llmModel(){
+  const t=PLANS[USERPLAN];
+  if(USERPLAN!=="lite"&&t&&t.models&&t.models[LLM.prov]) return t.models[LLM.prov];
+  return (LLM.models[LLM.prov]||"").trim()||PROV[LLM.prov].def;
+}
 function llmEp(){ return (LLM.eps[LLM.prov]||"").trim()||PROV[LLM.prov].ep; }
 function llmLabel(){ return PROV[LLM.prov].short; }
-function ppReady(){ return !!(LLM&&LLM.on&&llmKey()); }
+function ppReady(){ return !!(LLM&&LLM.on&&llmKey())&&USERPLAN!=="lite"; }
+/* AI商社マン画面のプラン選択カード */
+function planCardHtml(){
+  const conn=!!(LLM&&LLM.on&&llmKey());
+  return `<div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between">
+      <div><h3>AI商社マンの稼働モデル（利用プラン）</h3>
+        <p class="nn">プランに応じて、AIの賢さと<b>貿易クラウドの月額利用料</b>が変わります。トライアル中は無料で切り替えて比較できます。</p></div>
+      <span class="p ${USERPLAN==="lite"?"lo":"hi"}">${PLANS[USERPLAN].nm}</span></div>
+    <div class="g3" style="margin-top:10px;gap:8px">
+      ${Object.entries(PLANS).map(([k,p])=>`
+        <button class="smp" data-plan="${k}" style="padding:11px 12px;text-align:left;
+          ${k===USERPLAN?"border-color:var(--or);background:var(--or-soft)":""}">
+          <div class="rw" style="justify-content:space-between;margin-bottom:3px">
+            <b style="font-size:12.5px">${p.nm}</b>
+            <span class="p ${k===USERPLAN?"or":"lo"}" style="font-size:9.5px">${p.price}</span></div>
+          <span style="font-size:10.5px;color:var(--ink-2);display:block">${p.eng}${k!=="lite"&&p.models?`（${esc(p.models[LLM.prov]||"")}）`:""}</span>
+          <span style="font-size:10px;color:var(--ink-3);display:block;margin-top:3px;line-height:1.5">${p.desc}</span>
+        </button>`).join("")}
+    </div>
+    ${USERPLAN!=="lite"&&!conn?`<p class="nn" style="margin-top:8px;color:var(--warn)">⚠ このプランの実AIは、管理者が管理コンソールでAIエンジン（APIキー）を接続すると有効になります。それまでは内蔵エンジンで回答します。</p>`:""}
+  </div>`;
+}
+function planBind(){
+  document.querySelectorAll("[data-plan]").forEach(b=>b.addEventListener("click",()=>setPlan(b.dataset.plan)));
+}
 
 function ppContext(){
   if(!D) return "（商品情報は未登録）";
@@ -5028,9 +5618,18 @@ function copyTxt(t){
   else fb();
 }
 function saveTen(){ if(!SES||SES.t!=="trial")return;
-  try{ if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")) localStorage.setItem("bc20_ten_"+SES.code,JSON.stringify(TEN)); }catch(e){} }
+  try{ if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")&&TENS[TIDX]!==TEN){
+      if(TENS.includes(TEN)) TIDX=TENS.indexOf(TEN); else TENS[TIDX]=TEN; }
+    localStorage.setItem("bc20_ten_"+SES.code,
+      JSON.stringify({v:2,list:TENS.filter(t=>t&&(t.src==="upload"||t.src==="sample2")),idx:TIDX})); }catch(e){} }
 function loadTen(){ if(!SES||SES.t!=="trial")return null;
-  try{ const j=JSON.parse(localStorage.getItem("bc20_ten_"+SES.code)); if(j&&(j.src==="upload"||j.src==="sample2")) return j; }catch(e){}
+  try{ const j=JSON.parse(localStorage.getItem("bc20_ten_"+SES.code));
+    if(j&&j.v===2&&Array.isArray(j.list)){
+      TENS=j.list.filter(t=>t&&(t.src==="upload"||t.src==="sample2")).slice(0,TEN_MAX);
+      TIDX=Math.min(Math.max(0,j.idx||0),Math.max(0,TENS.length-1));
+      return TENS[TIDX]||null; }
+    if(j&&(j.src==="upload"||j.src==="sample2")){ TENS=[j]; TIDX=0; return j; }  /* 旧形式からの移行 */
+  }catch(e){}
   return null; }
 function clearTen(){ if(!SES||SES.t!=="trial")return;
   try{ localStorage.removeItem("bc20_ten_"+SES.code); }catch(e){} }
@@ -5312,7 +5911,7 @@ function patchAiToggle(){
     `<button class="tgl" id="webtg" aria-pressed="${WEBON}" ${perm?"":"disabled"}
       title="${perm?"ONにすると、Webをライブ検索して回答に加えます":"管理者がWeb検索を停止しています"}">
       <span class="sw"></span>🌐 Web検索</button>
-    <span class="p ${typeof ppReady==="function"&&ppReady()?"hi":"lo"}" title="${typeof ppReady==="function"&&ppReady()?"外部AI（"+llmLabel()+"）に接続中。自由質問は実際のLLMが回答します":"管理コンソールでAIエンジン（ChatGPT/Gemini/Claude/Perplexity）を接続すると、実LLMで回答します"}">${typeof ppReady==="function"&&ppReady()?"🔮 "+llmLabel()+"接続中":"内蔵エンジン"}</span>`);
+    <span class="p ${typeof ppReady==="function"&&ppReady()?"hi":"lo"}" title="${typeof ppReady==="function"&&ppReady()?"外部AI（"+llmLabel()+"）に接続中。自由質問は実際のLLMが回答します":"管理コンソールでAIエンジン（ChatGPT/Gemini/Claude/Perplexity）を接続すると、実LLMで回答します"}">${typeof ppReady==="function"&&ppReady()?"🔮 "+llmLabel()+"接続中・"+(typeof PLANS!=="undefined"?PLANS[USERPLAN].nm:""):"内蔵エンジン"+(typeof USERPLAN!=="undefined"&&USERPLAN==="lite"?"・ライトプラン":"")}</span>`);
   $("#webtg").onclick=()=>{ WEBON=!WEBON;
     $("#webtg").setAttribute("aria-pressed",String(WEBON));
     const n=$("#ainote"); if(n) n.innerHTML=WEBON
