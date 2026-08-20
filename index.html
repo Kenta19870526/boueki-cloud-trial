@@ -5855,6 +5855,35 @@ let LLM=(function(){
   return {on:false,prov:"perplexity",keys:{},models:{},eps:{}};
 })();
 function ppSave(){ try{localStorage.setItem(PPKEY,JSON.stringify(LLM));}catch(e){} }
+/* ── タブ間同期 ──
+   接続設定・プランはページ読込時に一度だけ読まれるため、管理コンソールを別タブで
+   操作した場合（ログインはタブごと＝管理者と物流会社を並行して開ける）に、
+   もう一方のタブが「未接続」のまま古い状態で止まる。storageイベント（別タブの保存で発火）
+   とタブ復帰時に再読込し、状態が変わったときだけ再描画する。 */
+function llmReload(){
+  try{const j=JSON.parse(localStorage.getItem(PPKEY));
+    if(j&&j.prov&&PROV[j.prov]){ LLM.on=!!j.on; LLM.prov=j.prov;
+      LLM.keys=j.keys||{}; LLM.models=j.models||{}; LLM.eps=j.eps||{}; }
+  }catch(e){}
+  try{const p=localStorage.getItem("bc20_plan_v1"); if(typeof PLANS!=="undefined"&&PLANS[p]) USERPLAN=p;}catch(e){}
+  try{const f=localStorage.getItem("bc20_fwdplan_v1");
+    if(typeof FWDPLANS!=="undefined"&&FWDPLANS[f]) FWDPLAN=f;}catch(e){}
+}
+function llmSig(){
+  return [LLM.on?1:0,LLM.prov,(LLM.keys[LLM.prov]||"").length,
+    typeof USERPLAN!=="undefined"?USERPLAN:"",
+    typeof FWDPLAN!=="undefined"?FWDPLAN:""].join("|");
+}
+function llmSyncNow(rerender){
+  const before=llmSig(); llmReload();
+  if(llmSig()!==before&&rerender&&typeof render==="function"){ render(); return true; }
+  return llmSig()!==before;
+}
+window.addEventListener("storage",e=>{
+  if(!e||!e.key||e.key===PPKEY||e.key==="bc20_plan_v1"||e.key==="bc20_fwdplan_v1") llmSyncNow(true);
+});
+window.addEventListener("focus",()=>llmSyncNow(true));
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) llmSyncNow(true); });
 /* ── 利用プラン（ユーザーが選択。プランに応じて稼働モデルと利用料金が変わる） ── */
 const PLANS={
  lite:{nm:"ライト",price:"月額利用料に含む",eng:"内蔵エンジン",
@@ -6818,13 +6847,39 @@ function fwdAiCard(){
           <span style="font-size:10px;color:var(--ink-3);display:block;margin-top:3px;line-height:1.5">${p.desc}</span>
         </button>`).join("")}
     </div>
-    <p class="nn" style="margin-top:8px">エンジン：<b>${conn?esc(typeof llmLabel==="function"?llmLabel()+"（管理者が接続済み）":"接続済み"):"未接続"}</b>
-    ${conn?"":"　— APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します（キーがお客様の端末に渡ることはありません）。接続までは、Excel・CSVのローカル解析と定型見積で動きます。"}
-    ${conn&&FWDPLAN==="lite"?`　<span style="color:var(--warn)">ライトプランのため実AIは停止中です（PDF読み取り・AI応答文はスタンダード以上で有効）。</span>`:""}</p>
+    <div class="rw" style="margin-top:8px;align-items:center;gap:7px">
+      <span class="nn" style="margin:0">エンジン：<b>${conn?esc(typeof llmLabel==="function"?llmLabel()+"（管理者が接続済み）":"接続済み"):"未接続"}</b></span>
+      <button class="btn g" id="fwdresync" style="padding:4px 10px;font-size:10.5px" title="管理コンソール（別タブ含む）での接続・変更を読み直します">🔄 接続状態を再確認</button>
+      ${conn?`<button class="btn g" id="fwdaitest" style="padding:4px 10px;font-size:10.5px" title="いまのプランのモデルで実際にAIへ疎通確認します">⚡ 接続テスト</button>`:""}
+    </div>
+    <p class="nn" id="fwdaires" style="margin-top:5px"></p>
+    <p class="nn" style="margin-top:5px">
+    ${conn?"":"APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します（キーがお客様の端末に渡ることはありません）。接続までは、Excel・CSVのローカル解析と定型見積で動きます。<br><span style='color:var(--warn)'>💡 管理画面で接続済みなのに「未接続」と出る場合：</span>接続設定は<b>ブラウザ・URLごと</b>に保存されます。管理者が接続したのと<b>同じURL・同じブラウザ</b>でご利用のうえ、「🔄 接続状態を再確認」を押してください（別タブで接続した直後は自動でも同期されます）。"}
+    ${conn&&FWDPLAN==="lite"?`<span style="color:var(--warn)">ライトプランのため実AIは停止中です（PDF読み取り・AI応答文はスタンダード以上で有効）。</span>`:""}</p>
   </div>`;
 }
 function fwdAiBind(){
   document.querySelectorAll("[data-fwdplan]").forEach(b=>b.addEventListener("click",()=>fwdSetPlan(b.dataset.fwdplan)));
+  const rs=$("#fwdresync");
+  if(rs) rs.onclick=()=>{
+    if(typeof llmReload==="function") llmReload();
+    fwdRender();
+    toast("接続状態を確認しました：🤖 "+fwdEngLabel());
+  };
+  const ts=$("#fwdaitest");
+  if(ts) ts.onclick=async()=>{
+    const out=m=>{const e=$("#fwdaires"); if(e) e.innerHTML=m;};
+    if(!fwdConnected()){ out("エンジン未接続のためテストできません。"); return; }
+    if(FWDPLAN==="lite"){ out("ライトプランは内蔵エンジンで動作します（実AIのテストはスタンダード以上）。"); return; }
+    ts.disabled=true; out(`<span class="spin"></span> ${esc(fwdEngLabel())} に接続しています…`);
+    try{
+      const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1,model:fwdModel()});
+      out(`<span style="color:var(--good)">✓ AI物流マンは稼働できます（model: ${esc(r.model)}／応答: ${esc(r.txt).slice(0,30)}）</span>`);
+    }catch(e){
+      out(`<span style="color:var(--crit)">✗ 接続できませんでした：${esc(String(e.message)).slice(0,110)}</span>`);
+    }
+    ts.disabled=false;
+  };
 }
 
 /* ── 見積ロジック（AI物流マン） ── */
@@ -6872,6 +6927,7 @@ async function fwdMsgsAI(req,rate,q){
 async function fwdRequest(){
   if(!D||!D.ship){ toast("先に価格表・寸法・進出希望国を登録してください"); return; }
   fwdLoad();
+  if(typeof llmReload==="function") llmReload();
   const cty=D.ship.country, pod=FWD_POD[cty]||cty, pol=D.pol||"横浜港";
   const req={id:"RQ-"+Date.now().toString(36).toUpperCase().slice(-6),d:TODAYS,
     co:(TEN&&TEN.co)||D.co||"荷主",item:D.item||"—",cat:D.cat||"一般貨物",
@@ -6966,6 +7022,7 @@ function fwdNav(){
 }
 function fwdRender(){
   fwdLoad();
+  if(typeof llmSyncNow==="function") llmSyncNow(false); /* 描画のたびに接続状態を最新化 */
   const g=$("#guide"); if(g) g.hidden=true;
   well.innerHTML=fwdCur==="frates"?fwdRatesHtml():fwdInboxHtml();
   fwdBindPage();
@@ -7151,6 +7208,7 @@ function fwdRateDone(rs,how){
   if(typeof logU==="function") logU("fwd","レート取込:"+rs.length+"レーン");
 }
 async function fwdRateFile(f){
+  if(typeof llmReload==="function") llmReload(); /* 読み取り直前に接続状態を最新化 */
   const st=$("#fwdupst");
   const say=m=>{ const e=$("#fwdupst"); if(e) e.innerHTML=m; };
   const fail=m=>{ const e=$("#fwdupst"); if(e) e.innerHTML=`<div style="padding:11px 13px;border:1px solid var(--crit);background:var(--crit-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.7"><b style="color:var(--crit)">読み取れませんでした</b><br>${m}</div>`; toast("レート表を読み取れませんでした"); };
