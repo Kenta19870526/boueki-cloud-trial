@@ -2142,13 +2142,18 @@ async function fileB64(file){
   for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));
   return btoa(s);
 }
-/* AIエンジンがこの形式を直接読めるか */
-function llmCanFile(ext){
-  if(typeof ppReady!=="function"||!ppReady()) return false;
+/* 接続中プロバイダがこの形式を扱えるか（接続状態は見ない・純粋な能力判定） */
+function provCanFile(ext){
+  if(typeof LLM==="undefined") return false;
   const p=LLM.prov;
   if(/^(png|jpg|jpeg)$/.test(ext)) return true;               /* 画像は4社対応 */
   if(ext==="pdf") return p==="gemini"||p==="anthropic"||p==="openai";
   return false;
+}
+/* AIエンジン（荷主側プラン）がこの形式を直接読めるか */
+function llmCanFile(ext){
+  if(typeof ppReady!=="function"||!ppReady()) return false;
+  return provCanFile(ext);
 }
 /* ── docx / pptx のローカル抽出 ── */
 function xdoc(xml){ return new DOMParser().parseFromString(xml,"application/xml"); }
@@ -5966,7 +5971,8 @@ async function llmWebCtx(q){
 async function llmAsk(q,maxTok,opts){
   if(typeof window!=="undefined"&&window.__llmMock) return window.__llmMock(q,maxTok,opts);
   opts=opts||{};
-  const prov=LLM.prov, P=PROV[prov], key=llmKey(), model=llmModel(), ep=llmEp();
+  /* opts.model：呼び出し側プラン（例：物流会社プラン）による稼働モデルの上書き */
+  const prov=LLM.prov, P=PROV[prov], key=llmKey(), model=opts.model||llmModel(), ep=llmEp();
   const sys=opts.sys||llmSysPrompt();
   const webOK=(typeof WEBON!=="undefined"&&WEBON&&(typeof webPerm!=="function"||webPerm()))&&!opts.noWeb;
   let userQ=q, extHits=[];
@@ -6762,6 +6768,65 @@ function fwdLoad(){
 function fwdSave(){ try{localStorage.setItem(FWDKEY,JSON.stringify(FWDB));}catch(e){} }
 const FWD_THC=12000, FWD_DOC=8000;
 
+/* ── AI物流マンの利用プラン（物流会社側で選択。荷主プランとは独立に課金・稼働） ── */
+const FWDPLANS={
+ lite:{nm:"ライト",price:"月額利用料に含む",eng:"内蔵エンジン",
+   desc:"Excel・CSVレート表の構造解析と定型見積のみ。外部AIは使いません（外部AI費用ゼロ）"},
+ std:{nm:"スタンダード",price:"＋3万円/月",eng:"高速AIモデル",
+   desc:"PDF・画像レート表のAI読み取り、AI交渉の自然な応答。日常運用向け"},
+ pro:{nm:"プレミアム",price:"＋8万円/月",eng:"最上位AIモデル",
+   desc:"複雑な料金表（例外条件・多通貨・付帯費）の理解と、高精度な見積応答"},
+};
+let FWDPLAN=(function(){ try{const p=localStorage.getItem("bc20_fwdplan_v1");
+  return FWDPLANS[p]?p:"std"; }catch(e){ return "std"; } })();
+function fwdSetPlan(p){
+  if(!FWDPLANS[p]) return;
+  FWDPLAN=p; try{localStorage.setItem("bc20_fwdplan_v1",p);}catch(e){}
+  if(typeof logU==="function") logU("fwd","AI物流マンのプラン変更:"+FWDPLANS[p].nm);
+  toast(`AI物流マンのプランを「${FWDPLANS[p].nm}」に変更しました（${FWDPLANS[p].price}）`);
+  if(FWDON) fwdRender(); else if(typeof render==="function") render();
+}
+/* エンジン接続（管理者がキーを設定済みか）と、物流会社プランでの稼働可否 */
+function fwdConnected(){ return !!(typeof LLM!=="undefined"&&LLM&&LLM.on&&(LLM.keys[LLM.prov]||"").trim()); }
+function fwdReady(){ return fwdConnected()&&FWDPLAN!=="lite"; }
+function fwdModel(){
+  if(FWDPLAN!=="lite"&&typeof PLANS!=="undefined"&&PLANS[FWDPLAN]&&PLANS[FWDPLAN].models)
+    return PLANS[FWDPLAN].models[LLM.prov]||undefined;
+  return undefined;
+}
+function fwdCanFile(ext){ return fwdReady()&&(typeof provCanFile==="function"&&provCanFile(ext)); }
+function fwdEngLabel(){
+  return fwdReady()
+    ?`${typeof llmLabel==="function"?llmLabel():"AI"}・${FWDPLANS[FWDPLAN].nm}${fwdModel()?"（"+fwdModel()+"）":""}`
+    :`内蔵エンジン${FWDPLAN==="lite"?"・ライトプラン":"（エンジン未接続）"}`;
+}
+function fwdAiCard(){
+  const conn=fwdConnected();
+  return `<div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between">
+      <div><h3>🤖 AI物流マンの稼働設定（利用プラン）</h3>
+        <p class="nn">プランに応じてAI物流マンの賢さと<b>物流会社アカウントの月額利用料</b>が変わります。荷主側のプランとは<b>独立</b>です。トライアル中は無料で切り替えて比較できます。</p></div>
+      <span class="p ${FWDPLAN==="lite"?"lo":"hi"}">${FWDPLANS[FWDPLAN].nm}</span></div>
+    <div class="g3" style="margin-top:10px;gap:8px">
+      ${Object.entries(FWDPLANS).map(([k,p])=>`
+        <button class="smp" data-fwdplan="${k}" style="padding:11px 12px;text-align:left;
+          ${k===FWDPLAN?"border-color:var(--or);background:var(--or-soft)":""}">
+          <div class="rw" style="justify-content:space-between;margin-bottom:3px">
+            <b style="font-size:12.5px">${p.nm}</b>
+            <span class="p ${k===FWDPLAN?"or":"lo"}" style="font-size:9.5px">${p.price}</span></div>
+          <span style="font-size:10.5px;color:var(--ink-2);display:block">${p.eng}${k!=="lite"&&typeof PLANS!=="undefined"&&PLANS[k]&&PLANS[k].models?`（${esc(PLANS[k].models[LLM.prov]||"")}）`:""}</span>
+          <span style="font-size:10px;color:var(--ink-3);display:block;margin-top:3px;line-height:1.5">${p.desc}</span>
+        </button>`).join("")}
+    </div>
+    <p class="nn" style="margin-top:8px">エンジン：<b>${conn?esc(typeof llmLabel==="function"?llmLabel()+"（管理者が接続済み）":"接続済み"):"未接続"}</b>
+    ${conn?"":"　— APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します（キーがお客様の端末に渡ることはありません）。接続までは、Excel・CSVのローカル解析と定型見積で動きます。"}
+    ${conn&&FWDPLAN==="lite"?`　<span style="color:var(--warn)">ライトプランのため実AIは停止中です（PDF読み取り・AI応答文はスタンダード以上で有効）。</span>`:""}</p>
+  </div>`;
+}
+function fwdAiBind(){
+  document.querySelectorAll("[data-fwdplan]").forEach(b=>b.addEventListener("click",()=>fwdSetPlan(b.dataset.fwdplan)));
+}
+
 /* ── 見積ロジック（AI物流マン） ── */
 function fwdFindRate(pod){
   return FWDB.rates.find(r=>r.pod===pod&&r.mode==="LCL")||FWDB.rates.find(r=>r.pod===pod)||null;
@@ -6795,6 +6860,7 @@ async function fwdMsgsAI(req,rate,q){
   合計 ¥${q.total.toLocaleString()}／所要${q.tt}日／有効期限 ${q.valid}
 ・物流マンは危険物該当と貨物量を確認し、商社マンは登録データから即答する。最後は商社マンが荷主に向けて合計と所要日数をまとめる。
 ・数字は上の事実から一切変えないこと。`,1400,{noWeb:1,timeout:60000,
+    model:fwdReady()?fwdModel():undefined,
     sys:"あなたは貿易実務のシミュレーター。返答は指定JSONのみ。"});
   let t=r.txt.replace(/```json|```/g,"").trim();
   const a=t.indexOf("{"),b=t.lastIndexOf("}");
@@ -6823,7 +6889,9 @@ async function fwdRequest(){
   const q=fwdQuoteCalc(rate,req.cbm);
   let msgs;
   try{
-    msgs=(typeof ppReady==="function"&&ppReady())?await fwdMsgsAI(req,rate,q):fwdMsgsLocal(req,rate,q);
+    /* AI応答文の生成：物流会社側プランを優先、無効なら荷主側エンジン、どちらも無ければ内蔵 */
+    const gen=fwdReady()||(typeof ppReady==="function"&&ppReady());
+    msgs=gen?await fwdMsgsAI(req,rate,q):fwdMsgsLocal(req,rate,q);
   }catch(e){ msgs=fwdMsgsLocal(req,rate,q); }
   req.msgs=msgs; req.quote=q; req.status="AI回答済み";
   FWDB.reqs.unshift(req); fwdSave();
@@ -6911,7 +6979,8 @@ function fwdInboxHtml(){
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span><span class="nt">この版で新規</span></div>
     <h1>見積受信箱</h1>
     <p class="cando"><b>この画面でできること：</b>荷主からの見積依頼に、<b>AI物流マンが貴社のレート表から自動で回答</b>した記録を確認できます。人が対応する前に、AI同士で条件確認まで終わっています。</p></div>
-    <div class="rw"><button class="btn g" onclick="fwdCur='frates';fwdNav();fwdRender()">レートを管理する</button></div></div>
+    <div class="rw"><span class="p ${fwdReady()?"hi":"lo"}" title="AI物流マンの稼働状態（変更はレート管理画面から）">🤖 ${esc(fwdEngLabel())}</span>
+      <button class="btn g" onclick="fwdCur='frates';fwdNav();fwdRender()">レート・AI設定</button></div></div>
   <div class="g4" style="margin-bottom:11px">
     ${[["受信した依頼",R.length+"<small>件</small>","荷主の「出荷を進める」から届きます"],
        ["AI自動回答",done+"<small>件</small>","レート表から数十秒で回答"],
@@ -6946,7 +7015,9 @@ function fwdRatesHtml(){
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span></div>
     <h1>物流レート管理</h1>
     <p class="cando"><b>この画面でできること：</b>レート表をアップロード（またはその場で追加）すると、<b>AIが必要情報（区間・運賃・所要日数・有効期限）を引き出し</b>、以後の見積依頼にAI物流マンが自動回答します。</p></div>
-    <div class="rw"><button class="btn g" onclick="fwdCur='finbox';fwdNav();fwdRender()">受信箱へ戻る</button></div></div>
+    <div class="rw"><span class="p ${fwdReady()?"hi":"lo"}" title="AI物流マンの稼働状態">🤖 ${esc(fwdEngLabel())}</span>
+      <button class="btn g" onclick="fwdCur='finbox';fwdNav();fwdRender()">受信箱へ戻る</button></div></div>
+  ${fwdAiCard()}
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c"><h3>レート表をアップロード</h3>
       <p class="nn"><b>Excel（.xlsx）・CSV・PDF・画像</b>に対応。表のヘッダー行（仕出港・仕向港・運賃…）から列を自動判別するので、<b>お手元の料金表をそのまま</b>お使いいただけます。列名が特殊な表やPDF・画像は、接続中のAIが読み取ります。</p>
@@ -7058,7 +7129,8 @@ async function fwdRatesLLM(src){
 {"rates":[{"pol":"仕出港","pod":"仕向港","mode":"LCL|FCL20|FCL40|AIR","price":数値,"unit":"/m³|/本|/kg","tt":所要日数の数値,"valid":"YYYY-MM-DD","note":"備考"}]}
 読み取れた行のみ。通貨がUSDの場合は換算せずpriceにそのまま数値、noteに"USD建て"と書く。`+
 (src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),2500,
-    {att:src.att,noWeb:1,timeout:120000,sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ。"});
+    {att:src.att,noWeb:1,timeout:120000,model:fwdModel(),
+     sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ。"});
   const j=xParseJson(r.txt);
   return (j.rates||[]).filter(x=>x&&x.pol&&x.pod&&+x.price)
     .map(x=>({pol:String(x.pol),pod:String(x.pod),mode:fwdNormMode(x.mode),
@@ -7083,7 +7155,8 @@ async function fwdRateFile(f){
   const say=m=>{ const e=$("#fwdupst"); if(e) e.innerHTML=m; };
   const fail=m=>{ const e=$("#fwdupst"); if(e) e.innerHTML=`<div style="padding:11px 13px;border:1px solid var(--crit);background:var(--crit-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.7"><b style="color:var(--crit)">読み取れませんでした</b><br>${m}</div>`; toast("レート表を読み取れませんでした"); };
   const ext=FEXT(f.name);
-  const on=(typeof ppReady==="function"&&ppReady());
+  const on=fwdReady();
+  const aiHow=()=>"AI抽出（"+esc(fwdEngLabel())+"）";
   try{
     /* Excel（そのまま対応） */
     if(/^(xlsx|xlsm)$/.test(ext)){
@@ -7093,11 +7166,11 @@ async function fwdRateFile(f){
       let {rates}=fwdRatesFromGrids(grids);
       let how="ローカル解析";
       if(!rates.length&&on){
-        say(`<span class="spin"></span> 表の構造が特殊なため、接続中のAIが読み取っています…（10〜40秒）`);
+        say(`<span class="spin"></span> 表の構造が特殊なため、AI物流マン（${esc(fwdEngLabel())}）が読み取っています…（10〜40秒）`);
         const text=sheets.map(s=>s.name+"\n"+s.grid.map(r=>(r||[]).join("\t")).join("\n")).join("\n\n");
-        rates=await fwdRatesLLM({text}); how="AI抽出（"+(typeof llmLabel==="function"?llmLabel():"AI")+"）";
+        rates=await fwdRatesLLM({text}); how=aiHow();
       }
-      if(!rates.length) return fail(`表からレーンを特定できませんでした。ヘッダー行に<b>仕出港・仕向港・運賃</b>の列名があるか確認してください。${on?"":"<br>💡 AIエンジンを接続すると、列名が無い表でもAIが読み取れます。"}`);
+      if(!rates.length) return fail(`表からレーンを特定できませんでした。ヘッダー行に<b>仕出港・仕向港・運賃</b>の列名があるか確認してください。${on?"":"<br>💡 AI物流マンを稼働（下の設定でスタンダード以上＋管理者のエンジン接続）すると、列名が無い表でもAIが読み取れます。"}`);
       return fwdRateDone(rates,how);
     }
     /* CSV / TXT（Shift-JIS自動判定） */
@@ -7108,25 +7181,33 @@ async function fwdRateFile(f){
       let {rates}=fwdRatesFromGrids([grid]);
       let how="ローカル解析";
       if(!rates.length&&on){
-        say(`<span class="spin"></span> 接続中のAIが読み取っています…`);
-        rates=await fwdRatesLLM({text}); how="AI抽出（"+(typeof llmLabel==="function"?llmLabel():"AI")+"）";
+        say(`<span class="spin"></span> AI物流マン（${esc(fwdEngLabel())}）が読み取っています…`);
+        rates=await fwdRatesLLM({text}); how=aiHow();
       }
       if(!rates.length) return fail(`行を特定できませんでした。1行目にヘッダー（<b>仕出港,仕向港,形態,運賃,日数</b>）を付けるか、その並び順でお願いします。`);
       return fwdRateDone(rates,how);
     }
-    /* PDF / 画像（接続AI） */
+    /* PDF / 画像（AI物流マンが読む。状態別に案内を出し分け） */
     if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
-      if(!(on&&llmCanFile(ext))){
-        return fail(`PDF・画像の読み取りには<b>AIエンジンの接続</b>が必要です（管理コンソールで設定。PDFはGemini／Claude／ChatGPT系が対応）。<br>Excel（.xlsx）・CSVなら未接続でもこのまま取り込めます。`); }
-      say(`<span class="spin"></span> 接続中のAI（${typeof llmLabel==="function"?esc(llmLabel()):"AI"}）がレート表を読み取っています…（10〜60秒）`);
+      if(!fwdConnected()){
+        return fail(`PDF・画像の読み取りには<b>AIエンジンの接続</b>が必要です。APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します（お客様の端末にキーは渡りません）。このデモでは、ログイン画面の「STANDAGE管理者」→「AIエンジン設定」から接続できます。<br>💡 接続前でも <b>Excel（.xlsx）・CSV</b> ならこのまま取り込めます。`);
+      }
+      if(FWDPLAN==="lite"){
+        return fail(`現在<b>ライトプラン（内蔵エンジン）</b>のため、PDF・画像のAI読み取りは停止中です。下の<b>「🤖 AI物流マンの稼働設定」でスタンダード（＋3万円/月）以上</b>に変更してください。トライアル中は無料で切り替えられます。<br>💡 Excel（.xlsx）・CSVはライトのままでも取り込めます。`);
+      }
+      if(!provCanFile(ext)){
+        return fail(`接続中の<b>${esc(PROV[LLM.prov].nm)}</b>は、${ext==="pdf"?"PDF":"この形式"}の直接読み取りに対応していません。管理コンソールで<b>Gemini／Claude／ChatGPT系</b>のエンジンに切り替えるか、Excel（.xlsx）・CSVでお願いします。`);
+      }
+      say(`<span class="spin"></span> AI物流マン（${esc(fwdEngLabel())}）がレート表を読み取っています…（10〜60秒）`);
       const rates=await fwdRatesLLM({att:{mime:FMIME[ext],b64:await fileB64(f),name:f.name}});
       if(!rates.length) return fail("レーンを読み取れませんでした。表が鮮明に写っているかご確認ください。");
-      return fwdRateDone(rates,"AI抽出（"+(typeof llmLabel==="function"?llmLabel():"AI")+"）");
+      return fwdRateDone(rates,aiHow());
     }
     fail(`この形式（.${esc(ext)}）は未対応です。<b>Excel（.xlsx）・CSV・PDF・画像</b>でお願いします。<br>Googleスプレッドシートは「ファイル→ダウンロード→ .xlsx」で書き出せます。`);
   }catch(e){ fail(esc(String(e.message)).slice(0,80)); }
 }
 function fwdBindPage(){
+  fwdAiBind();
   document.querySelectorAll("[data-fwdq]").forEach(x=>x.addEventListener("click",()=>openFwdQuote(x.dataset.fwdq)));
   const dz=$("#fwdrop"), fi=$("#fwdfile");
   if(dz&&fi){
