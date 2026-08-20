@@ -1343,7 +1343,9 @@ async function unzip(buf){
       lho=dv.getUint32(p+42,true);
     const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nl));
     p+=46+nl+el+cl;
-    if(!/^(xl\/|docProps\/)/.test(name)) continue;
+    /* xlsxに加え docx（word/）・pptx（ppt/）も読む。画像等のバイナリはスキップ */
+    if(!/^(xl\/|docProps\/|word\/|ppt\/)/.test(name)) continue;
+    if(/\.(png|jpe?g|gif|emf|wmf|bin)$/i.test(name)) continue;
     const lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
     const ds=lho+30+lnl+lel, raw=u8.subarray(ds,ds+csz);
     try{ out[name]=meth===8?await inflateRaw(raw):raw; }catch(e){}
@@ -2204,24 +2206,64 @@ function tenantFromTextGrids(text,grids,filename,pages){
     strengths:findStrengths(sheets),targets:[],nSheets:pages||1,nTables:tabs.length};
   return t;
 }
-/* ── AIによる構造化抽出 ── */
+/* ── AIによる構造化抽出（複数商品対応） ── */
 const XFIELDS=["co","coEn","item","itemEn","sku","hs","origin","cert","shelf","term","pay","pol","lead","moq","ctn","cat"];
-async function llmXtract(o){  /* o={text?|att?,filename} → 部分テナント */
-  const sys=`あなたは貿易書類の読み取り専門家。与えられた商品資料から情報を抽出し、JSONだけを返す（前後の文章・コードフェンス禁止）。
-スキーマ（読み取れた項目のみ。推測で埋めない）:
-{"co":"社名","coEn":"英文社名","item":"商品名","itemEn":"英文商品名","sku":"品番","hs":"HSコード(9999.99形式)",
-"origin":"産地","cert":"認証","shelf":"賞味期限/保証","term":"インコタームズ","pay":"支払条件","pol":"仕出港",
-"lead":"リードタイム","moq":"最小発注数量","ctn":"カートン/パレット入数",
+const XPROD_SCHEMA=`{"name":"短い商品名","item":"商品名","itemEn":"英文商品名","sku":"品番","hs":"HSコード(9999.99形式)",
+"cert":"認証","shelf":"賞味期限/保証","lead":"リードタイム","moq":"最小発注数量","ctn":"カートン/パレット入数",
 "cat":"食品|化粧品|工業部品|日用雑貨|中古車|酒類|アパレル|医療・衛生用品|その他",
-"targets":["進出希望国"],"strengths":[["強みの見出し","補足"]],
+"strengths":[["強みの見出し（数字があれば数字を残す）","補足"]],
 "priceCols":["列名"],"priceRows":[["行"]],"dimCols":[],"dimRows":[],"compCols":[],"compRows":[],"compTitle":"表の名前"}`;
-  const user=(o.filename?`ファイル名: ${o.filename}\n`:"")+
-    (o.text?`=== 資料テキスト ===\n${String(o.text).slice(0,11000)}`:"添付ファイルを読み取り、スキーマに従って抽出してください。");
-  const r=await llmAsk(user,1800,{sys,noWeb:1,att:o.att,timeout:90000});
-  let t=r.txt.replace(/```json|```/g,"").trim();
+function xParseJson(raw){
+  let t=String(raw||"").replace(/```json|```/g,"").trim();
   const a=t.indexOf("{"),b=t.lastIndexOf("}");
   if(a<0||b<=a) throw new Error("抽出結果の形式が不正");
   return JSON.parse(t.slice(a,b+1));
+}
+async function llmXtract(o){  /* o={text?|att?,filename} → 部分テナント（フラット互換＋_multi） */
+  const sys=`あなたは貿易商社の資料読み取り専門家。与えられた商品資料を深く読み、JSONだけを返す（前後の文章・コードフェンス禁止）。
+スキーマ:
+{"summary":"この資料が何かを1〜2文で（例：〇〇社の商品戦略資料。3商品の成分・エビデンス・市場が記載）",
+ "docType":"商品規格書|価格表|商品戦略・企画資料|会社案内|その他",
+ "co":"社名","coEn":"英文社名","origin":"産地・製造国","term":"インコタームズ","pay":"支払条件","pol":"仕出港",
+ "targets":["進出したい・販売したい国（本文から読み取れる場合のみ）"],
+ "products":[${XPROD_SCHEMA}],
+ "notes":["営業・輸出の観点でAIが気づいたこと（最大3件。規制の制約・強い訴求点など）"]}
+規則：
+・商品が複数載っている資料は products を商品ごとに分ける（主要な順に最大3件）。
+・読み取れた項目のみ。推測で埋めない。数値・単位は原文のまま。
+・成分・含有量・エビデンスは strengths や compRows に落とし込む（例：「ゲニステイン25mg配合」）。
+・輸出可否の制約（例：ASEAN輸出不可・台湾は可）を見つけたら notes に必ず入れる。`;
+  const user=(o.filename?`ファイル名: ${o.filename}\n`:"")+
+    (o.text?`=== 資料テキスト ===\n${String(o.text).slice(0,18000)}`:"添付ファイルを読み取り、スキーマに従って抽出してください。");
+  let j;
+  try{
+    const r=await llmAsk(user,4000,{sys,noWeb:1,att:o.att,timeout:150000});
+    j=xParseJson(r.txt);
+  }catch(e1){
+    /* 1回だけリトライ（JSON崩れ・途中切れ対策） */
+    const r2=await llmAsk(user+"\n\n※必ず完全なJSONのみを返すこと。長い表は主要行のみに絞ってよい。",3500,
+      {sys,noWeb:1,att:o.att,timeout:150000});
+    j=xParseJson(r2.txt);
+  }
+  const prods=Array.isArray(j.products)?j.products.filter(p=>p&&(p.item||p.name)):[];
+  const p0=prods[0]||{};
+  const flat={co:j.co,coEn:j.coEn,origin:j.origin,term:j.term,pay:j.pay,pol:j.pol,
+    targets:Array.isArray(j.targets)?j.targets:[],
+    item:p0.item||p0.name,itemEn:p0.itemEn,sku:p0.sku,hs:p0.hs,cert:p0.cert,shelf:p0.shelf,
+    lead:p0.lead,moq:p0.moq,ctn:p0.ctn,cat:p0.cat,strengths:p0.strengths,
+    priceCols:p0.priceCols,priceRows:p0.priceRows,dimCols:p0.dimCols,dimRows:p0.dimRows,
+    compCols:p0.compCols,compRows:p0.compRows,compTitle:p0.compTitle};
+  flat._multi=prods; flat._summary=j.summary||""; flat._doc=j.docType||"";
+  flat._notes=Array.isArray(j.notes)?j.notes.slice(0,3):[];
+  return flat;
+}
+/* 商品ごとの部分データ → 共通情報を合成したフラット形式に */
+function xProdFlat(x,p){
+  return {co:x.co,coEn:x.coEn,origin:x.origin,term:x.term,pay:x.pay,pol:x.pol,targets:x.targets,
+    item:p.item||p.name,itemEn:p.itemEn,sku:p.sku,hs:p.hs,cert:p.cert,shelf:p.shelf,
+    lead:p.lead,moq:p.moq,ctn:p.ctn,cat:p.cat,strengths:p.strengths,
+    priceCols:p.priceCols,priceRows:p.priceRows,dimCols:p.dimCols,dimRows:p.dimRows,
+    compCols:p.compCols,compRows:p.compRows,compTitle:p.compTitle};
 }
 /* 部分データ x を テナント t にマージ（空欄のみ埋める）。変更一覧を返す */
 function mergeTen(t,x){
@@ -2257,6 +2299,20 @@ function mergeTen(t,x){
   if(x.compTitle&&(!t.compTitle||t.compTitle==="成分表・材質表")) t.compTitle=String(x.compTitle).slice(0,20);
   return ch;
 }
+/* 抽出結果を「反映待ち」として整形（マージはユーザー確認後） */
+function xPend(t,x){
+  const prods=(x._multi&&x._multi.length?x._multi:[{item:x.item,name:x.item}]).slice(0,3);
+  const pend={summary:x._summary||"",doc:x._doc||"",notes:x._notes||[],prods:[]};
+  prods.forEach((p,i)=>{
+    const flat=i===0?x:xProdFlat(x,p);
+    const probe=JSON.parse(JSON.stringify(t)); /* 空テナントに試しマージして取り込める項目を数える */
+    Object.keys(probe).forEach(k=>{ if(typeof probe[k]==="string")probe[k]=""; if(Array.isArray(probe[k]))probe[k]=[]; });
+    const ch=mergeTen(probe,flat);
+    pend.prods.push({name:p.name||p.item||("商品"+(i+1)),x:flat,ch});
+  });
+  t._pend=pend;
+  return t;
+}
 /* アップロード画面のマスターエントリ：どの形式でもテナントを返す */
 async function fileToTenant(file){
   const ext=FEXT(file.name);
@@ -2265,19 +2321,98 @@ async function fileToTenant(file){
     const ex=ext==="docx"?await extractDocx(file):await extractPptx(file);
     const t=tenantFromTextGrids(ex.text,ex.grids,file.name,ex.pages);
     if(typeof ppReady==="function"&&ppReady()){
-      try{ const x=await llmXtract({text:ex.text.slice(0,11000),filename:file.name}); mergeTen(t,x); t.aiRead=1; }catch(e){}
+      try{ const x=await llmXtract({text:ex.text.slice(0,18000),filename:file.name});
+        t.aiRead=1; xPend(t,x); }catch(e){}
     }
     return t;
   }
   if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
     if(!llmCanFile(ext)){ const err=new Error("needai"); err.needai=1; err.ext=ext; throw err; }
+    if(file.size>20e6){ const err=new Error("PDF・画像は20MBまでです（"+Math.round(file.size/1e6)+"MB）。分割するか軽量版をお試しください"); throw err; }
     const att={mime:FMIME[ext],b64:await fileB64(file),name:file.name};
     const x=await llmXtract({att,filename:file.name});
     const t=blankTenant(file.name,{sheets:1}); delete t.unparsed;
-    mergeTen(t,x); t.aiRead=1; t.nTables=(x.priceRows?1:0)+(x.dimRows?1:0)+(x.compRows?1:0);
+    t.aiRead=1; t.nTables=(x.priceRows&&x.priceRows.length?1:0)+(x.dimRows&&x.dimRows.length?1:0)+(x.compRows&&x.compRows.length?1:0);
+    xPend(t,x);
     return t;
   }
   const err=new Error("unsupported"); err.needai=0; throw err;
+}
+/* ═══ ヒアリング開始（賢い導入：資料理解の要約→反映の確認→不足ヒアリング） ═══ */
+const __fillStart0=fillStart;
+fillStart=function(){
+  if(!TEN||TEN.src!=="upload"){ return __fillStart0(); }
+  FILL={on:true,log:[],cur:null,sel:[]};
+  const s=scoreOf(TEN);
+  /* A) AI抽出の反映待ちがある：内容を提示して確認を取る */
+  if(TEN._pend&&TEN._pend.prods&&TEN._pend.prods.length){
+    const P=TEN._pend;
+    const NM=k=>({co:"会社名",coEn:"英文社名",item:"商品名",itemEn:"英文商品名",sku:"品番",hs:"HSコード",
+      origin:"産地",cert:"認証",shelf:"賞味期限",term:"取引条件",pay:"支払条件",pol:"仕出港",lead:"リードタイム",
+      moq:"MOQ",ctn:"入数",cat:"商材カテゴリ"}[k]||k);
+    let m=`<b>${esc(TEN.file)}</b> を読み込みました。`;
+    if(P.summary) m+=`<br><br><b>AIの理解：</b>${esc(P.summary)}`;
+    m+=`<br><br><b>この資料から読み取れた情報：</b>`;
+    P.prods.forEach((p,i)=>{
+      m+=`<br>${P.prods.length>1?`<b>${"①②③"[i]} ${esc(p.name)}</b>：`:""}${p.ch.length?p.ch.map(esc).join("・"):"（構造化できる項目なし）"}`;
+    });
+    if(P.notes.length) m+=`<br><br><b>🤖 AIの気づき：</b><br>`+P.notes.map(n=>"・"+esc(n)).join("<br>");
+    m+=`<br><br>この内容を商品情報に<b>反映してよろしいでしょうか？</b>${P.prods.length>1?`<br><span style="font-size:10.5px;color:var(--ink-3)">複数商品が見つかったため、${P.prods.length}件を別々の商品スロットに登録します（最大10件）。</span>`:""}`;
+    FILL.cur={k:"_pend",n:"読み取り内容の確認",w:0,use:"商品情報への反映",
+      chips:P.prods.length>1?["すべて反映する","1件目だけ反映する","反映しない（ゼロから入力）"]
+        :["反映して進める","反映しない（ゼロから入力）"]};
+    fillSay("ai",m,{ask:FILL.cur});
+    render(); return;
+  }
+  /* B) 反映待ちなし：状況に応じた正直な導入 */
+  if(TEN.unparsed&&!s.filled.length){
+    const isPdf=/\.(pdf|png|jpe?g)$/i.test(TEN.file||"");
+    const on=(typeof ppReady==="function"&&ppReady());
+    fillSay("ai",`<b>${esc(TEN.file)}</b> をお預かりしました。${
+      isPdf?(on?`接続中のAIエンジン（${typeof llmLabel==="function"?esc(llmLabel()):"AI"}）では、この形式の中身まで読み取れませんでした。<b>PDF・画像の読み取りはGemini／Claude／ChatGPT系エンジンが対応</b>しています（管理コンソールで切替できます）。`
+        :`<b>PDF・画像の中身の読み取りには、AIエンジンの接続が必要です</b>（管理者が管理コンソールで接続すると、AIが資料全体を理解して自動で取り込みます）。`)
+      :`この形式からは構造化できる表・項目が見つかりませんでした。`}<br><br>
+      ご安心ください。<b>ここから一緒に作れます。</b>必要な${NEED.length}項目を、重要な順に1つずつ伺います。
+      途中で📎から別の資料（Excel・規格書など）を追加いただければ、AIが読み取って自動で埋めます。`);
+    fillNext(); return;
+  }
+  fillSay("ai",`資料を読み込みました。<b>${esc(TEN.file)}</b> から
+    ${TEN.nSheets}シート・${TEN.nTables}個の表を検出し、<b>${s.filled.length}項目</b>を取り込みました。<br><br>
+    いまの充足度は <b>${s.pct}%</b> です。${s.missing.length?`貿易クラウドがフルパワーで動くには、あと<b>${s.missing.length}項目</b>。
+    <b>資料を理解した上で、足りない情報だけを順番に伺いますね。</b>途中でのご質問・修正依頼・📎資料追加もOKです。`
+    :"<b>すべての項目が揃っています。</b>"}`);
+  fillNext();
+};
+/* 反映確認への応答（fillAnswerラッパーから呼ばれる） */
+function pendApply(mode){
+  const P=TEN._pend; delete TEN._pend;
+  if(!P||mode==="none"){
+    fillSay("ai",`承知しました。読み取り内容は反映せず、<b>ゼロから一緒に作ります</b>。1つずつ伺いますね。`);
+    if(typeof saveTen==="function") saveTen();
+    fillNext(); return;
+  }
+  const ch0=mergeTen(TEN,P.prods[0].x);
+  if(P.notes&&P.notes.length) TEN.aiNotes=[...new Set((TEN.aiNotes||[]).concat(P.notes))];
+  let extra="";
+  if(mode==="all"&&P.prods.length>1){
+    const added=[];
+    P.prods.slice(1).forEach(p=>{
+      if(TENS.length>=TEN_MAX) return;
+      const t2=blankTenant(TEN.file,{sheets:TEN.nSheets}); delete t2.unparsed;
+      t2.aiRead=1; mergeTen(t2,p.x);
+      TENS.push(t2); added.push(p.name);
+    });
+    if(added.length) extra=`<br>さらに<b>${added.map(esc).join("・")}</b>を別の商品スロットに登録しました（画面上部のプルダウンや「商品情報を登録」から切替できます）。`;
+  }
+  syncTenant(); if(typeof saveTen==="function") saveTen();
+  if(typeof logU==="function") logU("upload","AI抽出を反映:"+ch0.length+"項目");
+  const s=scoreOf(TEN);
+  fillSay("ai",`反映しました：<b>${ch0.length}項目</b>（${ch0.slice(0,8).map(esc).join("・")}${ch0.length>8?" ほか":""}）${extra}<br>
+    充足度は <b>${s.pct}%</b> になりました。<br><br>
+    ${s.missing.length?`ここからは<b>資料に載っていなかった${s.missing.length}項目だけ</b>を、重要な順に伺いますね。
+    お手元に別の資料（価格表・規格書など）があれば📎から追加いただければ、その分は入力不要になります。`
+    :"<b>必要な情報はすべて揃いました。</b>"}`);
+  fillNext();
 }
 /* ── 充足度ヒアリング中の📎添付（不足分だけ一緒に埋める） ── */
 async function fillAttach(f){
@@ -2467,6 +2602,16 @@ async function fieldSuggest(k){
 const __fillAnsB4hs=fillAnswer;
 fillAnswer=function(v){
   const vs=String(v).trim();
+  /* 読み取り内容の反映確認への応答 */
+  if(FILL.cur&&FILL.cur.k==="_pend"){
+    fillSay("u",esc(vs));
+    FILL.cur=null;
+    if(/すべて反映/.test(vs)) return pendApply("all");
+    if(/1件目|反映して進める/.test(vs)) return pendApply("first");
+    if(/反映しない|ゼロから/.test(vs)) return pendApply("none");
+    if(/反映|はい|お願い|OK/i.test(vs)) return pendApply(TEN._pend&&TEN._pend.prods.length>1?"all":"first");
+    return pendApply("none");
+  }
   if(FILL.cur&&!FILL.cur.x){
     const k=FILL.cur.k;
     /* AI提案の採用／却下（_sug保持中） */
@@ -2579,7 +2724,19 @@ fillAnswer=function(v){
           const cu=FILL.cur;
           fillSay("ai",`承知しました。<b>${label}</b>を「<b>${esc(String(j.fieldValue))}</b>」に変更しました。${j.reply?esc(j.reply):""}
             <div class="ci">${esc(j.reask||`続けて「${cu.n}」をお願いします。`)}</div>`,{ask:cu});
-          render(); return;
+          render();
+          /* 商品名・会社名の修正 → 対応する英文表記が空・日本語・不自然なら自動で追随更新 */
+          if((j.field==="item"||j.field==="co")&&typeof ppReady==="function"&&ppReady()){
+            const enK=j.field+"En", old=String(TEN[enK]||"");
+            if(!old||/[ぁ-んァ-ヶ一-龠]/.test(old)||valSick(old)){
+              fieldSuggest(enK).then(sug=>{
+                TEN[enK]=sug; syncTenant(); if(typeof saveTen==="function") saveTen();
+                fillSay("ai",`あわせて<b>${NEEDKEYS_NM[enK]}</b>も「<b>${esc(sug)}</b>」に更新しました（輸出書類はこの表記を使います。修正したい場合は「${NEEDKEYS_NM[enK]}を〇〇に変更して」とご依頼ください）。`);
+                render();
+              }).catch(()=>{});
+            }
+          }
+          return;
         }
         if(j.kind==="question"){
           const cu=FILL.cur;
@@ -2620,6 +2777,133 @@ fillAnswer=function(v){
   }
   return __fillAnsB4hs(v);
 };
+
+/* ═══════════ ④ データ健全性チェック（AIによる登録データの点検・修復） ═══════════
+   過去の誤登録（修正依頼文・質問文・「わかりません」等がそのまま値になっている）を検出し、
+   AI接続時は正しい値を提案。修正はワンクリックで全画面（書類・営業資料・AI回答）へ波及する。 */
+const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|暑い|寒い|テストです)/;
+function valSick(v){
+  v=String(v||"").trim(); if(!v) return false;
+  if(SICK_RE.test(v)) return true;
+  if(/[？?]$/.test(v)) return true;
+  return false;
+}
+const KNOWN_CTY=["香港","台湾","シンガポール","アメリカ","タイ","ベトナム","マレーシア","韓国","UAE","フランス","ドイツ","オーストラリア","中国","インドネシア","イギリス","インド","エジプト","ブラジル","メキシコ","カナダ","フィリピン","サウジアラビア","ナイジェリア","ケニア","モンゴル","チリ","スペイン","イタリア","オランダ"];
+function tenHealth(t){
+  if(!t) return [];
+  const out=[];
+  const SCAL={co:"会社名",coEn:"英文社名",item:"商品名",itemEn:"英文商品名",cat:"商材カテゴリ",sku:"品番",
+    cert:"認証",origin:"産地",term:"取引条件",pay:"支払条件",pol:"仕出港",shelf:"賞味期限・保証",
+    moq:"MOQ",lead:"リードタイム",ctn:"入数"};
+  Object.entries(SCAL).forEach(([k,label])=>{
+    const v=String(t[k]||"");
+    if(!v) return;
+    if(valSick(v)) out.push({k,label,val:v,why:"会話文・依頼文がそのまま登録されています"});
+    else if((k==="itemEn"||k==="coEn")&&/[ぁ-んァ-ヶ一-龠]/.test(v))
+      out.push({k,label,val:v,why:"英文欄に日本語が入っています（通関書類はこの表記を使います）"});
+  });
+  const badT=(t.targets||[]).filter(c=>valSick(c)||(!KNOWN_CTY.includes(c)&&/[ぁ-ん]/.test(c)));
+  if(badT.length) out.push({k:"targets",label:"進出希望国",val:badT.join("、"),why:"国名でない値が混ざっています"});
+  const badS=(t.strengths||[]).filter(s=>valSick(s[0]));
+  if(badS.length) out.push({k:"strengths",label:"商品の強み",val:badS.map(s=>s[0]).join("／"),why:"強みでない文が混ざっています"});
+  [["dimRows","寸法・重量"],["priceRows","価格表"],["compRows","成分・材質表"]].forEach(([k,label])=>{
+    const bad=(t[k]||[]).filter(r=>valSick((Array.isArray(r)?r.join(" "):String(r))));
+    if(bad.length) out.push({k,label,val:bad.map(r=>Array.isArray(r)?r.filter(Boolean).join(" "):r).join("／"),why:"表の行に会話文が混ざっています"});
+  });
+  return out;
+}
+async function healthPropose(issues){
+  const ctx=`商品名=${TEN.item||"未登録"}／カテゴリ=${TEN.cat||"未定"}／会社名=${TEN.co||"未登録"}／産地=${TEN.origin||"未登録"}`;
+  const r=await llmAsk(
+`貿易クラウドに誤って登録された値の一覧です。登録済みの他の情報から正しい値を推測できる項目のみ提案してください。
+${ctx}
+誤登録一覧：
+${issues.map(i=>`- ${i.label}（キー:${i.k}）: 「${i.val}」`).join("\n")}`,900,{noWeb:1,timeout:40000,
+    sys:`あなたは貿易データの整備担当。JSONのみ返す: {"fixes":[{"k":"キー","value":"提案値（推測できない場合はnull）","note":"20字以内の根拠"}]}
+英文商品名・英文社名は他の登録情報から生成してよい。国名リストは正しい国名だけ残す。表の行・強みはnull（不正行の削除を推奨）でよい。`});
+  const j=xParseJson(r.txt);
+  const map={};
+  (j.fixes||[]).forEach(f=>{ if(f&&f.k) map[f.k]={value:f.value,note:f.note||""}; });
+  return map;
+}
+function healthApply(items){
+  const done=[];
+  items.forEach(({k,input})=>{
+    const v=String(input||"").trim();
+    if(k==="targets"){
+      const good=(TEN.targets||[]).filter(c=>!(valSick(c)||(!KNOWN_CTY.includes(c)&&/[ぁ-ん]/.test(c))));
+      TEN.targets=v?[...new Set(v.split(/[、,\/\s]+/).filter(Boolean).concat(good))]:good;
+      done.push("進出希望国"); return;
+    }
+    if(k==="strengths"){ TEN.strengths=(TEN.strengths||[]).filter(s=>!valSick(s[0]));
+      if(v) TEN.strengths.push([v,""]); done.push("商品の強み"); return; }
+    if(k==="dimRows"||k==="priceRows"||k==="compRows"){
+      TEN[k]=(TEN[k]||[]).filter(r=>!valSick(Array.isArray(r)?r.join(" "):String(r)));
+      if(v&&k==="dimRows") TEN.dimRows.push([v]);
+      done.push({dimRows:"寸法・重量",priceRows:"価格表",compRows:"成分・材質表"}[k]); return;
+    }
+    if(v) applyAnswer(TEN,k,v); else TEN[k]="";
+    if(k==="hs"&&!v) TEN.hsGuess=true;
+    done.push(NEEDKEYS_NM[k]||k);
+  });
+  syncTenant(); if(typeof saveTen==="function") saveTen();
+  if(typeof logU==="function") logU("fill","データ健全性チェックで修正:"+done.length+"件");
+  return done;
+}
+function openHealth(){
+  const issues=tenHealth(TEN);
+  if(!issues.length){ openDW(`<h3>🧹 データ健全性チェック</h3>
+    <p class="nn" style="margin-top:8px"><b style="color:var(--good)">問題は見つかりませんでした。</b>登録データはきれいな状態です。</p>
+    <div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`); return; }
+  const on=(typeof ppReady==="function"&&ppReady());
+  const row=(i,idx,sug,note)=>`
+    <div style="padding:10px 0;border-bottom:1px dashed var(--line-2)">
+      <div class="rw" style="justify-content:space-between;gap:8px">
+        <b style="font-size:12px">${esc(i.label)}</b>
+        <label style="font-size:10.5px;display:flex;gap:4px;align-items:center"><input type="checkbox" data-hfix="${idx}" checked>修正する</label></div>
+      <p style="font-size:10.5px;color:var(--crit);margin:3px 0 1px">現在：「${esc(i.val.slice(0,70))}${i.val.length>70?"…":""}」</p>
+      <p style="font-size:10px;color:var(--ink-3);margin:0 0 5px">${esc(i.why)}${note?`　<span style="color:var(--or-deep)">AI：${esc(note)}</span>`:""}</p>
+      <input class="sel" data-hval="${idx}" value="${esc(sug||"")}" placeholder="空欄のまま適用＝この値を消去（あとでAIヒアリングで埋め直せます）" style="width:100%;box-sizing:border-box;font-size:11.5px">
+    </div>`;
+  openDW(`<h3>🧹 データ健全性チェック <span class="p no">${issues.length}件</span></h3>
+    <p class="nn" style="margin-top:6px">過去の登録で、<b>会話文や質問文がそのまま値として保存された箇所</b>が見つかりました。
+    ここで直すと、書類・営業資料・AIの回答すべてに正しく反映されます。</p>
+    <div id="hlist" style="margin-top:8px">${issues.map((i,idx)=>row(i,idx,"","")).join("")}</div>
+    <p class="nn" id="hai" style="margin-top:8px">${on?"🤖 接続中のAIが正しい値を推測しています…":"AIエンジン接続時は、正しい値をAIが自動提案します（現在は手入力またはクリア）。"}</p>
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="happly">チェックした項目を修正する</button>
+      <button class="btn g" onclick="closeDW()">あとで</button></div>`);
+  $("#happly").onclick=()=>{
+    const items=[];
+    issues.forEach((i,idx)=>{
+      const cb=document.querySelector(`[data-hfix="${idx}"]`);
+      if(cb&&cb.checked) items.push({k:i.k,input:(document.querySelector(`[data-hval="${idx}"]`)||{}).value});
+    });
+    if(!items.length){ toast("修正する項目にチェックを入れてください"); return; }
+    const done=healthApply(items);
+    closeDW(); render();
+    toast("修正しました："+done.map(d=>typeof d==="string"?d:String(d)).join("・"));
+  };
+  if(on) healthPropose(issues).then(map=>{
+    issues.forEach((i,idx)=>{
+      const f=map[i.k]; if(!f) return;
+      const inp=document.querySelector(`[data-hval="${idx}"]`);
+      if(inp&&!inp.value&&f.value) inp.value=String(f.value);
+      if(f.note){ const p=inp&&inp.closest("div"); }
+    });
+    const h=$("#hai"); if(h) h.innerHTML="🤖 AIの提案値を入力欄に入れました。<b>内容を確認のうえ「修正する」を押してください</b>（提案が空欄の項目は消去→あとでヒアリングで埋め直しがおすすめ）。";
+  }).catch(()=>{ const h=$("#hai"); if(h) h.textContent="（AI提案の取得に失敗しました。手入力またはクリアで修正できます）"; });
+}
+function healthBanner(){
+  if(!TEN||!(TEN.src==="upload"||TEN.src==="sample2")) return "";
+  const n=tenHealth(TEN).length;
+  if(!n) return "";
+  return `<div class="c" style="margin-bottom:11px;border-color:var(--crit);background:var(--crit-soft)">
+    <div class="rw" style="justify-content:space-between">
+      <div><b style="color:var(--crit);font-size:12.5px">⚠ 登録データに不自然な値が ${n}件 あります</b>
+        <p class="nn" style="margin-top:3px">過去の入力で会話文がそのまま登録された可能性があります。修正すると書類・営業資料・AI回答が正しくなります。</p></div>
+      <button class="btn" onclick="openHealth()">🧹 内容を確認して修正</button></div></div>`;
+}
 
 /* ═══════════ 外国語 営業資料の自動生成（PPTX・ブラウザ内で完結） ═══════════
    登録済みの商品情報から、英語／中文簡体／中文繁體／Español／한국어 の営業資料を
@@ -2724,21 +3008,33 @@ const DECK_L={
   docs:"Export documents ready",duty:"Import duty",contact:"CONTACT US",
   cta:"Samples and detailed quotations available upon request.",tbc:"TBC",
   dutyNote:"Duties are preliminary estimates; to be confirmed via advance tariff ruling.",
-  poweredBy:"Prepared with BOEKI CLOUD by STANDAGE"},
+  poweredBy:"Prepared with BOEKI CLOUD by STANDAGE",
+  about:"COMPANY & BRAND",whyjp:"WHY JAPAN QUALITY",lineup:"PRODUCT LINEUP",
+  logi:"LOGISTICS & LEAD TIME",flow:["Inquiry","Order / PI","Production","Shipping","Delivery"],
+  next:"NEXT STEPS",n1:"Request product samples",n2:"Receive a detailed quotation (per your volume)",
+  n3:"Regulatory check & first trial order",origin:"Origin",supply:"Stable supply from Japan"},
  zhCN:{name:"中文（简体）",flag:"🇨🇳",ea:"Microsoft YaHei",
   deck:"全球销售资料",conf:"机密文件",made:"日本制造",why:"产品价值",market:"目标市场与准入条件",
   str:"核心优势",spec:"产品规格",photo:"产品照片",dims:"包装与尺寸",price:"价格与贸易条件",
   unit:"单价",moq:"最小起订量",lead:"交货期",term:"贸易条款",pay:"付款条件",port:"装运港",
   comp:"合规与认证",cert:"认证",docs:"出口单证齐备",duty:"进口关税",contact:"联系我们",
   cta:"欢迎垂询样品与详细报价。",tbc:"待确认",
-  dutyNote:"关税为初步估算，以海关预裁定为准。",poweredBy:"由 STANDAGE BOEKI CLOUD 生成"},
+  dutyNote:"关税为初步估算，以海关预裁定为准。",poweredBy:"由 STANDAGE BOEKI CLOUD 生成",
+  about:"公司与品牌",whyjp:"日本品质的理由",lineup:"产品阵容",
+  logi:"物流与交期",flow:["询价","下单 / PI","生产","出运","交付"],
+  next:"下一步",n1:"索取产品样品",n2:"按贵司数量获取详细报价",n3:"法规确认与首次试订单",
+  origin:"产地",supply:"日本直供・稳定供货"},
  zhTW:{name:"中文（繁體）",flag:"🇹🇼",ea:"Microsoft JhengHei",
   deck:"全球銷售資料",conf:"機密文件",made:"日本製造",why:"產品價值",market:"目標市場與准入條件",
   str:"核心優勢",spec:"產品規格",photo:"產品照片",dims:"包裝與尺寸",price:"價格與貿易條件",
   unit:"單價",moq:"最小訂購量",lead:"交貨期",term:"貿易條款",pay:"付款條件",port:"裝運港",
   comp:"合規與認證",cert:"認證",docs:"出口單證齊備",duty:"進口關稅",contact:"聯絡我們",
   cta:"歡迎洽詢樣品與詳細報價。",tbc:"待確認",
-  dutyNote:"關稅為初步估算，以海關預先裁定為準。",poweredBy:"由 STANDAGE BOEKI CLOUD 生成"},
+  dutyNote:"關稅為初步估算，以海關預先裁定為準。",poweredBy:"由 STANDAGE BOEKI CLOUD 生成",
+  about:"公司與品牌",whyjp:"日本品質的理由",lineup:"產品陣容",
+  logi:"物流與交期",flow:["詢價","下單 / PI","生產","出運","交付"],
+  next:"下一步",n1:"索取產品樣品",n2:"依貴司數量取得詳細報價",n3:"法規確認與首次試訂單",
+  origin:"產地",supply:"日本直供・穩定供貨"},
  es:{name:"Español",flag:"🇪🇸",ea:"Arial",
   deck:"PRESENTACIÓN GLOBAL DE VENTAS",conf:"Confidencial",made:"Hecho en Japón",
   why:"POR QUÉ ESTE PRODUCTO",market:"MERCADOS OBJETIVO Y ACCESO",str:"FORTALEZAS CLAVE",
@@ -2748,36 +3044,78 @@ const DECK_L={
   cert:"Certificaciones",docs:"Documentos de exportación listos",duty:"Arancel",contact:"CONTACTO",
   cta:"Muestras y cotizaciones detalladas disponibles bajo pedido.",tbc:"Por confirmar",
   dutyNote:"Aranceles preliminares; a confirmar mediante resolución anticipada.",
-  poweredBy:"Elaborado con BOEKI CLOUD de STANDAGE"},
+  poweredBy:"Elaborado con BOEKI CLOUD de STANDAGE",
+  about:"EMPRESA Y MARCA",whyjp:"CALIDAD JAPONESA",lineup:"LÍNEA DE PRODUCTOS",
+  logi:"LOGÍSTICA Y PLAZOS",flow:["Consulta","Pedido / PI","Producción","Embarque","Entrega"],
+  next:"PRÓXIMOS PASOS",n1:"Solicitar muestras del producto",n2:"Cotización detallada según su volumen",
+  n3:"Verificación regulatoria y primer pedido de prueba",origin:"Origen",supply:"Suministro estable desde Japón"},
  ko:{name:"한국어",flag:"🇰🇷",ea:"Malgun Gothic",
   deck:"글로벌 세일즈 자료",conf:"대외비",made:"메이드 인 재팬",why:"제품 가치",market:"타깃 시장 및 진입 조건",
   str:"핵심 강점",spec:"제품 사양",photo:"제품 사진",dims:"포장 및 치수",price:"가격 및 거래 조건",
   unit:"단가",moq:"최소 주문 수량",lead:"납기",term:"인코텀즈",pay:"결제 조건",port:"선적항",
   comp:"규제 대응 및 인증",cert:"인증",docs:"수출 서류 준비 완료",duty:"수입 관세",contact:"문의하기",
   cta:"샘플 및 상세 견적은 문의해 주세요.",tbc:"확인 예정",
-  dutyNote:"관세는 잠정치이며, 사전 심사로 확정됩니다.",poweredBy:"STANDAGE BOEKI CLOUD 생성"},
+  dutyNote:"관세는 잠정치이며, 사전 심사로 확정됩니다.",poweredBy:"STANDAGE BOEKI CLOUD 생성",
+  about:"회사와 브랜드",whyjp:"일본 품질의 이유",lineup:"제품 라인업",
+  logi:"물류 및 납기",flow:["문의","주문 / PI","생산","선적","납품"],
+  next:"다음 단계",n1:"제품 샘플 요청",n2:"수량에 맞춘 상세 견적",n3:"규제 확인 및 첫 시험 주문",
+  origin:"원산지",supply:"일본 직송・안정 공급"},
 };
-/* ── 値の翻訳（AI接続時のみ。キャッシュあり） ── */
+/* 国名の静的翻訳（[en, zhCN, zhTW, es, ko]） */
+const CTY_L={
+ "香港":["Hong Kong","香港","香港","Hong Kong","홍콩"],"台湾":["Taiwan","台湾","台灣","Taiwán","대만"],
+ "シンガポール":["Singapore","新加坡","新加坡","Singapur","싱가포르"],"アメリカ":["USA","美国","美國","EE. UU.","미국"],
+ "タイ":["Thailand","泰国","泰國","Tailandia","태국"],"ベトナム":["Vietnam","越南","越南","Vietnam","베트남"],
+ "マレーシア":["Malaysia","马来西亚","馬來西亞","Malasia","말레이시아"],"韓国":["South Korea","韩国","韓國","Corea del Sur","한국"],
+ "UAE":["UAE","阿联酋","阿聯酋","EAU","UAE"],"フランス":["France","法国","法國","Francia","프랑스"],
+ "ドイツ":["Germany","德国","德國","Alemania","독일"],"オーストラリア":["Australia","澳大利亚","澳洲","Australia","호주"],
+ "中国":["China","中国","中國","China","중국"],"インドネシア":["Indonesia","印度尼西亚","印尼","Indonesia","인도네시아"],
+ "イギリス":["UK","英国","英國","Reino Unido","영국"],"インド":["India","印度","印度","India","인도"],
+ "ケニア":["Kenya","肯尼亚","肯亞","Kenia","케냐"],"タンザニア":["Tanzania","坦桑尼亚","坦尚尼亞","Tanzania","탄자니아"],
+ "モンゴル":["Mongolia","蒙古","蒙古","Mongolia","몽골"],"エジプト":["Egypt","埃及","埃及","Egipto","이집트"],
+ "ブラジル":["Brazil","巴西","巴西","Brasil","브라질"],"メキシコ":["Mexico","墨西哥","墨西哥","México","멕시코"],
+ "カナダ":["Canada","加拿大","加拿大","Canadá","캐나다"],"フィリピン":["Philippines","菲律宾","菲律賓","Filipinas","필리핀"],
+ "サウジアラビア":["Saudi Arabia","沙特阿拉伯","沙烏地阿拉伯","Arabia Saudita","사우디아라비아"],
+ "日本":["Japan","日本","日本","Japón","일본"],"ロシア":["Russia","俄罗斯","俄羅斯","Rusia","러시아"]};
+const CTY_LI={en:0,zhCN:1,zhTW:2,es:3,ko:4};
+function ctyL(lang,name){ const e=CTY_L[name]; return e?e[CTY_LI[lang]]:name; }
+/* ── 値の翻訳（AI接続時のみ。内容ハッシュでキャッシュ＝データを直すと必ず作り直す） ── */
 let DECKC={};
-async function deckTranslate(lang){
+function djb2(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(36);}
+/* 資料に載せる商品ラインアップ（複数商品登録時は他スロットも載せる） */
+function deckLineup(){
+  const list=(typeof TENS!=="undefined"&&TENS&&TENS.length>1)
+    ?TENS.slice(0,3).map(t=>[t.item||t.file||"—",[t.cat,t.moq?("MOQ "+t.moq):""].filter(Boolean).join(" / ")])
+    :(D.priceRows||[]).slice(0,3).map(r=>[String(r[0]||""),String((r[1]&&String(r[1]).charAt(0)!=="$"&&!/^\d/.test(String(r[1])))?r[1]:"")]);
+  return list.filter(x=>x[0]&&x[0]!=="—").length?list:[[D.item||"—",D.cat||""]];
+}
+function deckSrc(lang){
+  const docs=(Object.values(D.regs||{})[0]||{docs:[]}).docs.slice(0,6).map(String);
   const src={item:D.item||"",tagline:D.tagline||"",cat:D.cat||"",
     strengths:(D.strengths||[]).slice(0,5).map(s=>[s[0]||"",s[1]||""]),
     specs:(D.compRows||[]).slice(0,6).map(r=>[String(r[0]||""),String(r[1]||"")]),
     priceCols:(D.priceCols||[]).map(String),
+    priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(v=>String(v??""))),
     dims:(D.dimRows||[]).slice(0,2).map(r=>(Array.isArray(r)?r.filter(Boolean).join(" / "):String(r))),
-    cert:D.cert||"",shelf:D.shelf||"",origin:D.city||D.origin||""};
-  if(lang==="en"&&D.itemEn) src.item=D.itemEn;
-  const key=lang+"|"+JSON.stringify(src).length+"|"+(D.item||"");
+    cert:D.cert||"",shelf:D.shelf||"",origin:D.city||D.origin||"",
+    moq:D.moq||"",lead:D.lead||"",pay:D.pay||"",term:D.term||"",pol:D.pol||"",
+    docs,lineup:deckLineup()};
+  if(lang==="en"&&D.itemEn&&!/[ぁ-ヶ一-龠]/.test(D.itemEn)) src.item=D.itemEn;
+  return src;
+}
+async function deckTranslate(lang){
+  const src=deckSrc(lang);
+  const key=lang+"|"+djb2(JSON.stringify(src));
   if(DECKC[key]) return DECKC[key];
   if(!(typeof ppReady==="function"&&ppReady())){
-    return DECKC[key]={...src,_machine:false};
+    return {...src,_machine:false};
   }
   const tgt={en:"英語",zhCN:"中国語（簡体字）",zhTW:"中国語（繁体字）",es:"スペイン語",ko:"韓国語"}[lang];
   try{
     const r=await llmAsk(
-`次のJSONの各値を${tgt}に翻訳し、同じ構造のJSONだけを返してください（コードフェンス禁止）。
-規則：数値・単位・型番・通貨・HSコード・固有名詞（ブランド名）はそのまま。海外バイヤー向け営業資料として自然で簡潔な表現に。空文字は空のまま。
-${JSON.stringify(src)}`,1800,{noWeb:1,timeout:90000,
+`次のJSONの各値（日本語の部分すべて）を${tgt}に翻訳し、同じ構造のJSONだけを返してください（コードフェンス禁止）。
+規則：数値・単位・型番・通貨・HSコード・ブランド名はそのまま。日本語が1文字も残らないように（「受注後21日」「T/T 30日」「横浜港」のような値も必ず翻訳）。海外バイヤー向け営業資料として自然で簡潔に。空文字は空のまま。
+${JSON.stringify(src)}`,3200,{noWeb:1,timeout:120000,
       sys:"あなたはプロの産業翻訳者。返答は翻訳後のJSONのみ。"});
     let t=r.txt.replace(/```json|```/g,"").trim();
     const a=t.indexOf("{"),b=t.lastIndexOf("}");
@@ -2789,40 +3127,61 @@ ${JSON.stringify(src)}`,1800,{noWeb:1,timeout:90000,
     return {...src,_machine:false};   /* 翻訳失敗時は原文のまま生成（キャッシュしない） */
   }
 }
-/* ── スライド組み立て ── */
+/* ── スライド組み立て（約10枚・AHYOL調のビジュアル構成） ── */
 function deckSlides(lang,T){
   const L=DECK_L[lang], ea=L.ea, S=[];
   const strengths=(T.strengths&&T.strengths.length?T.strengths:(D.strengths||[]).slice(0,5));
   const eyebrow=(t)=>shpRect(48,44,44,4,OR)+shpText(48,54,600,22,[{t,sz:12,b:1,c:BL}],{ea});
   const footer=(n)=>shpText(48,512,500,16,[{t:`${D.coEn||D.co||""}  |  ${L.conf}`,sz:8,c:"8A97A6"}],{ea})+
     shpText(880,512,32,16,[{t:String(n),sz:9,c:"8A97A6",al:"r"}],{ea});
+  const cleanEn=v=>v&&!/[ぁ-ヶ一-龠]/.test(v)?v:"";
+  const dutyStr=r=>{
+    if(/要確認/.test(r.duty)) return L.tbc;
+    const s=String(r.duty||"");
+    if(!/[ぁ-ヶ一-龠（）]/.test(s)) return s;
+    const m=s.match(/^[^（(ぁ-ヶ一-龠]+/);
+    return (m?m[0].trim():L.tbc)+" *";
+  };
   /* 1) 表紙 */
   S.push(
     shpRect(0,0,960,540,"FFFFFF")+
     shpRect(0,0,12,540,OR)+
     shpText(60,64,540,20,[{t:L.deck,sz:13,b:1,c:BL}],{ea})+
     shpText(60,150,540,150,[{t:T.item||D.item||"",sz:40,b:1,c:INK}],{ea})+
-    (D.itemEn&&lang!=="en"?shpText(60,268,540,24,[{t:D.itemEn,sz:14,c:SUB}],{ea}):"")+
+    (cleanEn(D.itemEn)&&lang!=="en"?shpText(60,268,540,24,[{t:D.itemEn,sz:14,c:SUB}],{ea}):"")+
     shpText(60,300,540,22,[{t:(T.cat||D.cat||"")+"　|　"+L.made,sz:12,b:1,c:OR}],{ea})+
-    shpText(60,420,540,60,[{t:D.coEn||D.co||"",sz:16,b:1,c:NV},{t:(D.city||"")+"  ·  "+TODAYS,sz:10,c:SUB,spcB:4}],{ea})+
+    shpText(60,420,540,60,[{t:D.coEn||D.co||"",sz:16,b:1,c:NV},{t:(T.origin||D.city||"")+"  ·  "+TODAYS,sz:10,c:SUB,spcB:4}],{ea})+
     shpPhoto(640,110,272,330,L.photo,ea)+
     footer(1));
-  /* 2) ターゲット市場と関税 */
-  const tg=Object.entries(D.regs||{}).slice(0,6);
+  /* 2) 会社・ブランド */
   S.push(
-    eyebrow(L.market)+
-    shpText(48,86,860,56,[{t:T.tagline||D.tagline||T.item||D.item||"",sz:22,b:1,c:INK}],{ea})+
-    tg.map(([c,r],i)=>{
-      const x=48+(i%3)*292, y=170+Math.floor(i/3)*140;
-      const duty=/要確認/.test(r.duty)?L.tbc:r.duty;
-      return shpRect(x,y,272,120,LGT,{round:6000})+
-        shpRect(x,y,272,34,NV,{round:0})+
-        shpText(x+14,y+8,244,20,[{t:c,sz:13,b:1,c:"FFFFFF"}],{ea})+
-        shpText(x+14,y+46,244,60,[{t:L.duty,sz:9,c:SUB},{t:duty,sz:20,b:1,c:OR,spcB:2}],{ea});
-    }).join("")+
-    shpText(48,478,860,16,[{t:L.dutyNote,sz:8.5,c:"8A97A6"}],{ea})+
+    eyebrow(L.about)+
+    shpText(48,100,480,40,[{t:D.coEn||D.co||"",sz:26,b:1,c:NV}],{ea})+
+    ((D.co&&D.coEn&&D.co!==D.coEn)?shpText(48,142,480,20,[{t:D.co,sz:11,c:SUB}],{ea}):"")+
+    shpText(48,172,480,20,[{t:L.origin+" :  "+(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:11,b:1,c:OR}],{ea})+
+    shpRect(48,212,6,120,OR)+
+    shpText(68,216,440,120,[{t:"“ "+(T.tagline||D.tagline||T.item||"")+" ”",sz:17,b:1,c:INK},
+      {t:L.supply,sz:10.5,c:SUB,spcB:8}],{ea})+
+    shpRect(560,96,352,340,NV,{round:5000})+
+    shpText(588,122,296,300,[{t:L.whyjp,sz:12,b:1,c:OR}]
+      .concat(strengths.slice(0,3).map((s,i)=>({t:"✓  "+(s[0]||""),sz:12,b:1,c:"FFFFFF",spcB:i?8:12})))
+      .concat([(T.cert||D.cert)?{t:(L.cert+" :  "+(T.cert||D.cert)),sz:9.5,c:"9FD5A9",spcB:14}:{t:"",sz:9,spcB:2}]),{ea})+
     footer(2));
-  /* 3) 強み（大数字ハイライト） */
+  /* 3) 商品ラインアップ */
+  const lu=(T.lineup&&T.lineup.length?T.lineup:deckLineup()).slice(0,3);
+  S.push(
+    eyebrow(L.lineup)+
+    lu.map((p,i)=>{
+      const n=lu.length, w=n===1?400:272, gap=n===1?0:(864-272*n)/(n-1||1);
+      const x=n===1?280:48+i*(272+gap), y=116;
+      return shpRect(x,y,w,300,LGT,{round:5000})+
+        shpPhoto(x+16,y+16,w-32,170,L.photo,ea)+
+        shpText(x+16,y+198,w-32,80,[{t:String(p[0]||""),sz:13.5,b:1,c:INK},
+          {t:String(p[1]||""),sz:9.5,c:SUB,spcB:4}],{ea});
+    }).join("")+
+    shpText(48,452,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
+    footer(3));
+  /* 4) 強み（大数字ハイライト） */
   S.push(
     eyebrow(L.str)+
     strengths.slice(0,5).map((s,i)=>{
@@ -2836,8 +3195,8 @@ function deckSlides(lang,T){
           [{t:s[0]||"",sz:big?17:12.5,b:1,c:big?"FFFFFF":INK},
            {t:s[1]||"",sz:big?11:9.5,c:big?"C9D2DE":SUB,spcB:3}],{ea});
     }).join("")+
-    footer(3));
-  /* 4) スペック＋写真 */
+    footer(4));
+  /* 5) スペック＋写真 */
   const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]]));
   const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
   const dim1=(T.dims&&T.dims[1])||((D.dimRows&&D.dimRows[1])?(Array.isArray(D.dimRows[1])?D.dimRows[1].filter(Boolean).join(" / "):String(D.dimRows[1])):"");
@@ -2854,46 +3213,103 @@ function deckSlides(lang,T){
     shpText(612,364,284,64,[{t:L.dims,sz:9.5,b:1,c:BL},
       {t:dim0,sz:9.5,c:SUB,spcB:3},
       {t:dim1,sz:9.5,c:SUB,spcB:2}],{ea})+
-    footer(4));
-  /* 5) 価格と取引条件 */
+    footer(5));
+  /* 6) ターゲット市場と関税 */
+  const tg=Object.entries(D.regs||{}).slice(0,6);
+  S.push(
+    eyebrow(L.market)+
+    shpText(48,86,860,56,[{t:T.tagline||D.tagline||T.item||D.item||"",sz:22,b:1,c:INK}],{ea})+
+    tg.map(([c,r],i)=>{
+      const x=48+(i%3)*292, y=170+Math.floor(i/3)*140;
+      return shpRect(x,y,272,120,LGT,{round:6000})+
+        shpRect(x,y,272,34,NV,{round:0})+
+        shpText(x+14,y+8,244,20,[{t:ctyL(lang,c),sz:13,b:1,c:"FFFFFF"}],{ea})+
+        shpText(x+14,y+46,244,60,[{t:L.duty,sz:9,c:SUB},{t:dutyStr(r),sz:20,b:1,c:OR,spcB:2}],{ea});
+    }).join("")+
+    shpText(48,478,860,16,[{t:"*  "+L.dutyNote,sz:8.5,c:"8A97A6"}],{ea})+
+    footer(6));
+  /* 7) 価格と取引条件 */
   const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
-  const pr=(D.priceRows||[]).slice(0,4);
+  const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
   S.push(
     eyebrow(L.price)+
     shpRect(48,96,540,36,NV)+
     pc.map((c,i)=>shpText(60+i*130,104,124,22,[{t:String(c),sz:10,b:1,c:"FFFFFF"}],{ea})).join("")+
-    pr.map((row,ri)=>{
+    pr.slice(0,4).map((row,ri)=>{
       const y=132+ri*38;
       return shpRect(48,y,540,38,ri%2?LGT:"FFFFFF")+
         row.slice(0,4).map((v,ci)=>shpText(60+ci*130,y+9,124,22,[{t:String(v||""),sz:10,b:ci>0,c:ci>0?OR:INK}],{ea})).join("");
     }).join("")+
-    [[L.moq,D.moq],[L.lead,D.lead],[L.term,(D.term||"")+(D.pol?" "+D.pol:"")],[L.pay,D.pay]]
+    [[L.moq,T.moq||D.moq],[L.lead,T.lead||D.lead],[L.term,((T.term||D.term||"")+" "+(T.pol||D.pol||"")).trim()],[L.pay,T.pay||D.pay]]
       .map(([k,v],i)=>{
         const x=620+(i%2)*150, y=96+Math.floor(i/2)*104;
         return shpRect(x,y,142,92,LGT,{round:6000})+
-          shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v||"—"),sz:12,b:1,c:INK,spcB:4}],{ea});
+          shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v||"—"),sz:11.5,b:1,c:INK,spcB:4}],{ea});
       }).join("")+
     shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
-    footer(5));
-  /* 6) 認証・書類・コンタクト */
-  const docs=(Object.values(D.regs||{})[0]||{docs:[]}).docs.slice(0,5);
+    footer(7));
+  /* 8) 物流・リードタイム */
+  const FL=L.flow||["Inquiry","Order","Production","Shipping","Delivery"];
+  S.push(
+    eyebrow(L.logi)+
+    FL.map((f,i)=>{
+      const x=48+i*176;
+      return shpRect(x,104,152,56,i===FL.length-1?NV:LGT,{round:6000})+
+        shpText(x+10,112,132,42,[{t:("0"+(i+1)).slice(-2),sz:9,b:1,c:OR},
+          {t:f,sz:10.5,b:1,c:i===FL.length-1?"FFFFFF":INK,spcB:2}],{ea})+
+        (i<FL.length-1?shpText(x+152,122,26,22,[{t:"→",sz:14,b:1,c:"8A97A6",al:"ctr"}],{ea}):"");
+    }).join("")+
+    [[L.lead,T.lead||D.lead||L.tbc],[L.port,T.pol||D.pol||L.tbc],[L.moq,T.moq||D.moq||L.tbc]]
+      .map(([k,v],i)=>{
+        const x=48+i*292;
+        return shpRect(x,196,272,96,LGT,{round:6000})+
+          shpText(x+16,210,240,70,[{t:k,sz:9.5,b:1,c:BL},{t:String(v),sz:16,b:1,c:INK,spcB:5}],{ea});
+      }).join("")+
+    shpRect(48,316,560,120,LGT,{round:5000})+
+    shpText(66,330,524,96,[{t:L.dims,sz:10,b:1,c:BL},
+      {t:dim0,sz:10,c:INK,spcB:5},{t:dim1,sz:10,c:INK,spcB:3},
+      {t:(D.ctn?String(T.ctn||D.ctn):""),sz:9.5,c:SUB,spcB:4}],{ea})+
+    shpRect(632,316,280,120,NV,{round:5000})+
+    shpText(652,334,240,90,[{t:L.supply,sz:11,b:1,c:"FFFFFF"},
+      {t:(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:9.5,c:"C9D2DE",spcB:6}],{ea})+
+    footer(8));
+  /* 9) 認証・輸出書類 */
+  const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
   S.push(
     eyebrow(L.comp)+
     shpText(48,96,420,20,[{t:L.cert,sz:11,b:1,c:INK}],{ea})+
-    shpRect(48,122,420,70,LGT,{round:5000})+
-    shpText(64,134,388,48,[{t:(T.cert||D.cert||"—"),sz:11.5,b:1,c:"2E7D32"},
+    shpRect(48,122,420,74,LGT,{round:5000})+
+    shpText(64,134,388,52,[{t:(T.cert||D.cert||"—"),sz:11.5,b:1,c:"2E7D32"},
       {t:(T.shelf||D.shelf||""),sz:9.5,c:SUB,spcB:3}],{ea})+
-    shpText(48,214,420,20,[{t:L.docs,sz:11,b:1,c:INK}],{ea})+
-    docs.map((d,i)=>shpText(48,240+i*24,420,20,[{t:"✓  "+d,sz:9.5,c:SUB}],{ea})).join("")+
-    shpRect(520,96,392,340,NV,{round:5000})+
-    shpText(548,124,336,300,[
-      {t:L.contact,sz:12,b:1,c:OR},
-      {t:D.coEn||D.co||"",sz:17,b:1,c:"FFFFFF",spcB:8},
-      {t:(D.co&&D.coEn&&D.co!==D.coEn)?D.co:"",sz:10,c:"C9D2DE",spcB:2},
-      {t:(T.origin||D.city||"")+"  ·  "+L.made,sz:10,c:"C9D2DE",spcB:6},
-      {t:L.cta,sz:10,c:"FFFFFF",spcB:12},
-      {t:L.poweredBy,sz:8,c:"8A97A6",spcB:16}],{ea})+
-    footer(6));
+    shpText(48,218,420,20,[{t:L.docs,sz:11,b:1,c:INK}],{ea})+
+    docs.map((d,i)=>shpText(48,244+i*26,420,22,[{t:"✓  "+d,sz:9.5,c:SUB}],{ea})).join("")+
+    shpRect(520,96,392,340,LGT,{round:5000})+
+    shpText(548,116,336,24,[{t:L.market,sz:10.5,b:1,c:BL}],{ea})+
+    tg.slice(0,6).map(([c,r],i)=>{
+      const y=150+i*44;
+      return shpText(548,y,200,20,[{t:ctyL(lang,c),sz:11,b:1,c:INK}],{ea})+
+        shpText(760,y,130,20,[{t:dutyStr(r),sz:11,b:1,c:OR,al:"r"}],{ea})+
+        shpRect(548,y+26,336,1,"D8DEE7");
+    }).join("")+
+    footer(9));
+  /* 10) コンタクト・次のステップ */
+  S.push(
+    shpRect(0,0,960,540,"FFFFFF")+
+    shpRect(48,72,864,392,NV,{round:4000})+
+    shpRect(48,72,10,392,OR)+
+    shpText(96,110,500,220,[
+      {t:L.contact,sz:13,b:1,c:OR},
+      {t:D.coEn||D.co||"",sz:24,b:1,c:"FFFFFF",spcB:10},
+      {t:(D.co&&D.coEn&&D.co!==D.coEn)?D.co:"",sz:10.5,c:"C9D2DE",spcB:3},
+      {t:(T.origin||D.city||"")+"  ·  "+L.made,sz:10.5,c:"C9D2DE",spcB:6},
+      {t:L.cta,sz:11,c:"FFFFFF",spcB:14}],{ea})+
+    shpText(96,330,500,110,[{t:L.poweredBy,sz:8.5,c:"8A97A6"}],{ea})+
+    shpRect(620,110,252,300,"FFFFFF",{alpha:8000,round:5000})+
+    shpText(640,128,212,270,[{t:L.next,sz:11,b:1,c:OR},
+      {t:"1.  "+L.n1,sz:10.5,b:1,c:"FFFFFF",spcB:10},
+      {t:"2.  "+L.n2,sz:10.5,b:1,c:"FFFFFF",spcB:8},
+      {t:"3.  "+L.n3,sz:10.5,b:1,c:"FFFFFF",spcB:8}],{ea})+
+    footer(10));
   return S;
 }
 function buildPptx(lang,T){
@@ -2947,12 +3363,14 @@ async function deckMake(lang){
     }catch(e){ T={_machine:false}; }
     say(`⏳ スライドを組み立てています…`);
     const blob=buildPptx(lang,T);
-    const nm=`${(D.itemEn||D.item||"product").replace(/[\\\/:*?"<>|]/g,"").slice(0,40)}_SalesDeck_${lang}.pptx`;
+    /* ファイル名は「いまの商品名」から生成（修正が必ず反映される） */
+    const base=(D.item&&String(D.item).trim())||(D.itemEn&&String(D.itemEn).trim())||"product";
+    const nm=`${base.replace(/[\\\/:*?"<>|]/g,"").slice(0,40)}_SalesDeck_${lang}.pptx`;
     const a=document.createElement("a");
     a.href=URL.createObjectURL(blob); a.download=nm;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    say(`✅ <b>${esc(nm)}</b> をダウンロードしました（6枚組・${Math.round(blob.size/1024)}KB）${T._machine?"":"<br>⚠ AIエンジン未接続のため、見出しのみ各言語・商品の値は登録データのままです。接続すると全文が翻訳されます。"}<br>
+    say(`✅ <b>${esc(nm)}</b> をダウンロードしました（10枚組・${Math.round(blob.size/1024)}KB）${T._machine?"":"<br>⚠ AIエンジン未接続のため、見出しのみ各言語・商品の値は登録データのままです。接続すると全文が翻訳されます。"}<br>
       <span style="font-size:10px;color:var(--ink-3)">Googleスライドにする場合：Googleドライブにアップロード → 右クリック →「アプリで開く」→ Googleスライド。claude.aiのプレビュー上ではダウンロードが動かないため、配布HTML／公開URLでお使いください。</span>`);
     if(typeof logU==="function") logU("ai","営業資料生成:"+lang);
   }catch(e){
@@ -2963,8 +3381,10 @@ async function deckMake(lang){
 function vDeck(p){
   const online=(typeof ppReady==="function"&&ppReady());
   const n=(D.strengths||[]).length, pr=(D.priceRows||[]).length, cr=(D.compRows||[]).length, rg=Object.keys(D.regs||{}).length;
-  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙〜市場性〜強み〜価格〜認証の6枚組・PPTX形式。",
-    `<button class="btn g" onclick="go('item')">元データを確認する</button>`)+`
+  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトの<b>10枚組</b>・PPTX形式。",
+    `<button class="btn g" onclick="go('item')">元データを確認する</button>
+     ${typeof openHealth==="function"?`<button class="btn g" onclick="openHealth()">🧹 データを点検</button>`:""}`)+`
+  ${typeof healthBanner==="function"?healthBanner():""}`+`
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between">
       <div><h3>資料に入る内容（${esc(D.item||"—")}）</h3>
@@ -3490,10 +3910,8 @@ function vMsg(p){
             共有<br><span style="font-weight:400;font-size:9.5px">STANDAGEと海外拠点にも見える</span></button>
           <button class="btn g" data-mscope="AIに質問" style="border:0;border-radius:0;flex:1">
             🤖 AIに質問<br><span style="font-weight:400;font-size:9.5px">AI商社マンがその場で回答</span></button></div>
-        <div class="rw" style="gap:5px;padding:7px 10px;border-bottom:1px solid var(--line-2);color:var(--ink-3)">
-          ${["＋","B","I","S","•≡","1≡","⊞","🖼","🔗","@"].map(x=>`<span style="font-size:11.5px;padding:2px 5px;border-radius:3px;background:var(--sunk)">${x}</span>`).join("")}
-          <span style="margin-left:auto;font-size:10px">装飾・表・画像はトライアルでは省略</span></div>
-        <textarea id="mtext" placeholder="メッセージを入力…（Ctrl+Enterで送信）"
+        ${mdBarHtml("mtext")}
+        <textarea id="mtext" placeholder="メッセージを入力…（Ctrl+Enterで送信。ファイルはこの欄にドラッグ＆ドロップでも添付できます）"
           style="display:block;width:100%;border:0;padding:11px 12px;font:inherit;font-size:12px;min-height:64px;
           resize:vertical;box-sizing:border-box;background:var(--surface);color:var(--ink);outline:none"></textarea>
         <div class="rw" style="justify-content:space-between;padding:8px 10px;border-top:1px solid var(--line-2)">
@@ -3511,13 +3929,16 @@ function vMsg(p){
         <p class="nn">長いスレッドを読み返さなくても、決まったこと・宿題がわかります。</p>
         <div style="margin-top:10px;padding:11px 12px;border-radius:var(--r2);background:var(--or-soft);font-size:11.5px;line-height:1.75">
           ${T(D.msgSummary)}</div></div>
-      <div class="c"><h3>この案件のメンバー</h3>
+      <div class="c">
+        <div class="rw" style="justify-content:space-between"><h3>この案件のメンバー</h3>
+          ${typeof mInviteHtml==="function"?mInviteHtml():""}</div>
         <p class="nn">誰が見えるかは、投稿ごとの可視範囲で決まります。</p>
         <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
-          ${D.members.map(([n,o,r])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line-2)">
+          ${(typeof mMembersAll==="function"?mMembersAll():D.members).map(([n,o,r])=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line-2)">
             <span><b>${esc(n)}</b><br><span style="color:var(--ink-3);font-size:10px">${esc(o)}</span></span>
             <span class="p ${r==="貴社"?"or":r==="AI"?"hi":"on"}" style="align-self:center">${r}</span></div>`).join("")}
-        </div></div>
+        </div>
+        ${typeof mInviteNote==="function"?mInviteNote():""}</div>
       <div class="c"><h3>通知はアプリの中に集約 <span class="nt">改善</span></h3>
         <p class="nn">NPSで最も多かった不満が「通知が届かない・遅い」でした。</p>
         <div class="cmp" style="margin-top:10px">
@@ -3555,6 +3976,46 @@ function mRows(){
    :`<p style="text-align:center;color:var(--ink-3);padding:24px;font-size:12px;line-height:1.8">${(D.msgs&&D.msgs.length)?"条件に合うやりとりはありません":"まだやりとりがありません。<br><b style=\'color:var(--ink-2)\'>下の入力欄から最初のメッセージを送ってみてください。</b>"}</p>`;
 }
 /* ── 投稿（トライアルでも実際に入力・送信できる） ── */
+/* 軽量マークダウン：**太字**・*斜体*・行頭の箇条書き・改行（エスケープ済み文字列に適用） */
+function mdU(h){
+  return String(h)
+    .replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>")
+    .replace(/(^|[\s>])\*([^*\n]+)\*(?=[\s<]|$)/g,"$1<i>$2</i>")
+    .split("\n").map(l=>/^\s*[-•]\s/.test(l)?"・"+l.replace(/^\s*[-•]\s/,""):l).join("<br>");
+}
+/* 入力欄ツールバー：選択範囲をマークダウンで包む */
+function mdWrap(ta,pre,suf,ph){
+  if(!ta) return;
+  const s=ta.selectionStart||0,e=ta.selectionEnd||0,v=ta.value;
+  const mid=v.slice(s,e)||ph||"";
+  if(pre==="- "){ /* 箇条書き：行頭に付与 */
+    const a=v.lastIndexOf("\n",s-1)+1;
+    ta.value=v.slice(0,a)+"- "+v.slice(a);
+    ta.selectionStart=ta.selectionEnd=e+2;
+  } else {
+    ta.value=v.slice(0,s)+pre+mid+(suf||"")+v.slice(e);
+    ta.selectionStart=s+pre.length; ta.selectionEnd=s+pre.length+mid.length;
+  }
+  ta.focus(); ta.dispatchEvent(new Event("input"));
+}
+function mdBarHtml(taId){
+  return `<div class="rw" style="gap:4px;padding:5px 8px;border-bottom:1px solid var(--line-2)">
+    ${[["**","**","B","太字","font-weight:800"],["*","*","I","斜体","font-style:italic"],["- ","","•≡","箇条書き",""]]
+      .map(([p,sfx,lb,tt,st])=>`<button type="button" class="btn g" data-md="${taId}" data-pre="${esc(p)}" data-suf="${esc(sfx)}"
+        title="${tt}" style="padding:2px 8px;font-size:11px;${st}">${lb}</button>`).join("")}
+    <span style="margin-left:auto;font-size:9.5px;color:var(--ink-3)">**太字**・*斜体*・「- 」箇条書き・改行OK</span></div>`;
+}
+function mdBarBind(root){
+  (root||document).querySelectorAll("[data-md]").forEach(b=>{ if(b._mdb) return; b._mdb=1;
+    b.addEventListener("click",()=>mdWrap($("#"+b.dataset.md),b.dataset.pre,b.dataset.suf,"テキスト"));});
+}
+/* ドロップ対応：要素にファイルを落とすと onFile(file) */
+function dropZone(el,onFile){
+  if(!el||el._dz) return; el._dz=1;
+  ["dragenter","dragover"].forEach(t=>el.addEventListener(t,e=>{e.preventDefault();el.style.outline="2px dashed var(--or)";el.style.outlineOffset="-4px";}));
+  ["dragleave","drop"].forEach(t=>el.addEventListener(t,e=>{e.preventDefault();el.style.outline="";}));
+  el.addEventListener("drop",e=>{const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) onFile(f);});
+}
 let msgNewScope="共有";
 function msgStore(){
   return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))
@@ -3570,7 +4031,7 @@ function sendMsg(){
   const tstr=TODAYS+" "+new Date().toTimeString().slice(0,5);
   const askAI=msgNewScope==="AIに質問";
   msgStore().push({who,org:D.co,t:tstr,scope:askAI?"共有":msgNewScope,
-    body:(v?esc(v).replace(/\n/g,"<br>"):"（ファイルを添付しました）"),read:1,
+    body:(v?mdU(esc(v)):"（ファイルを添付しました）"),read:1,
     mention:askAI?["AI商社マン"]:[],
     file:attF?{n:attF.name,kb:Math.max(1,Math.round(attF.size/1024))}:undefined});
   ta.value="";
@@ -3667,14 +4128,21 @@ function bindMsgComposer(){
   const s=$("#msend"); if(s) s.onclick=sendMsg;
   const ta=$("#mtext"); if(ta) ta.onkeydown=e=>{
     if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){ e.preventDefault(); sendMsg(); } };
-  const ma=$("#matt"); if(ma) ma.onchange=e=>{
-    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const setAtt=f=>{
+    if(!f) return;
     MSGA=f;
     const chip=$("#mattn"); if(chip) chip.innerHTML=`<span class="p on" style="font-size:9.5px">📎 ${esc(f.name).slice(0,24)}
       <a style="cursor:pointer;font-weight:700;margin-left:3px" id="mattx">×</a></span>`;
     const x=$("#mattx"); if(x) x.onclick=()=>{ MSGA=null; if(chip) chip.innerHTML=""; };
     if(msgNewScope!=="AIに質問") toast("解析させる場合は「🤖 AIに質問」で送信してください");
   };
+  const ma=$("#matt"); if(ma) ma.onchange=e=>{ const f=e.target.files[0]; e.target.value=""; setAtt(f); };
+  mdBarBind();
+  if(ta&&typeof dropZone==="function"){
+    const box=ta.closest("div[style*='overflow']")||ta.parentElement;
+    dropZone(box,setAtt); dropZone(ta,setAtt);
+  }
+  if(typeof mInviteBind==="function") mInviteBind();
 }
 
 /* ═════════ 書類・受注・入金（現行「ドキュメント」＋「受注」を統合） ═════════ */
@@ -3806,7 +4274,7 @@ function fillRender(){
   FILL.log.forEach(m=>{
     const d=document.createElement("div"); d.className="m "+(m.who==="u"?"u":"a");
     d.innerHTML=`<span class="av">${m.who==="u"?esc((TEN.co||"貴").replace(/^(株式会社|有限会社)/,"").slice(0,1)||"貴"):"AI"}</span>
-      <div class="bb">${T(m.html)}</div>`;
+      <div class="bb">${m.who==="u"&&typeof mdU==="function"?mdU(m.html):T(m.html)}</div>`;
     c.appendChild(d);
   });
   c.scrollTop=c.scrollHeight;
@@ -3827,17 +4295,29 @@ function fillRender(){
   box.innerHTML=(cu.chips?`<div class="qb" style="margin-bottom:8px">${cu.chips.map(x=>
       `<button class="q" data-chip="${esc(x)}">${esc(x)}</button>`).join("")}
       ${cu.multi?`<button class="btn" id="chipdone">選び終わった</button>`:""}</div>`:"")+
-    `<div class="rw" style="gap:6px">
-      <input class="sel" id="fans" style="flex:1;min-width:140px" placeholder="${esc(cu.ex||"ここに入力")}" autocomplete="off">
-      <label class="btn g" style="padding:8px 11px;cursor:pointer" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像）">📎<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
-      <button class="btn" id="fsend">送信</button>
-      <button class="btn g" id="fskip">わからない（あとで）</button></div>`;
-  const send=()=>{const v=$("#fans").value.trim(); if(v) fillAnswer(v);};
+    `<div style="border:1px solid var(--line);border-radius:var(--r2);overflow:hidden" id="fanswrap">
+      ${typeof mdBarHtml==="function"?mdBarHtml("fans"):""}
+      <textarea class="sel" id="fans" rows="1" placeholder="${esc(cu.ex||"ここに入力")}（Enterで送信・Shift+Enterで改行。ファイルはここにドラッグ＆ドロップOK）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
+      <div class="rw" style="gap:6px;padding:6px 8px;border-top:1px solid var(--line-2);justify-content:flex-end">
+        <label class="btn g" style="padding:6px 11px;cursor:pointer;margin-right:auto" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像。この欄へのドラッグ＆ドロップでも可）">📎 資料を追加<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
+        <button class="btn" id="fsend">送信</button>
+        ${cu.k==="_pend"?"":`<button class="btn g" id="fskip">わからない（あとで）</button>`}</div></div>`;
+  const fans=$("#fans");
+  const grow=()=>{ fans.style.height="auto"; fans.style.height=Math.min(150,Math.max(38,fans.scrollHeight))+"px"; };
+  fans.addEventListener("input",grow);
+  const send=()=>{const v=fans.value.trim(); if(v){ fans.value=""; grow(); fillAnswer(v); }};
   $("#fsend").onclick=send;
-  $("#fans").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();send();}};
+  fans.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
   const fa=$("#fatt2"); if(fa) fa.onchange=e=>{const f=e.target.files[0]; e.target.value="";
     if(f&&typeof fillAttach==="function") fillAttach(f);};
-  $("#fskip").onclick=()=>{
+  if(typeof dropZone==="function"&&typeof fillAttach==="function"){
+    dropZone($("#fanswrap"),f=>fillAttach(f));
+    const card=c.closest(".c"); if(card) dropZone(card,f=>fillAttach(f));
+  }
+  if(typeof mdBarBind==="function") mdBarBind(box);
+  const fsk=$("#fskip");
+  if(fsk) fsk.onclick=()=>{
     if(FILL.cur&&FILL.cur.x&&typeof llmExtraSkip==="function"){ llmExtraSkip(); return; }
     fillSay("u","分からない");
     fillSay("ai",`承知しました。<b>${FILL.cur.n}</b>は後回しにします。
@@ -4072,7 +4552,7 @@ function vUp(p){
           <button class="btn ${s.missing.length?"g":""}" onclick="go('dash')">ダッシュボードへ</button>
           <button class="btn g" onclick="resetTen()">削除してやり直す</button></div></div></div>`;
   }
-  return plist+resume+ph(p,"<b>ここから始まります。</b>お手元の商品資料をアップロードすると、貿易クラウドがその商材専用の環境をつくります。以降のすべての画面が、この情報をもとに動きます。")+`
+  return plist+(typeof healthBanner==="function"?healthBanner():"")+resume+ph(p,"<b>ここから始まります。</b>お手元の商品資料をアップロードすると、貿易クラウドがその商材専用の環境をつくります。以降のすべての画面が、この情報をもとに動きます。")+`
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c">
       <h3>資料をアップロードする</h3>
@@ -4221,9 +4701,8 @@ async function readFile(f){
       for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));
       const m=s.match(/xl\/worksheets\/sheet\d+\.xml/g);
       if(m) info.sheets=new Set(m).size;
-    } else if(/\.(csv|txt)$/i.test(f.name)){ info.sheets=1; }
-    else { info.sheets=3; }
-  }catch(e){ info.sheets=3; }
+    } else { info.sheets=1; }
+  }catch(e){ info.sheets=1; }
   return info;
 }
 function wireUp(){
@@ -4266,7 +4745,9 @@ function vItem(p){
     cols.map((c,i)=>`<th${i?' class="num"':""}>${esc(c)}</th>`).join("")}</tr></thead><tbody>${
     rows.map(r=>`<tr>${r.map((v,i)=>`<td${i?' class="num"':""}>${AT(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   return ph(p,"<b>この画面でわかること：</b>アップロードした資料が、どう構造化されたか。ここが埋まっているほど、AIの答えと書類の自動作成が正確になります。",
-    `<button class="btn g" onclick="go('up')">別の資料を読み込む</button><button class="btn" onclick="go('ai')">AIに質問する →</button>`)+`
+    `${typeof openHealth==="function"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")?`<button class="btn g" onclick="openHealth()">🧹 データ健全性チェック</button>`:""}
+     <button class="btn g" onclick="go('up')">別の資料を読み込む</button><button class="btn" onclick="go('ai')">AIに質問する →</button>`)+
+  (typeof healthBanner==="function"?healthBanner():"")+`
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
       <div><h3>${esc(D.item)}　<span class="p or">${esc(D.sku)}</span></h3>
@@ -4920,45 +5401,112 @@ function rStaff(){
     </div><p class="nn" style="margin-top:5px">メンバー情報はトライアル用の見本表示です。</p>`
    :`<p class="nn">この拠点は開設準備中です。開設まではシンガポール拠点（ASEAN統括）が対応します。</p>`;
 }
-/* バイヤーへの直接メッセージ（無料・仲介送信） */
-function openDM(id,cty,biz){
-  const item=D.itemEn||D.item||"our products";
-  const st=(D.strengths&&D.strengths[0]&&D.strengths[0][0])||"";
-  const subj=`Introduction: ${item} from Japan`;
-  const body=`Dear Buyer (${id}),
+/* バイヤーへの直接メッセージ（無料・仲介送信・国の言語でAI生成） */
+const DM_LANG={"香港":"繁體中文","台湾":"繁體中文","中国":"简体中文","韓国":"한국어",
+ "アメリカ":"English","シンガポール":"English","イギリス":"English","オーストラリア":"English",
+ "インド":"English","ナイジェリア":"English","ケニア":"English","フィリピン":"English","カナダ":"English",
+ "UAE":"العربية（アラビア語）","エジプト":"العربية（アラビア語）","サウジアラビア":"العربية（アラビア語）",
+ "タイ":"ไทย（タイ語）","ベトナム":"Tiếng Việt","マレーシア":"English","インドネシア":"Bahasa Indonesia",
+ "フランス":"Français","ドイツ":"Deutsch","ブラジル":"Português","メキシコ":"Español","チリ":"Español","スペイン":"Español"};
+const DM_LANGS=["English","简体中文","繁體中文","한국어","Español","Français","Deutsch","Português",
+ "العربية（アラビア語）","ไทย（タイ語）","Tiếng Việt","Bahasa Indonesia","日本語"];
+/* 商品の魅力を構造化した「営業ブリーフ」（テンプレ・AI生成の共通材料） */
+function dmBrief(){
+  const pr=(D.priceRows||[]);
+  const nums=[]; pr.forEach(r=>(r||[]).forEach(v=>{const m=String(v||"").match(/^(US\$|\$|¥|￥)\s?([\d,]+(?:\.\d+)?)$/); if(m) nums.push({s:m[1],n:parseFloat(m[2].replace(/,/g,""))});}));
+  let price="";
+  if(nums.length){ const mn=Math.min(...nums.map(x=>x.n)), mx=Math.max(...nums.map(x=>x.n));
+    price=nums[0].s+mn.toLocaleString()+(mx>mn?" – "+nums[0].s+mx.toLocaleString():"")+" / unit"; }
+  return {co:D.coEn||D.co||"",coJp:D.co||"",item:(D.itemEn&&!/[ぁ-ヶ一-龠]/.test(D.itemEn)?D.itemEn:"")||D.item||"our product",
+    cat:D.cat||"",origin:D.city||D.origin||"Japan",
+    strengths:(D.strengths||[]).slice(0,3).map(s=>[s[0]||"",s[1]||""]),
+    price,moq:D.moq||"",lead:D.lead||"",cert:D.cert||"",shelf:D.shelf||"",
+    term:[D.term,D.pol].filter(Boolean).join(" "),pay:D.pay||""};
+}
+function dmTemplateEN(b,id,cty,biz){
+  const st=b.strengths.map(s=>`  •  ${s[0]}${s[1]?` — ${s[1]}`:""}`).join("\n");
+  const com=[["Price",b.price||"On request (volume tiers available)"],["MOQ",b.moq],["Lead time",b.lead],
+    ["Certifications",b.cert],["Shelf life / warranty",b.shelf],["Trade terms",b.term],["Payment",b.pay]]
+    .filter(([,v])=>v).map(([k,v])=>`  -  ${k}: ${v}`).join("\n");
+  return {subj:`${b.item} from Japan — partnership proposal for ${cty}`,
+    body:`Dear Sir or Madam (Buyer ID ${id}),
 
-We are ${D.coEn||D.co||"a Japanese manufacturer"}, producing ${item} in Japan.
-${st?`Our key strength: ${st}.
-`:""}${D.moq?`MOQ: ${D.moq}. `:""}${D.lead?`Lead time: ${D.lead}.`:""}
+Greetings from ${b.co}, a ${b.cat||"Japanese"} maker based in ${b.origin}, Japan.
+We understand you are a leading ${biz} in ${cty}, and we believe ${b.item} would be a strong addition to your lineup.
 
-We believe our product fits your market. Could we send you our catalog and samples?
+WHY ${String(b.item).toUpperCase()}
+${st||"  •  Made in Japan quality, stable supply"}
+
+COMMERCIAL OVERVIEW
+${com||"  -  Full details available upon request"}
+
+We would be glad to share our catalog, product samples, and a detailed quotation for your volumes.
+Would you be open to a short call or an email exchange this week?
 
 Best regards,
-${D.coEn||D.co||""}`;
+${b.co} — Export Team
+(Sent via STANDAGE BOEKI CLOUD. Your contact details remain private until you reply.)`};
+}
+function openDM(id,cty,biz){
+  const b=dmBrief();
+  const t0=dmTemplateEN(b,id,cty,biz);
+  const autoL=DM_LANG[cty]||"English";
+  const on=typeof ppReady==="function"&&ppReady();
   openDW(`<h3>バイヤーへ直接メッセージ</h3>
     <p class="nn" style="margin-top:5px">宛先：🔒 ${esc(cty)}の${esc(biz)}（ID ${esc(id)}）<br>
       連絡先は開示されないまま、<b>貿易クラウドが仲介して届けます</b>。拠点への依頼と違い<b>費用はかかりません</b>（文面・交渉はお客様ご自身で）。</p>
+    <div class="rw" style="margin-top:10px;gap:7px;align-items:center">
+      <span class="lbl" style="margin:0">言語</span>
+      <select class="sel" id="dmL">${DM_LANGS.map(l=>`<option ${l===autoL?"selected":""}>${l}</option>`).join("")}</select>
+      <span class="p on" style="font-size:9.5px">${esc(cty)}の商習慣では ${esc(autoL)} が一般的</span>
+      ${on?`<button class="btn" id="dmGen">🤖 この言語でAIが作成</button>`:""}</div>
+    ${on?"":`<p class="nn" style="margin-top:5px">🤖 AIエンジン接続時は、強み・価格・実績を織り込んだ文面を<b>選んだ言語で自動生成</b>します（現在は英語テンプレート）。</p>`}
     <p class="lbl" style="margin-top:10px">件名</p>
-    <input class="sel" id="dmS" value="${esc(subj)}" style="width:100%;box-sizing:border-box">
-    <p class="lbl" style="margin-top:9px">本文（英語推奨）</p>
-    <textarea id="dmB" class="sel" style="width:100%;min-height:180px;font-size:11.5px;line-height:1.6;box-sizing:border-box;resize:vertical">${esc(body)}</textarea>
+    <input class="sel" id="dmS" value="${esc(t0.subj)}" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">本文</p>
+    <textarea id="dmB" class="sel" style="width:100%;min-height:230px;font-size:11.5px;line-height:1.6;box-sizing:border-box;resize:vertical">${esc(t0.body)}</textarea>
     <div class="rw" style="margin-top:10px">
-      ${typeof ppReady==="function"&&ppReady()?`<button class="btn g" id="dmAI">🤖 AIで英文を整える</button>`:""}
+      ${on?`<button class="btn g" id="dmAI">🤖 文面をさらに磨く</button>`:""}
       <button class="btn" id="dmSend">送信する（無料）</button></div>
-    <p class="nn" id="dmN" style="margin-top:8px">トライアル環境のため実送信はされません。製品版では、返信は「やりとり」画面に届きます。</p>`);
+    <p class="nn" id="dmN" style="margin-top:8px">文面には登録済みの<b>強み・価格帯・MOQ・認証・リードタイム</b>が自動で入ります（商品情報を更新すると次回から反映）。トライアル環境のため実送信はされません。</p>`);
+  const gen=$("#dmGen");
+  if(gen) gen.onclick=async()=>{
+    gen.disabled=true; gen.textContent="生成中…（10〜30秒）";
+    try{
+      const lang=$("#dmL").value;
+      const r=await llmAsk(
+`海外バイヤーへの新規開拓メールを${lang}で書いてください。返答はJSONのみ：{"subject":"件名","body":"本文"}
+条件：
+・宛先：${cty}の${biz}（匿名ID ${id}。実名は不明なので Dear Sir or Madam 相当の表現で）
+・書き手：${b.coJp||b.co}（日本・${b.origin}の${b.cat}メーカー）
+・商品の魅力が数字で伝わるように。以下の登録データだけを使い、事実を創作しない：
+${JSON.stringify(b)}
+・構成：つかみ（相手の市場に合う理由）→ 強み3点（箇条書き）→ 商業条件（価格帯/MOQ/納期/認証）→ CTA（カタログ・サンプル・15分の商談提案）
+・簡潔でプロフェッショナルに。全体で200語（または相当）以内。`,1400,
+        {noWeb:1,timeout:60000,sys:"あなたは輸出営業のプロのコピーライター。返答は指定JSONのみ。"});
+      let t=r.txt.replace(/```json|```/g,"").trim();
+      const a2=t.indexOf("{"),b2=t.lastIndexOf("}");
+      const j=JSON.parse(t.slice(a2,b2+1));
+      if(j.subject) $("#dmS").value=String(j.subject);
+      if(j.body) $("#dmB").value=String(j.body);
+      gen.textContent="🤖 もう一度生成";
+      if(typeof logU==="function") logU("ai","直接連絡の文面生成:"+lang);
+    }catch(e){ toast("AI生成に失敗："+String(e.message).slice(0,40)); gen.textContent="🤖 この言語でAIが作成"; }
+    gen.disabled=false;
+  };
   const ai=$("#dmAI");
   if(ai) ai.onclick=async()=>{
-    ai.disabled=true; ai.textContent="生成中…";
+    ai.disabled=true; ai.textContent="推敲中…";
     try{
-      const r=await llmAsk(`次の海外バイヤー向け営業メールを、簡潔でプロフェッショナルな英文に書き直してください。本文のみを返してください（件名・前置き不要）。\n\n${$("#dmB").value}`,
-        700,{noWeb:1,sys:"あなたは日本企業の輸出営業を支援するプロのコピーライター。自然で簡潔なビジネス英語で書く。"});
+      const r=await llmAsk(`次の海外バイヤー向け営業メールを、同じ言語のまま、より簡潔で説得力のある文面に磨いてください。本文のみを返してください（件名・前置き不要）。\n\n${$("#dmB").value}`,
+        900,{noWeb:1,sys:"あなたは輸出営業のプロのコピーライター。同じ言語で書き直す。"});
       $("#dmB").value=r.txt.trim();
-      ai.textContent="🤖 もう一度整える";
-    }catch(e){ toast("AI生成に失敗："+String(e.message).slice(0,40)); ai.textContent="🤖 AIで英文を整える"; }
+      ai.textContent="🤖 もう一度磨く";
+    }catch(e){ toast("AI生成に失敗："+String(e.message).slice(0,40)); ai.textContent="🤖 文面をさらに磨く"; }
     ai.disabled=false;
   };
   $("#dmSend").onclick=()=>{
-    outreachList().push({id,cty,d:TODAYS});
+    outreachList().push({id,cty,d:TODAYS,lang:$("#dmL")?$("#dmL").value:"English"});
     if(typeof saveTen==="function") saveTen();
     if(typeof logU==="function") logU("ai","直接連絡:"+id);
     closeDW(); rDB();
@@ -5699,6 +6247,8 @@ function aSeed(){
   return {v:1,admin:{id:"standage",pw:"boueki2.0"},accounts:[
    {code:"TRIAL-2026",co:"（お客様デモ用の共通アカウント）",who:"—",st:"active",web:true,
     created:t-2*DAY,expires:t+12*DAY,usage:emptyU()},
+   {code:"FWD-2026",co:"デモ物流株式会社（フォワーダー体験用）",who:"—",st:"active",web:true,role:"fwd",
+    created:t-2*DAY,expires:t+30*DAY,usage:emptyU()},
    {code:"BC-MIDORI-24",co:"株式会社みどり製茶（表示サンプル）",who:"大森様",st:"active",web:true,
     created:t-9*DAY,expires:t+5*DAY,
     usage:{logins:7,uploads:2,aiQ:23,webQ:9,fills:14,
@@ -5801,10 +6351,12 @@ function showLogin(){
         if(!a) return err("このコードは登録されていません。入力内容をご確認ください。");
         if(a.st!=="active") return err("このアカウントは無効化されています。STANDAGEの担当までご連絡ください。");
         if(a.expires<NOW()) return err("このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。");
-        SES={t:"trial",code:a.code,who:($("#lg-name").value||"").trim()};
+        SES={t:"trial",code:a.code,who:($("#lg-name").value||"").trim(),role:a.role||""};
         try{sessionStorage.setItem(SKEY,JSON.stringify(SES));}catch(e){}
-        logU("login",SES.who?`ログイン（${SES.who}）`:"ログイン");
-        enterApp(); toast(`ようこそ、${a.co} 様`);
+        const mem=(a.members||[]).find(m=>m.name&&m.name===SES.who);
+        if(mem&&mem.st!=="active") return err("このメンバーは停止されています。管理者にご確認ください。");
+        logU("login",SES.who?`ログイン（${SES.who}${mem?"・招待メンバー":""}）`:"ログイン");
+        enterApp(); toast(`ようこそ、${a.co} 様${mem?`（${mem.name} さん）`:""}`);
       };
       $("#lg-go").onclick=go2;
       v.querySelectorAll(".lgin").forEach(i=>i.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go2();}});
@@ -5906,6 +6458,8 @@ function renderAdmin(){
     <div class="rw" style="margin-top:10px">
       <input class="sel" id="nc" placeholder="会社名（例：株式会社◯◯）" style="flex:2;min-width:180px">
       <input class="sel" id="nw" placeholder="ご担当者名" style="flex:1;min-width:110px">
+      <select class="sel" id="nrole" title="物流会社を選ぶと、レート管理・AI物流マンの見積対応画面になります">
+        <option value="">荷主（標準）</option><option value="fwd">🚚 物流会社（フォワーダー）</option></select>
       <select class="sel" id="nd"><option value="7">7日間</option><option value="14" selected>14日間</option>
         <option value="30">30日間</option><option value="90">90日間</option></select>
       <label style="font-size:11.5px;display:flex;align-items:center;gap:5px">
@@ -5932,9 +6486,11 @@ function renderAdmin(){
     ${A.map(a=>{const u=a.usage;
       const stc=a.st!=="active"?'<span class="p no">無効</span>'
         :a.expires<NOW()?'<span class="p mid">期限切れ</span>':'<span class="p hi">有効</span>';
+      const mems=(a.members||[]).length;
       return `<tr>
       <td><span class="acode">${a.code}</span><br><span style="font-size:9.5px;color:var(--ink-3)">発行 ${fdate(a.created)}</span></td>
-      <td><b>${esc(a.co)}</b><br><span style="font-size:10px;color:var(--ink-3)">${esc(a.who||"—")}</span></td>
+      <td><b>${esc(a.co)}</b>${a.role==="fwd"?' <span class="p on" style="font-size:8.5px">🚚 物流</span>':""}<br>
+        <span style="font-size:10px;color:var(--ink-3)">${esc(a.who||"—")}${mems?`　<span class="p or" style="font-size:8.5px;padding:1px 6px" title="やりとり画面から招待されたメンバー（リアルタイム反映）">👥 ${mems}名</span>`:""}</span></td>
       <td>${stc}</td>
       <td class="n">${fdate(a.expires)}<br><span style="font-size:10px;color:var(--ink-3)">${a.expires>NOW()?"残り"+dleft(a)+"日":"—"}</span></td>
       <td>${a.web!==false?'<span class="p on">許可</span>':'<span class="p lo">停止</span>'}</td>
@@ -5961,6 +6517,7 @@ function renderAdmin(){
     if(!co){toast("会社名を入力してください");return;}
     const code=genCode(), days=+$("#nd").value;
     ADB.accounts.unshift({code,co,who:($("#nw").value||"").trim(),st:"active",web:$("#nweb").checked,
+      role:($("#nrole")&&$("#nrole").value)||"",
       created:NOW(),expires:NOW()+days*DAY,usage:emptyU()});
     asave(); admIssued=code; renderAdmin(); scrollTo({top:0});
   };
@@ -5978,7 +6535,7 @@ function admDetail(code){
   const a=findAcct(code); if(!a) return;
   const u=a.usage, sc=Object.entries(u.screens||{}).sort((x,y)=>y[1]-x[1]).slice(0,8);
   const mx=Math.max(1,...sc.map(x=>x[1]));
-  const IC={login:"🔑",upload:"📄",ai:"💬",web:"🌐",fill:"✍️",screen:"🧭"};
+  const IC={login:"🔑",upload:"📄",ai:"💬",web:"🌐",fill:"✍️",screen:"🧭",member:"👥",fwd:"🚚"};
   openDW(`<h3>${esc(a.co)}</h3>
    <p class="nn" style="margin-bottom:10px"><span class="acode">${a.code}</span>
      ${a.st==="active"?'<span class="p hi">有効</span>':'<span class="p no">無効</span>'}
@@ -5993,6 +6550,15 @@ function admDetail(code){
        .map(([l,v])=>`<div style="padding:7px 9px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
          <p class="lbl" style="font-size:9px">${l}</p><div class="n" style="font-size:17px;font-weight:300">${v}</div></div>`).join("")}
    </div>
+   ${(a.members&&a.members.length)?`<p class="lbl" style="margin-top:13px">招待メンバー（やりとり画面から招待・リアルタイム反映）</p>
+     <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+     ${a.members.map((m,i)=>`<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11.5px;padding:5px 0;border-bottom:1px dashed var(--line-2)">
+       <span><b>${esc(m.name)}</b> <span style="color:var(--ink-3);font-size:10px">${esc(m.dept||"")}${m.mail?"・"+esc(m.mail):""}</span><br>
+         <span style="color:var(--ink-3);font-size:9.5px">招待 ${fdate2(m.added)}</span></span>
+       <span class="rw" style="gap:4px">
+         <span class="p ${m.st==="active"?"hi":"no"}">${m.st==="active"?"有効":"停止"}</span>
+         <button class="btn g" data-mtgl="${i}" style="padding:2px 8px;font-size:10px">${m.st==="active"?"停止":"再開"}</button></span></div>`).join("")}
+     </div>`:""}
    ${sc.length?`<p class="lbl" style="margin-top:13px">よく見ている画面</p>
      <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">
      ${sc.map(([k,v])=>`<div style="display:grid;grid-template-columns:112px 1fr 22px;gap:7px;align-items:center;font-size:11px">
@@ -6007,6 +6573,10 @@ function admDetail(code){
      <button class="btn g" id="dw-ext">期限を +14日</button>
      <button class="btn g" id="dw-copy">コードをコピー</button>
      <button class="btn g" id="dw-del" style="color:var(--crit);border-color:var(--crit)">削除</button></div>`);
+  document.querySelectorAll("[data-mtgl]").forEach(b=>b.onclick=()=>{
+    const m=a.members[+b.dataset.mtgl]; if(!m) return;
+    m.st=m.st==="active"?"disabled":"active"; asave(); admDetail(code);
+    toast(m.name+(m.st==="active"?" さんを再開しました":" さんを停止しました"));});
   $("#dw-tgl").onclick=()=>{a.st=a.st==="active"?"disabled":"active";
     if(a.st==="active"&&a.expires<NOW())a.expires=NOW()+14*DAY;
     asave();closeDW();renderAdmin();toast(a.st==="active"?"有効化しました":"無効化しました");};
@@ -6089,6 +6659,58 @@ fillAnswer=function(v){ __fa2(v);
   logU("fill", FILL.cur?null:("必須項目の入力が完了（充足度 "+scoreOf(TEN).pct+"%）"));
   saveTen(); };
 
+/* ═══ ⑦ 同じ会社の別メンバーを招待（やりとり画面から。マスター管理へ即時反映） ═══ */
+function mMembersAll(){
+  const base=(D&&D.members)?D.members.slice():[];
+  if(SES&&SES.t==="trial"){
+    (acct().members||[]).forEach(m=>{
+      base.splice(1,0,[m.name,(m.dept||"招待メンバー")+(m.st==="active"?"":"・停止中"),"貴社"]);
+    });
+  }
+  return base;
+}
+function mInviteHtml(){
+  if(!SES||SES.t!=="trial") return "";
+  return `<button class="btn g" id="minvite" style="padding:4px 10px;font-size:10.5px">＋ メンバーを招待</button>`;
+}
+function mInviteNote(){
+  if(!SES||SES.t!=="trial") return "";
+  const n=(acct().members||[]).length;
+  return `<p class="nn" style="margin-top:8px">招待したメンバーは<b>同じアクセスコード＋ご本人の氏名</b>でログインすると、その方の名前で投稿されます。
+    招待・停止は<b>STANDAGEのマスター管理画面にリアルタイムに反映</b>されます${n?`（現在 ${n}名）`:""}。製品版では招待メールが自動送信されます。</p>`;
+}
+function mInviteBind(){
+  const b=$("#minvite"); if(!b) return;
+  b.onclick=()=>{
+    openDW(`<h3>👥 メンバーを招待</h3>
+      <p class="nn" style="margin-top:6px">同じ会社の別のご担当者を、この案件のやりとりに招待します。<b>費用はかかりません。</b></p>
+      <p class="lbl" style="margin-top:10px">氏名（必須）</p>
+      <input class="sel" id="mvN" placeholder="例：山田 花子" style="width:100%;box-sizing:border-box">
+      <p class="lbl" style="margin-top:8px">部署・役職</p>
+      <input class="sel" id="mvD" placeholder="例：海外事業部" style="width:100%;box-sizing:border-box">
+      <p class="lbl" style="margin-top:8px">メールアドレス（任意）</p>
+      <input class="sel" id="mvM" placeholder="例：hanako@example.co.jp" style="width:100%;box-sizing:border-box">
+      <div class="rw" style="margin-top:12px">
+        <button class="btn" id="mvGo">招待する</button>
+        <button class="btn g" onclick="closeDW()">やめる</button></div>
+      <p class="nn" style="margin-top:9px">招待後、この方は<b>アクセスコード「${esc(SES.code)}」＋ご本人の氏名</b>でログインできます。
+      投稿・ログインの記録はSTANDAGEのマスター管理アカウントに<b>リアルタイムで反映・管理</b>されます（トライアルはこの端末内、製品版はクラウドで全端末同期）。</p>`);
+    $("#mvGo").onclick=()=>{
+      const name=($("#mvN").value||"").trim();
+      if(!name){ toast("氏名を入力してください"); return; }
+      const a=findAcct(SES.code); if(!a) return;
+      a.members=a.members||[];
+      if(a.members.some(m=>m.name===name)){ toast("同じ氏名のメンバーがすでにいます"); return; }
+      a.members.push({name,dept:($("#mvD").value||"").trim(),mail:($("#mvM").value||"").trim(),
+        st:"active",added:NOW()});
+      asave();
+      logU("member","メンバー招待:"+name);
+      closeDW(); render();
+      toast(`${name} さんを招待しました（コード ${SES.code}＋氏名でログイン）`);
+    };
+  };
+}
+
 /* ── 起動 ── */
 function authBoot(){
   ADB=aload();
@@ -6101,5 +6723,342 @@ function authBoot(){
   if(!SES) showLogin(); else enterApp();
 }
 authBoot();
+/* 既存端末（シード済みADB）への移行：フォワーダー体験用アカウントを補充 */
+if(ADB&&!findAcct("FWD-2026")){
+  ADB.accounts.push({code:"FWD-2026",co:"デモ物流株式会社（フォワーダー体験用）",who:"—",st:"active",web:true,
+    role:"fwd",created:NOW(),expires:NOW()+30*DAY,usage:emptyU()});
+  asave();
+}
+/* logUのイベントアイコン用（member種別） */
+
+/* ═══════════ ⑥ 物流会社（フォワーダー）モード＋AI物流マン ═══════════
+   物流会社アカウント（role:"fwd"／体験用コード FWD-2026）でログインすると、
+   レート管理と見積受信箱の専用画面になる。荷主側は「出荷を進める」から
+   AI見積を依頼でき、AI物流マンが荷主のAI商社マンとやり取りして見積を確定する。
+   データはこの端末のlocalStorage（bc20_fwd_v1）＝荷主・物流の両ログインで共有（製品版はクラウド）。 */
+const FWDKEY="bc20_fwd_v1";
+let FWDB=null, FWDON=false, fwdCur="finbox";
+const FWD_POD={"香港":"香港","シンガポール":"シンガポール","台湾":"基隆","アメリカ":"ロサンゼルス",
+ "タイ":"レムチャバン","UAE":"ジェベルアリ","ベトナム":"ホーチミン","マレーシア":"ポートケラン",
+ "韓国":"釜山","中国":"上海","フランス":"ルアーブル","ドイツ":"ハンブルク","イギリス":"フェリクストウ",
+ "インドネシア":"ジャカルタ","オーストラリア":"シドニー","インド":"ナバシェバ"};
+function fwdSeedRates(){
+  const L=(pod,price,tt)=>({pol:"横浜港",pod,mode:"LCL",price,cur:"¥",unit:"/m³",tt,valid:"2026-09-30",note:"最低1m³・CFS渡し"});
+  const F=(pod,price,tt)=>({pol:"横浜港",pod,mode:"FCL20",price,cur:"¥",unit:"/本",tt,valid:"2026-09-30",note:"20ftドライ"});
+  return [L("香港",9500,7),L("シンガポール",11000,10),L("基隆",10000,6),L("釜山",8000,4),
+    L("ホーチミン",11500,12),L("レムチャバン",12000,14),L("ジェベルアリ",16500,18),L("ロサンゼルス",18000,16),
+    F("香港",68000,7),F("シンガポール",95000,10),F("ロサンゼルス",280000,16)];
+}
+function fwdLoad(){
+  try{ const j=JSON.parse(localStorage.getItem(FWDKEY));
+    if(j&&j.v===1&&Array.isArray(j.rates)){ FWDB=j; return; } }catch(e){}
+  FWDB={v:1,profile:{co:"デモ物流株式会社"},rates:fwdSeedRates(),reqs:[]};
+  fwdSave();
+}
+function fwdSave(){ try{localStorage.setItem(FWDKEY,JSON.stringify(FWDB));}catch(e){} }
+const FWD_THC=12000, FWD_DOC=8000;
+
+/* ── 見積ロジック（AI物流マン） ── */
+function fwdFindRate(pod){
+  return FWDB.rates.find(r=>r.pod===pod&&r.mode==="LCL")||FWDB.rates.find(r=>r.pod===pod)||null;
+}
+function fwdQuoteCalc(rate,cbm){
+  const freight=Math.round(rate.price*Math.max(1,cbm));
+  return {freight,thc:FWD_THC,doc:FWD_DOC,total:freight+FWD_THC+FWD_DOC,tt:rate.tt,valid:rate.valid,
+    lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit:rate.cur+rate.price.toLocaleString()+rate.unit};
+}
+function fwdMsgsLocal(req,rate,q){
+  const item=req.item||"貨物", cat=req.cat||"一般貨物";
+  return [
+   {f:"商",t:`${FWDB.profile.co}のAI物流マンさん、見積をお願いします。<br>区間：<b>${esc(req.pol)} → ${esc(req.pod)}</b>（${esc(req.cty)}）／貨物：<b>${esc(item)}</b>（${esc(cat)}）／形態：LCL想定／条件：${esc(req.term||"FOB")}。`},
+   {f:"物",t:`承知しました。2点確認させてください。<br>① 危険物・リチウム電池・液体規制への該当は？<br>② 貨物量（m³）の想定は？`},
+   {f:"商",t:`① 登録済みの${esc(cat)}の成分・材質表から<b>非該当</b>と判断しています。<br>② 初回は<b>約${req.cbm}m³</b>を想定（梱包明細の確定後に実測で精算いただく前提でOKです）。`},
+   {f:"物",t:`ありがとうございます。当社レート表から即時のお見積です。<br>
+     <b>${esc(q.lane)}（${q.mode}）</b><br>
+     ・海上運賃：¥${q.freight.toLocaleString()}（${esc(q.unit)} × ${req.cbm}m³）<br>
+     ・THC等 諸掛：¥${q.thc.toLocaleString()}　・書類費：¥${q.doc.toLocaleString()}<br>
+     ・<b>合計：¥${q.total.toLocaleString()}</b>／所要 約${q.tt}日／有効期限 ${esc(q.valid)}<br>
+     本船は毎週水曜出港ベースで手配可能です。`},
+   {f:"商",t:`内容を確認しました。相場レンジ内で、希望着荷にも間に合う見込みです。<br>荷主さまへ：<b>合計 ¥${q.total.toLocaleString()}・所要約${q.tt}日</b>でご提案します。このまま「仮押さえ」まで進められます（費用発生は本予約時）。`}];
+}
+async function fwdMsgsAI(req,rate,q){
+  const r=await llmAsk(
+`荷主側AI（AI商社マン）と物流会社側AI（AI物流マン）の見積交渉を、以下の事実だけで簡潔に再現してください。返答はJSONのみ：
+{"msgs":[{"f":"商|物","t":"発言（HTMLタグ不可・改行は\\n）"}]}
+・msgsは5件（商→物→商→物→商の順）。1件2〜3文。
+・事実：区間 ${req.pol}→${req.pod}（${req.cty}）／貨物 ${req.item}（${req.cat}・非危険物）／${req.cbm}m³ LCL／
+  レート ${q.unit}／海上運賃 ¥${q.freight.toLocaleString()}／THC ¥${q.thc.toLocaleString()}／書類費 ¥${q.doc.toLocaleString()}／
+  合計 ¥${q.total.toLocaleString()}／所要${q.tt}日／有効期限 ${q.valid}
+・物流マンは危険物該当と貨物量を確認し、商社マンは登録データから即答する。最後は商社マンが荷主に向けて合計と所要日数をまとめる。
+・数字は上の事実から一切変えないこと。`,1400,{noWeb:1,timeout:60000,
+    sys:"あなたは貿易実務のシミュレーター。返答は指定JSONのみ。"});
+  let t=r.txt.replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  const j=JSON.parse(t.slice(a,b+1));
+  if(!Array.isArray(j.msgs)||j.msgs.length<3) throw new Error("形式不正");
+  return j.msgs.map(m=>({f:/物/.test(m.f)?"物":"商",t:esc(String(m.t||"")).replace(/\n/g,"<br>")}));
+}
+/* 荷主側：見積依頼の実行 */
+async function fwdRequest(){
+  if(!D||!D.ship){ toast("先に価格表・寸法・進出希望国を登録してください"); return; }
+  fwdLoad();
+  const cty=D.ship.country, pod=FWD_POD[cty]||cty, pol=D.pol||"横浜港";
+  const req={id:"RQ-"+Date.now().toString(36).toUpperCase().slice(-6),d:TODAYS,
+    co:(TEN&&TEN.co)||D.co||"荷主",item:D.item||"—",cat:D.cat||"一般貨物",
+    cty,pol,pod,mode:"LCL",cbm:2,term:D.term||"FOB",status:"AI交渉中",msgs:[],quote:null};
+  const rate=fwdFindRate(pod);
+  openDW(`<h3>🚚 フォワーダーAI見積</h3>
+    <p class="nn" style="margin-top:8px"><span class="spin"></span> AI物流マン（${esc(FWDB.profile.co)}）と、貴社のAI商社マンが交渉しています…（数秒〜30秒）</p>`);
+  if(!rate){
+    req.status="レーン未登録";
+    req.msgs=[{f:"商",t:`${esc(pol)} → ${esc(pod)}（${esc(cty)}）の見積をお願いします。`},
+      {f:"物",t:`申し訳ありません。現在このレーンのレートが未登録です。<b>レート表の更新後に自動でお見積します</b>（通常1営業日以内）。お急ぎの場合はSTANDAGE経由で相見積も可能です。`}];
+    FWDB.reqs.unshift(req); fwdSave();
+    openFwdQuote(req.id); return;
+  }
+  const q=fwdQuoteCalc(rate,req.cbm);
+  let msgs;
+  try{
+    msgs=(typeof ppReady==="function"&&ppReady())?await fwdMsgsAI(req,rate,q):fwdMsgsLocal(req,rate,q);
+  }catch(e){ msgs=fwdMsgsLocal(req,rate,q); }
+  req.msgs=msgs; req.quote=q; req.status="AI回答済み";
+  FWDB.reqs.unshift(req); fwdSave();
+  if(typeof logU==="function") logU("fwd","AI見積依頼:"+pod);
+  openFwdQuote(req.id);
+}
+/* 交渉トランスクリプト＋見積カード（荷主・物流の両画面から使う） */
+function openFwdQuote(id){
+  fwdLoad();
+  const r=FWDB.reqs.find(x=>x.id===id); if(!r) return;
+  const chat=r.msgs.map(m=>`
+    <div style="display:flex;gap:8px;margin-bottom:9px;${m.f==="物"?"flex-direction:row-reverse":""}">
+      <span style="width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:8.5px;font-weight:800;
+        background:${m.f==="物"?"var(--bl)":"var(--or)"};color:#fff">${m.f==="物"?"AI物流":"AI商社"}</span>
+      <div style="max-width:82%;padding:8px 11px;border-radius:10px;font-size:11.5px;line-height:1.7;
+        background:${m.f==="物"?"var(--bl-soft)":"var(--or-soft)"}">${m.t}</div></div>`).join("");
+  const q=r.quote;
+  openDW(`<h3>🚚 AI見積 ${esc(r.id)} <span class="p ${q?"hi":"mid"}">${esc(r.status)}</span></h3>
+    <p class="nn" style="margin-top:4px">${esc(r.co)}／<b>${esc(r.pol)} → ${esc(r.pod)}</b>（${esc(r.cty)}）／${esc(r.item)}・${r.cbm}m³ ${esc(r.mode)}</p>
+    <p class="lbl" style="margin-top:11px">AI同士の交渉記録（荷主のAI商社マン × 物流会社のAI物流マン）</p>
+    <div style="margin-top:7px;max-height:280px;overflow-y:auto;padding-right:4px">${chat}</div>
+    ${q?`<div class="doc" style="margin-top:10px"><h4>見積内訳（${esc(q.lane)}・${q.mode}）</h4>
+      <div class="dl">
+        <span>海上運賃</span><span class="n">¥${q.freight.toLocaleString()}（${esc(q.unit)}）</span>
+        <span>THC等 諸掛</span><span class="n">¥${q.thc.toLocaleString()}</span>
+        <span>書類費</span><span class="n">¥${q.doc.toLocaleString()}</span>
+        <span style="font-weight:800">合計</span><span class="n" style="font-weight:800">¥${q.total.toLocaleString()}</span>
+        <span>所要日数</span><span class="n">約${q.tt}日</span>
+        <span>有効期限</span><span class="n">${esc(q.valid)}</span></div></div>`:""}
+    <div class="rw" style="margin-top:12px">
+      ${q&&!FWDON&&r.status!=="仮押さえ済み"?`<button class="btn" id="fwdHold">この見積で仮押さえ</button>`:""}
+      <button class="btn g" onclick="closeDW()">閉じる</button></div>
+    <p class="nn" style="margin-top:8px">${FWDON?"荷主が「出荷を進める」画面から依頼すると、AI物流マンが貴社のレート表から自動回答します。金額・納期を直したい場合はレート管理から更新してください。"
+      :"仮押さえは無料です。本予約の時点で費用が発生します。トライアル環境のため実手配は行われません。"}</p>`);
+  const hb=$("#fwdHold");
+  if(hb) hb.onclick=()=>{ r.status="仮押さえ済み"; fwdSave(); closeDW(); render();
+    toast("仮押さえしました（"+r.id+"）。物流会社側の受信箱にも反映されます"); };
+}
+/* 荷主側「出荷を進める」に差し込むカード */
+function fwdCardHtml(){
+  fwdLoad();
+  const mine=FWDB.reqs.slice(0,4);
+  return `<div class="c" style="margin-top:11px;border-color:var(--bl)">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3>🚚 フォワーダーAI見積 <span class="nt">この版で新規</span></h3>
+        <p class="nn">貿易クラウドに参加している物流会社（${esc(FWDB.profile.co)}）の<b>AI物流マン</b>に、貴社の<b>AI商社マン</b>が直接交渉して見積を取ります。
+        レート表 <b>${FWDB.rates.length}レーン</b> 登録済み・回答は数十秒です。</p></div>
+      <button class="btn" id="fwdgo">AI見積を依頼する</button></div>
+    ${mine.length?`<div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap">
+      ${mine.map(r=>`<button class="q" data-fwdq="${r.id}">${esc(r.id)}　${esc(r.pod)}行き ${r.quote?("¥"+r.quote.total.toLocaleString()):"—"}・${esc(r.status)}</button>`).join("")}</div>`:""}
+  </div>`;
+}
+function fwdShipBind(){
+  const b=$("#fwdgo"); if(b) b.onclick=()=>fwdRequest();
+  document.querySelectorAll("[data-fwdq]").forEach(x=>x.addEventListener("click",()=>openFwdQuote(x.dataset.fwdq)));
+}
+
+/* ── 物流会社側の画面 ── */
+function fwdNav(){
+  const nav=$("#nav"); if(!nav) return;
+  nav.innerHTML=`<div class="ngrp">物流会社メニュー</div>`+
+    [["finbox","見積受信箱",'<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4h.5a8.4 8.4 0 0 1 8 8z"/>'],
+     ["frates","物流レート管理",'<path d="M3 16V9l9-5 9 5v7"/><path d="M3 16l9 5 9-5"/><path d="M12 11v10"/>']]
+    .map(([id,nm,ic])=>`<button class="nb" data-fp="${id}" ${id===fwdCur?'aria-current="page"':""}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round">${ic}</svg><span>${nm}</span><span class="lyn">🚚</span></button>`).join("");
+  nav.querySelectorAll("[data-fp]").forEach(b=>b.addEventListener("click",()=>{fwdCur=b.dataset.fp;fwdNav();fwdRender();}));
+  $("#tenant").innerHTML=`<span class="av" style="background:var(--bl);color:#fff">物</span>
+    <span><b>${esc(FWDB.profile.co)}</b><span>物流会社（フォワーダー）アカウント</span></span>`;
+  const s=$("#psw"); if(s) s.hidden=true;
+  const sft=$("#sft"); if(sft) sft.innerHTML=`物流会社モード／${esc(FWDB.profile.co)}<br>AI物流マンが見積に自動対応<br>Copyright © 2026, STANDAGE, Inc.`;
+}
+function fwdRender(){
+  fwdLoad();
+  const g=$("#guide"); if(g) g.hidden=true;
+  well.innerHTML=fwdCur==="frates"?fwdRatesHtml():fwdInboxHtml();
+  fwdBindPage();
+  const ft=$("#ft"); if(ft) ft.innerHTML=`<b>物流会社モードについて</b>　レート表とAI物流マンの応答は、この端末のブラウザに保存されます（bc20_fwd_v1・製品版ではクラウドで荷主と接続）。
+    荷主が「出荷を進める」からAI見積を依頼すると、登録レートから<b>AI物流マンが自動で回答</b>し、この受信箱に記録されます。実際の予約・手配は行われません。Copyright © 2026, STANDAGE, Inc.`;
+  scrollTo({top:0});
+}
+function fwdInboxHtml(){
+  const R=FWDB.reqs;
+  const done=R.filter(r=>r.quote).length;
+  return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span><span class="nt">この版で新規</span></div>
+    <h1>見積受信箱</h1>
+    <p class="cando"><b>この画面でできること：</b>荷主からの見積依頼に、<b>AI物流マンが貴社のレート表から自動で回答</b>した記録を確認できます。人が対応する前に、AI同士で条件確認まで終わっています。</p></div>
+    <div class="rw"><button class="btn g" onclick="fwdCur='frates';fwdNav();fwdRender()">レートを管理する</button></div></div>
+  <div class="g4" style="margin-bottom:11px">
+    ${[["受信した依頼",R.length+"<small>件</small>","荷主の「出荷を進める」から届きます"],
+       ["AI自動回答",done+"<small>件</small>","レート表から数十秒で回答"],
+       ["登録レーン",FWDB.rates.length+"<small>本</small>","LCL・FCL20ほか"],
+       ["仮押さえ",R.filter(r=>r.status==="仮押さえ済み").length+"<small>件</small>","本予約待ちの案件"]]
+      .map(([l,v,d])=>`<div class="c"><p class="lbl">${l}</p><div class="kv n">${v}</div><div class="kd">${d}</div></div>`).join("")}
+  </div>
+  <div class="c" style="margin-bottom:11px">
+    <h3>依頼一覧</h3>
+    ${R.length?`<div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>
+      <th>受信日</th><th>依頼No</th><th>荷主</th><th>区間</th><th>貨物</th><th class="num">見積合計</th><th>状況</th><th></th></tr></thead><tbody>
+      ${R.map(r=>`<tr><td class="n">${esc(r.d)}</td><td class="n"><b>${esc(r.id)}</b></td>
+        <td>${esc(r.co)}</td><td>${esc(r.pol)} → ${esc(r.pod)}</td>
+        <td style="font-size:11px">${esc(r.item)}<br><span style="color:var(--ink-3);font-size:9.5px">${r.cbm}m³ ${esc(r.mode)}</span></td>
+        <td class="num">${r.quote?("¥"+r.quote.total.toLocaleString()):"—"}</td>
+        <td><span class="p ${r.status==="仮押さえ済み"?"hi":r.quote?"on":"mid"}">${esc(r.status)}</span></td>
+        <td><button class="btn g" style="padding:3px 9px;font-size:10.5px" data-fwdq="${r.id}">交渉記録</button></td></tr>`).join("")}
+    </tbody></table></div>`
+    :`<div style="padding:22px;text-align:center;color:var(--ink-3);font-size:12px;border:1px dashed var(--line);border-radius:var(--r2);margin-top:10px;line-height:1.9">
+      まだ依頼がありません。<br><b style="color:var(--ink-2)">荷主アカウント（例：TRIAL-2026）でログイン →「出荷を進める」→「🚚 AI見積を依頼する」</b>と、ここに届きます。</div>`}
+  </div>
+  <div class="c"><h3>AI物流マンのしくみ</h3>
+    <div class="g3" style="margin-top:10px">
+      ${[["① レート表を学習","アップロードまたは手入力したレーン別運賃・所要日数・有効期限を使います。"],
+         ["② AI同士で条件確認","危険物該当・貨物量などを荷主のAI商社マンに確認。商社マンは登録済みデータから即答します。"],
+         ["③ 見積を自動提示","内訳つきの見積と交渉記録が両者に残ります。人は例外対応だけすればOK。"]]
+        .map(([t,d])=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 12px;background:var(--surface-2)">
+          <b style="font-size:12px">${t}</b><p style="font-size:10.5px;color:var(--ink-2);margin-top:5px;line-height:1.65">${d}</p></div>`).join("")}
+    </div></div>`;
+}
+function fwdRatesHtml(){
+  return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span></div>
+    <h1>物流レート管理</h1>
+    <p class="cando"><b>この画面でできること：</b>レート表をアップロード（またはその場で追加）すると、<b>AIが必要情報（区間・運賃・所要日数・有効期限）を引き出し</b>、以後の見積依頼にAI物流マンが自動回答します。</p></div>
+    <div class="rw"><button class="btn g" onclick="fwdCur='finbox';fwdNav();fwdRender()">受信箱へ戻る</button></div></div>
+  <div class="g2" style="align-items:start;margin-bottom:11px">
+    <div class="c"><h3>レート表をアップロード</h3>
+      <p class="nn"><b>CSV／PDF／画像</b>に対応。CSVは「仕出港,仕向港,形態,運賃,所要日数」の並びで読み取ります（Excelは CSV保存 または PDF書き出しでどうぞ）。PDF・画像は接続中のAIが読み取ります。</p>
+      <div class="drop" id="fwdrop" role="button" tabindex="0" style="margin-top:10px;padding:22px 10px">
+        <h3 style="font-size:13px">ここにレート表をドラッグ＆ドロップ</h3>
+        <p style="font-size:10.5px">またはクリックして選択（.csv .txt .pdf .png .jpg）</p>
+        <input type="file" id="fwdfile" hidden accept=".csv,.txt,.pdf,.png,.jpg,.jpeg"></div>
+      <p class="nn" id="fwdupst" style="margin-top:8px"></p>
+      <p class="lbl" style="margin-top:12px">手入力で1レーン追加</p>
+      <div class="rw" style="margin-top:6px;gap:5px">
+        <input class="sel" id="frPol" placeholder="仕出港（横浜港）" style="width:110px">
+        <input class="sel" id="frPod" placeholder="仕向港（香港）" style="width:110px">
+        <select class="sel" id="frMode"><option>LCL</option><option>FCL20</option><option>FCL40</option><option>AIR</option></select>
+        <input class="sel" id="frPrice" placeholder="運賃（円）" style="width:90px">
+        <input class="sel" id="frTt" placeholder="日数" style="width:60px">
+        <button class="btn" id="frAdd">追加</button></div></div>
+    <div class="c"><h3>登録済みレート <span class="n" style="color:var(--ink-3);font-weight:400">${FWDB.rates.length}レーン</span></h3>
+      <p class="nn">AI物流マンはこの表から即時に見積を作ります。有効期限切れは自動で対象外になります。</p>
+      <div class="tw" style="margin-top:10px;max-height:360px"><table><thead><tr>
+        <th>区間</th><th>形態</th><th class="num">運賃</th><th class="num">日数</th><th>有効期限</th><th></th></tr></thead><tbody>
+        ${FWDB.rates.map((r,i)=>`<tr><td><b>${esc(r.pol)} → ${esc(r.pod)}</b></td>
+          <td><span class="p ${r.mode==="LCL"?"on":"or"}">${esc(r.mode)}</span></td>
+          <td class="num">${esc(r.cur)}${r.price.toLocaleString()}<span style="color:var(--ink-3);font-size:9px">${esc(r.unit)}</span></td>
+          <td class="num">${r.tt}日</td><td class="n" style="font-size:10px">${esc(r.valid)}</td>
+          <td><button class="btn g" style="padding:2px 8px;font-size:10px" data-frdel="${i}">削除</button></td></tr>`).join("")}
+      </tbody></table></div></div>
+  </div>`;
+}
+async function fwdRateFile(f){
+  const st=$("#fwdupst"); const say=m=>{ if(st) st.innerHTML=m; };
+  const ext=FEXT(f.name);
+  try{
+    if(/^(csv|txt)$/.test(ext)){
+      const text=await f.text();
+      const rows=text.split(/\r?\n/).map(l=>l.split(/[,\t;]/).map(s=>s.trim())).filter(r=>r.length>=4&&/\d/.test(r[3]||""));
+      let n=0;
+      rows.forEach(r=>{
+        const price=parseInt(String(r[3]).replace(/[^\d]/g,""),10);
+        if(!r[0]||!r[1]||!price) return;
+        FWDB.rates.push({pol:r[0],pod:r[1],mode:(r[2]||"LCL").toUpperCase(),price,cur:"¥",
+          unit:/FCL/i.test(r[2]||"")?"/本":"/m³",tt:parseInt(r[4],10)||10,valid:r[5]||"2026-12-31",note:r[6]||""});
+        n++;
+      });
+      fwdSave(); fwdRender();
+      toast(n?`${n}レーンを取り込みました`:"読み取れる行がありませんでした（形式：仕出港,仕向港,形態,運賃,日数）");
+      return;
+    }
+    if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
+      if(!(typeof ppReady==="function"&&ppReady()&&llmCanFile(ext))){
+        say("PDF・画像の読み取りには<b>AIエンジンの接続</b>が必要です（管理コンソール）。CSVならこのまま取り込めます。"); return; }
+      say(`<span class="spin"></span> 接続中のAIがレート表を読み取っています…（10〜60秒）`);
+      const att={mime:FMIME[ext],b64:await fileB64(f),name:f.name};
+      const r=await llmAsk(`添付の物流レート表から運賃レーンを抽出し、JSONのみ返してください：
+{"rates":[{"pol":"仕出港","pod":"仕向港","mode":"LCL|FCL20|FCL40|AIR","price":数値(円),"unit":"/m³|/本|/kg","tt":所要日数の数値,"valid":"YYYY-MM-DD","note":"備考"}]}
+読み取れた行のみ。通貨がUSDの場合は円に換算せずpriceにそのまま数値、noteに"USD"と書く。`,2500,
+        {att,noWeb:1,timeout:120000,sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ。"});
+      const j=xParseJson(r.txt);
+      const rs=(j.rates||[]).filter(x=>x&&x.pol&&x.pod&&x.price);
+      rs.forEach(x=>FWDB.rates.push({pol:String(x.pol),pod:String(x.pod),mode:String(x.mode||"LCL").toUpperCase(),
+        price:Math.round(+x.price||0),cur:"¥",unit:String(x.unit||"/m³"),tt:parseInt(x.tt,10)||10,
+        valid:String(x.valid||"2026-12-31"),note:String(x.note||"")}));
+      fwdSave(); fwdRender();
+      toast(rs.length?`AIが${rs.length}レーンを抽出しました`:"レーンを読み取れませんでした");
+      return;
+    }
+    say("この形式（."+esc(ext)+"）は未対応です。CSV・PDF・画像でお願いします（ExcelはCSV保存で）。");
+  }catch(e){ say("読み取れませんでした："+esc(String(e.message)).slice(0,60)); }
+}
+function fwdBindPage(){
+  document.querySelectorAll("[data-fwdq]").forEach(x=>x.addEventListener("click",()=>openFwdQuote(x.dataset.fwdq)));
+  const dz=$("#fwdrop"), fi=$("#fwdfile");
+  if(dz&&fi){
+    dz.addEventListener("click",()=>fi.click());
+    ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over");}));
+    ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over");}));
+    dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0]; if(f) fwdRateFile(f);});
+    fi.onchange=e=>{const f=e.target.files[0]; e.target.value=""; if(f) fwdRateFile(f);};
+  }
+  const fa=$("#frAdd");
+  if(fa) fa.onclick=()=>{
+    const pol=($("#frPol").value||"").trim(),pod=($("#frPod").value||"").trim();
+    const price=parseInt(($("#frPrice").value||"").replace(/[^\d]/g,""),10);
+    if(!pol||!pod||!price){ toast("仕出港・仕向港・運賃を入力してください"); return; }
+    FWDB.rates.push({pol,pod,mode:$("#frMode").value,price,cur:"¥",
+      unit:/FCL/.test($("#frMode").value)?"/本":"/m³",tt:parseInt($("#frTt").value,10)||10,
+      valid:"2026-12-31",note:"手入力"});
+    fwdSave(); fwdRender(); toast("レーンを追加しました");
+  };
+  document.querySelectorAll("[data-frdel]").forEach(b=>b.addEventListener("click",()=>{
+    FWDB.rates.splice(+b.dataset.frdel,1); fwdSave(); fwdRender(); toast("削除しました");}));
+}
+function fwdEnter(){
+  document.body.classList.remove("locked");
+  const l=$("#lgv"); l&&l.remove();
+  if(typeof injectBar==="function") injectBar();
+  FWDON=true; fwdCur="finbox";
+  fwdLoad(); fwdNav(); fwdRender();
+}
+/* ── 既存フローへの接続 ── */
+const __enterFwd=enterApp;
+enterApp=function(){
+  if(SES&&SES.t==="trial"&&SES.role==="fwd"){ fwdEnter(); return; }
+  __enterFwd();
+};
+const __renderFwd=render;
+render=function(){
+  if(FWDON){ fwdRender(); return; }
+  __renderFwd();
+  if(cur==="ship"&&D&&D.ship) fwdShipBind();
+};
+const __vShipFwd=vShip;
+vShip=function(p){
+  return __vShipFwd(p)+((D&&D.ship&&!FWDON)?fwdCardHtml():"");
+};
+/* 起動時（authBootが先に走っている場合の復元セッション対応） */
+fwdLoad();
+if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.role==="fwd"&&!FWDON) fwdEnter();
 
 </script>
