@@ -4009,6 +4009,10 @@ function mdBarBind(root){
   (root||document).querySelectorAll("[data-md]").forEach(b=>{ if(b._mdb) return; b._mdb=1;
     b.addEventListener("click",()=>mdWrap($("#"+b.dataset.md),b.dataset.pre,b.dataset.suf,"テキスト"));});
 }
+/* ドロップの安全網：ゾーン外にファイルを落としても、ブラウザがファイル表示へ遷移して
+   アプリが消える事故を防ぐ（各ドロップゾーンのハンドラは通常どおり先に発火する） */
+window.addEventListener("dragover",e=>{ e.preventDefault(); });
+window.addEventListener("drop",e=>{ e.preventDefault(); });
 /* ドロップ対応：要素にファイルを落とすと onFile(file) */
 function dropZone(el,onFile){
   if(!el||el._dz) return; el._dz=1;
@@ -6945,12 +6949,12 @@ function fwdRatesHtml(){
     <div class="rw"><button class="btn g" onclick="fwdCur='finbox';fwdNav();fwdRender()">受信箱へ戻る</button></div></div>
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c"><h3>レート表をアップロード</h3>
-      <p class="nn"><b>CSV／PDF／画像</b>に対応。CSVは「仕出港,仕向港,形態,運賃,所要日数」の並びで読み取ります（Excelは CSV保存 または PDF書き出しでどうぞ）。PDF・画像は接続中のAIが読み取ります。</p>
+      <p class="nn"><b>Excel（.xlsx）・CSV・PDF・画像</b>に対応。表のヘッダー行（仕出港・仕向港・運賃…）から列を自動判別するので、<b>お手元の料金表をそのまま</b>お使いいただけます。列名が特殊な表やPDF・画像は、接続中のAIが読み取ります。</p>
       <div class="drop" id="fwdrop" role="button" tabindex="0" style="margin-top:10px;padding:22px 10px">
         <h3 style="font-size:13px">ここにレート表をドラッグ＆ドロップ</h3>
-        <p style="font-size:10.5px">またはクリックして選択（.csv .txt .pdf .png .jpg）</p>
-        <input type="file" id="fwdfile" hidden accept=".csv,.txt,.pdf,.png,.jpg,.jpeg"></div>
-      <p class="nn" id="fwdupst" style="margin-top:8px"></p>
+        <p style="font-size:10.5px">またはクリックして選択（.xlsx .xlsm .csv .txt .pdf .png .jpg）</p>
+        <input type="file" id="fwdfile" hidden accept=".xlsx,.xlsm,.csv,.txt,.pdf,.png,.jpg,.jpeg"></div>
+      <div class="nn" id="fwdupst" style="margin-top:8px"></div>
       <p class="lbl" style="margin-top:12px">手入力で1レーン追加</p>
       <div class="rw" style="margin-top:6px;gap:5px">
         <input class="sel" id="frPol" placeholder="仕出港（横浜港）" style="width:110px">
@@ -6971,50 +6975,162 @@ function fwdRatesHtml(){
       </tbody></table></div></div>
   </div>`;
 }
-async function fwdRateFile(f){
-  const st=$("#fwdupst"); const say=m=>{ if(st) st.innerHTML=m; };
-  const ext=FEXT(f.name);
-  try{
-    if(/^(csv|txt)$/.test(ext)){
-      const text=await f.text();
-      const rows=text.split(/\r?\n/).map(l=>l.split(/[,\t;]/).map(s=>s.trim())).filter(r=>r.length>=4&&/\d/.test(r[3]||""));
-      let n=0;
-      rows.forEach(r=>{
-        const price=parseInt(String(r[3]).replace(/[^\d]/g,""),10);
-        if(!r[0]||!r[1]||!price) return;
-        FWDB.rates.push({pol:r[0],pod:r[1],mode:(r[2]||"LCL").toUpperCase(),price,cur:"¥",
-          unit:/FCL/i.test(r[2]||"")?"/本":"/m³",tt:parseInt(r[4],10)||10,valid:r[5]||"2026-12-31",note:r[6]||""});
-        n++;
+/* ── レート表の読み取り ──
+   Excel(.xlsx/.xlsm)＝readWorkbookでローカル解析／CSV・TXT＝Shift-JIS自動判定つき解析／
+   PDF・画像＝接続AIで抽出。列の並びはヘッダー行（仕出港・仕向港・運賃…）から自動判別し、
+   ヘッダーが無い場合は「仕出港,仕向港,形態,運賃,日数」の並び順で読む。 */
+function fwdDecodeText(buf){
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(buf).replace(/^﻿/,""); }
+  catch(e){ /* ExcelのCSV保存（日本語Windows）はShift-JISが既定 */
+    try{ return new TextDecoder("shift_jis").decode(buf); }
+    catch(e2){ return new TextDecoder("utf-8").decode(buf); } }
+}
+const FWD_HDR={pol:/仕出|発地|出発|積地|積出|from|pol\b|origin/i,
+  pod:/仕向|着地|到着|揚地|行き?先|to\b|pod\b|dest/i,
+  mode:/形態|モード|種別|サービス|コンテナ|type|mode/i,
+  price:/運賃|料金|価格|金額|単価|rate|price|charge/i,
+  tt:/日数|所要|リードタイム|transit|t\/t|days?/i,
+  valid:/有効|期限|valid|expir/i,note:/備考|注記|条件|note|remark/i};
+function fwdParsePrice(s){
+  const t=String(s||"");
+  const usd=/US\$|USD|\$/.test(t);
+  const n=parseFloat(t.replace(/[^\d.]/g,""));
+  if(!n||!isFinite(n)) return null;
+  return {price:Math.round(n),usd};
+}
+function fwdNormMode(s){
+  const t=String(s||"").toUpperCase();
+  if(/40/.test(t)) return "FCL40";
+  if(/20|FCL/.test(t)) return "FCL20";
+  if(/AIR|航空/.test(t)) return "AIR";
+  return "LCL";
+}
+/* グリッド（表の2次元配列）→ レート行。戻り値 {rates,headered} */
+function fwdRatesFromGrids(grids){
+  const out=[]; let headered=false;
+  grids.forEach(g=>{
+    if(!g||!g.length) return;
+    /* ヘッダー行を探す（2項目以上ヒットする行） */
+    let hi=-1, map=null;
+    for(let i=0;i<Math.min(g.length,12);i++){
+      const row=g[i]||[]; const m={};
+      row.forEach((c,ci)=>{ Object.keys(FWD_HDR).forEach(k=>{
+        if(m[k]===undefined&&FWD_HDR[k].test(String(c||""))) m[k]=ci; });});
+      if(m.pod!==undefined&&m.price!==undefined){ hi=i; map=m; break; }
+    }
+    if(hi>=0){
+      headered=true;
+      let lastPol="";
+      for(let i=hi+1;i<g.length;i++){
+        const r=g[i]||[];
+        const pv=fwdParsePrice(r[map.price]);
+        const pod=String(r[map.pod]||"").trim();
+        if(!pod||!pv) continue;
+        const pol=String((map.pol!==undefined?r[map.pol]:"")||"").trim()||lastPol||"横浜港";
+        lastPol=pol;
+        const mode=fwdNormMode(map.mode!==undefined?r[map.mode]:"");
+        out.push({pol,pod,mode,price:pv.price,cur:pv.usd?"US$":"¥",
+          unit:mode==="LCL"?"/m³":mode==="AIR"?"/kg":"/本",
+          tt:parseInt(String(map.tt!==undefined?r[map.tt]:""),10)||10,
+          valid:String((map.valid!==undefined?r[map.valid]:"")||"").trim()||"2026-12-31",
+          note:String((map.note!==undefined?r[map.note]:"")||"").trim()+(pv.usd?"（USD建て）":"")});
+      }
+    } else {
+      /* ヘッダーなし：仕出港,仕向港,形態,運賃,日数 の並び */
+      g.forEach(r=>{
+        if(!r||r.length<4) return;
+        const pv=fwdParsePrice(r[3]);
+        if(!r[0]||!r[1]||!pv) return;
+        const mode=fwdNormMode(r[2]);
+        out.push({pol:String(r[0]).trim(),pod:String(r[1]).trim(),mode,price:pv.price,
+          cur:pv.usd?"US$":"¥",unit:mode==="LCL"?"/m³":mode==="AIR"?"/kg":"/本",
+          tt:parseInt(String(r[4]||""),10)||10,valid:String(r[5]||"").trim()||"2026-12-31",
+          note:String(r[6]||"").trim()+(pv.usd?"（USD建て）":"")});
       });
-      fwdSave(); fwdRender();
-      toast(n?`${n}レーンを取り込みました`:"読み取れる行がありませんでした（形式：仕出港,仕向港,形態,運賃,日数）");
-      return;
     }
+  });
+  return {rates:out,headered};
+}
+/* 接続AIでの抽出（PDF/画像=att、Excel/CSVの難読データ=text） */
+async function fwdRatesLLM(src){
+  const r=await llmAsk((src.text?`次の物流レート表データから運賃レーンを抽出し、`:`添付の物流レート表から運賃レーンを抽出し、`)+
+`JSONのみ返してください：
+{"rates":[{"pol":"仕出港","pod":"仕向港","mode":"LCL|FCL20|FCL40|AIR","price":数値,"unit":"/m³|/本|/kg","tt":所要日数の数値,"valid":"YYYY-MM-DD","note":"備考"}]}
+読み取れた行のみ。通貨がUSDの場合は換算せずpriceにそのまま数値、noteに"USD建て"と書く。`+
+(src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),2500,
+    {att:src.att,noWeb:1,timeout:120000,sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ。"});
+  const j=xParseJson(r.txt);
+  return (j.rates||[]).filter(x=>x&&x.pol&&x.pod&&+x.price)
+    .map(x=>({pol:String(x.pol),pod:String(x.pod),mode:fwdNormMode(x.mode),
+      price:Math.round(+x.price),cur:/USD/i.test(String(x.note||""))?"US$":"¥",
+      unit:String(x.unit||"/m³"),tt:parseInt(x.tt,10)||10,
+      valid:String(x.valid||"2026-12-31"),note:String(x.note||"")}));
+}
+function fwdRateDone(rs,how){
+  FWDB.rates=FWDB.rates.concat(rs);
+  fwdSave(); fwdRender();
+  const st=$("#fwdupst");
+  if(st) st.innerHTML=`<div style="padding:11px 13px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
+    <b style="color:var(--good)">✓ ${rs.length}レーンを取り込みました</b>
+    <span style="font-size:10px;color:var(--ink-3)">（${how}）</span><br>
+    <span style="font-size:11px;color:var(--ink-2)">${rs.slice(0,3).map(r=>`${esc(r.pol)}→${esc(r.pod)} ${esc(r.mode)} ${esc(r.cur)}${r.price.toLocaleString()}`).join("　／　")}${rs.length>3?" ほか":""}</span><br>
+    <span style="font-size:10px;color:var(--ink-3)">右の一覧に追加済み。AI物流マンは次の見積からこのレートを使います。</span></div>`;
+  toast(`${rs.length}レーンを取り込みました`);
+  if(typeof logU==="function") logU("fwd","レート取込:"+rs.length+"レーン");
+}
+async function fwdRateFile(f){
+  const st=$("#fwdupst");
+  const say=m=>{ const e=$("#fwdupst"); if(e) e.innerHTML=m; };
+  const fail=m=>{ const e=$("#fwdupst"); if(e) e.innerHTML=`<div style="padding:11px 13px;border:1px solid var(--crit);background:var(--crit-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.7"><b style="color:var(--crit)">読み取れませんでした</b><br>${m}</div>`; toast("レート表を読み取れませんでした"); };
+  const ext=FEXT(f.name);
+  const on=(typeof ppReady==="function"&&ppReady());
+  try{
+    /* Excel（そのまま対応） */
+    if(/^(xlsx|xlsm)$/.test(ext)){
+      say(`<span class="spin"></span> <b>${esc(f.name)}</b> を解析しています…`);
+      const sheets=await readWorkbook(f);
+      const grids=sheets.map(s=>s.grid);
+      let {rates}=fwdRatesFromGrids(grids);
+      let how="ローカル解析";
+      if(!rates.length&&on){
+        say(`<span class="spin"></span> 表の構造が特殊なため、接続中のAIが読み取っています…（10〜40秒）`);
+        const text=sheets.map(s=>s.name+"\n"+s.grid.map(r=>(r||[]).join("\t")).join("\n")).join("\n\n");
+        rates=await fwdRatesLLM({text}); how="AI抽出（"+(typeof llmLabel==="function"?llmLabel():"AI")+"）";
+      }
+      if(!rates.length) return fail(`表からレーンを特定できませんでした。ヘッダー行に<b>仕出港・仕向港・運賃</b>の列名があるか確認してください。${on?"":"<br>💡 AIエンジンを接続すると、列名が無い表でもAIが読み取れます。"}`);
+      return fwdRateDone(rates,how);
+    }
+    /* CSV / TXT（Shift-JIS自動判定） */
+    if(/^(csv|txt)$/.test(ext)){
+      say(`<span class="spin"></span> <b>${esc(f.name)}</b> を解析しています…`);
+      const text=fwdDecodeText(await f.arrayBuffer());
+      const grid=parseCSV(text)[0].grid.map(r=>r.length===1?String(r[0]).split(/[\t;]/).map(s=>s.trim()):r);
+      let {rates}=fwdRatesFromGrids([grid]);
+      let how="ローカル解析";
+      if(!rates.length&&on){
+        say(`<span class="spin"></span> 接続中のAIが読み取っています…`);
+        rates=await fwdRatesLLM({text}); how="AI抽出（"+(typeof llmLabel==="function"?llmLabel():"AI")+"）";
+      }
+      if(!rates.length) return fail(`行を特定できませんでした。1行目にヘッダー（<b>仕出港,仕向港,形態,運賃,日数</b>）を付けるか、その並び順でお願いします。`);
+      return fwdRateDone(rates,how);
+    }
+    /* PDF / 画像（接続AI） */
     if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
-      if(!(typeof ppReady==="function"&&ppReady()&&llmCanFile(ext))){
-        say("PDF・画像の読み取りには<b>AIエンジンの接続</b>が必要です（管理コンソール）。CSVならこのまま取り込めます。"); return; }
-      say(`<span class="spin"></span> 接続中のAIがレート表を読み取っています…（10〜60秒）`);
-      const att={mime:FMIME[ext],b64:await fileB64(f),name:f.name};
-      const r=await llmAsk(`添付の物流レート表から運賃レーンを抽出し、JSONのみ返してください：
-{"rates":[{"pol":"仕出港","pod":"仕向港","mode":"LCL|FCL20|FCL40|AIR","price":数値(円),"unit":"/m³|/本|/kg","tt":所要日数の数値,"valid":"YYYY-MM-DD","note":"備考"}]}
-読み取れた行のみ。通貨がUSDの場合は円に換算せずpriceにそのまま数値、noteに"USD"と書く。`,2500,
-        {att,noWeb:1,timeout:120000,sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ。"});
-      const j=xParseJson(r.txt);
-      const rs=(j.rates||[]).filter(x=>x&&x.pol&&x.pod&&x.price);
-      rs.forEach(x=>FWDB.rates.push({pol:String(x.pol),pod:String(x.pod),mode:String(x.mode||"LCL").toUpperCase(),
-        price:Math.round(+x.price||0),cur:"¥",unit:String(x.unit||"/m³"),tt:parseInt(x.tt,10)||10,
-        valid:String(x.valid||"2026-12-31"),note:String(x.note||"")}));
-      fwdSave(); fwdRender();
-      toast(rs.length?`AIが${rs.length}レーンを抽出しました`:"レーンを読み取れませんでした");
-      return;
+      if(!(on&&llmCanFile(ext))){
+        return fail(`PDF・画像の読み取りには<b>AIエンジンの接続</b>が必要です（管理コンソールで設定。PDFはGemini／Claude／ChatGPT系が対応）。<br>Excel（.xlsx）・CSVなら未接続でもこのまま取り込めます。`); }
+      say(`<span class="spin"></span> 接続中のAI（${typeof llmLabel==="function"?esc(llmLabel()):"AI"}）がレート表を読み取っています…（10〜60秒）`);
+      const rates=await fwdRatesLLM({att:{mime:FMIME[ext],b64:await fileB64(f),name:f.name}});
+      if(!rates.length) return fail("レーンを読み取れませんでした。表が鮮明に写っているかご確認ください。");
+      return fwdRateDone(rates,"AI抽出（"+(typeof llmLabel==="function"?llmLabel():"AI")+"）");
     }
-    say("この形式（."+esc(ext)+"）は未対応です。CSV・PDF・画像でお願いします（ExcelはCSV保存で）。");
-  }catch(e){ say("読み取れませんでした："+esc(String(e.message)).slice(0,60)); }
+    fail(`この形式（.${esc(ext)}）は未対応です。<b>Excel（.xlsx）・CSV・PDF・画像</b>でお願いします。<br>Googleスプレッドシートは「ファイル→ダウンロード→ .xlsx」で書き出せます。`);
+  }catch(e){ fail(esc(String(e.message)).slice(0,80)); }
 }
 function fwdBindPage(){
   document.querySelectorAll("[data-fwdq]").forEach(x=>x.addEventListener("click",()=>openFwdQuote(x.dataset.fwdq)));
   const dz=$("#fwdrop"), fi=$("#fwdfile");
   if(dz&&fi){
+    fi.addEventListener("click",e=>e.stopPropagation()); /* input自身のclickがdzへ二重伝播しないように */
     dz.addEventListener("click",()=>fi.click());
     ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over");}));
     ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over");}));
