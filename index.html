@@ -5834,7 +5834,7 @@ const PROV={
     hint:"キー発行：perplexity.ai → Settings → API。標準でWeb検索付きの回答（出典URL表示）。"},
   openai:{nm:"ChatGPT（OpenAI）",short:"ChatGPT",ep:"https://api.openai.com/v1/chat/completions",
     ph:"sk-…",models:["gpt-5.6","gpt-5.6-terra","gpt-5.6-luna","gpt-5.4-mini"],def:"gpt-5.6-terra",search:0,cors:0,
-    hint:"キー発行：platform.openai.com → API keys。<b>※OpenAIはブラウザからの直接接続を許可していません（実測）。</b>社内プロキシ経由のエンドポイントを指定した場合のみ動きます。直接使うなら Gemini / Claude / Perplexity を推奨。"},
+    hint:"キー発行：platform.openai.com → API keys。※環境によりブラウザからの直接接続がブロックされる場合があります（その場合はプロキシ経由のエンドポイントを指定するか、Gemini / Claude / Perplexity をご利用ください）。まず「接続テスト」でご確認を。"},
   gemini:{nm:"Gemini（Google）",short:"Gemini",ep:"https://generativelanguage.googleapis.com/v1beta",
     ph:"AIza…",models:["gemini-3.6-flash","gemini-3.5-flash","gemini-3.5-flash-lite","gemini-2.5-flash"],def:"gemini-3.6-flash",search:1,cors:1,
     hint:"キー発行：aistudio.google.com → Get API key。Web検索ONのときはGoogle検索グラウンディングを使用。"},
@@ -6042,7 +6042,14 @@ async function llmAsk(q,maxTok,opts){
       else uc=[{type:"image_url",image_url:{url:dataUrl}},{type:"text",text:userQ}];
     }
     const body={model,messages:[{role:"system",content:sys},{role:"user",content:uc}]};
-    if(prov==="openai"){ body.max_completion_tokens=maxTok||900; }
+    if(prov==="openai"){
+      /* gpt-5系・o系は推論モデル：内部思考トークンがmax_completion_tokensを消費するため、
+         ヘッドルームを大きく確保し（上限は課金されない）、思考量を抑える指定を付ける。
+         これが小さいと「本文が空・finish_reason:length」で返る。 */
+      const reasoning=/^(gpt-5|o[1-9])/i.test(model);
+      body.max_completion_tokens=(maxTok||900)+(reasoning?8000:0);
+      if(reasoning) body.reasoning_effort=opts._retry2?"minimal":"low";
+    }
     else { body.max_tokens=maxTok||900; body.temperature=0.2; }
     req=fetch(ep,{method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},
@@ -6056,7 +6063,7 @@ async function llmAsk(q,maxTok,opts){
   }catch(e){
     if(/Failed to fetch|NetworkError|Load failed/i.test(String(e.message))){
       throw new Error(prov==="openai"
-        ?"接続不可：OpenAIはブラウザからの直接接続を許可していません（プロキシ経由のエンドポイントが必要）"
+        ?"接続不可：この環境からOpenAIへ直接接続できませんでした（ネットワーク制限の可能性。プロキシ経由のエンドポイント指定、またはGemini/Claude/Perplexityをご検討ください）"
         :"接続不可：外部通信が遮断されているか、ネットワークエラーです");
     }
     throw e;
@@ -6085,7 +6092,12 @@ async function llmAsk(q,maxTok,opts){
     if((!cits||!cits.length)&&jr.search_results) cits=jr.search_results.map(x=>x.url).filter(Boolean);
     mdl=jr.model||model;
   }
-  if(!txt.trim()) throw new Error("回答が空でした（モデル名やmax_tokensをご確認ください）");
+  if(!txt.trim()){
+    /* 推論モデルが思考でトークンを使い切ると本文が空になる → 上限を3倍にして1回だけ自動再試行 */
+    if(!opts._retry2&&(prov==="openai"||prov==="anthropic"))
+      return llmAsk(q,(maxTok||900)*3,Object.assign({},opts,{_retry2:1}));
+    throw new Error("回答が空でした（AIの内部思考がトークン上限に達した可能性。もう一度お試しいただくか、管理コンソールでモデルを変更してください）");
+  }
   return {txt,cits:cits||[],model:mdl,extHits};
 }
 /* 旧名互換（接続テスト等） */
@@ -6884,9 +6896,20 @@ function fwdAiBind(){
 
 /* ── 見積ロジック（AI物流マン） ── */
 function fwdFindRate(pod){
-  return FWDB.rates.find(r=>r.pod===pod&&r.mode==="LCL")||FWDB.rates.find(r=>r.pod===pod)||null;
+  const R=FWDB.rates;
+  return R.find(r=>r.pod===pod&&r.mode==="LCL")
+    ||R.find(r=>r.pod===pod)
+    ||R.find(r=>r.pod.includes(pod)||pod.includes(r.pod))            /* 部分一致（「基隆」⊂「台湾・基隆」等） */
+    ||R.find(r=>(r.note||"").includes(pod))
+    ||null;
 }
 function fwdQuoteCalc(rate,cbm){
+  if(rate.mode==="COURIER"){
+    /* 小包・クーリエ：1個（最小重量帯）基準。THC・書類費は運賃込みが通例 */
+    return {freight:rate.price,thc:0,doc:0,total:rate.price,tt:rate.tt,valid:rate.valid,
+      lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit:rate.cur+rate.price.toLocaleString()+rate.unit,
+      courier:1};
+  }
   const freight=Math.round(rate.price*Math.max(1,cbm));
   return {freight,thc:FWD_THC,doc:FWD_DOC,total:freight+FWD_THC+FWD_DOC,tt:rate.tt,valid:rate.valid,
     lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit:rate.cur+rate.price.toLocaleString()+rate.unit};
@@ -6971,9 +6994,12 @@ function openFwdQuote(id){
     <div style="margin-top:7px;max-height:280px;overflow-y:auto;padding-right:4px">${chat}</div>
     ${q?`<div class="doc" style="margin-top:10px"><h4>見積内訳（${esc(q.lane)}・${q.mode}）</h4>
       <div class="dl">
-        <span>海上運賃</span><span class="n">¥${q.freight.toLocaleString()}（${esc(q.unit)}）</span>
-        <span>THC等 諸掛</span><span class="n">¥${q.thc.toLocaleString()}</span>
-        <span>書類費</span><span class="n">¥${q.doc.toLocaleString()}</span>
+        ${q.courier
+          ?`<span>運賃（小包・最小重量帯基準）</span><span class="n">¥${q.freight.toLocaleString()}（${esc(q.unit)}）</span>
+            <span>諸掛・書類費</span><span class="n">運賃込み</span>`
+          :`<span>海上運賃</span><span class="n">¥${q.freight.toLocaleString()}（${esc(q.unit)}）</span>
+            <span>THC等 諸掛</span><span class="n">¥${q.thc.toLocaleString()}</span>
+            <span>書類費</span><span class="n">¥${q.doc.toLocaleString()}</span>`}
         <span style="font-weight:800">合計</span><span class="n" style="font-weight:800">¥${q.total.toLocaleString()}</span>
         <span>所要日数</span><span class="n">約${q.tt}日</span>
         <span>有効期限</span><span class="n">${esc(q.valid)}</span></div></div>`:""}
@@ -7081,7 +7107,7 @@ function fwdRatesHtml(){
       <div class="drop" id="fwdrop" role="button" tabindex="0" style="margin-top:10px;padding:22px 10px">
         <h3 style="font-size:13px">ここにレート表をドラッグ＆ドロップ</h3>
         <p style="font-size:10.5px">またはクリックして選択（.xlsx .xlsm .csv .txt .pdf .png .jpg）</p>
-        <input type="file" id="fwdfile" hidden accept=".xlsx,.xlsm,.csv,.txt,.pdf,.png,.jpg,.jpeg"></div>
+        <input type="file" id="fwdfile" hidden multiple accept=".xlsx,.xlsm,.csv,.txt,.pdf,.png,.jpg,.jpeg"></div>
       <div class="nn" id="fwdupst" style="margin-top:8px"></div>
       <p class="lbl" style="margin-top:12px">手入力で1レーン追加</p>
       <div class="rw" style="margin-top:6px;gap:5px">
@@ -7128,6 +7154,7 @@ function fwdParsePrice(s){
 }
 function fwdNormMode(s){
   const t=String(s||"").toUpperCase();
+  if(/COURIER|PARCEL|小包|宅配|クーリエ|EMS|郵便/.test(t)) return "COURIER";
   if(/40/.test(t)) return "FCL40";
   if(/20|FCL/.test(t)) return "FCL20";
   if(/AIR|航空/.test(t)) return "AIR";
@@ -7179,28 +7206,42 @@ function fwdRatesFromGrids(grids){
   });
   return {rates:out,headered};
 }
-/* 接続AIでの抽出（PDF/画像=att、Excel/CSVの難読データ=text） */
-async function fwdRatesLLM(src){
-  const r=await llmAsk((src.text?`次の物流レート表データから運賃レーンを抽出し、`:`添付の物流レート表から運賃レーンを抽出し、`)+
+/* 接続AIでの抽出（PDF/画像=att、Excel/CSVの難読データ=text）
+   海上・航空のレーン表だけでなく、重量帯×国（地帯）の小包・クーリエ料金表も国別レーンに変換して取り込む */
+const FWD_XPROMPT=(isText)=>(isText?`次の物流レート表データから運賃レーンを抽出し、`:`添付の物流レート表から運賃レーンを抽出し、`)+
 `JSONのみ返してください：
-{"rates":[{"pol":"仕出港","pod":"仕向港","mode":"LCL|FCL20|FCL40|AIR","price":数値,"unit":"/m³|/本|/kg","tt":所要日数の数値,"valid":"YYYY-MM-DD","note":"備考"}]}
-読み取れた行のみ。通貨がUSDの場合は換算せずpriceにそのまま数値、noteに"USD建て"と書く。`+
-(src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),2500,
-    {att:src.att,noWeb:1,timeout:120000,model:fwdModel(),
-     sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ。"});
-  const j=xParseJson(r.txt);
-  return (j.rates||[]).filter(x=>x&&x.pol&&x.pod&&+x.price)
-    .map(x=>({pol:String(x.pol),pod:String(x.pod),mode:fwdNormMode(x.mode),
+{"rates":[{"pol":"仕出地・仕出港","pod":"仕向地（国名・港名。日本語で）","mode":"LCL|FCL20|FCL40|AIR|COURIER",
+"price":数値,"unit":"/m³|/本|/kg|/個(1kg)","tt":所要日数の数値(不明なら省略),"valid":"YYYY-MM-DD(不明なら省略)","note":"備考"}]}
+規則：
+・海上/航空のレーン表：1レーン=1行。
+・重量帯×国（地帯）の小包・宅配・クーリエ料金表の場合：<b>国ごとに1行</b>にまとめる。mode:"COURIER"、
+  priceは最小重量帯（例:1.0kg）の料金、unit:"/個(1kg)"、noteに「重量帯制 1kg〜最大◯kg・最大料金◯円」の形で範囲を書く。
+  同じ地帯に複数の国が並ぶ場合は、国ごとに同じ料金で別の行にする（国名は日本語：HONG KONG→香港、AUSTRALIA→オーストラリア等）。
+・仕出地の記載がなければ pol:"日本"。
+・行数は最大40行。読み取れた行のみ。通貨がUSDならpriceはそのまま数値、noteに"USD建て"と書く。`+
+(isText?"":"");
+async function fwdRatesLLM(src){
+  const ask=(extra,tok)=>llmAsk(FWD_XPROMPT(!!src.text)+(extra||"")+
+      (src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),tok,
+    {att:src.att,noWeb:1,timeout:150000,model:fwdModel(),
+     sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ（コードフェンス・説明文禁止）。"});
+  let j;
+  try{ j=xParseJson((await ask("",3600)).txt); }
+  catch(e){ /* JSON崩れ・途中切れ → 行数を絞って1回だけ再試行 */
+    j=xParseJson((await ask("\n※必ず完全なJSONのみ。行が多い場合は主要30行以内に絞ること。",3000)).txt);
+  }
+  return (j.rates||[]).filter(x=>x&&x.pod&&+x.price)
+    .map(x=>({pol:String(x.pol||"日本"),pod:String(x.pod),mode:fwdNormMode(x.mode),
       price:Math.round(+x.price),cur:/USD/i.test(String(x.note||""))?"US$":"¥",
       unit:String(x.unit||"/m³"),tt:parseInt(x.tt,10)||10,
       valid:String(x.valid||"2026-12-31"),note:String(x.note||"")}));
 }
-function fwdRateDone(rs,how){
+function fwdRateDone(rs,how,fname){
   FWDB.rates=FWDB.rates.concat(rs);
   fwdSave(); fwdRender();
   const st=$("#fwdupst");
   if(st) st.innerHTML=`<div style="padding:11px 13px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
-    <b style="color:var(--good)">✓ ${rs.length}レーンを取り込みました</b>
+    <b style="color:var(--good)">✓ ${fname?esc(fname)+"：":""}${rs.length}レーンを取り込みました</b>
     <span style="font-size:10px;color:var(--ink-3)">（${how}）</span><br>
     <span style="font-size:11px;color:var(--ink-2)">${rs.slice(0,3).map(r=>`${esc(r.pol)}→${esc(r.pod)} ${esc(r.mode)} ${esc(r.cur)}${r.price.toLocaleString()}`).join("　／　")}${rs.length>3?" ほか":""}</span><br>
     <span style="font-size:10px;color:var(--ink-3)">右の一覧に追加済み。AI物流マンは次の見積からこのレートを使います。</span></div>`;
@@ -7229,7 +7270,7 @@ async function fwdRateFile(f){
         rates=await fwdRatesLLM({text}); how=aiHow();
       }
       if(!rates.length) return fail(`表からレーンを特定できませんでした。ヘッダー行に<b>仕出港・仕向港・運賃</b>の列名があるか確認してください。${on?"":"<br>💡 AI物流マンを稼働（下の設定でスタンダード以上＋管理者のエンジン接続）すると、列名が無い表でもAIが読み取れます。"}`);
-      return fwdRateDone(rates,how);
+      return fwdRateDone(rates,how,f.name);
     }
     /* CSV / TXT（Shift-JIS自動判定） */
     if(/^(csv|txt)$/.test(ext)){
@@ -7243,7 +7284,7 @@ async function fwdRateFile(f){
         rates=await fwdRatesLLM({text}); how=aiHow();
       }
       if(!rates.length) return fail(`行を特定できませんでした。1行目にヘッダー（<b>仕出港,仕向港,形態,運賃,日数</b>）を付けるか、その並び順でお願いします。`);
-      return fwdRateDone(rates,how);
+      return fwdRateDone(rates,how,f.name);
     }
     /* PDF / 画像（AI物流マンが読む。状態別に案内を出し分け） */
     if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
@@ -7259,7 +7300,7 @@ async function fwdRateFile(f){
       say(`<span class="spin"></span> AI物流マン（${esc(fwdEngLabel())}）がレート表を読み取っています…（10〜60秒）`);
       const rates=await fwdRatesLLM({att:{mime:FMIME[ext],b64:await fileB64(f),name:f.name}});
       if(!rates.length) return fail("レーンを読み取れませんでした。表が鮮明に写っているかご確認ください。");
-      return fwdRateDone(rates,aiHow());
+      return fwdRateDone(rates,aiHow(),f.name);
     }
     fail(`この形式（.${esc(ext)}）は未対応です。<b>Excel（.xlsx）・CSV・PDF・画像</b>でお願いします。<br>Googleスプレッドシートは「ファイル→ダウンロード→ .xlsx」で書き出せます。`);
   }catch(e){ fail(esc(String(e.message)).slice(0,80)); }
@@ -7273,8 +7314,9 @@ function fwdBindPage(){
     dz.addEventListener("click",()=>fi.click());
     ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over");}));
     ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over");}));
-    dz.addEventListener("drop",e=>{const f=e.dataTransfer.files[0]; if(f) fwdRateFile(f);});
-    fi.onchange=e=>{const f=e.target.files[0]; e.target.value=""; if(f) fwdRateFile(f);};
+    const takeAll=async fs=>{ for(const f of fs){ await fwdRateFile(f); } };
+    dz.addEventListener("drop",e=>{const fs=[...(e.dataTransfer.files||[])]; if(fs.length) takeAll(fs);});
+    fi.onchange=e=>{const fs=[...(e.target.files||[])]; e.target.value=""; if(fs.length) takeAll(fs);};
   }
   const fa=$("#frAdd");
   if(fa) fa.onclick=()=>{
