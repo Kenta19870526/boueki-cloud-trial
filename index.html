@@ -1929,6 +1929,31 @@ function tenantToD(t){
     ["商談記録を貯める","2年で42件が目標です。","bl"],["初回の見積を出す","AIが下書きを作ります。","bl"]];
   d.plan30=s.missing.slice(0,4).map((m,i)=>[addDays(TODAYS,3+i*5).slice(5).replace("-","月")+"日まで",
     m.n+"を登録する",m.use,i===0?"o":""]);
+  /* AI提案から作成されたタスクを反映（永続） */
+  if(t.xtasks&&t.xtasks.length) d.tasks=d.tasks.concat(t.xtasks.map(x=>Object.assign({kids:[]},x)));
+  /* ユーザー入力の商談記録（fbx）を、商談一覧・KPI・ファネル・国別・失注理由・脈あり度へ全反映 */
+  const FBX=(t.fbx||[]).slice();
+  if(FBX.length){
+    const uniq=a=>[...new Set(a)];
+    d.fb=FBX.slice().sort((a,b)=>String(b.d).localeCompare(String(a.d)));
+    const hot=FBX.filter(f=>f.react==="高").length;
+    const won=FBX.filter(f=>f.st==="受注").length;
+    const quo=FBX.filter(f=>/見積提示|サンプル発送|受注/.test(f.st||"")).length;
+    d.kpi.fbDone=FBX.length; d.kpi.buyers=uniq(FBX.map(f=>f.b)).length;
+    d.kpi.hot=hot; d.kpi.countries=Math.max(d.kpi.countries,uniq(FBX.map(f=>f.c)).length);
+    d.kpi.quotes=quo; d.kpi.won=won;
+    if(won) d.kpi.wonNote="初受注おめでとうございます！";
+    const agg={}; FBX.forEach(f=>{ if(f.c) agg[f.c]=(agg[f.c]||0)+1; });
+    if(Object.keys(agg).length) d.byc=Object.entries(agg).sort((a,b)=>b[1]-a[1]);
+    const lostA={}; FBX.filter(f=>f.st==="失注"&&f.why).forEach(f=>lostA[f.why]=(lostA[f.why]||0)+1);
+    d.lost=Object.entries(lostA).sort((a,b)=>b[1]-a[1]);
+    d.funnel=[["バイヤーに接触",FBX.length],["商談を実施",FBX.length],
+      ["反応を記録",FBX.filter(f=>f.react).length],["見積を提示",quo],
+      ["サンプル発送",FBX.filter(f=>/サンプル発送|受注/.test(f.st||"")).length],["初回受注",won]];
+    d.hotList=FBX.filter(f=>f.st!=="失注").map(f=>[f.b,f.c,f.react==="高"?78:f.react==="中"?55:32])
+      .sort((a,b)=>b[2]-a[2]).slice(0,5);
+    d.dashNote=`商談記録が<b>${FBX.length}件</b>たまりました。${d.lost.length?`断られた理由は「${esc(d.lost[0][0])}」が最多です。ここを解消する打ち手をAIに相談できます。`:"反応の高い相手から優先的にフォローしましょう。"}`;
+  }
   d.itemSummary=buildSummary(t,s);
   if(t.aiNotes&&t.aiNotes.length)
     d.itemSummary+=`<br><br><b>🤖 接続中のAIが資料から読み取った気づき</b><br>`+t.aiNotes.map(x=>"・"+esc(x)).join("<br>");
@@ -3013,7 +3038,135 @@ function shpPhoto(x,y,w,h,label,ea){
   return shpRect(x,y,w,h,"F6F7F9",{line:"8A97A6",dash:1,lw:1.2,round:4000})+
     shpText(x,y+h/2-16,w,32,[{t:"📷",sz:22,al:"ctr"},{t:label,sz:10,c:"8A97A6",al:"ctr"}],{ea});
 }
+/* 実画像の埋め込み（アスペクト比を保ってボックス内に収める） */
+let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[-1,-1,-1];
+function dkCollectMedia(){
+  DK_MEDIA=[]; const A=dkAssets();
+  const put=o=>{ if(!o||!o.b64) return -1;
+    DK_MEDIA.push({u8:b64u8(o.b64),ext:o.mime==="image/png"?"png":"jpeg",w:o.w||0,h:o.h||0});
+    return DK_MEDIA.length-1; };
+  DK_LOGO=put(A.logo);
+  DK_PH=[0,1,2].map(i=>put(A.ph&&A.ph[i]));
+}
+function shpImg(x,y,w,h,mi){
+  const m=DK_MEDIA[mi]; if(!m) return "";
+  let ix=x,iy=y,iw=w,ih=h;
+  if(m.w&&m.h){ const r=Math.min(w/m.w,h/m.h); iw=m.w*r; ih=m.h*r; ix=x+(w-iw)/2; iy=y+(h-ih)/2; }
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${++_SPID}" name="img${_SPID}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+<p:blipFill><a:blip r:embed="rImg${mi}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+<p:spPr><a:xfrm><a:off x="${EMU(ix)}" y="${EMU(iy)}"/><a:ext cx="${EMU(iw)}" cy="${EMU(ih)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+}
+function phOr(x,y,w,h,slot,label,ea){
+  const mi=DK_PH[slot>=0&&slot<3?slot:0];
+  return mi>=0?shpImg(x,y,w,h,mi):shpPhoto(x,y,w,h,label,ea);
+}
+function logoOr(x,y,w,h){ return DK_LOGO>=0?shpImg(x,y,w,h,DK_LOGO):""; }
+function dkMeta(){ return (typeof TEN!=="undefined"&&TEN&&TEN.deckMeta)?TEN.deckMeta:{}; }
 const OR="F8951D",NV="0F2749",BL="0064BF",INK="1A1A1A",SUB="46566D",LGT="F6F7F9";
+
+/* ═══ ① 画像・ロゴ（アップロード＋Web自動取得）を実際にPPTXへ埋め込む ═══ */
+function dkAssets(){ return (typeof TEN!=="undefined"&&TEN&&TEN.assets)?TEN.assets:{logo:null,ph:[]}; }
+function dkEnsureAssets(){ if(typeof TEN!=="undefined"&&TEN){ TEN.assets=TEN.assets||{logo:null,ph:[]}; TEN.assets.ph=TEN.assets.ph||[]; return TEN.assets; } return null; }
+function b64u8(b64){ const s=atob(b64), u=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+/* 画像を最大900pxのJPEGに正規化（localStorage節約・EXIF除去・形式統一） */
+function imgNorm(src,cb,err){
+  const im=new Image();
+  im.crossOrigin="anonymous";
+  im.onload=()=>{
+    try{
+      const M=900, r=Math.min(1,M/Math.max(im.naturalWidth,im.naturalHeight));
+      const w=Math.max(1,Math.round(im.naturalWidth*r)), h=Math.max(1,Math.round(im.naturalHeight*r));
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,w,h); cx.drawImage(im,0,0,w,h);
+      const durl=cv.toDataURL("image/jpeg",0.82);
+      cb({b64:durl.split(",")[1],mime:"image/jpeg",w,h});
+    }catch(e){ err&&err(e); }
+  };
+  im.onerror=()=>err&&err(new Error("画像を読み込めませんでした"));
+  im.src=src;
+}
+function dkSetAssetFile(kind,file,slot){
+  if(!dkEnsureAssets()){ toast("先に商品情報を登録してください"); return; }
+  if(!/^image\//.test(file.type)&&!/\.(png|jpe?g|webp|gif)$/i.test(file.name)){ toast("画像ファイル（PNG/JPEG等）をお選びください"); return; }
+  const rd=new FileReader();
+  rd.onload=()=>imgNorm(rd.result,a=>{
+    const A=dkEnsureAssets();
+    if(kind==="logo") A.logo={b64:a.b64,mime:a.mime,src:"upload"};
+    else { A.ph=A.ph||[]; A.ph[slot]={b64:a.b64,mime:a.mime,src:"upload",cap:file.name}; }
+    if(typeof saveTen==="function") saveTen();
+    if(typeof logU==="function") logU("upload","営業資料用画像:"+(kind==="logo"?"ロゴ":"写真"+(slot+1)));
+    render(); toast(kind==="logo"?"ロゴを設定しました":"商品写真を設定しました");
+  },e=>toast("画像を読み込めませんでした："+String(e.message).slice(0,40)));
+  rd.readAsDataURL(file);
+}
+function dkDelAsset(kind,slot){
+  const A=dkEnsureAssets(); if(!A) return;
+  if(kind==="logo") A.logo=null; else if(A.ph) A.ph[slot]=null;
+  if(typeof saveTen==="function") saveTen();
+  render(); toast("削除しました");
+}
+/* Wikimedia Commons（CORS可・キー不要）から商品イメージ画像を検索取得 */
+async function commonsSearch(kw,n){
+  const u="https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*"+
+    "&generator=search&gsrnamespace=6&gsrlimit="+(n*3)+
+    "&gsrsearch="+encodeURIComponent("filetype:bitmap "+kw)+
+    "&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=900";
+  const r=await fetch(u); if(!r.ok) throw new Error("HTTP "+r.status);
+  const j=await r.json();
+  const pages=Object.values((j.query&&j.query.pages)||{});
+  return pages.map(p=>{
+    const ii=p.imageinfo&&p.imageinfo[0]; if(!ii) return null;
+    /* サムネURLに ?utm_… が付くことがあるため、クエリを除いて拡張子判定 */
+    if(!/\.(jpe?g|png)$/i.test(String(ii.thumburl||"").split("?")[0])) return null;
+    const lic=(ii.extmetadata&&ii.extmetadata.LicenseShortName&&ii.extmetadata.LicenseShortName.value)||"";
+    return {url:ii.thumburl,title:String(p.title||"").replace(/^File:/,""),lic};
+  }).filter(Boolean).slice(0,n);
+}
+async function deckWebImgs(){
+  const A=dkEnsureAssets(); if(!A){ toast("先に商品情報を登録してください"); return; }
+  const st=$("#dkimgst"); const say=m=>{ if(st) st.innerHTML=m; };
+  const free=[0,1,2].filter(i=>!(A.ph&&A.ph[i]));
+  if(!free.length){ say("写真スロットは埋まっています（差し替えは各スロットの削除から）。"); return; }
+  say(`<span class="spin"></span> 検索キーワードを準備しています…`);
+  let kws=[];
+  if(typeof ppReady==="function"&&ppReady()){
+    try{
+      const r=await llmAsk(`商品「${D.item}」（${D.cat}）の営業資料に載せる<b>イメージ写真</b>をWikimedia Commonsで探します。英語の検索キーワードを2つ、JSONのみで：{"kw":["",""]}（一般名詞で。ブランド名は使わない）`,200,{noWeb:1,timeout:30000});
+      const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+      kws=(j.kw||[]).filter(Boolean).slice(0,2);
+    }catch(e){}
+  }
+  if(!kws.length){
+    const M={food:"japanese green tea product",cosme:"cosmetic skincare bottle",parts:"ball bearing steel",
+      daily:"stainless tumbler bottle",car:"used car japan",liquor:"sake bottle japan",
+      apparel:"denim jeans fabric",medical:"medical gauze sterile"};
+    kws=[M[D.catKey]||String(D.itemEn||D.cat||"product").split(/\s+/).slice(0,3).join(" ")];
+  }
+  say(`<span class="spin"></span> Wikimedia Commonsで「${esc(kws.join("・"))}」を検索しています…`);
+  try{
+    let hits=[];
+    for(const kw of kws){ if(hits.length>=free.length) break;
+      try{ hits=hits.concat(await commonsSearch(kw,free.length)); }catch(e){} }
+    hits=hits.slice(0,free.length);
+    if(!hits.length){ say("画像が見つかりませんでした。キーワードを変えるか、お手元の写真をアップロードしてください。"); return; }
+    let done=0;
+    for(let i=0;i<hits.length;i++){
+      await new Promise(res=>{
+        imgNorm(hits[i].url,a=>{
+          A.ph[free[i]]={b64:a.b64,mime:a.mime,src:"web",cap:hits[i].title,lic:hits[i].lic};
+          done++; res();
+        },()=>res());
+      });
+    }
+    if(typeof saveTen==="function") saveTen();
+    if(typeof logU==="function") logU("ai","Web画像取得:"+done+"枚");
+    render();
+    toast(done?done+"枚の画像を取得しました":"画像の取得に失敗しました");
+  }catch(e){
+    say(`取得できませんでした（${esc(String(e.message)).slice(0,50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
+  }
+}
 
 /* ── 言語ラベル辞書（静的・オフラインでも各言語） ── */
 const DECK_L={
@@ -3030,7 +3183,7 @@ const DECK_L={
   about:"COMPANY & BRAND",whyjp:"WHY JAPAN QUALITY",lineup:"PRODUCT LINEUP",
   logi:"LOGISTICS & LEAD TIME",flow:["Inquiry","Order / PI","Production","Shipping","Delivery"],
   next:"NEXT STEPS",n1:"Request product samples",n2:"Receive a detailed quotation (per your volume)",
-  n3:"Regulatory check & first trial order",origin:"Origin",supply:"Stable supply from Japan"},
+  n3:"Regulatory check & first trial order",origin:"Origin",supply:"Stable supply from Japan",mission:"OUR MISSION",usage:"HOW TO USE",est:"Established",ceo:"CEO",web:"Website"},
  zhCN:{name:"中文（简体）",flag:"🇨🇳",ea:"Microsoft YaHei",
   deck:"全球销售资料",conf:"机密文件",made:"日本制造",why:"产品价值",market:"目标市场与准入条件",
   str:"核心优势",spec:"产品规格",photo:"产品照片",dims:"包装与尺寸",price:"价格与贸易条件",
@@ -3041,7 +3194,7 @@ const DECK_L={
   about:"公司与品牌",whyjp:"日本品质的理由",lineup:"产品阵容",
   logi:"物流与交期",flow:["询价","下单 / PI","生产","出运","交付"],
   next:"下一步",n1:"索取产品样品",n2:"按贵司数量获取详细报价",n3:"法规确认与首次试订单",
-  origin:"产地",supply:"日本直供・稳定供货"},
+  origin:"产地",supply:"日本直供・稳定供货",mission:"我们的使命",usage:"使用方法",est:"成立",ceo:"代表",web:"网站"},
  zhTW:{name:"中文（繁體）",flag:"🇹🇼",ea:"Microsoft JhengHei",
   deck:"全球銷售資料",conf:"機密文件",made:"日本製造",why:"產品價值",market:"目標市場與准入條件",
   str:"核心優勢",spec:"產品規格",photo:"產品照片",dims:"包裝與尺寸",price:"價格與貿易條件",
@@ -3052,7 +3205,7 @@ const DECK_L={
   about:"公司與品牌",whyjp:"日本品質的理由",lineup:"產品陣容",
   logi:"物流與交期",flow:["詢價","下單 / PI","生產","出運","交付"],
   next:"下一步",n1:"索取產品樣品",n2:"依貴司數量取得詳細報價",n3:"法規確認與首次試訂單",
-  origin:"產地",supply:"日本直供・穩定供貨"},
+  origin:"產地",supply:"日本直供・穩定供貨",mission:"我們的使命",usage:"使用方法",est:"成立",ceo:"代表",web:"網站"},
  es:{name:"Español",flag:"🇪🇸",ea:"Arial",
   deck:"PRESENTACIÓN GLOBAL DE VENTAS",conf:"Confidencial",made:"Hecho en Japón",
   why:"POR QUÉ ESTE PRODUCTO",market:"MERCADOS OBJETIVO Y ACCESO",str:"FORTALEZAS CLAVE",
@@ -3066,7 +3219,7 @@ const DECK_L={
   about:"EMPRESA Y MARCA",whyjp:"CALIDAD JAPONESA",lineup:"LÍNEA DE PRODUCTOS",
   logi:"LOGÍSTICA Y PLAZOS",flow:["Consulta","Pedido / PI","Producción","Embarque","Entrega"],
   next:"PRÓXIMOS PASOS",n1:"Solicitar muestras del producto",n2:"Cotización detallada según su volumen",
-  n3:"Verificación regulatoria y primer pedido de prueba",origin:"Origen",supply:"Suministro estable desde Japón"},
+  n3:"Verificación regulatoria y primer pedido de prueba",origin:"Origen",supply:"Suministro estable desde Japón",mission:"NUESTRA MISIÓN",usage:"MODO DE USO",est:"Fundación",ceo:"CEO",web:"Sitio web"},
  ko:{name:"한국어",flag:"🇰🇷",ea:"Malgun Gothic",
   deck:"글로벌 세일즈 자료",conf:"대외비",made:"메이드 인 재팬",why:"제품 가치",market:"타깃 시장 및 진입 조건",
   str:"핵심 강점",spec:"제품 사양",photo:"제품 사진",dims:"포장 및 치수",price:"가격 및 거래 조건",
@@ -3077,7 +3230,7 @@ const DECK_L={
   about:"회사와 브랜드",whyjp:"일본 품질의 이유",lineup:"제품 라인업",
   logi:"물류 및 납기",flow:["문의","주문 / PI","생산","선적","납품"],
   next:"다음 단계",n1:"제품 샘플 요청",n2:"수량에 맞춘 상세 견적",n3:"규제 확인 및 첫 시험 주문",
-  origin:"원산지",supply:"일본 직송・안정 공급"},
+  origin:"원산지",supply:"일본 직송・안정 공급",mission:"우리의 미션",usage:"사용 방법",est:"설립",ceo:"대표",web:"웹사이트"},
 };
 /* 国名の静的翻訳（[en, zhCN, zhTW, es, ko]） */
 const CTY_L={
@@ -3117,7 +3270,9 @@ function deckSrc(lang){
     dims:(D.dimRows||[]).slice(0,2).map(r=>(Array.isArray(r)?r.filter(Boolean).join(" / "):String(r))),
     cert:D.cert||"",shelf:D.shelf||"",origin:D.city||D.origin||"",
     moq:D.moq||"",lead:D.lead||"",pay:D.pay||"",term:D.term||"",pol:D.pol||"",
-    docs,lineup:deckLineup()};
+    docs,lineup:deckLineup(),
+    mission:(dkMeta().mission||""),usage:(dkMeta().usage||[]).slice(0,4).map(String),
+    biz:(dkMeta().biz||""),addr:(dkMeta().addr||""),est2:(dkMeta().est||"")};
   if(lang==="en"&&D.itemEn&&!/[ぁ-ヶ一-龠]/.test(D.itemEn)) src.item=D.itemEn;
   return src;
 }
@@ -3148,6 +3303,7 @@ ${JSON.stringify(src)}`,3200,{noWeb:1,timeout:120000,
 /* ── スライド組み立て（約10枚・AHYOL調のビジュアル構成） ── */
 function deckSlides(lang,T){
   const L=DECK_L[lang], ea=L.ea, S=[];
+  const DM=dkMeta(); let PGN=0; const foot=()=>footer(++PGN);
   const strengths=(T.strengths&&T.strengths.length?T.strengths:(D.strengths||[]).slice(0,5));
   const eyebrow=(t)=>shpRect(48,44,44,4,OR)+shpText(48,54,600,22,[{t,sz:12,b:1,c:BL}],{ea});
   const footer=(n)=>shpText(48,512,500,16,[{t:`${D.coEn||D.co||""}  |  ${L.conf}`,sz:8,c:"8A97A6"}],{ea})+
@@ -3169,22 +3325,27 @@ function deckSlides(lang,T){
     (cleanEn(D.itemEn)&&lang!=="en"?shpText(60,268,540,24,[{t:D.itemEn,sz:14,c:SUB}],{ea}):"")+
     shpText(60,300,540,22,[{t:(T.cat||D.cat||"")+"　|　"+L.made,sz:12,b:1,c:OR}],{ea})+
     shpText(60,420,540,60,[{t:D.coEn||D.co||"",sz:16,b:1,c:NV},{t:(T.origin||D.city||"")+"  ·  "+TODAYS,sz:10,c:SUB,spcB:4}],{ea})+
-    shpPhoto(640,110,272,330,L.photo,ea)+
-    footer(1));
+    phOr(640,110,272,330,0,L.photo,ea)+
+    logoOr(652,40,260,54)+
+    foot());
   /* 2) 会社・ブランド */
   S.push(
     eyebrow(L.about)+
     shpText(48,100,480,40,[{t:D.coEn||D.co||"",sz:26,b:1,c:NV}],{ea})+
     ((D.co&&D.coEn&&D.co!==D.coEn)?shpText(48,142,480,20,[{t:D.co,sz:11,c:SUB}],{ea}):"")+
-    shpText(48,172,480,20,[{t:L.origin+" :  "+(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:11,b:1,c:OR}],{ea})+
-    shpRect(48,212,6,120,OR)+
-    shpText(68,216,440,120,[{t:"“ "+(T.tagline||D.tagline||T.item||"")+" ”",sz:17,b:1,c:INK},
-      {t:L.supply,sz:10.5,c:SUB,spcB:8}],{ea})+
+    shpText(48,172,480,44,[{t:L.origin+" :  "+(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:11,b:1,c:OR},
+      {t:[DM.est?(L.est+": "+((T.est2||DM.est))):"",DM.ceo?(L.ceo+": "+DM.ceo):""].filter(Boolean).join("    "),sz:10,c:SUB,spcB:4}],{ea})+
+    (DM.web?shpText(48,216,480,16,[{t:L.web+": "+DM.web,sz:10,b:1,c:BL}],{ea}):"")+
+    shpRect(48,240,6,108,OR)+
+    shpText(68,244,440,112,(
+      (T.mission||DM.mission)
+        ?[{t:L.mission,sz:9.5,b:1,c:OR},{t:"“ "+(T.mission||DM.mission)+" ”",sz:15,b:1,c:INK,spcB:4},{t:(T.biz||L.supply),sz:10,c:SUB,spcB:8}]
+        :[{t:"“ "+(T.tagline||D.tagline||T.item||"")+" ”",sz:17,b:1,c:INK},{t:(T.biz||L.supply),sz:10.5,c:SUB,spcB:8}]),{ea})+
     shpRect(560,96,352,340,NV,{round:5000})+
     shpText(588,122,296,300,[{t:L.whyjp,sz:12,b:1,c:OR}]
       .concat(strengths.slice(0,3).map((s,i)=>({t:"✓  "+(s[0]||""),sz:12,b:1,c:"FFFFFF",spcB:i?8:12})))
       .concat([(T.cert||D.cert)?{t:(L.cert+" :  "+(T.cert||D.cert)),sz:9.5,c:"9FD5A9",spcB:14}:{t:"",sz:9,spcB:2}]),{ea})+
-    footer(2));
+    foot());
   /* 3) 商品ラインアップ */
   const lu=(T.lineup&&T.lineup.length?T.lineup:deckLineup()).slice(0,3);
   S.push(
@@ -3193,12 +3354,12 @@ function deckSlides(lang,T){
       const n=lu.length, w=n===1?400:272, gap=n===1?0:(864-272*n)/(n-1||1);
       const x=n===1?280:48+i*(272+gap), y=116;
       return shpRect(x,y,w,300,LGT,{round:5000})+
-        shpPhoto(x+16,y+16,w-32,170,L.photo,ea)+
+        phOr(x+16,y+16,w-32,170,Math.min(i,2),L.photo,ea)+
         shpText(x+16,y+198,w-32,80,[{t:String(p[0]||""),sz:13.5,b:1,c:INK},
           {t:String(p[1]||""),sz:9.5,c:SUB,spcB:4}],{ea});
     }).join("")+
     shpText(48,452,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
-    footer(3));
+    foot());
   /* 4) 強み（大数字ハイライト） */
   S.push(
     eyebrow(L.str)+
@@ -3213,7 +3374,7 @@ function deckSlides(lang,T){
           [{t:s[0]||"",sz:big?17:12.5,b:1,c:big?"FFFFFF":INK},
            {t:s[1]||"",sz:big?11:9.5,c:big?"C9D2DE":SUB,spcB:3}],{ea});
     }).join("")+
-    footer(4));
+    foot());
   /* 5) スペック＋写真 */
   const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]]));
   const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
@@ -3226,12 +3387,26 @@ function deckSlides(lang,T){
         shpText(64,y+8,180,32,[{t:String(r[0]||""),sz:10.5,b:1,c:BL}],{ea})+
         shpText(250,y+8,290,36,[{t:String(r[1]||""),sz:10.5,c:INK}],{ea});
     }).join("")+
-    shpPhoto(596,96,316,240,L.photo,ea)+
+    phOr(596,96,316,240,(DK_PH[1]>=0?1:0),L.photo,ea)+
     shpRect(596,352,316,84,LGT,{round:5000})+
     shpText(612,364,284,64,[{t:L.dims,sz:9.5,b:1,c:BL},
       {t:dim0,sz:9.5,c:SUB,spcB:3},
       {t:dim1,sz:9.5,c:SUB,spcB:2}],{ea})+
-    footer(5));
+    foot());
+  /* 使い方（AI商社マンとの仕上げヒアリングで入力された場合のみ） */
+  if(DM.usage&&DM.usage.length){
+    const us=(T.usage&&T.usage.length?T.usage:DM.usage).slice(0,4);
+    S.push(
+      eyebrow(L.usage)+
+      shpText(48,86,860,30,[{t:T.item||D.item||"",sz:16,b:1,c:INK}],{ea})+
+      us.map((u,i)=>{
+        const x=48+(i%2)*438, y=130+Math.floor(i/2)*150;
+        return shpRect(x,y,422,132,i===0?NV:LGT,{round:6000})+
+          shpText(x+18,y+16,64,44,[{t:("0"+(i+1)).slice(-2),sz:26,b:1,c:i===0?OR:"C9D2DE"}],{ea})+
+          shpText(x+84,y+20,318,100,[{t:String(u),sz:12,b:i===0?1:0,c:i===0?"FFFFFF":INK}],{ea});
+      }).join("")+
+      foot());
+  }
   /* 6) ターゲット市場と関税 */
   const tg=Object.entries(D.regs||{}).slice(0,6);
   S.push(
@@ -3245,7 +3420,7 @@ function deckSlides(lang,T){
         shpText(x+14,y+46,244,60,[{t:L.duty,sz:9,c:SUB},{t:dutyStr(r),sz:20,b:1,c:OR,spcB:2}],{ea});
     }).join("")+
     shpText(48,478,860,16,[{t:"*  "+L.dutyNote,sz:8.5,c:"8A97A6"}],{ea})+
-    footer(6));
+    foot());
   /* 7) 価格と取引条件 */
   const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
   const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
@@ -3265,7 +3440,7 @@ function deckSlides(lang,T){
           shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v||"—"),sz:11.5,b:1,c:INK,spcB:4}],{ea});
       }).join("")+
     shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
-    footer(7));
+    foot());
   /* 8) 物流・リードタイム */
   const FL=L.flow||["Inquiry","Order","Production","Shipping","Delivery"];
   S.push(
@@ -3290,7 +3465,7 @@ function deckSlides(lang,T){
     shpRect(632,316,280,120,NV,{round:5000})+
     shpText(652,334,240,90,[{t:L.supply,sz:11,b:1,c:"FFFFFF"},
       {t:(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:9.5,c:"C9D2DE",spcB:6}],{ea})+
-    footer(8));
+    foot());
   /* 9) 認証・輸出書類 */
   const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
   S.push(
@@ -3309,7 +3484,7 @@ function deckSlides(lang,T){
         shpText(760,y,130,20,[{t:dutyStr(r),sz:11,b:1,c:OR,al:"r"}],{ea})+
         shpRect(548,y+26,336,1,"D8DEE7");
     }).join("")+
-    footer(9));
+    foot());
   /* 10) コンタクト・次のステップ */
   S.push(
     shpRect(0,0,960,540,"FFFFFF")+
@@ -3320,23 +3495,31 @@ function deckSlides(lang,T){
       {t:D.coEn||D.co||"",sz:24,b:1,c:"FFFFFF",spcB:10},
       {t:(D.co&&D.coEn&&D.co!==D.coEn)?D.co:"",sz:10.5,c:"C9D2DE",spcB:3},
       {t:(T.origin||D.city||"")+"  ·  "+L.made,sz:10.5,c:"C9D2DE",spcB:6},
-      {t:L.cta,sz:11,c:"FFFFFF",spcB:14}],{ea})+
-    shpText(96,330,500,110,[{t:L.poweredBy,sz:8.5,c:"8A97A6"}],{ea})+
+      {t:L.cta,sz:11,c:"FFFFFF",spcB:14},
+      {t:DM.person?String(DM.person):"",sz:11.5,b:1,c:"FFFFFF",spcB:12},
+      {t:[DM.mail?("✉ "+DM.mail):"",DM.tel?("☎ "+DM.tel):""].filter(Boolean).join("    "),sz:10,c:"C9D2DE",spcB:3},
+      {t:DM.web?String(DM.web):"",sz:10,c:"C9D2DE",spcB:3},
+      {t:(T.addr||DM.addr||""),sz:9,c:"8A97A6",spcB:5}],{ea})+
+    shpText(96,392,500,40,[{t:L.poweredBy,sz:8.5,c:"8A97A6"}],{ea})+
+    (DK_LOGO>=0?shpRect(430,120,150,64,"FFFFFF",{round:4000})+logoOr(438,128,134,48):"")+
     shpRect(620,110,252,300,"FFFFFF",{alpha:8000,round:5000})+
     shpText(640,128,212,270,[{t:L.next,sz:11,b:1,c:OR},
       {t:"1.  "+L.n1,sz:10.5,b:1,c:"FFFFFF",spcB:10},
       {t:"2.  "+L.n2,sz:10.5,b:1,c:"FFFFFF",spcB:8},
       {t:"3.  "+L.n3,sz:10.5,b:1,c:"FFFFFF",spcB:8}],{ea})+
-    footer(10));
+    foot());
   return S;
 }
 function buildPptx(lang,T){
   _SPID=1;
+  dkCollectMedia();
   const slides=deckSlides(lang,T);
   const files=[];
   files.push(["[Content_Types].xml",pxml(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="png" ContentType="image/png"/>
+<Default Extension="jpeg" ContentType="image/jpeg"/>
 <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
 <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
 <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
@@ -3358,13 +3541,15 @@ ${slides.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentTyp
   files.push(["ppt/slideLayouts/_rels/slideLayout1.xml.rels",rels(
     [["rId1","slideMaster","../slideMasters/slideMaster1.xml"]])]);
   files.push(["ppt/theme/theme1.xml",themeXml()]);
+  DK_MEDIA.forEach((m,i)=>files.push(["ppt/media/dimg"+(i+1)+"."+m.ext,m.u8]));
   slides.forEach((tree,i)=>{
     files.push([`ppt/slides/slide${i+1}.xml`,pxml(`<p:sld ${NSA} ${NSR} ${NSP}><p:cSld><p:spTree>
 <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
 <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
 ${tree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`)]);
     files.push([`ppt/slides/_rels/slide${i+1}.xml.rels`,rels(
-      [["rId1","slideLayout","../slideLayouts/slideLayout1.xml"]])]);
+      [["rId1","slideLayout","../slideLayouts/slideLayout1.xml"]]
+      .concat(DK_MEDIA.map((m,k)=>["rImg"+k,"image","../media/dimg"+(k+1)+"."+m.ext])))]);
   });
   return zipStore(files);
 }
@@ -3395,6 +3580,113 @@ async function deckMake(lang){
     say(`✗ 生成に失敗しました：${esc(String(e.message)).slice(0,80)}`);
   }
 }
+/* ── 完成度チェック＆伴走ヒアリング ── */
+function deckCheck(){
+  const A=dkAssets(), DM=dkMeta();
+  return [
+    {k:"logo",n:"会社・ブランドロゴ",ok:!!(A.logo&&A.logo.b64),how:"下の「ロゴ・商品写真」から画像をアップロード"},
+    {k:"ph",n:"商品写真（1枚以上）",ok:!!(A.ph&&A.ph.some(x=>x&&x.b64)),how:"アップロード または 🌐Webから自動取得"},
+    {k:"profile",n:"会社プロフィール（設立・代表など）",ok:!!(DM.est||DM.ceo||DM.addr),how:"AI商社マンと仕上げる で入力"},
+    {k:"mission",n:"ミッション・ブランドコンセプト",ok:!!DM.mission,how:"AI商社マンと仕上げる（AI提案あり）"},
+    {k:"usage",n:"使い方（ステップ）",ok:!!(DM.usage&&DM.usage.length),how:"AI商社マンと仕上げる（AI提案あり）"},
+    {k:"contact",n:"連絡先（担当者・メール等）",ok:!!(DM.person||DM.mail||DM.tel),how:"AI商社マンと仕上げる で入力"},
+  ];
+}
+function deckAssetCard(){
+  const A=dkAssets();
+  const slot=(kind,idx)=>{
+    const o=kind==="logo"?A.logo:(A.ph&&A.ph[idx]);
+    const key=kind==="logo"?"logo":("ph"+idx);
+    const label=kind==="logo"?"ロゴ":"商品写真"+(idx+1);
+    return `<div style="border:1px solid var(--line);border-radius:var(--r2);padding:8px;background:var(--surface-2);width:132px">
+      <p class="lbl" style="margin-bottom:5px">${label}</p>
+      <div style="height:74px;border-radius:6px;background:#fff;border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden">
+        ${o&&o.b64?`<img src="data:${o.mime};base64,${o.b64}" style="max-width:100%;max-height:100%;object-fit:contain">`:`<span style="font-size:20px;color:var(--ink-3)">${kind==="logo"?"🏷":"📷"}</span>`}
+      </div>
+      ${o&&o.src==="web"?`<p style="font-size:8.5px;color:var(--ink-3);margin:3px 0 0;line-height:1.3">🌐 ${esc(String(o.cap||"").slice(0,22))}</p>`:""}
+      <div class="rw" style="gap:4px;margin-top:6px">
+        <label class="btn g" style="padding:3px 8px;font-size:10px;cursor:pointer">${o?"変更":"選ぶ"}<input type="file" hidden accept="image/*" data-dkup="${key}"></label>
+        ${o?`<button class="btn g" style="padding:3px 8px;font-size:10px" data-dkdel="${key}">削除</button>`:""}
+      </div></div>`;
+  };
+  return `<div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3>🖼 ロゴ・商品写真（資料に実際に埋め込み） <span class="nt">この版で新規</span></h3>
+        <p class="nn">ここに設定した画像が、表紙・ラインアップ・規格ページに<b>そのまま差し込まれた完成版PPTX</b>になります。</p></div>
+      <button class="btn" id="dkweb">🌐 Webから商品イメージを自動取得</button></div>
+    <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+      ${slot("logo")}${slot("ph",0)}${slot("ph",1)}${slot("ph",2)}
+    </div>
+    <div class="nn" id="dkimgst" style="margin-top:8px"></div>
+    <p class="nn" style="margin-top:4px">🌐自動取得は<b>Wikimedia Commons</b>（フリー画像）から。接続中のAIが商品に合う検索語を選びます。<b>出典・ライセンスの確認のうえ、本番配布では自社写真への差し替えを推奨</b>します。</p>
+  </div>`;
+}
+function deckReadyCard(){
+  const cks=deckCheck(), miss=cks.filter(c=>!c.ok);
+  return `<div class="c" style="margin-bottom:11px;${miss.length?"":"border-color:var(--good)"}">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3>✅ 完成版チェック <span class="p ${miss.length?"or":"hi"}">${cks.length-miss.length}/${cks.length}</span></h3>
+        <p class="nn">${miss.length?`Monroe Beauty様クラスの「完成版」まであと<b>${miss.length}項目</b>。Webと登録データで足りない分は、AI商社マンがヒアリングして一緒に仕上げます。`:"<b>完成版の材料が揃いました。</b>下の言語ボタンから生成してください。"}</p></div>
+      ${miss.length?`<button class="btn" id="dkwiz">🤖 AI商社マンと仕上げる（残り${miss.filter(c=>!/logo|ph/.test(c.k)).length||miss.length}件）</button>`:""}</div>
+    <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap">
+      ${cks.map(c=>`<span class="p ${c.ok?"hi":"lo"}" title="${esc(c.how)}">${c.ok?"✓":"○"} ${esc(c.n)}</span>`).join("")}
+    </div></div>`;
+}
+async function deckWizard(){
+  if(!(typeof TEN!=="undefined"&&TEN)){ toast("先に商品情報を登録してください"); return; }
+  const DM=TEN.deckMeta=TEN.deckMeta||{};
+  const F=(id,label,ph2,val)=>`<p class="lbl" style="margin-top:9px">${label}</p>
+    <input class="sel" id="${id}" value="${esc(val||"")}" placeholder="${esc(ph2)}" style="width:100%;box-sizing:border-box">`;
+  openDW(`<h3>🤖 AI商社マンと営業資料を仕上げる</h3>
+    <p class="nn" style="margin-top:4px">Monroe Beauty様の資料と同じ構成（会社概要・ミッション・使い方・コンタクト）に必要な情報を伺います。<b>分かるところだけでOK</b>（あとで追記できます）。日本語で入力すると、生成時に各言語へ翻訳されます。</p>
+    ${typeof ppReady==="function"&&ppReady()?`<div class="rw" style="margin-top:8px"><button class="btn g" id="dkwai">🤖 登録データからミッション・使い方の案をAIが作成</button></div><div class="nn" id="dkwaist"></div>`:""}
+    <div class="g2" style="gap:8px">
+      <div>${F("wzEst","設立","例：2021年10月",DM.est)}</div>
+      <div>${F("wzCeo","代表者","例：三谷 智恵",DM.ceo)}</div>
+    </div>
+    ${F("wzWeb","ウェブサイト","例：https://example.co.jp",DM.web)}
+    ${F("wzAddr","所在地（英語推奨）","例：3F Ai Bldg., Ashiya, Hyogo, Japan",DM.addr)}
+    ${F("wzBiz","事業内容（1行）","例：サロン運営／技術セミナー／OEM化粧品販売",DM.biz)}
+    <p class="lbl" style="margin-top:9px">ミッション・ブランドコンセプト（表紙の次に大きく載ります）</p>
+    <textarea class="sel" id="wzMission" style="width:100%;min-height:48px;box-sizing:border-box;resize:vertical"
+      placeholder="例：NY仕込みの毛穴ケア技術と、日本の肌にやさしい処方の架け橋になる">${esc(DM.mission||"")}</textarea>
+    <p class="lbl" style="margin-top:9px">使い方（1行に1ステップ・最大4行）</p>
+    <textarea class="sel" id="wzUsage" style="width:100%;min-height:72px;box-sizing:border-box;resize:vertical"
+      placeholder="例：\nコットンにたっぷり含ませて貼る\nスチームを3分あてる\nやわらかくなった角栓をやさしく除去\nぬるま湯で洗い流す">${esc((DM.usage||[]).join("\n"))}</textarea>
+    <div class="g2" style="gap:8px">
+      <div>${F("wzPerson","営業担当者名（英文推奨）","例：Ivan Tam",DM.person)}</div>
+      <div>${F("wzMail","メール","例：sales@example.co.jp",DM.mail)}</div>
+    </div>
+    ${F("wzTel","電話","例：+81 70-0000-0000",DM.tel)}
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="wzSave">保存して資料に反映</button>
+      <button class="btn g" onclick="closeDW()">あとで</button></div>`);
+  const wai=$("#dkwai");
+  if(wai) wai.onclick=async()=>{
+    wai.disabled=true; const stx=$("#dkwaist"); if(stx) stx.innerHTML='<span class="spin"></span> 登録データから案を作成中…';
+    try{
+      const r=await llmAsk(`商品「${D.item}」（${D.cat}）の営業資料用に、登録データだけを根拠にJSONのみで提案：
+{"mission":"ブランドの想いが伝わる1文（日本語40字以内）","usage":["使い方ステップ（日本語・各25字以内・最大4つ。使い方が自明な商材なら活用シーンでも可）"]}
+強み：${(D.strengths||[]).slice(0,3).map(s=>s[0]+"("+(s[1]||"")+")").join("／")}`,500,{noWeb:1,timeout:45000});
+      const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+      if(j.mission&&!$("#wzMission").value) $("#wzMission").value=String(j.mission);
+      if(Array.isArray(j.usage)&&!$("#wzUsage").value.trim()) $("#wzUsage").value=j.usage.slice(0,4).join("\n");
+      if(stx) stx.innerHTML="✓ 案を入れました。<b>内容を確認・修正して保存</b>してください（最終決定はお客様です）。";
+    }catch(e){ if(stx) stx.innerHTML="AI提案を作れませんでした："+esc(String(e.message)).slice(0,50); }
+    wai.disabled=false;
+  };
+  $("#wzSave").onclick=()=>{
+    const v=id=>($("#"+id)&&$("#"+id).value||"").trim();
+    Object.assign(DM,{est:v("wzEst"),ceo:v("wzCeo"),web:v("wzWeb"),addr:v("wzAddr"),biz:v("wzBiz"),
+      mission:v("wzMission"),person:v("wzPerson"),mail:v("wzMail"),tel:v("wzTel"),
+      usage:($("#wzUsage").value||"").split(/\n/).map(x=>x.trim()).filter(Boolean).slice(0,4)});
+    if(typeof saveTen==="function") saveTen();
+    if(typeof logU==="function") logU("fill","営業資料の仕上げヒアリング入力");
+    closeDW(); render();
+    toast("保存しました。次の生成から資料に反映されます");
+  };
+}
+
 /* ── 画面 ── */
 function vDeck(p){
   const online=(typeof ppReady==="function"&&ppReady());
@@ -3402,7 +3694,8 @@ function vDeck(p){
   return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトの<b>10枚組</b>・PPTX形式。",
     `<button class="btn g" onclick="go('item')">元データを確認する</button>
      ${typeof openHealth==="function"?`<button class="btn g" onclick="openHealth()">🧹 データを点検</button>`:""}`)+`
-  ${typeof healthBanner==="function"?healthBanner():""}`+`
+  ${typeof healthBanner==="function"?healthBanner():""}`+
+  ((typeof TEN!=="undefined"&&TEN)?deckReadyCard()+deckAssetCard():"")+`
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between">
       <div><h3>資料に入る内容（${esc(D.item||"—")}）</h3>
@@ -3434,6 +3727,18 @@ function vDeck(p){
 }
 function deckBind(){
   document.querySelectorAll("[data-deck]").forEach(b=>b.addEventListener("click",()=>deckMake(b.dataset.deck)));
+  document.querySelectorAll("[data-dkup]").forEach(inp=>inp.addEventListener("change",e=>{
+    const f=e.target.files[0]; const key=e.target.dataset.dkup; e.target.value="";
+    if(!f) return;
+    if(key==="logo") dkSetAssetFile("logo",f);
+    else dkSetAssetFile("ph",f,parseInt(key.slice(2),10)||0);
+  }));
+  document.querySelectorAll("[data-dkdel]").forEach(b=>b.addEventListener("click",()=>{
+    const key=b.dataset.dkdel;
+    if(key==="logo") dkDelAsset("logo"); else dkDelAsset("ph",parseInt(key.slice(2),10)||0);
+  }));
+  const wb=$("#dkweb"); if(wb) wb.onclick=()=>deckWebImgs();
+  const wz=$("#dkwiz"); if(wz) wz.onclick=()=>deckWizard();
 }
 
 /* ═══════════ ① AI商社マン：自由入力に答える（ページ内エンジン） ═══════════
@@ -3883,23 +4188,43 @@ function tRows(){
    :`<tr><td colspan="${gantt?7:6}" style="text-align:center;color:var(--ink-3);padding:20px">条件に合うタスクはありません</td></tr>`;
 }
 function openAiTask(){
-  const warns=Object.entries(D.regs).filter(([,r])=>r.warn);
+  const warns=Object.entries(D.regs||{}).filter(([,r])=>r.warn);
+  const cand=[
+    ...(D.lost||[]).map(([w])=>["断られた理由",w+" を解消する","高"]),
+    ...warns.map(([c,r])=>["規制の警告",c+"：" + ((r.docs||[]).filter(d=>/認証|登録|届出|証明/.test(d))[0]||"必要書類")+" の対応","高"]),
+    ...(D.ship?[["受注の確定",D.ship.buyer.replace(/ (Ltd|Co|Inc|Pte|LLC|GmbH|JSC|SARL|DMCC|Sdn)\.?.*/,"")+" 向け出荷の準備","高"]]:[]),
+    ...(()=>{const s=(typeof TEN!=="undefined"&&TEN)?scoreOf(TEN):null;
+      return s&&s.missing.length?[["充足度",`不足${s.missing.length}項目（${s.missing.slice(0,3).map(m=>m.n).join("・")}${s.missing.length>3?"ほか":""}）の登録`,"中"]]:[];})(),
+    ...(D.tasks.find(t=>/定例会/.test(t.n))?[["定例会",D.tasks.find(t=>/定例会/.test(t.n)).n.replace(/（.*/,"")+" の資料準備","中"]]:[]),
+  ].filter(x=>x[1]&&!/undefined/.test(x[1]));
   openDW(`<h3>AIが提案したタスク</h3>
-   <p class="nn" style="margin-bottom:11px">失注理由 ${D.lost.length}件・規制の警告 ${warns.length}件・受注 1件から生成しました。
+   <p class="nn" style="margin-bottom:11px">失注理由 ${(D.lost||[]).length}件・規制の警告 ${warns.length}件・登録データから生成しました。
      チェックを外したものは作成されません。</p>
-   ${[...D.lost.map(([w])=>["断られた理由",w+" を解消する","高"]),
-      ...warns.map(([c,r])=>["規制の警告",c+"：" + r.docs.filter(d=>/認証|登録|届出|証明/.test(d))[0]+" の対応","高"]),
-      ["受注の確定",D.ship.buyer.replace(/ (Ltd|Co|Inc|Pte|LLC|GmbH|JSC|SARL|DMCC|Sdn)\.?.*/,"")+" 向け出荷の子タスク7件","高"],
-      ["定例会",D.tasks.find(t=>/定例会/.test(t.n))?.n.replace(/（.*/,"")+" の資料準備","中"]]
-     .map(([src,t,pri])=>`<label style="display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line-2)">
-       <input type="checkbox" checked style="margin-top:4px">
+   ${cand.map(([src,t,pri],i)=>`<label style="display:flex;gap:9px;align-items:flex-start;padding:9px 0;border-bottom:1px dashed var(--line-2)">
+       <input type="checkbox" checked data-aitask="${i}" style="margin-top:4px">
        <span style="flex:1"><b style="font-size:12px">${AT(t)}</b><br>
          <span style="font-size:10.5px;color:var(--ink-3)">出どころ：${src}</span></span>
-       <span class="p ${pri==="高"?"no":"mid"}">${pri}</span></label>`).join("")}
-   <div class="rw" style="margin-top:14px"><button class="btn" onclick="closeDW();toast('タスクを作成しました')">これで作成する</button>
+       <span class="p ${pri==="高"?"no":"mid"}">${pri}</span></label>`).join("")||'<p class="nn">提案できるタスクの元データがまだありません。</p>'}
+   <div class="rw" style="margin-top:14px"><button class="btn" id="aiTaskGo">これで作成する</button>
      <button class="btn g" onclick="closeDW()">閉じる</button></div>
-   <p class="nn" style="margin-top:10px">現行版の「タスクプリセット」は、どのテンプレートを使うかを人が選ぶ必要がありました。
-     この版では<b>貴社のデータを見て、必要なものだけを提案</b>します。</p>`);
+   <p class="nn" style="margin-top:10px">作成したタスクは「タスク・進行」の一覧とガントチャートに即時反映されます。</p>`);
+  const go2=$("#aiTaskGo");
+  if(go2) go2.onclick=()=>{
+    const picked=[];
+    cand.forEach((c,i)=>{const cb=document.querySelector(`[data-aitask="${i}"]`); if(cb&&cb.checked) picked.push(c);});
+    if(!picked.length){ toast("作成するタスクにチェックを入れてください"); return; }
+    const mk=(c,i)=>({n:c[1],pri:c[2],s:TODAYS,e:addDays(TODAYS,7+i*3),st:"未着手",
+      who:(D.co||"貴社"),ref:"AI提案（"+c[0]+"）",kids:[],ai:1});
+    if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
+      TEN.xtasks=(TEN.xtasks||[]).concat(picked.map(mk));
+      syncTenant(); if(typeof saveTen==="function") saveTen();
+    } else {
+      picked.map(mk).forEach(t=>D.tasks.push(t));
+    }
+    if(typeof logU==="function") logU("ai","AIタスク作成:"+picked.length+"件");
+    closeDW(); taskTab="task"; go("task");
+    toast(picked.length+"件のタスクを作成しました（一覧に反映済み）");
+  };
 }
 
 /* ═════════ やりとり（現行「メッセージ」＋「メモ」＋「プライベートチャット」を統合） ═════════ */
@@ -4533,10 +4858,45 @@ function buildNav(){
     +(typeof SAMPLES2!=="undefined"?Object.values(SAMPLES2).map(x=>`<option value="s2:${x.key}">${x.cat}／${x.co}（1日目）</option>`).join(""):""); }
 }
 function ph(p,can,extra){
+  /* ④ 全ページ共通：「AIに質問」→ 画面遷移せず右サイドバーでAI商社マンと対話 */
+  const ask=(PID&&!p.free&&p.id!=="ai")
+    ?`<button class="btn g" onclick="openAskAI()" title="画面はこのまま、右側でAI商社マンに質問できます">🤖 AIに質問</button>`:"";
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px">
     <span class="lt">レイヤー${p.ly}　${p.grp}</span>${p.nw?'<span class="nt">この版で新規</span>':""}
     ${PID&&!p.free?`<span class="src">${cmeta(D&&D.catKey?D.catKey:PID).ic} ${esc(D.cat)}／${esc(D.item)}</span>`:""}</div>
-    <h1>${p.nm}</h1><p class="cando">${can}</p></div><div class="rw">${extra||""}</div></div>`;
+    <h1>${p.nm}</h1><p class="cando">${can}</p></div><div class="rw">${extra||""}${ask}</div></div>`;
+}
+/* ④ AIサイドバー（右ドロワーで完結するミニチャット。履歴はセッション中保持） */
+let ASKDW=[];
+function openAskAI(){
+  if(!D){ toast("先に商品情報を登録してください"); return; }
+  openDW(`<h3>🤖 AI商社マンに質問</h3>
+    <p class="nn" style="margin-top:4px">画面はこのまま、右側で完結します。回答は<b>${esc(D.co)}の登録データだけ</b>を根拠に、根拠付きで返します。</p>
+    <div class="chat" id="dwchat" style="max-height:44vh;margin-top:9px"></div>
+    <div class="qb" style="margin-top:8px">${SUG.map(s=>`<button class="q" data-dwq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+    <div class="rw" style="gap:6px;margin-top:8px">
+      <input class="sel" id="dwq" style="flex:1;min-width:150px" placeholder="いま見ている画面のことも、何でも質問できます" autocomplete="off">
+      <button class="btn" id="dwqgo">質問する</button></div>
+    <p class="nn" style="margin-top:6px">じっくり使うときは <a style="cursor:pointer;color:var(--bl);font-weight:700" onclick="closeDW();go('ai')">AI商社マンの画面へ →</a></p>`);
+  const c=$("#dwchat");
+  if(!ASKDW.length) ASKDW.push({w:"a",h:`こんにちは。<b>${esc(D.item)}</b>のデータを読み込み済みです。画面を見ながら、そのまま聞いてください。`});
+  ASKDW.forEach(m=>pushTo(c,m.w,m.h));
+  c.scrollTop=c.scrollHeight;
+  const send=async v=>{
+    v=String(v||"").trim(); if(!v) return;
+    ASKDW.push({w:"u",h:esc(v)});
+    pushTo(c,"u",esc(v));
+    const bb=pushTo(c,"a",'<span class="car"></span>'); c.scrollTop=1e6;
+    let r; try{ r=await Promise.resolve(brain(v)); }
+    catch(e){ r={a:"うまく処理できませんでした。もう一度お試しください。",c:"内部エラー"}; }
+    const h=T(r.a)+`<div class="ci">${T(r.c)}</div>`;
+    ASKDW.push({w:"a",h}); ASKDW=ASKDW.slice(-40);
+    bb.innerHTML=h; c.scrollTop=1e6;
+    if(typeof logU==="function") logU("ai","（サイドバー）"+v.slice(0,32));
+  };
+  document.querySelectorAll("[data-dwq]").forEach(b=>b.onclick=()=>send(b.dataset.dwq));
+  $("#dwqgo").onclick=()=>{const v=$("#dwq").value; $("#dwq").value=""; send(v);};
+  $("#dwq").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const v=$("#dwq").value;$("#dwq").value="";send(v);}};
 }
 
 /* ═════════ ① 商品情報を登録（アップロード） ═════════ */
@@ -4852,7 +5212,7 @@ function vItem(p){
     rows.map(r=>`<tr>${r.map((v,i)=>`<td${i?' class="num"':""}>${AT(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
   return ph(p,"<b>この画面でわかること：</b>アップロードした資料が、どう構造化されたか。ここが埋まっているほど、AIの答えと書類の自動作成が正確になります。",
     `${typeof openHealth==="function"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")?`<button class="btn g" onclick="openHealth()">🧹 データ健全性チェック</button>`:""}
-     <button class="btn g" onclick="go('up')">別の資料を読み込む</button><button class="btn" onclick="go('ai')">AIに質問する →</button>`)+
+     <button class="btn g" onclick="go('up')">別の資料を読み込む</button>`)+
   (typeof healthBanner==="function"?healthBanner():"")+`
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
@@ -5076,7 +5436,7 @@ function vShip(p){
          background:${ok?"var(--good-soft)":"var(--surface-2)"}"><b style="font-size:12px">${ok?"✓ ":"○ "}${n}</b>
          <p style="font-size:10.5px;color:var(--ink-2);margin-top:4px">${ok?"登録済み":"未登録"}</p></div>`;}).join("")}</div>
      <div class="rw" style="margin-top:12px"><button class="btn" onclick="go('up')">足りない情報を埋める</button>
-       <button class="btn g" onclick="go('ai')">AIに聞いてみる</button></div></div>`;
+       <button class="btn g" onclick="openAskAI()">🤖 AIに聞いてみる</button></div></div>`;
   const S=D.ship, ST=shipSteps();
   return ph(p,"<b>この画面でできること：</b>受注が決まったあとの手続きを、AIと会話するだけで最後まで終わらせます。運送会社への見積依頼、書類づくり、関係先へのデータ送信まで全部です。",
     `<button class="btn g" onclick="shipStep=0;SHIPQA=[];render()">最初からやり直す</button>`)+`
@@ -5152,8 +5512,9 @@ function pushTo(c,who,html){
 /* ═════════ 商談・バイヤー ═════════ */
 function vDeal(p){
   const FB=D.fb;
-  return ph(p,"<b>この画面でわかること：</b>海外の相手と話した内容が、決まった項目で残っています。価格・数量・条件、そして断られた理由まで。ここが埋まっているほど、AIが賢くなります。",
-    `<button class="btn g" onclick="tgOld()">以前との違いを見る</button><button class="btn g">CSV / API で書き出す</button>`)+`
+  return ph(p,"<b>この画面でわかること：</b>海外の相手と話した内容が、決まった項目で残っています。価格・数量・条件、そして断られた理由まで。ここが埋まっているほど、AIが賢くなります。<b>貴社ご自身でもその場で記録できます。</b>",
+    `<button class="btn" onclick="openDealForm()">＋ 商談を記録する</button>
+     <button class="btn g" onclick="tgOld()">以前との違いを見る</button><button class="btn g">CSV / API で書き出す</button>`)+`
   <div id="cmp" hidden style="margin-bottom:11px"><div class="cmp">
     <div class="o"><h4>以前（文章メモだけ）</h4>
       <p style="color:var(--ink-2)">「${D.oldNote}」</p>
@@ -5174,7 +5535,8 @@ function vDeal(p){
       </div></div>
     ${D.fb.length?"":`<div style="padding:18px;text-align:center;color:var(--ink-3);font-size:12px;
       border:1px dashed var(--line);border-radius:var(--r2);margin-top:10px">まだ商談の記録がありません。<br>
-      <b style="color:var(--ink-2)">ここに貯まる42件が、2年後にAIを動かす燃料になります。</b></div>`}
+      <b style="color:var(--ink-2)">ここに貯まる42件が、2年後にAIを動かす燃料になります。</b><br>
+      <button class="btn" style="margin-top:9px" onclick="openDealForm()">＋ 最初の商談を記録する</button></div>`}
     <div class="tw" style="margin-top:10px" ${D.fb.length?"":"hidden"}><table><thead><tr>
       <th>日付</th><th>相手</th><th>国</th><th>商品</th><th>希望価格</th><th class="num">数量</th><th>反応</th><th>状況</th><th>担当</th>
     </tr></thead><tbody id="fbb"></tbody></table></div>
@@ -5191,6 +5553,107 @@ function vDeal(p){
         :`<div class="c"><p class="lbl">記録がある国の数</p><div class="kv n">${D.byc.length}<small>か国</small></div>
            <div class="kd">どの国で反応があったかが、思い込みではなく数字で分かります</div></div>`;})()}
   </div>`;
+}
+/* ③ 商談をユーザー自身で記録（わかりやすいフォーム＋AI商社マンの伴走アドバイス） */
+let DEAL_REACT="中";
+function openDealForm(){
+  DEAL_REACT="中";
+  const sel=(id,opts,ph2)=>`<select class="sel" id="${id}" style="width:100%;box-sizing:border-box">
+    ${ph2?`<option value="">${ph2}</option>`:""}${opts.map(o=>`<option>${o}</option>`).join("")}</select>`;
+  const lb=t=>`<p class="lbl" style="margin-top:9px">${t}</p>`;
+  const CTYS=(typeof KNOWN_CTY!=="undefined"?KNOWN_CTY:["香港","台湾","シンガポール","アメリカ","タイ","ベトナム"]);
+  openDW(`<h3>＋ 商談を記録する</h3>
+    <p class="nn" style="margin-top:4px">3分で入力できます。<b>この記録がダッシュボード・AIの回答・脈あり度にすぐ反映</b>されます（STANDAGE担当も契約期間中は同じ画面に入力します）。</p>
+    <div class="g2" style="gap:8px;margin-top:6px">
+      <div>${lb("商談日")}<input type="date" class="sel" id="dfD" value="${TODAYS}" style="width:100%;box-sizing:border-box"></div>
+      <div>${lb("担当（記録者）")}<input class="sel" id="dfOwner" value="${esc((typeof SES!=="undefined"&&SES&&SES.who)||"貴社担当")}" style="width:100%;box-sizing:border-box"></div>
+    </div>
+    ${lb("バイヤー名（会社名）<span style='color:var(--crit)'>必須</span>")}
+    <input class="sel" id="dfB" placeholder="例：Golden Harvest Trading" style="width:100%;box-sizing:border-box">
+    <div class="g2" style="gap:8px">
+      <div>${lb("国 <span style='color:var(--crit)'>必須</span>")}
+        <input class="sel" id="dfC" list="dfCL" placeholder="選択または入力" style="width:100%;box-sizing:border-box">
+        <datalist id="dfCL">${CTYS.map(c=>`<option value="${c}">`).join("")}</datalist></div>
+      <div>${lb("チャネル")}${sel("dfCh",["展示会","オンライン商談","メール・DM","紹介","バイヤーDB経由","その他"])}</div>
+    </div>
+    <div class="g2" style="gap:8px">
+      <div>${lb("希望価格（先方）")}<input class="sel" id="dfP" placeholder="例：US$10.50/個" style="width:100%;box-sizing:border-box"></div>
+      <div>${lb("数量")}<input class="sel" id="dfL" placeholder="例：初回500個" style="width:100%;box-sizing:border-box"></div>
+    </div>
+    <div class="g2" style="gap:8px">
+      <div>${lb("取引条件")}${sel("dfT",["FOB","CIF","DDP","EXW","未定"])}</div>
+      <div>${lb("状況")}${sel("dfSt",["商談中","見積提示","サンプル発送","受注","失注","保留"])}</div>
+    </div>
+    ${lb("先方の反応")}
+    <div class="rw" id="dfReact" style="gap:5px">
+      ${["高","中","低"].map(r=>`<button type="button" class="q" data-react="${r}" style="${r==="中"?"background:var(--or-soft);border-color:var(--or);color:var(--or-deep)":""}">${r==="高"?"高（前のめり）":r==="中"?"中（検討）":"低（薄い）"}</button>`).join("")}</div>
+    <div id="dfWhyBox" hidden>${lb("断られた理由（失注時は必ず）")}
+      <input class="sel" id="dfWhy" list="dfWL" placeholder="選択または入力" style="width:100%;box-sizing:border-box">
+      <datalist id="dfWL">${["価格が合わない","認証・規制がネック","納期が長い","最小ロットが大きい","既存仕入先を継続","反応が消えた"].map(w=>`<option value="${w}">`).join("")}</datalist></div>
+    ${lb("先方の要望・要求スペック")}
+    <input class="sel" id="dfSpec" placeholder="例：小容量パッケージ・英語ラベル希望" style="width:100%;box-sizing:border-box">
+    ${lb("背景メモ（自由記述）")}
+    <textarea class="sel" id="dfNote" style="width:100%;min-height:56px;box-sizing:border-box;resize:vertical" placeholder="例：来月バイヤーが来日予定。サンプル3種を先送りしたい"></textarea>
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="dfSave">記録する</button>
+      <button class="btn g" onclick="closeDW()">やめる</button></div>
+    <div id="dfAI" style="margin-top:9px"></div>`);
+  document.querySelectorAll("[data-react]").forEach(b=>b.onclick=()=>{
+    DEAL_REACT=b.dataset.react;
+    document.querySelectorAll("[data-react]").forEach(x=>{
+      const on=x.dataset.react===DEAL_REACT;
+      x.style.background=on?"var(--or-soft)":"var(--surface)";
+      x.style.borderColor=on?"var(--or)":"var(--line)";
+      x.style.color=on?"var(--or-deep)":"var(--ink-2)";});});
+  $("#dfSt").onchange=()=>{ $("#dfWhyBox").hidden=$("#dfSt").value!=="失注"; };
+  $("#dfSave").onclick=()=>dealSave();
+}
+function dealAdviseLocal(rec){
+  const tips=[];
+  if(!rec.price) tips.push("希望価格が入ると、値付けと値引き余地の学習に使えます（次回でOK）");
+  if(!rec.lot) tips.push("数量が分かると「その数量ならいくら」をAIが即答できるようになります");
+  if(rec.st==="失注"&&!rec.why) tips.push("<b>断られた理由</b>は最重要データです。ひと言でも残してください");
+  if(rec.react==="高"&&/商談中/.test(rec.st)) tips.push("反応「高」→ <b>48時間以内のフォロー</b>が定石です。見積かサンプル提案まで進めましょう");
+  if(rec.st==="見積提示") tips.push("見積提示後は<b>1週間後のリマインド</b>をタスク化するのがおすすめです（タスク・進行のAI提案から作れます）");
+  if(rec.st==="サンプル発送"&&D.shelf) tips.push("サンプル到着の頃合いで、使用感と規制面（表示・成分）の確認を");
+  return tips;
+}
+async function dealSave(){
+  const v=id=>($("#"+id)&&$("#"+id).value||"").trim();
+  const rec={d:v("dfD")||TODAYS,b:v("dfB"),c:(typeof cnorm==="function"?cnorm(v("dfC")):v("dfC")),
+    ch:v("dfCh"),item:D.item||"",spec:v("dfSpec"),price:v("dfP"),lot:v("dfL"),
+    term:v("dfT")==="未定"?"":v("dfT"),react:DEAL_REACT,st:v("dfSt"),
+    why:v("dfSt")==="失注"?v("dfWhy"):"",owner:v("dfOwner")||"貴社担当",note:v("dfNote"),user:1};
+  if(!rec.b||!rec.c){ toast("バイヤー名と国は必須です"); return; }
+  if(rec.st==="失注"&&!rec.why){ toast("失注の場合は「断られた理由」をご入力ください（最重要データです）"); return; }
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
+    TEN.fbx=(TEN.fbx||[]); TEN.fbx.unshift(rec);
+    syncTenant(); if(typeof saveTen==="function") saveTen();
+  } else {
+    D.fb.unshift(rec); D.kpi.fbDone++;
+    if(rec.react==="高") D.kpi.hot++;
+    if(rec.st==="受注"){ D.kpi.won++; }
+  }
+  if(typeof logU==="function") logU("fill","商談記録:"+rec.b+"（"+rec.c+"）");
+  render();
+  const tips=dealAdviseLocal(rec);
+  const box=$("#dfAI");
+  const done=`<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
+    <b style="color:var(--good)">✓ 記録しました。</b>ダッシュボード・脈あり度・AIの回答に反映済みです。</div>`;
+  if(box) box.innerHTML=done+(tips.length?`<div style="margin-top:7px;padding:10px 12px;border-radius:var(--r2);background:var(--or-soft);font-size:11.5px;line-height:1.75">
+    <b style="color:var(--or-deep)">🤖 AI商社マンから</b><br>${tips.map(t=>"・"+t).join("<br>")}</div>`:"");
+  const btn=$("#dfSave"); if(btn){ btn.textContent="続けてもう1件記録する"; btn.onclick=()=>openDealForm(); }
+  if(typeof ppReady==="function"&&ppReady()){
+    try{
+      const r=await llmAsk(
+`商談記録が1件追加されました。一流商社マンとして「次の一手」を2〜3行（120字以内・具体的に）でアドバイスしてください。
+記録：${JSON.stringify(rec)}
+商品：${D.item}／強み：${(D.strengths||[]).slice(0,2).map(s=>s[0]).join("、")}／MOQ：${D.moq||"-"}`,
+        400,{noWeb:1,timeout:40000});
+      if(box) box.insertAdjacentHTML("beforeend",`<div style="margin-top:7px;padding:10px 12px;border-radius:var(--r2);background:var(--bl-soft);font-size:11.5px;line-height:1.75">
+        <b style="color:var(--bl)">🤖 ${esc(llmLabel())}の分析（次の一手）</b><br>${typeof ppFormat==="function"?ppFormat(r.txt):esc(r.txt)}</div>`);
+    }catch(e){}
+  }
 }
 function fbRows(){
   const FB=D.fb, c=$("#fC")?.value||"",r=$("#fR")?.value||"",s=$("#fS")?.value||"";
@@ -5727,10 +6190,10 @@ function guideState(){
     if(s.missing.length) return {n:2,msg:`充足度 <b>${s.pct}%</b> — あと<b>${s.missing.length}項目</b>で、書類作成・運賃見積まで全部が動きます。`,
       cta:"AIと埋める",go:()=>{ cur="up"; buildNav(); if(!FILL.on) fillStart(); else render(); scrollTo({top:0}); }};
     return {n:3,msg:"<b>準備完了です。</b>何でもAIに聞けます。出荷の流れも体験できます。",
-      cta:"AIに質問する",go:()=>go("ai"),cta2:"出荷を体験",go2:()=>go("ship")};
+      cta:"AIに質問する",go:()=>openAskAI(),cta2:"出荷を体験",go2:()=>go("ship")};
   }
   return {n:3,msg:"サンプルで体験中です。AIへの質問・出荷の体験のほか、自社の資料でも試せます。",
-    cta:"AIに質問する",go:()=>go("ai"),cta2:"出荷を体験",go2:()=>go("ship")};
+    cta:"AIに質問する",go:()=>openAskAI(),cta2:"出荷を体験",go2:()=>go("ship")};
 }
 function updateGuide(){
   const g=$("#guide"); if(!g) return;
