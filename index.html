@@ -3123,49 +3123,148 @@ async function commonsSearch(kw,n){
     return {url:ii.thumburl,title:String(p.title||"").replace(/^File:/,""),lic};
   }).filter(Boolean).slice(0,n);
 }
+/* Openverse（キー不要・CORS可）画像検索 */
+async function ovSearch(q,n){
+  const r=await fetch("https://api.openverse.org/v1/images/?q="+encodeURIComponent(q)+
+    "&page_size="+n+"&mature=false");
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j=await r.json();
+  return (j.results||[]).map(x=>({url:x.thumbnail||x.url,title:String(x.title||"").slice(0,80),
+    lic:String(x.license||"").toUpperCase(),from:"Openverse"+(x.source?"/"+x.source:"")}))
+    .filter(x=>x.url).slice(0,n);
+}
+/* 画像URL → 正規化JPEG（fetch→blob→bitmap→canvas。CORS対応ソースのみ成功する） */
+async function dkFetchImg(url,maxPx){
+  const r=await fetch(url); if(!r.ok) throw new Error("HTTP "+r.status);
+  const bm=await createImageBitmap(await r.blob());
+  const M=maxPx||900, sc=Math.min(1,M/Math.max(bm.width,bm.height));
+  const w=Math.max(1,Math.round(bm.width*sc)), h=Math.max(1,Math.round(bm.height*sc));
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,w,h); cx.drawImage(bm,0,0,w,h);
+  return {b64:cv.toDataURL("image/jpeg",0.82).split(",")[1],mime:"image/jpeg",w,h};
+}
+/* 採用直前のAI画像判定（接続時）：誤った画像を絶対に載せないための最終ゲート */
+async function dkVerifyImg(a,role){
+  const r=await llmAsk(
+`添付画像を、商品「${D.item}」（${D.cat}／${D.itemEn||""}）の営業資料に「${role}」として掲載してよいか判定してください。
+基準：別ブランドのロゴ・別商品と誤認される写真・無関係な被写体・品質の低い画像はNG。
+${role==="汎用イメージ素材"?"商品そのものでなくても、カテゴリの雰囲気が正しく伝わればOK。":"商品・貴社と直接関係すると誤認させる場合、実物でなければNG。"}
+JSONのみ：{"ok":true|false,"reason":"25字以内"}`,300,
+    {noWeb:1,timeout:45000,att:{mime:a.mime,b64:a.b64,name:"cand.jpg"}});
+  const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+  return {ok:!!j.ok,reason:String(j.reason||"")};
+}
+/* ═══ Web画像取得 v2：自動挿入を廃止し「候補提示→お客様確認→AI最終判定」方式 ═══
+   商品名・社名で正確に照合し、見つからなければ正直に「見つかりませんでした」。 */
 async function deckWebImgs(){
   const A=dkEnsureAssets(); if(!A){ toast("先に商品情報を登録してください"); return; }
-  const st=$("#dkimgst"); const say=m=>{ if(st) st.innerHTML=m; };
-  const free=[0,1,2].filter(i=>!(A.ph&&A.ph[i]));
-  if(!free.length){ say("写真スロットは埋まっています（差し替えは各スロットの削除から）。"); return; }
-  say(`<span class="spin"></span> 検索キーワードを準備しています…`);
-  let kws=[];
-  if(typeof ppReady==="function"&&ppReady()){
-    try{
-      const r=await llmAsk(`商品「${D.item}」（${D.cat}）の営業資料に載せる<b>イメージ写真</b>をWikimedia Commonsで探します。英語の検索キーワードを2つ、JSONのみで：{"kw":["",""]}（一般名詞で。ブランド名は使わない）`,200,{noWeb:1,timeout:30000});
-      const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
-      kws=(j.kw||[]).filter(Boolean).slice(0,2);
-    }catch(e){}
-  }
-  if(!kws.length){
-    const M={food:"japanese green tea product",cosme:"cosmetic skincare bottle",parts:"ball bearing steel",
-      daily:"stainless tumbler bottle",car:"used car japan",liquor:"sake bottle japan",
-      apparel:"denim jeans fabric",medical:"medical gauze sterile"};
-    kws=[M[D.catKey]||String(D.itemEn||D.cat||"product").split(/\s+/).slice(0,3).join(" ")];
-  }
-  say(`<span class="spin"></span> Wikimedia Commonsで「${esc(kws.join("・"))}」を検索しています…`);
+  const st=$("#dkimgst"); const say=m=>{ const e=$("#dkimgst"); if(e) e.innerHTML=m; };
+  const itemEn=(D.itemEn&&!/[ぁ-ヶ一-龠]/.test(D.itemEn))?D.itemEn:"";
+  const coEn=(D.coEn&&!/[ぁ-ヶ一-龠]/.test(D.coEn))?D.coEn:"";
+  say(`<span class="spin"></span> Webを検索しています（商品名・社名で正確に照合）…`);
   try{
-    let hits=[];
-    for(const kw of kws){ if(hits.length>=free.length) break;
-      try{ hits=hits.concat(await commonsSearch(kw,free.length)); }catch(e){} }
-    hits=hits.slice(0,free.length);
-    if(!hits.length){ say("画像が見つかりませんでした。キーワードを変えるか、お手元の写真をアップロードしてください。"); return; }
-    let done=0;
-    for(let i=0;i<hits.length;i++){
-      await new Promise(res=>{
-        imgNorm(hits[i].url,a=>{
-          A.ph[free[i]]={b64:a.b64,mime:a.mime,src:"web",cap:hits[i].title,lic:hits[i].lic};
-          done++; res();
-        },()=>res());
-      });
+    const seen=new Set(), cands=[];
+    const put=(arr,grp)=>arr.forEach(h=>{ if(h.url&&!seen.has(h.url)){ seen.add(h.url);
+      cands.push({url:h.url,title:h.title,lic:h.lic||"",from:h.from||"Wikimedia Commons",grp}); }});
+    const tryS=async(fn,q,n)=>{ try{ return await fn(q,n); }catch(e){ return []; } };
+    /* 商品・貴社そのものを探す（exact） */
+    for(const q of [...new Set([itemEn,D.item,coEn||D.co].filter(Boolean))]){
+      put(await tryS(commonsSearch,q,4),"exact");
+      put(await tryS(ovSearch,q,4),"exact");
     }
-    if(typeof saveTen==="function") saveTen();
-    if(typeof logU==="function") logU("ai","Web画像取得:"+done+"枚");
-    render();
-    toast(done?done+"枚の画像を取得しました":"画像の取得に失敗しました");
+    /* ロゴ候補 */
+    for(const q of [...new Set([(coEn||D.co)+" logo",D.co?D.co+" ロゴ":""].filter(Boolean))]){
+      put(await tryS(commonsSearch,q,3),"logo");
+    }
+    /* 汎用イメージ素材（商品そのものではないことを明示して提示）
+       ※CommonsはAND検索のため2語程度に抑え、0件なら更に短縮して再検索 */
+    const CATKW={food:"green tea",cosme:"cosmetic bottle",parts:"ball bearing",daily:"steel tumbler",
+      car:"used car",liquor:"sake bottle",apparel:"denim fabric",medical:"medical gauze"};
+    const gkw=CATKW[D.catKey]||String(D.cat||"product");
+    let gen=await tryS(commonsSearch,gkw,6);
+    if(!gen.length) gen=await tryS(commonsSearch,gkw.split(/\s+/)[0],6);
+    put(gen,"generic");
+    put(await tryS(ovSearch,gkw,4),"generic");
+    /* 接続AIによるタイトル事前ふるい分け（誤った候補をexactに残さない） */
+    if(cands.length&&typeof ppReady==="function"&&ppReady()){
+      try{
+        const list=cands.map((c,i)=>`${i}: [${c.grp}] ${c.title}（${c.from}）`).join("\n");
+        const r=await llmAsk(
+`商品「${D.item}」（${D.cat}／会社:${D.co}${itemEn?"／"+itemEn:""}）の営業資料に使う画像候補を分類してください。
+候補（タイトルのみ）：
+${list}
+JSONのみ：{"exact":[この商品・この会社そのものの可能性が高い番号],"logo":[この会社のロゴの可能性が高い番号],
+"generic":[商品そのものではないがカテゴリの雰囲気として使える番号],"drop":[無関係・誤解を招くので除外する番号]}
+迷ったら drop に入れること（誤った画像を載せない方が重要）。`,700,{noWeb:1,timeout:45000});
+        const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+        const asg=(idx,g)=>{(j[g]||[]).forEach(i=>{ if(cands[i]) cands[i].grp=g==="drop"?"drop":g; });};
+        ["exact","logo","generic","drop"].forEach(g=>asg(0,g));
+      }catch(e){}
+    }
+    const G={exact:cands.filter(c=>c.grp==="exact"),logo:cands.filter(c=>c.grp==="logo"),
+      generic:cands.filter(c=>c.grp==="generic").slice(0,8)};
+    say("");
+    if(!G.exact.length&&!G.logo.length&&!G.generic.length){
+      say(`<div style="padding:11px 13px;border:1px solid var(--warn);background:var(--warn-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.8">
+        <b>Webを検索しましたが、画像は見つかりませんでした。</b><br>
+        誤った画像を資料に載せることはできないため、自動挿入は行いません。<b>お手元の商品写真・ロゴのアップロード</b>をお願いします（上のスロットの「選ぶ」から）。</div>`);
+      return;
+    }
+    openDeckPicker(G);
   }catch(e){
-    say(`取得できませんでした（${esc(String(e.message)).slice(0,50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
+    say(`検索できませんでした（${esc(String(e.message)).slice(0,50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
   }
+}
+/* 候補ピッカー：お客様が確認して採用（採用時に接続AIが画像そのものを最終判定） */
+function openDeckPicker(G){
+  const on=(typeof ppReady==="function"&&ppReady());
+  const card=(c,i)=>`<div style="width:150px;border:1px solid var(--line);border-radius:var(--r2);padding:7px;background:var(--surface-2)">
+    <div style="height:86px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line-2)">
+      <img src="${esc(c.url)}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.parentElement.innerHTML='読込不可'"></div>
+    <p style="font-size:8.5px;color:var(--ink-2);margin:4px 0 1px;line-height:1.35;height:23px;overflow:hidden">${esc(c.title.slice(0,44))}</p>
+    <p style="font-size:8px;color:var(--ink-3);margin:0 0 5px">${esc(c.from)}${c.lic?"・"+esc(c.lic):""}</p>
+    <div class="rw" style="gap:3px">
+      ${c.grp==="logo"?`<button class="btn g" style="padding:2px 7px;font-size:9.5px" data-pick="${i}" data-as="logo">ロゴに採用</button>`
+        :`<button class="btn g" style="padding:2px 7px;font-size:9.5px" data-pick="${i}" data-as="ph">写真に採用</button>`}
+    </div></div>`;
+  const ALL=[].concat(G.exact,G.logo,G.generic);
+  const sec=(title,arr,note,empty)=>`<p class="lbl" style="margin-top:11px">${title}</p>
+    ${note?`<p class="nn" style="margin:2px 0 6px">${note}</p>`:""}
+    ${arr.length?`<div class="rw" style="gap:7px;flex-wrap:wrap">${arr.map(c=>card(c,ALL.indexOf(c))).join("")}</div>`
+      :`<p style="font-size:11.5px;color:var(--warn);margin:4px 0"><b>${empty}</b></p>`}`;
+  openDW(`<h3>🌐 Web画像の候補 <span class="p ${on?"hi":"lo"}">${on?"採用時にAIが最終判定":"AI未接続・目視でご確認を"}</span></h3>
+    <p class="nn" style="margin-top:4px"><b>自動では挿入しません。</b>内容をご確認のうえ「採用」を押してください。${on?"採用時に接続中のAIが画像そのものを検査し、<b>誤った画像はブロック</b>します。":""}</p>
+    ${sec("① この商品・貴社に一致する可能性がある画像",G.exact,"商品名・社名でWebを照合した結果です。",
+      "見つかりませんでした（Web上にこの商品の写真が存在しない可能性が高いです）→ お手元の写真をアップロードしてください。")}
+    ${sec("② ロゴ候補",G.logo,"",
+      "ロゴは見つかりませんでした。ロゴは商標のため、<b>自社のロゴ画像のアップロード</b>をお願いします。")}
+    ${sec("③ 汎用イメージ素材（商品そのものではありません）",G.generic,
+      "雰囲気づくり用のフリー素材です。採用すると「イメージ素材」として扱われます。","候補なし")}
+    <div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>
+    <p class="nn" style="margin-top:7px">出典：Wikimedia Commons／Openverse（フリーライセンス）。本番配布ではライセンス表記の確認と自社写真への差し替えを推奨します。</p>`);
+  document.querySelectorAll("[data-pick]").forEach(b=>b.onclick=async()=>{
+    const c=ALL[+b.dataset.pick]; if(!c) return;
+    const as=b.dataset.as;
+    b.disabled=true; b.textContent="確認中…";
+    try{
+      const a=await dkFetchImg(c.url,as==="logo"?600:900);
+      if(on){
+        const role=as==="logo"?"会社ロゴ":(c.grp==="generic"?"汎用イメージ素材":"商品のイメージ写真");
+        let v; try{ v=await dkVerifyImg(a,role); }catch(e){ v={ok:false,reason:"AI判定に接続できず中止"}; }
+        if(!v.ok){ b.textContent="✗ AIが不適合と判定"; b.title=v.reason;
+          toast("採用を中止しました："+(v.reason||"この画像は不適合です")); return; }
+      }
+      const A=dkEnsureAssets();
+      const entry={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:"web",
+        cap:(c.grp==="generic"?"イメージ素材: ":"")+c.title,lic:c.lic,from:c.from};
+      if(as==="logo") A.logo=entry;
+      else{ const free=[0,1,2].find(i=>!(A.ph&&A.ph[i])); A.ph[free!==undefined?free:2]=entry; }
+      if(typeof saveTen==="function") saveTen();
+      if(typeof logU==="function") logU("ai","Web画像を採用:"+(as==="logo"?"ロゴ":"写真"));
+      b.textContent="✓ 採用済み";
+      toast(as==="logo"?"ロゴに採用しました":"商品写真に採用しました");
+    }catch(e){ b.textContent="✗ 取得失敗"; toast("画像を取得できませんでした"); }
+  });
 }
 
 /* ── 言語ラベル辞書（静的・オフラインでも各言語） ── */
@@ -3613,12 +3712,12 @@ function deckAssetCard(){
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
       <div><h3>🖼 ロゴ・商品写真（資料に実際に埋め込み） <span class="nt">この版で新規</span></h3>
         <p class="nn">ここに設定した画像が、表紙・ラインアップ・規格ページに<b>そのまま差し込まれた完成版PPTX</b>になります。</p></div>
-      <button class="btn" id="dkweb">🌐 Webから商品イメージを自動取得</button></div>
+      <button class="btn" id="dkweb">🌐 Webで画像を探す（候補から選択）</button></div>
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
       ${slot("logo")}${slot("ph",0)}${slot("ph",1)}${slot("ph",2)}
     </div>
     <div class="nn" id="dkimgst" style="margin-top:8px"></div>
-    <p class="nn" style="margin-top:4px">🌐自動取得は<b>Wikimedia Commons</b>（フリー画像）から。接続中のAIが商品に合う検索語を選びます。<b>出典・ライセンスの確認のうえ、本番配布では自社写真への差し替えを推奨</b>します。</p>
+    <p class="nn" style="margin-top:4px">🌐Web検索は<b>商品名・社名で正確に照合</b>し、<b>候補を提示→お客様が確認して採用</b>する方式です（勝手に挿入しません）。採用時は接続中のAIが画像を検査し、<b>誤った画像はブロック</b>。見つからない場合は正直に「見つかりませんでした」と表示します（出典：Wikimedia Commons／Openverse）。</p>
   </div>`;
 }
 function deckReadyCard(){
