@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>貿易クラウド 2.0 トライアル</title>
 
 <style>
@@ -55,7 +56,8 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--canvas);color:var(--ink);
   font-family:Lato,"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Noto Sans JP","Meiryo",system-ui,sans-serif;
-  font-size:13px;line-height:1.7;-webkit-font-smoothing:antialiased;font-feature-settings:"palt" 1}
+  font-size:13px;line-height:1.7;-webkit-font-smoothing:antialiased;font-feature-settings:"palt" 1;
+  -webkit-text-size-adjust:100%}
 h1,h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.005em;text-wrap:balance}
 p{margin:0}
 button{font:inherit;cursor:pointer}
@@ -144,10 +146,21 @@ body.mob .hm{display:none!important}
 .g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
 @media (max-width:1040px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:1fr}}
 @media (max-width:1180px){.bar .hm{display:none}.bar{gap:7px;padding:0 11px}}
-@media (max-width:820px){.app{grid-template-columns:1fr}.side{position:static;height:auto}
+/* ── 実機スマホ：サイドバーはハンバーガーで開くオーバーレイに ── */
+@media (max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;bottom:0;height:100dvh;z-index:55;width:min(276px,84vw);
+    transform:translateX(-105%);transition:transform .18s ease;box-shadow:var(--pop)}
+  body.snav .side{transform:none!important}
+  body.narrow .side{display:flex}
+  #scrim{position:fixed;inset:0;z-index:54;background:rgba(20,26,34,.42)}
+  body:not(.snav) #scrim{display:none}
   .g2,.g3,.g4{grid-template-columns:1fr}
   .bar{gap:6px;padding:0 10px}
-  .stage{padding:12px 10px}.ph h1{font-size:16px}}
+  .stage{padding:12px 10px}.ph h1{font-size:16px}
+  .chat{max-height:52dvh}
+  .dw .pn{width:100%}
+  body.mob .well{max-width:none;border:0;border-radius:0;padding:0;box-shadow:none}}
 @media (max-width:560px){.tgl span:not(.sw){display:none}.tgl{padding:4px 8px}
   #psw{max-width:150px;min-width:80px;font-size:11px;padding:5px 6px}}
 .stk{display:flex;flex-direction:column;gap:11px}
@@ -175,6 +188,7 @@ textarea.sel{line-height:1.65;min-height:44px}
 .composer:focus-within{box-shadow:0 0 0 4px var(--or-soft)}
 .composer .sel{border:0!important;box-shadow:none!important;border-radius:0!important;font-size:13.5px}
 .composer .sel:focus{box-shadow:none!important}
+.composer textarea.sel{min-height:84px}  /* 目安3行：入力欄と分かる十分な高さ */
 
 .kv{font-size:25px;font-weight:300;letter-spacing:-.035em;line-height:1.15;margin-top:2px}
 .kv small{font-size:11.5px;font-weight:700;letter-spacing:0;margin-left:3px;color:var(--ink-2)}
@@ -371,6 +385,7 @@ body.locked .pg-ft{display:none}
   </div>
 </div>
 
+<div id="scrim" aria-hidden="true"></div>
 <div class="dw" id="dw" data-open="false" role="dialog" aria-modal="true" aria-label="詳細">
   <div class="sc" data-close></div><div class="pn" id="pn"></div>
 </div>
@@ -4626,7 +4641,7 @@ function vMsg(p){
             🤖 AIに質問<br><span style="font-weight:400;font-size:9.5px">AI商社マンがその場で回答</span></button></div>
         ${mdBarHtml("mtext")}
         <textarea id="mtext" placeholder="メッセージを入力…（Ctrl+Enterで送信。ファイルはこの欄にドラッグ＆ドロップでも添付できます）"
-          style="display:block;width:100%;border:0;padding:11px 12px;font:inherit;font-size:12px;min-height:64px;
+          style="display:block;width:100%;border:0;padding:11px 12px;font:inherit;font-size:13px;min-height:88px;
           resize:vertical;box-sizing:border-box;background:var(--surface);color:var(--ink);outline:none"></textarea>
         <div class="rw" style="justify-content:space-between;padding:8px 10px;border-top:1px solid var(--line-2)">
           <span class="rw" style="gap:7px;font-size:10px;color:var(--ink-3)">
@@ -5015,14 +5030,14 @@ function fillRender(){
       ${cu.multi?`<button class="btn" id="chipdone">選び終わった</button>`:""}</div>`:"")+
     `<div class="composer" id="fanswrap">
       ${typeof mdBarHtml==="function"?mdBarHtml("fans"):""}
-      <textarea class="sel" id="fans" rows="1" placeholder="${esc(cu.ex||"ここに入力")}（Enterで送信・Shift+Enterで改行。ファイルはここにドラッグ＆ドロップOK）"
-        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
+      <textarea class="sel" id="fans" rows="3" placeholder="${esc(cu.ex||"ここに入力")}（Enterで送信・Shift+Enterで改行。ファイルはここにドラッグ＆ドロップOK）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
       <div class="rw" style="gap:6px;padding:6px 8px;border-top:1px solid var(--line-2);justify-content:flex-end">
         <label class="btn g" style="padding:6px 11px;cursor:pointer;margin-right:auto" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像。この欄へのドラッグ＆ドロップでも可）">📎 資料を追加<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
         <button class="btn" id="fsend">送信</button>
         ${cu.k==="_pend"?"":`<button class="btn g" id="fskip">わからない（あとで）</button>`}</div></div>`;
   const fans=$("#fans");
-  const grow=()=>{ fans.style.height="auto"; fans.style.height=Math.min(150,Math.max(38,fans.scrollHeight))+"px"; };
+  const grow=()=>{ fans.style.height="auto"; fans.style.height=Math.min(190,Math.max(84,fans.scrollHeight))+"px"; };
   fans.addEventListener("input",grow);
   const send=()=>{const v=fans.value.trim(); if(v){ fans.value=""; grow(); fillAnswer(v); }};
   $("#fsend").onclick=send;
@@ -5247,8 +5262,8 @@ function openAskAI(){
     <div class="qb" style="margin-top:8px">${SUG.map(s=>`<button class="q" data-dwq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
     <div class="composer" style="margin-top:8px">
       ${typeof mdBarHtml==="function"?mdBarHtml("dwq"):""}
-      <textarea class="sel" id="dwq" rows="1" placeholder="いま見ている画面のことも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
-        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:130px;overflow-y:auto;line-height:1.6"></textarea>
+      <textarea class="sel" id="dwq" rows="3" placeholder="いま見ている画面のことも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:180px;overflow-y:auto;line-height:1.6"></textarea>
       <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
         <button class="btn" id="dwqgo">質問する</button></div></div>
     <p class="nn" style="margin-top:6px">じっくり使うときは <a style="cursor:pointer;color:var(--bl);font-weight:700" onclick="closeDW();go('ai')">AI商社マンの画面へ →</a></p>`);
@@ -5271,7 +5286,7 @@ function openAskAI(){
   };
   document.querySelectorAll("[data-dwq]").forEach(b=>b.onclick=()=>send(b.dataset.dwq));
   const dq=$("#dwq");
-  const dqGrow=()=>{dq.style.height="auto";dq.style.height=Math.min(130,Math.max(38,dq.scrollHeight))+"px";};
+  const dqGrow=()=>{dq.style.height="auto";dq.style.height=Math.min(180,Math.max(84,dq.scrollHeight))+"px";};
   dq.addEventListener("input",dqGrow);
   $("#dwqgo").onclick=()=>{const v=dq.value; dq.value=""; dqGrow(); send(v);};
   dq.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();const v=dq.value;dq.value="";dqGrow();send(v);}};
@@ -5832,8 +5847,8 @@ function vShip(p){
       <div class="qb" id="sbtn"></div>
       <div class="composer" style="margin-top:10px">
         ${typeof mdBarHtml==="function"?mdBarHtml("sq"):""}
-        <textarea class="sel" id="sq" rows="1" placeholder="手続きの途中でも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
-          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:36px;max-height:120px;overflow-y:auto;line-height:1.6"></textarea>
+        <textarea class="sel" id="sq" rows="3" placeholder="手続きの途中でも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:80px;max-height:170px;overflow-y:auto;line-height:1.6"></textarea>
         <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
           <button class="btn g" id="sqgo">質問する</button></div></div>
       <div class="qb" style="margin-top:6px">${["この運送会社で大丈夫？","書類は何が必要？","いつ届きますか？","入金はいつ？"]
@@ -5870,7 +5885,7 @@ function shipRender(){
     const b=pushTo(c,"a",x.a); b.insertAdjacentHTML("beforeend",`<div class="ci">${x.ci}</div>`); });
   c.scrollTop=c.scrollHeight;
   const sqEl=$("#sq");
-  const sqGrow=()=>{sqEl.style.height="auto";sqEl.style.height=Math.min(120,Math.max(36,sqEl.scrollHeight))+"px";};
+  const sqGrow=()=>{sqEl.style.height="auto";sqEl.style.height=Math.min(170,Math.max(80,sqEl.scrollHeight))+"px";};
   sqEl.addEventListener("input",sqGrow);
   const sgo=()=>{const v=(sqEl.value||"").trim(); if(v){askShip(v);sqEl.value="";sqGrow();}};
   $("#sqgo").onclick=sgo;
@@ -6148,8 +6163,8 @@ function vAI(p){
         ${SUG.map(s=>`<button class="q" data-free="${esc(s)}">${esc(s)}</button>`).join("")}</div>
       <div class="composer" style="margin-top:9px">
         ${typeof mdBarHtml==="function"?mdBarHtml("aiq"):""}
-        <textarea class="sel" id="aiq" rows="1" placeholder="自由に質問してください（例：香港に500袋送るといくら？）　Enterで送信・Shift+Enterで改行"
-          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
+        <textarea class="sel" id="aiq" rows="3" placeholder="自由に質問してください（例：香港に500袋送るといくら？）　Enterで送信・Shift+Enterで改行"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
         <div class="rw" style="justify-content:flex-end;padding:6px 8px;border-top:1px solid var(--line-2)">
           <button class="btn" id="aisend">質問する</button></div></div>
       <p class="nn" id="ainote" style="margin-top:8px">回答は<b>登録されている情報だけ</b>から組み立てます。答えの下に必ず根拠が付きます。</p>
@@ -6581,7 +6596,7 @@ function toast(m){
   e.textContent=m;e.style.opacity="1";clearTimeout(tT);tT=setTimeout(()=>e.style.opacity="0",2200);
 }
 function tgOld(){const b=$("#cmp");b.hidden=!b.hidden;}
-function go(id){cur=id;buildNav();render();scrollTo({top:0});}
+function go(id){cur=id;document.body.classList.remove("snav");buildNav();render();scrollTo({top:0});}
 
 /* ═════════ ルーティング ═════════ */
 function render(){
@@ -6602,7 +6617,7 @@ function render(){
     document.querySelectorAll("[data-q]").forEach(b=>b.addEventListener("click",()=>askAI(+b.dataset.q)));
     document.querySelectorAll("[data-free]").forEach(b=>b.addEventListener("click",()=>askFree(b.dataset.free)));
     const aq=$("#aiq");
-    const aqGrow=()=>{aq.style.height="auto";aq.style.height=Math.min(150,Math.max(38,aq.scrollHeight))+"px";};
+    const aqGrow=()=>{aq.style.height="auto";aq.style.height=Math.min(190,Math.max(84,aq.scrollHeight))+"px";};
     aq.addEventListener("input",aqGrow);
     const send=()=>{const v=aq.value.trim(); if(v){askFree(v);aq.value="";aqGrow();}};
     $("#aisend").onclick=send;
@@ -6687,7 +6702,18 @@ $("#psw").addEventListener("change",e=>{
   shipStep=0; SHIPQA=[]; FILL.on=false; buildNav(); render(); toast(`${D.cat}／${D.co} に切り替えました`);});
 document.querySelectorAll("[data-close]").forEach(e=>e.addEventListener("click",closeDW));
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDW();});
-$("#ham").addEventListener("click",()=>document.body.classList.toggle("narrow"));
+/* スマホ実機：ハンバーガーはオーバーレイ開閉、PCは従来どおり折りたたみ */
+const SMQ=matchMedia("(max-width:820px)");
+$("#ham").addEventListener("click",()=>{
+  if(SMQ.matches) document.body.classList.toggle("snav");
+  else document.body.classList.toggle("narrow");
+});
+const __scrim=document.querySelector("#scrim");
+if(__scrim) __scrim.addEventListener("click",()=>document.body.classList.remove("snav"));
+const __sideEl=document.querySelector(".side");
+if(__sideEl) __sideEl.addEventListener("click",e=>{
+  if(e.target.closest(".nb")&&SMQ.matches) document.body.classList.remove("snav"); });
+if(SMQ.addEventListener) SMQ.addEventListener("change",()=>{ if(!SMQ.matches) document.body.classList.remove("snav"); });
 $("#easy").addEventListener("click",e=>{const on=document.body.classList.toggle("easy");
   e.currentTarget.setAttribute("aria-pressed",String(on));
   toast(on?"貿易用語にやさしい説明を表示します":"やさしい説明を隠しました");});
@@ -8173,8 +8199,8 @@ function fwdChatHtml(){
       <div class="qb" style="margin-top:8px">${SUGS.map(x=>`<button class="q" data-fq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
       <div class="composer" style="margin-top:8px">
         ${typeof mdBarHtml==="function"?mdBarHtml("fwdq"):""}
-        <textarea class="sel" id="fwdq" rows="1" placeholder="自由に質問（例：釜山向けの運賃は？）　Enterで送信・Shift+Enterで改行"
-          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:130px;overflow-y:auto;line-height:1.6"></textarea>
+        <textarea class="sel" id="fwdq" rows="3" placeholder="自由に質問（例：釜山向けの運賃は？）　Enterで送信・Shift+Enterで改行"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:180px;overflow-y:auto;line-height:1.6"></textarea>
         <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
           <button class="btn" id="fwdqgo">質問する</button></div></div>
       <p class="nn" style="margin-top:7px">回答は<b>貴社の登録データだけ</b>から組み立てます（根拠付き）。${fwdReady()?"":"AIエンジン接続＋スタンダード以上で、自由文の質問に実AIが答えます。"}</p>
@@ -8488,7 +8514,7 @@ function fwdBindPage(){
   document.querySelectorAll("[data-fq]").forEach(b=>b.addEventListener("click",()=>fwdAsk(b.dataset.fq)));
   const fq=$("#fwdq");
   if(fq){
-    const fqGrow=()=>{fq.style.height="auto";fq.style.height=Math.min(130,Math.max(38,fq.scrollHeight))+"px";};
+    const fqGrow=()=>{fq.style.height="auto";fq.style.height=Math.min(180,Math.max(84,fq.scrollHeight))+"px";};
     fq.addEventListener("input",fqGrow);
     const go=()=>{const v=fq.value.trim(); if(v){ fq.value=""; fqGrow(); fwdAsk(v); }};
     $("#fwdqgo").onclick=go;
