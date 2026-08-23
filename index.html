@@ -85,7 +85,8 @@ nav{padding:8px 8px 4px;display:flex;flex-direction:column;gap:1px}
   color:var(--ink-2);padding:8px 10px;border-radius:var(--r);font-size:12.5px;transition:background .1s}
 .nb:hover:not(:disabled){background:var(--sunk)}
 .nb:disabled{opacity:.42;cursor:not-allowed}
-.nb[aria-current="page"]{background:var(--or-soft);color:var(--or-deep);font-weight:700}
+.nb[aria-current="page"]{background:var(--or-soft);color:var(--or-deep);font-weight:700;
+  box-shadow:inset 3px 0 0 var(--or)}
 .nb[aria-current="page"] svg{color:var(--or)}
 .nb[aria-current="page"] .lyn{background:var(--or);color:#fff}
 .nb:focus-visible{outline:2px solid var(--bl);outline-offset:-2px}
@@ -152,7 +153,7 @@ body.mob .hm{display:none!important}
 .stk{display:flex;flex-direction:column;gap:11px}
 .rw{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
-.btn{font-size:11.5px;font-weight:700;padding:6px 12px;border-radius:var(--r);border:1px solid var(--or);
+.btn{font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:9px;border:1px solid var(--or);
   background:var(--or);color:#fff}
 .btn:hover{filter:brightness(1.06)}
 .btn.g{background:var(--surface);color:var(--ink-2);border-color:var(--line)}
@@ -160,9 +161,20 @@ body.mob .hm{display:none!important}
 .btn.b{background:var(--bl);border-color:var(--bl)}
 .btn:disabled{opacity:.45;cursor:not-allowed;filter:none}
 .btn:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
-.sel{font:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:var(--r);
-  background:var(--surface);color:var(--ink)}
-.sel:focus{outline:2px solid var(--or);outline-offset:-1px}
+/* 入力欄：初心者でも「ここに入力する」と一目で分かる大きさ・コントラスト・フォーカス表示 */
+.sel{font:inherit;font-size:13px;padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;
+  background:var(--surface);color:var(--ink);min-height:40px;box-sizing:border-box;
+  transition:border-color .12s,box-shadow .12s}
+.sel:hover{border-color:var(--or)}
+.sel:focus{outline:none;border-color:var(--or);box-shadow:0 0 0 3px var(--or-soft)}
+.sel::placeholder{color:var(--ink-3)}
+textarea.sel{line-height:1.65;min-height:44px}
+/* チャット・AI質問の送信欄（コンポーザー）：オレンジ枠で強調し、迷わせない */
+.composer{border:2px solid var(--or)!important;border-radius:12px!important;background:var(--surface);
+  box-shadow:0 2px 10px rgba(248,149,29,.14);overflow:hidden}
+.composer:focus-within{box-shadow:0 0 0 4px var(--or-soft)}
+.composer .sel{border:0!important;box-shadow:none!important;border-radius:0!important;font-size:13.5px}
+.composer .sel:focus{box-shadow:none!important}
 
 .kv{font-size:25px;font-weight:300;letter-spacing:-.035em;line-height:1.15;margin-top:2px}
 .kv small{font-size:11.5px;font-weight:700;letter-spacing:0;margin-left:3px;color:var(--ink-2)}
@@ -210,7 +222,7 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 .ci{margin-top:7px;font-size:10.5px;color:var(--ink-3);border-top:1px dashed var(--line);padding-top:6px}
 .ci b{color:var(--or-deep)}
 .qb{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.q{font-size:11.5px;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2)}
+.q{font-size:12px;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2)}
 .q:hover{border-color:var(--or);color:var(--or-deep)}
 .q:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
 .car{display:inline-block;width:6px;height:13px;background:var(--or);vertical-align:-2px;animation:bl .9s steps(2) infinite}
@@ -3044,7 +3056,7 @@ function shpPhoto(x,y,w,h,label,ea){
     shpText(x,y+h/2-16,w,32,[{t:"📷",sz:22,al:"ctr"},{t:label,sz:10,c:"8A97A6",al:"ctr"}],{ea});
 }
 /* 実画像の埋め込み（アスペクト比を保ってボックス内に収める） */
-let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[-1,-1,-1];
+let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[];
 function dkCollectMedia(){
   DK_MEDIA=[]; const A=dkAssets();
   const put=o=>{ if(!o||!o.b64) return -1;
@@ -3052,9 +3064,9 @@ function dkCollectMedia(){
     return DK_MEDIA.length-1; };
   DK_LOGO=put(A.logo);
   /* 表紙から良い写真を使うため、公式サイト・アップロード由来を先頭に並べ替え */
-  const phs=[0,1,2].map(i=>A.ph&&A.ph[i]).filter(Boolean)
+  const phs=PH_IDX.map(i=>A.ph&&A.ph[i]).filter(Boolean)
     .sort((x,y)=>{const pr=o=>o.src==="site"?0:o.src==="upload"?1:2; return pr(x)-pr(y);});
-  DK_PH=[0,1,2].map(i=>put(phs[i]));
+  DK_PH=PH_IDX.map(i=>put(phs[i]));
 }
 function shpImg(x,y,w,h,mi){
   const m=DK_MEDIA[mi]; if(!m) return "";
@@ -3065,12 +3077,13 @@ function shpImg(x,y,w,h,mi){
 <p:spPr><a:xfrm><a:off x="${EMU(ix)}" y="${EMU(iy)}"/><a:ext cx="${EMU(iw)}" cy="${EMU(ih)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
 }
 function phOr(x,y,w,h,slot,label,ea){
-  const mi=DK_PH[slot>=0&&slot<3?slot:0];
-  return mi>=0?shpImg(x,y,w,h,mi):shpPhoto(x,y,w,h,label,ea);
+  const mi=DK_PH[slot>=0&&slot<DK_NPH?slot:0];
+  return (mi!==undefined&&mi>=0)?shpImg(x,y,w,h,mi):shpPhoto(x,y,w,h,label,ea);
 }
 function logoOr(x,y,w,h){ return DK_LOGO>=0?shpImg(x,y,w,h,DK_LOGO):""; }
 function dkMeta(){ return (typeof TEN!=="undefined"&&TEN&&TEN.deckMeta)?TEN.deckMeta:{}; }
 const OR="F8951D",NV="0F2749",BL="0064BF",INK="1A1A1A",SUB="46566D",LGT="F6F7F9";
+const DK_NPH=10, PH_IDX=Array.from({length:DK_NPH},(_,i)=>i);  /* 商品写真は最大10枚 */
 
 /* ═══ ① 画像・ロゴ（アップロード＋Web自動取得）を実際にPPTXへ埋め込む ═══ */
 function dkAssets(){ return (typeof TEN!=="undefined"&&TEN&&TEN.assets)?TEN.assets:{logo:null,ph:[]}; }
@@ -3094,6 +3107,12 @@ function imgNorm(src,cb,err){
   im.onerror=()=>err&&err(new Error("画像を読み込めませんでした"));
   im.src=src;
 }
+function dkAssetsKb(){
+  const A=dkAssets(); let n=0;
+  if(A.logo&&A.logo.b64) n+=A.logo.b64.length;
+  (A.ph||[]).forEach(p=>{ if(p&&p.b64) n+=p.b64.length; });
+  return Math.round(n*0.75/1024);
+}
 function dkSetAssetFile(kind,file,slot){
   if(!dkEnsureAssets()){ toast("先に商品情報を登録してください"); return; }
   if(!/^image\//.test(file.type)&&!/\.(png|jpe?g|webp|gif)$/i.test(file.name)){ toast("画像ファイル（PNG/JPEG等）をお選びください"); return; }
@@ -3105,6 +3124,7 @@ function dkSetAssetFile(kind,file,slot){
     if(typeof saveTen==="function") saveTen();
     if(typeof logU==="function") logU("upload","営業資料用画像:"+(kind==="logo"?"ロゴ":"写真"+(slot+1)));
     render(); toast(kind==="logo"?"ロゴを設定しました":"商品写真を設定しました");
+    if(dkAssetsKb()>3500) toast("⚠ 画像の合計が大きくなっています（約"+Math.round(dkAssetsKb()/1024*10)/10+"MB）。保存容量の都合上、不要な写真の削除をおすすめします");
   },e=>toast("画像を読み込めませんでした："+String(e.message).slice(0,40)));
   rd.readAsDataURL(file);
 }
@@ -3337,9 +3357,9 @@ async function deckEnrich(){
     say('<span class="spin"></span> 公式サイトの画像を検査して設定しています…');
     const ex=extractSiteImages(pg.raw,pg.url);
     let setPh=0, setLogo=false, checked=0;
-    const slots=[0,1,2].filter(i=>!A.ph[i]||A.ph[i].src==="web");
+    const slots=PH_IDX.filter(i=>!A.ph[i]||A.ph[i].src==="web").slice(0,4); /* 自動設定は最大4枚まで（残りは候補から手動採用） */
     for(const u of ex.imgs){
-      if(!slots.length||checked>=5) break;
+      if(!slots.length||checked>=8) break;
       checked++;
       try{
         const a2=await dkFetchImg(wsrv(u,900),900);
@@ -3420,9 +3440,9 @@ function openDeckPicker(SECS){
       if(c.as==="logo") A.logo=entry;
       else{
         A.ph=A.ph||[];
-        let slot=[0,1,2].find(i=>!A.ph[i]);                       /* 空きスロット優先 */
-        if(slot===undefined) slot=[0,1,2].find(i=>A.ph[i]&&A.ph[i].src==="web"); /* 次にWeb検索由来を差し替え */
-        if(slot===undefined) slot=2;                               /* 最後は3枠目を置換 */
+        let slot=PH_IDX.find(i=>!A.ph[i]);                       /* 空きスロット優先 */
+        if(slot===undefined) slot=PH_IDX.find(i=>A.ph[i]&&A.ph[i].src==="web"); /* 次にWeb検索由来を差し替え */
+        if(slot===undefined) slot=DK_NPH-1;                        /* 最後は末尾枠を置換 */
         const replaced=!!A.ph[slot];
         A.ph[slot]=entry;
         slotMsg="商品写真"+(slot+1)+(replaced?"（差し替え）":"");
@@ -3451,7 +3471,7 @@ const DECK_L={
   about:"COMPANY & BRAND",whyjp:"WHY JAPAN QUALITY",lineup:"PRODUCT LINEUP",
   logi:"LOGISTICS & LEAD TIME",flow:["Inquiry","Order / PI","Production","Shipping","Delivery"],
   next:"NEXT STEPS",n1:"Request product samples",n2:"Receive a detailed quotation (per your volume)",
-  n3:"Regulatory check & first trial order",origin:"Origin",supply:"Stable supply from Japan",mission:"OUR MISSION",usage:"HOW TO USE",est:"Established",ceo:"CEO",web:"Website"},
+  n3:"Regulatory check & first trial order",origin:"Origin",supply:"Stable supply from Japan",gallery:"PRODUCT GALLERY",mission:"OUR MISSION",usage:"HOW TO USE",est:"Established",ceo:"CEO",web:"Website"},
  zhCN:{name:"中文（简体）",flag:"🇨🇳",ea:"Microsoft YaHei",
   deck:"全球销售资料",conf:"机密文件",made:"日本制造",why:"产品价值",market:"目标市场与准入条件",
   str:"核心优势",spec:"产品规格",photo:"产品照片",dims:"包装与尺寸",price:"价格与贸易条件",
@@ -3462,7 +3482,7 @@ const DECK_L={
   about:"公司与品牌",whyjp:"日本品质的理由",lineup:"产品阵容",
   logi:"物流与交期",flow:["询价","下单 / PI","生产","出运","交付"],
   next:"下一步",n1:"索取产品样品",n2:"按贵司数量获取详细报价",n3:"法规确认与首次试订单",
-  origin:"产地",supply:"日本直供・稳定供货",mission:"我们的使命",usage:"使用方法",est:"成立",ceo:"代表",web:"网站"},
+  origin:"产地",supply:"日本直供・稳定供货",gallery:"产品图库",mission:"我们的使命",usage:"使用方法",est:"成立",ceo:"代表",web:"网站"},
  zhTW:{name:"中文（繁體）",flag:"🇹🇼",ea:"Microsoft JhengHei",
   deck:"全球銷售資料",conf:"機密文件",made:"日本製造",why:"產品價值",market:"目標市場與准入條件",
   str:"核心優勢",spec:"產品規格",photo:"產品照片",dims:"包裝與尺寸",price:"價格與貿易條件",
@@ -3473,7 +3493,7 @@ const DECK_L={
   about:"公司與品牌",whyjp:"日本品質的理由",lineup:"產品陣容",
   logi:"物流與交期",flow:["詢價","下單 / PI","生產","出運","交付"],
   next:"下一步",n1:"索取產品樣品",n2:"依貴司數量取得詳細報價",n3:"法規確認與首次試訂單",
-  origin:"產地",supply:"日本直供・穩定供貨",mission:"我們的使命",usage:"使用方法",est:"成立",ceo:"代表",web:"網站"},
+  origin:"產地",supply:"日本直供・穩定供貨",gallery:"產品圖庫",mission:"我們的使命",usage:"使用方法",est:"成立",ceo:"代表",web:"網站"},
  es:{name:"Español",flag:"🇪🇸",ea:"Arial",
   deck:"PRESENTACIÓN GLOBAL DE VENTAS",conf:"Confidencial",made:"Hecho en Japón",
   why:"POR QUÉ ESTE PRODUCTO",market:"MERCADOS OBJETIVO Y ACCESO",str:"FORTALEZAS CLAVE",
@@ -3487,7 +3507,7 @@ const DECK_L={
   about:"EMPRESA Y MARCA",whyjp:"CALIDAD JAPONESA",lineup:"LÍNEA DE PRODUCTOS",
   logi:"LOGÍSTICA Y PLAZOS",flow:["Consulta","Pedido / PI","Producción","Embarque","Entrega"],
   next:"PRÓXIMOS PASOS",n1:"Solicitar muestras del producto",n2:"Cotización detallada según su volumen",
-  n3:"Verificación regulatoria y primer pedido de prueba",origin:"Origen",supply:"Suministro estable desde Japón",mission:"NUESTRA MISIÓN",usage:"MODO DE USO",est:"Fundación",ceo:"CEO",web:"Sitio web"},
+  n3:"Verificación regulatoria y primer pedido de prueba",origin:"Origen",supply:"Suministro estable desde Japón",gallery:"GALERÍA DE PRODUCTO",mission:"NUESTRA MISIÓN",usage:"MODO DE USO",est:"Fundación",ceo:"CEO",web:"Sitio web"},
  ko:{name:"한국어",flag:"🇰🇷",ea:"Malgun Gothic",
   deck:"글로벌 세일즈 자료",conf:"대외비",made:"메이드 인 재팬",why:"제품 가치",market:"타깃 시장 및 진입 조건",
   str:"핵심 강점",spec:"제품 사양",photo:"제품 사진",dims:"포장 및 치수",price:"가격 및 거래 조건",
@@ -3498,7 +3518,7 @@ const DECK_L={
   about:"회사와 브랜드",whyjp:"일본 품질의 이유",lineup:"제품 라인업",
   logi:"물류 및 납기",flow:["문의","주문 / PI","생산","선적","납품"],
   next:"다음 단계",n1:"제품 샘플 요청",n2:"수량에 맞춘 상세 견적",n3:"규제 확인 및 첫 시험 주문",
-  origin:"원산지",supply:"일본 직송・안정 공급",mission:"우리의 미션",usage:"사용 방법",est:"설립",ceo:"대표",web:"웹사이트"},
+  origin:"원산지",supply:"일본 직송・안정 공급",gallery:"제품 갤러리",mission:"우리의 미션",usage:"사용 방법",est:"설립",ceo:"대표",web:"웹사이트"},
 };
 /* 国名の静的翻訳（[en, zhCN, zhTW, es, ko]） */
 const CTY_L={
@@ -3681,7 +3701,7 @@ function deckSlides(lang,T){
         shpText(64,y+8,180,32,[{t:String(r[0]||""),sz:10.5,b:1,c:BL}],{ea})+
         shpText(250,y+8,290,36,[{t:String(r[1]||""),sz:10.5,c:INK}],{ea});
     }).join("")+
-    phOr(596,96,316,240,(DK_PH[1]>=0?1:0),L.photo,ea)+
+    phOr(596,96,316,240,((DK_PH[1]!==undefined&&DK_PH[1]>=0)?1:0),L.photo,ea)+
     shpRect(596,352,316,84,LGT,{round:5000})+
     shpText(612,364,284,64,[{t:L.dims,sz:9.5,b:1,c:BL},
       {t:dim0,sz:9.5,c:SUB,spcB:3},
@@ -3699,6 +3719,18 @@ function deckSlides(lang,T){
           shpText(x+18,y+16,64,44,[{t:("0"+(i+1)).slice(-2),sz:26,b:1,c:i===0?OR:"C9D2DE"}],{ea})+
           shpText(x+84,y+20,318,100,[{t:String(u),sz:12,b:i===0?1:0,c:i===0?"FFFFFF":INK}],{ea});
       }).join("")+
+      foot());
+  }
+  /* 製品ギャラリー（4枚目以降の写真があるときだけ） */
+  const galIdx=PH_IDX.filter(i=>DK_PH[i]!==undefined&&DK_PH[i]>=0).slice(3,9);
+  if(galIdx.length){
+    S.push(
+      eyebrow(L.gallery||"PRODUCT GALLERY")+
+      galIdx.map((gi,i)=>{
+        const x=48+(i%3)*292, y=100+Math.floor(i/3)*186;
+        return shpRect(x,y,272,170,LGT,{round:5000})+phOr(x+6,y+6,260,158,gi,L.photo,ea);
+      }).join("")+
+      shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
       foot());
   }
   /* 6) ターゲット市場と関税 ※進出国が未登録ならスキップ */
@@ -3892,9 +3924,9 @@ function deckAssetCard(){
     const o=kind==="logo"?A.logo:(A.ph&&A.ph[idx]);
     const key=kind==="logo"?"logo":("ph"+idx);
     const label=kind==="logo"?"ロゴ":"商品写真"+(idx+1);
-    return `<div style="border:1px solid var(--line);border-radius:var(--r2);padding:8px;background:var(--surface-2);width:132px">
+    return `<div style="border:1px solid var(--line);border-radius:var(--r2);padding:7px;background:var(--surface-2);width:112px">
       <p class="lbl" style="margin-bottom:5px">${label}</p>
-      <div style="height:74px;border-radius:6px;background:#fff;border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden">
+      <div style="height:64px;border-radius:6px;background:#fff;border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden">
         ${o&&o.b64?`<img src="data:${o.mime};base64,${o.b64}" style="max-width:100%;max-height:100%;object-fit:contain">`:`<span style="font-size:20px;color:var(--ink-3)">${kind==="logo"?"🏷":"📷"}</span>`}
       </div>
       ${o&&o.src==="web"?`<p style="font-size:8.5px;color:var(--ink-3);margin:3px 0 0;line-height:1.3">🌐 ${esc(String(o.cap||"").slice(0,22))}</p>`:""}
@@ -3906,7 +3938,7 @@ function deckAssetCard(){
   return `<div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
       <div><h3>🖼 ロゴ・商品写真（資料に実際に埋め込み） <span class="nt">この版で新規</span></h3>
-        <p class="nn">ここに設定した画像が、表紙・ラインアップ・規格ページに<b>そのまま差し込まれた完成版PPTX</b>になります。</p></div>
+        <p class="nn">ここに設定した画像が、表紙・ラインアップ・規格・ギャラリーページに<b>そのまま差し込まれた完成版PPTX</b>になります（写真は<b>最大10枚</b>）。</p></div>
       <button class="btn g" id="dkweb">🌐 Webで画像を探す（候補から選択）</button></div>
     <div class="rw" style="margin-top:9px;gap:6px">
       <input class="sel" id="dksite" value="${esc(dkMeta().web||"")}" placeholder="https://…（貴社公式サイトのURL）" style="flex:1;min-width:220px">
@@ -3917,7 +3949,7 @@ function deckAssetCard(){
       <span class="nn" style="margin:0">キャッチコピー・ブランド紹介・特徴・ラインアップ・使い方・画像を、サイトからまとめて取り込みます。</span></div>
     <div id="dkenst" style="margin-top:7px"></div>
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
-      ${slot("logo")}${slot("ph",0)}${slot("ph",1)}${slot("ph",2)}
+      ${slot("logo")}${PH_IDX.map(i=>slot("ph",i)).join("")}
     </div>
     <div class="nn" id="dkimgst" style="margin-top:8px"></div>
     <p class="nn" style="margin-top:4px">🌐Web検索は<b>商品名・社名で正確に照合</b>し、<b>候補を提示→お客様が確認して採用</b>する方式です（勝手に挿入しません）。採用時は接続中のAIが画像を検査し、<b>誤った画像はブロック</b>。見つからない場合は正直に「見つかりませんでした」と表示します（出典：Wikimedia Commons／Openverse）。</p>
@@ -4584,7 +4616,7 @@ function vMsg(p){
         <input class="sel" id="mQ" placeholder="やりとりを検索" value="${esc(msgQ)}" style="flex:1;min-width:120px">
       </div>
       <div id="mlist" style="display:flex;flex-direction:column;gap:12px;max-height:470px;overflow-y:auto;padding-right:3px"></div>
-      <div style="margin-top:11px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+      <div class="composer" style="margin-top:11px">
         <div class="rw" style="gap:0;border-bottom:1px solid var(--line-2)">
           <button class="btn g" data-mscope="社内のみ" style="border:0;border-radius:0;flex:1">
             社内のみ<br><span style="font-weight:400;font-size:9.5px">貴社のメンバーだけ</span></button>
@@ -4981,7 +5013,7 @@ function fillRender(){
   box.innerHTML=(cu.chips?`<div class="qb" style="margin-bottom:8px">${cu.chips.map(x=>
       `<button class="q" data-chip="${esc(x)}">${esc(x)}</button>`).join("")}
       ${cu.multi?`<button class="btn" id="chipdone">選び終わった</button>`:""}</div>`:"")+
-    `<div style="border:1px solid var(--line);border-radius:var(--r2);overflow:hidden" id="fanswrap">
+    `<div class="composer" id="fanswrap">
       ${typeof mdBarHtml==="function"?mdBarHtml("fans"):""}
       <textarea class="sel" id="fans" rows="1" placeholder="${esc(cu.ex||"ここに入力")}（Enterで送信・Shift+Enterで改行。ファイルはここにドラッグ＆ドロップOK）"
         style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
@@ -5213,7 +5245,7 @@ function openAskAI(){
     <p class="nn" style="margin-top:4px">画面はこのまま、右側で完結します。回答は<b>${esc(D.co)}の登録データだけ</b>を根拠に、根拠付きで返します。</p>
     <div class="chat" id="dwchat" style="max-height:44vh;margin-top:9px"></div>
     <div class="qb" style="margin-top:8px">${SUG.map(s=>`<button class="q" data-dwq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
-    <div style="margin-top:8px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+    <div class="composer" style="margin-top:8px">
       ${typeof mdBarHtml==="function"?mdBarHtml("dwq"):""}
       <textarea class="sel" id="dwq" rows="1" placeholder="いま見ている画面のことも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
         style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:130px;overflow-y:auto;line-height:1.6"></textarea>
@@ -5798,7 +5830,7 @@ function vShip(p){
         <h3>AI商社マンにまかせる</h3><span class="p or">案件 ${S.no}</span></div>
       <div class="chat" id="schat"></div>
       <div class="qb" id="sbtn"></div>
-      <div style="margin-top:10px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+      <div class="composer" style="margin-top:10px">
         ${typeof mdBarHtml==="function"?mdBarHtml("sq"):""}
         <textarea class="sel" id="sq" rows="1" placeholder="手続きの途中でも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
           style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:36px;max-height:120px;overflow-y:auto;line-height:1.6"></textarea>
@@ -6114,7 +6146,7 @@ function vAI(p){
       <div class="chat" id="chat"></div>
       <div class="qb">${D.aiq.map((x,i)=>`<button class="q" data-q="${i}">${x.q}</button>`).join("")}
         ${SUG.map(s=>`<button class="q" data-free="${esc(s)}">${esc(s)}</button>`).join("")}</div>
-      <div style="margin-top:9px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+      <div class="composer" style="margin-top:9px">
         ${typeof mdBarHtml==="function"?mdBarHtml("aiq"):""}
         <textarea class="sel" id="aiq" rows="1" placeholder="自由に質問してください（例：香港に500袋送るといくら？）　Enterで送信・Shift+Enterで改行"
           style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
@@ -8139,7 +8171,7 @@ function fwdChatHtml(){
         <h3>AI物流マン</h3><span class="p on">${esc(FWDB.profile.co)} 専用</span></div>
       <div class="chat" id="fwdchat" style="max-height:420px">${chat||`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">こんにちは。${esc(FWDB.profile.co)}のAI物流マンです。<b>レート表 ${FWDB.rates.length}レーン・見積依頼 ${FWDB.reqs.length}件・操作履歴</b>を読み込んでいます。何でも聞いてください。</div></div>`}</div>
       <div class="qb" style="margin-top:8px">${SUGS.map(x=>`<button class="q" data-fq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
-      <div style="margin-top:8px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+      <div class="composer" style="margin-top:8px">
         ${typeof mdBarHtml==="function"?mdBarHtml("fwdq"):""}
         <textarea class="sel" id="fwdq" rows="1" placeholder="自由に質問（例：釜山向けの運賃は？）　Enterで送信・Shift+Enterで改行"
           style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:130px;overflow-y:auto;line-height:1.6"></textarea>
