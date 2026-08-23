@@ -148,6 +148,14 @@ body.mob .hm{display:none!important}
 @media (max-width:1180px){.bar .hm{display:none}.bar{gap:7px;padding:0 11px}}
 /* ── 実機スマホ：サイドバーはハンバーガーで開くオーバーレイに ── */
 @media (max-width:820px){
+  /* 横はみ出しの根絶：①バーは2段に折返し可 ②保険としてclip（stickyを壊さない） */
+  html,body{overflow-x:clip}
+  .bar{flex-wrap:wrap;height:auto;min-height:48px;padding:6px 10px;row-gap:4px}
+  #guide{position:static!important}
+  #lgpill{font-size:9px!important;padding:3px 7px!important}
+  .tgl{padding:4px 8px;font-size:10.5px}
+  /* iOS Safariの自動ズーム防止：フォーカスされ得る入力は16px以上に */
+  .sel,input.sel,select.sel,textarea.sel,.composer .sel,.lgin{font-size:16px!important}
   .app{grid-template-columns:1fr}
   .side{position:fixed;left:0;top:0;bottom:0;height:100dvh;z-index:55;width:min(276px,84vw);
     transform:translateX(-105%);transition:transform .18s ease;box-shadow:var(--pop)}
