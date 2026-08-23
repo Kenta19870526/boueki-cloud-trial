@@ -2824,7 +2824,7 @@ fillAnswer=function(v){
 /* ═══════════ ④ データ健全性チェック（AIによる登録データの点検・修復） ═══════════
    過去の誤登録（修正依頼文・質問文・「わかりません」等がそのまま値になっている）を検出し、
    AI接続時は正しい値を提案。修正はワンクリックで全画面（書類・営業資料・AI回答）へ波及する。 */
-const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|暑い|寒い|テストです)/;
+const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|气温|暑い|好热|好熱|寒い|テストです|～～)/;
 function valSick(v){
   v=String(v||"").trim(); if(!v) return false;
   if(SICK_RE.test(v)) return true;
@@ -3148,11 +3148,76 @@ async function dkVerifyImg(a,role){
   const r=await llmAsk(
 `添付画像を、商品「${D.item}」（${D.cat}／${D.itemEn||""}）の営業資料に「${role}」として掲載してよいか判定してください。
 基準：別ブランドのロゴ・別商品と誤認される写真・無関係な被写体・品質の低い画像はNG。
-${role==="汎用イメージ素材"?"商品そのものでなくても、カテゴリの雰囲気が正しく伝わればOK。":"商品・貴社と直接関係すると誤認させる場合、実物でなければNG。"}
+${role==="汎用イメージ素材"?"商品そのものでなくても、カテゴリの雰囲気が正しく伝わればOK。":role==="公式サイト掲載の商品画像"?"この会社の公式サイト由来のため、明らかに無関係（バナー広告・アイコン・別ブランドの広告素材）の場合のみNG。":"商品・貴社と直接関係すると誤認させる場合、実物でなければNG。"}
 JSONのみ：{"ok":true|false,"reason":"25字以内"}`,300,
     {noWeb:1,timeout:45000,att:{mime:a.mime,b64:a.b64,name:"cand.jpg"}});
   const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
   return {ok:!!j.ok,reason:String(j.reason||"")};
+}
+/* ── 公式サイト連携：ページ取得（直接→CORS中継 r.jina.ai）・画像URL抽出・画像プロキシ ── */
+async function fetchPageText(url){
+  url=String(url||"").trim(); if(!url) throw new Error("URLが空です");
+  if(!/^https?:\/\//.test(url)) url="https://"+url;
+  try{ const r=await fetch(url,{mode:"cors"});
+    if(r.ok){ return {raw:await r.text(),via:"direct",url}; } }catch(e){}
+  const r2=await fetch("https://r.jina.ai/"+url);
+  if(!r2.ok) throw new Error("サイトに接続できませんでした（HTTP "+r2.status+"）");
+  return {raw:await r2.text(),via:"reader",url};
+}
+function extractSiteImages(raw,baseUrl){
+  const out=new Set(); raw=String(raw||"");
+  const add=u=>{ if(!u) return; try{ u=new URL(u,baseUrl).href; }catch(e){ return; }
+    if(!/^https?:/.test(u)) return;
+    if(!/\.(jpe?g|png|webp)(\?|$)/i.test(u.split("#")[0])) return;
+    if(/favicon|sprite|1x1|pixel|tracking|\.svg/i.test(u)) return;
+    out.add(u.split("#")[0]); };
+  (raw.match(/property=["']og:image[^>]*content=["']([^"']+)/gi)||[])
+    .forEach(m=>{const x=m.match(/content=["']([^"']+)/i); if(x) add(x[1]);});
+  (raw.match(/content=["']([^"']+)["'][^>]*property=["']og:image/gi)||[])
+    .forEach(m=>{const x=m.match(/content=["']([^"']+)/i); if(x) add(x[1]);});
+  (raw.match(/<img[^>]+(?:src|data-src|data-original)=["']([^"']+)["']/gi)||[])
+    .forEach(m=>{const x=m.match(/["']([^"']+)["']$/); if(x) add(x[1]);});
+  (raw.match(/!\[[^\]]*\]\((https?:[^)\s]+)\)/g)||[])
+    .forEach(m=>{const x=m.match(/\((https?:[^)\s]+)\)/); if(x) add(x[1]);});
+  (raw.match(/https?:\/\/[^\s"'()<>\]]+\.(?:jpe?g|png|webp)(?:\?[^\s"'<>)\]]*)?/gi)||[]).forEach(add);
+  const all=[...out];
+  return {logos:all.filter(u=>/logo/i.test(u)).slice(0,6),
+    imgs:all.filter(u=>!/logo/i.test(u)).slice(0,14)};
+}
+/* 画像プロキシ（images.weserv.nl・CORS可）：公式サイトのCDNはCORS非対応が普通のため */
+function wsrv(u,w){
+  return "https://images.weserv.nl/?url="+encodeURIComponent(String(u).replace(/^https?:\/\//,""))+
+    "&w="+(w||900)+"&output=jpg&q=82";
+}
+/* 公式サイトの画像を候補として提示（掲載許可はお客様がお持ちの前提。採用時にAI検査） */
+async function deckSiteImgs(url){
+  const A=dkEnsureAssets(); if(!A){ toast("先に商品情報を登録してください"); return; }
+  const say=m=>{ const e=$("#dkimgst"); if(e) e.innerHTML=m; };
+  say(`<span class="spin"></span> 公式サイトを読み込んでいます…`);
+  try{
+    const pg=await fetchPageText(url);
+    const host=(pg.url.match(/^https?:\/\/([^\/]+)/)||[])[1]||pg.url;
+    const {imgs,logos}=extractSiteImages(pg.raw,pg.url);
+    say("");
+    if(!imgs.length&&!logos.length){
+      say(`<div style="padding:11px 13px;border:1px solid var(--warn);background:var(--warn-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.8">
+        <b>${esc(host)} から画像を抽出できませんでした。</b><br>サイトの作りによっては読み取れない場合があります。お手数ですが、公式サイトの画像を保存して上のスロットからアップロードしてください。</div>`);
+      return;
+    }
+    const mk=(u,as)=>({url:u,thumb:wsrv(u,300),fetchUrl:wsrv(u,900),
+      title:decodeURIComponent((u.split("/").pop()||"").split("?")[0]).slice(0,60),
+      lic:"",from:"公式サイト: "+host,as,site:1});
+    openDeckPicker([
+      {title:"🏠 公式サイトの画像（"+esc(host)+"）",
+       note:"<b>貴社が掲載許可をお持ちの前提</b>で採用できます。採用時に接続中のAIが内容を検査します。",
+       arr:imgs.map(u=>mk(u,"ph")),empty:"商品画像を抽出できませんでした"},
+      {title:"🏷 ロゴらしき画像",note:"",arr:logos.map(u=>mk(u,"logo")),
+       empty:"ロゴらしき画像は見つかりませんでした（スロットからアップロードできます）"}
+    ]);
+    if(typeof logU==="function") logU("ai","公式サイト画像候補:"+host);
+  }catch(e){
+    say(`公式サイトを読み込めませんでした（${esc(String(e.message)).slice(0,60)}）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。`);
+  }
 }
 /* ═══ Web画像取得 v2：自動挿入を廃止し「候補提示→お客様確認→AI最終判定」方式 ═══
    商品名・社名で正確に照合し、見つからなければ正直に「見つかりませんでした」。 */
@@ -3210,59 +3275,62 @@ JSONのみ：{"exact":[この商品・この会社そのものの可能性が高
         誤った画像を資料に載せることはできないため、自動挿入は行いません。<b>お手元の商品写真・ロゴのアップロード</b>をお願いします（上のスロットの「選ぶ」から）。</div>`);
       return;
     }
-    openDeckPicker(G);
+    openDeckPicker([
+      {title:"① この商品・貴社に一致する可能性がある画像",note:"商品名・社名でWebを照合した結果です。",
+       arr:G.exact.map(c=>Object.assign({as:"ph"},c)),
+       empty:"見つかりませんでした（Web上にこの商品の写真が存在しない可能性が高いです）→ <b>公式サイトURLからの取得</b>か、お手元の写真のアップロードをお試しください。"},
+      {title:"② ロゴ候補",note:"",arr:G.logo.map(c=>Object.assign({as:"logo"},c)),
+       empty:"ロゴは見つかりませんでした。ロゴは商標のため、<b>公式サイトからの取得</b>または<b>自社ロゴのアップロード</b>をお願いします。"},
+      {title:"③ 汎用イメージ素材（商品そのものではありません）",
+       note:"雰囲気づくり用のフリー素材です。採用すると「イメージ素材」として扱われます。",
+       arr:G.generic.map(c=>Object.assign({as:"ph",generic:1},c)),empty:"候補なし"}
+    ]);
   }catch(e){
     say(`検索できませんでした（${esc(String(e.message)).slice(0,50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
   }
 }
-/* 候補ピッカー：お客様が確認して採用（採用時に接続AIが画像そのものを最終判定） */
-function openDeckPicker(G){
+/* 候補ピッカー（セクション形式）：お客様が確認して採用（採用時に接続AIが画像そのものを最終判定） */
+function openDeckPicker(SECS){
   const on=(typeof ppReady==="function"&&ppReady());
-  const card=(c,i)=>`<div style="width:150px;border:1px solid var(--line);border-radius:var(--r2);padding:7px;background:var(--surface-2)">
+  const ALL=[]; SECS.forEach(sec=>sec.arr.forEach(c=>ALL.push(c)));
+  const card=c=>{const i=ALL.indexOf(c);
+    return `<div style="width:150px;border:1px solid var(--line);border-radius:var(--r2);padding:7px;background:var(--surface-2)">
     <div style="height:86px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line-2)">
-      <img src="${esc(c.url)}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.parentElement.innerHTML='読込不可'"></div>
-    <p style="font-size:8.5px;color:var(--ink-2);margin:4px 0 1px;line-height:1.35;height:23px;overflow:hidden">${esc(c.title.slice(0,44))}</p>
-    <p style="font-size:8px;color:var(--ink-3);margin:0 0 5px">${esc(c.from)}${c.lic?"・"+esc(c.lic):""}</p>
+      <img src="${esc(c.thumb||c.url)}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.parentElement.innerHTML='読込不可'"></div>
+    <p style="font-size:8.5px;color:var(--ink-2);margin:4px 0 1px;line-height:1.35;height:23px;overflow:hidden">${esc(String(c.title||"").slice(0,44))}</p>
+    <p style="font-size:8px;color:var(--ink-3);margin:0 0 5px">${esc(c.from||"")}${c.lic?"・"+esc(c.lic):""}</p>
     <div class="rw" style="gap:3px">
-      ${c.grp==="logo"?`<button class="btn g" style="padding:2px 7px;font-size:9.5px" data-pick="${i}" data-as="logo">ロゴに採用</button>`
-        :`<button class="btn g" style="padding:2px 7px;font-size:9.5px" data-pick="${i}" data-as="ph">写真に採用</button>`}
-    </div></div>`;
-  const ALL=[].concat(G.exact,G.logo,G.generic);
-  const sec=(title,arr,note,empty)=>`<p class="lbl" style="margin-top:11px">${title}</p>
-    ${note?`<p class="nn" style="margin:2px 0 6px">${note}</p>`:""}
-    ${arr.length?`<div class="rw" style="gap:7px;flex-wrap:wrap">${arr.map(c=>card(c,ALL.indexOf(c))).join("")}</div>`
-      :`<p style="font-size:11.5px;color:var(--warn);margin:4px 0"><b>${empty}</b></p>`}`;
-  openDW(`<h3>🌐 Web画像の候補 <span class="p ${on?"hi":"lo"}">${on?"採用時にAIが最終判定":"AI未接続・目視でご確認を"}</span></h3>
+      <button class="btn g" style="padding:2px 7px;font-size:9.5px" data-pick="${i}">${c.as==="logo"?"ロゴに採用":"写真に採用"}</button>
+    </div></div>`;};
+  const sec=x=>`<p class="lbl" style="margin-top:11px">${x.title}</p>
+    ${x.note?`<p class="nn" style="margin:2px 0 6px">${x.note}</p>`:""}
+    ${x.arr.length?`<div class="rw" style="gap:7px;flex-wrap:wrap">${x.arr.map(card).join("")}</div>`
+      :`<p style="font-size:11.5px;color:var(--warn);margin:4px 0"><b>${x.empty}</b></p>`}`;
+  openDW(`<h3>🌐 画像の候補 <span class="p ${on?"hi":"lo"}">${on?"採用時にAIが最終判定":"AI未接続・目視でご確認を"}</span></h3>
     <p class="nn" style="margin-top:4px"><b>自動では挿入しません。</b>内容をご確認のうえ「採用」を押してください。${on?"採用時に接続中のAIが画像そのものを検査し、<b>誤った画像はブロック</b>します。":""}</p>
-    ${sec("① この商品・貴社に一致する可能性がある画像",G.exact,"商品名・社名でWebを照合した結果です。",
-      "見つかりませんでした（Web上にこの商品の写真が存在しない可能性が高いです）→ お手元の写真をアップロードしてください。")}
-    ${sec("② ロゴ候補",G.logo,"",
-      "ロゴは見つかりませんでした。ロゴは商標のため、<b>自社のロゴ画像のアップロード</b>をお願いします。")}
-    ${sec("③ 汎用イメージ素材（商品そのものではありません）",G.generic,
-      "雰囲気づくり用のフリー素材です。採用すると「イメージ素材」として扱われます。","候補なし")}
+    ${SECS.map(sec).join("")}
     <div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>
-    <p class="nn" style="margin-top:7px">出典：Wikimedia Commons／Openverse（フリーライセンス）。本番配布ではライセンス表記の確認と自社写真への差し替えを推奨します。</p>`);
+    <p class="nn" style="margin-top:7px">Web検索の出典：Wikimedia Commons／Openverse（フリーライセンス）。公式サイトの画像は貴社の許可保有が前提です。本番配布ではライセンス・権利の最終確認を推奨します。</p>`);
   document.querySelectorAll("[data-pick]").forEach(b=>b.onclick=async()=>{
     const c=ALL[+b.dataset.pick]; if(!c) return;
-    const as=b.dataset.as;
     b.disabled=true; b.textContent="確認中…";
     try{
-      const a=await dkFetchImg(c.url,as==="logo"?600:900);
+      const a=await dkFetchImg(c.fetchUrl||c.url,c.as==="logo"?600:900);
       if(on){
-        const role=as==="logo"?"会社ロゴ":(c.grp==="generic"?"汎用イメージ素材":"商品のイメージ写真");
+        const role=c.as==="logo"?"会社ロゴ":(c.generic?"汎用イメージ素材":(c.site?"公式サイト掲載の商品画像":"商品のイメージ写真"));
         let v; try{ v=await dkVerifyImg(a,role); }catch(e){ v={ok:false,reason:"AI判定に接続できず中止"}; }
         if(!v.ok){ b.textContent="✗ AIが不適合と判定"; b.title=v.reason;
           toast("採用を中止しました："+(v.reason||"この画像は不適合です")); return; }
       }
       const A=dkEnsureAssets();
-      const entry={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:"web",
-        cap:(c.grp==="generic"?"イメージ素材: ":"")+c.title,lic:c.lic,from:c.from};
-      if(as==="logo") A.logo=entry;
+      const entry={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:c.site?"site":"web",
+        cap:(c.generic?"イメージ素材: ":"")+(c.title||""),lic:c.lic||"",from:c.from||""};
+      if(c.as==="logo") A.logo=entry;
       else{ const free=[0,1,2].find(i=>!(A.ph&&A.ph[i])); A.ph[free!==undefined?free:2]=entry; }
       if(typeof saveTen==="function") saveTen();
-      if(typeof logU==="function") logU("ai","Web画像を採用:"+(as==="logo"?"ロゴ":"写真"));
+      if(typeof logU==="function") logU("ai","画像を採用:"+(c.as==="logo"?"ロゴ":"写真")+(c.site?"（公式サイト）":""));
       b.textContent="✓ 採用済み";
-      toast(as==="logo"?"ロゴに採用しました":"商品写真に採用しました");
+      toast(c.as==="logo"?"ロゴに採用しました":"商品写真に採用しました");
     }catch(e){ b.textContent="✗ 取得失敗"; toast("画像を取得できませんでした"); }
   });
 }
@@ -3712,7 +3780,11 @@ function deckAssetCard(){
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
       <div><h3>🖼 ロゴ・商品写真（資料に実際に埋め込み） <span class="nt">この版で新規</span></h3>
         <p class="nn">ここに設定した画像が、表紙・ラインアップ・規格ページに<b>そのまま差し込まれた完成版PPTX</b>になります。</p></div>
-      <button class="btn" id="dkweb">🌐 Webで画像を探す（候補から選択）</button></div>
+      <button class="btn g" id="dkweb">🌐 Webで画像を探す（候補から選択）</button></div>
+    <div class="rw" style="margin-top:9px;gap:6px">
+      <input class="sel" id="dksite" value="${esc(dkMeta().web||"")}" placeholder="https://…（貴社公式サイトのURL）" style="flex:1;min-width:220px">
+      <button class="btn" id="dksitego">🏠 公式サイトから画像を取得</button></div>
+    <p class="nn" style="margin-top:4px">公式サイトの画像は<b>貴社が掲載許可をお持ちの前提</b>で採用できます（候補を提示→選択→AI検査）。</p>
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
       ${slot("logo")}${slot("ph",0)}${slot("ph",1)}${slot("ph",2)}
     </div>
@@ -3738,7 +3810,7 @@ async function deckWizard(){
     <input class="sel" id="${id}" value="${esc(val||"")}" placeholder="${esc(ph2)}" style="width:100%;box-sizing:border-box">`;
   openDW(`<h3>🤖 AI商社マンと営業資料を仕上げる</h3>
     <p class="nn" style="margin-top:4px">Monroe Beauty様の資料と同じ構成（会社概要・ミッション・使い方・コンタクト）に必要な情報を伺います。<b>分かるところだけでOK</b>（あとで追記できます）。日本語で入力すると、生成時に各言語へ翻訳されます。</p>
-    ${typeof ppReady==="function"&&ppReady()?`<div class="rw" style="margin-top:8px"><button class="btn g" id="dkwai">🤖 登録データからミッション・使い方の案をAIが作成</button></div><div class="nn" id="dkwaist"></div>`:""}
+    ${typeof ppReady==="function"&&ppReady()?`<div class="rw" style="margin-top:8px"><button class="btn" id="dkwai">🤖 公式サイト・Webも確認して、全項目の案をAIが作成</button></div><div class="nn" id="dkwaist"></div>`:""}
     <div class="g2" style="gap:8px">
       <div>${F("wzEst","設立","例：2021年10月",DM.est)}</div>
       <div>${F("wzCeo","代表者","例：三谷 智恵",DM.ceo)}</div>
@@ -3762,16 +3834,45 @@ async function deckWizard(){
       <button class="btn g" onclick="closeDW()">あとで</button></div>`);
   const wai=$("#dkwai");
   if(wai) wai.onclick=async()=>{
-    wai.disabled=true; const stx=$("#dkwaist"); if(stx) stx.innerHTML='<span class="spin"></span> 登録データから案を作成中…';
+    wai.disabled=true; const stx=$("#dkwaist");
+    const say2=m=>{ if(stx) stx.innerHTML=m; };
     try{
-      const r=await llmAsk(`商品「${D.item}」（${D.cat}）の営業資料用に、登録データだけを根拠にJSONのみで提案：
-{"mission":"ブランドの想いが伝わる1文（日本語40字以内）","usage":["使い方ステップ（日本語・各25字以内・最大4つ。使い方が自明な商材なら活用シーンでも可）"]}
-強み：${(D.strengths||[]).slice(0,3).map(s=>s[0]+"("+(s[1]||"")+")").join("／")}`,500,{noWeb:1,timeout:45000});
+      /* ① 公式サイトの本文を取得（あれば最優先の根拠にする） */
+      const siteUrl=(($("#wzWeb")&&$("#wzWeb").value)||dkMeta().web||"").trim();
+      let siteTxt="";
+      if(siteUrl){
+        say2('<span class="spin"></span> 公式サイトを読み込んでいます…');
+        try{ const pg=await fetchPageText(siteUrl);
+          siteTxt=String(pg.raw).replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,12000);
+        }catch(e){}
+      }
+      say2('<span class="spin"></span> '+(siteTxt?"公式サイトの内容と":"")+'登録データ'+((PROV[LLM.prov]||{}).search?"＋Web検索":"")+'から全項目の案を作成しています…（10〜40秒）');
+      /* ② 汚染された強み（会話文など）は根拠から除外 */
+      const goodStr=(D.strengths||[]).filter(x=>!(typeof valSick==="function"&&valSick(x[0]))).slice(0,3);
+      const r=await llmAsk(
+`会社「${D.co}」・商品「${D.item}」（${D.cat}${D.itemEn?"／"+D.itemEn:""}）の営業資料に載せる会社情報・商品情報を、JSONのみで返してください：
+{"est":"設立（例：2021年10月）","ceo":"代表者名","web":"公式サイトURL","addr":"所在地（英語推奨）",
+"biz":"事業内容1行","mission":"ブランドの想い・コンセプト1文（40字以内。サイトの文言があれば要約）",
+"usage":["使い方または活用シーン（各25字以内・最大4つ）"]}
+規則：
+・根拠は（1）下の公式サイト抜粋（最優先）（2）登録データ（3）Web検索で確認できた公式情報 のみ。
+・<b>確認できない項目は空文字にする。推測・創作は絶対禁止</b>（誤った会社情報は信頼を損なう）。
+・意味不明な文（気温の話など）は根拠に使わない。
+登録データ：強み=${goodStr.map(x=>x[0]).join("／")||"なし"}／産地=${D.city||D.origin||"-"}
+${siteTxt?`=== 公式サイト抜粋（${siteUrl}） ===\n${siteTxt}`:"（公式サイトURLは未入力。ウェブサイト欄に入れると精度が大きく上がります）"}`,
+        1400,{forceWeb:1,timeout:90000});
       const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
-      if(j.mission&&!$("#wzMission").value) $("#wzMission").value=String(j.mission);
-      if(Array.isArray(j.usage)&&!$("#wzUsage").value.trim()) $("#wzUsage").value=j.usage.slice(0,4).join("\n");
-      if(stx) stx.innerHTML="✓ 案を入れました。<b>内容を確認・修正して保存</b>してください（最終決定はお客様です）。";
-    }catch(e){ if(stx) stx.innerHTML="AI提案を作れませんでした："+esc(String(e.message)).slice(0,50); }
+      const put=(id,v)=>{ const e=$("#"+id); if(!e) return false;
+        if(v&&String(v).trim()&&!e.value.trim()){ e.value=String(v).trim(); return true; } return false; };
+      const filled=[],blank=[];
+      [["wzEst",j.est,"設立"],["wzCeo",j.ceo,"代表者"],["wzWeb",j.web||siteUrl,"ウェブサイト"],
+       ["wzAddr",j.addr,"所在地"],["wzBiz",j.biz,"事業内容"],["wzMission",j.mission,"ミッション"]]
+        .forEach(([id,v,nm])=>{ (put(id,v)?filled:( ($("#"+id)&&$("#"+id).value.trim())?filled:blank )).push(nm); });
+      if(Array.isArray(j.usage)&&j.usage.filter(Boolean).length&&!$("#wzUsage").value.trim()){
+        $("#wzUsage").value=j.usage.filter(Boolean).slice(0,4).join("\n"); filled.push("使い方");
+      } else if(!$("#wzUsage").value.trim()) blank.push("使い方");
+      say2(`✓ 案を入れました（${[...new Set(filled)].join("・")||"なし"}）。${blank.length?`<br><b>確認できなかった項目：${[...new Set(blank)].join("・")}</b>——誤情報を避けるため空欄のままです。お手元の情報でご入力ください。`:""}<br><b>内容を確認・修正して保存</b>してください（最終決定はお客様です）。`);
+    }catch(e){ say2("AI提案を作れませんでした："+esc(String(e.message)).slice(0,60)); }
     wai.disabled=false;
   };
   $("#wzSave").onclick=()=>{
@@ -3837,6 +3938,13 @@ function deckBind(){
     if(key==="logo") dkDelAsset("logo"); else dkDelAsset("ph",parseInt(key.slice(2),10)||0);
   }));
   const wb=$("#dkweb"); if(wb) wb.onclick=()=>deckWebImgs();
+  const sg=$("#dksitego"); if(sg) sg.onclick=()=>{
+    const u=($("#dksite")&&$("#dksite").value||"").trim();
+    if(!u){ toast("公式サイトのURLを入力してください"); return; }
+    if(typeof TEN!=="undefined"&&TEN){ TEN.deckMeta=TEN.deckMeta||{}; TEN.deckMeta.web=u;
+      if(typeof saveTen==="function") saveTen(); }
+    deckSiteImgs(u);
+  };
   const wz=$("#dkwiz"); if(wz) wz.onclick=()=>deckWizard();
 }
 
@@ -4973,9 +5081,12 @@ function openAskAI(){
     <p class="nn" style="margin-top:4px">画面はこのまま、右側で完結します。回答は<b>${esc(D.co)}の登録データだけ</b>を根拠に、根拠付きで返します。</p>
     <div class="chat" id="dwchat" style="max-height:44vh;margin-top:9px"></div>
     <div class="qb" style="margin-top:8px">${SUG.map(s=>`<button class="q" data-dwq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
-    <div class="rw" style="gap:6px;margin-top:8px">
-      <input class="sel" id="dwq" style="flex:1;min-width:150px" placeholder="いま見ている画面のことも、何でも質問できます" autocomplete="off">
-      <button class="btn" id="dwqgo">質問する</button></div>
+    <div style="margin-top:8px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+      ${typeof mdBarHtml==="function"?mdBarHtml("dwq"):""}
+      <textarea class="sel" id="dwq" rows="1" placeholder="いま見ている画面のことも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:130px;overflow-y:auto;line-height:1.6"></textarea>
+      <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
+        <button class="btn" id="dwqgo">質問する</button></div></div>
     <p class="nn" style="margin-top:6px">じっくり使うときは <a style="cursor:pointer;color:var(--bl);font-weight:700" onclick="closeDW();go('ai')">AI商社マンの画面へ →</a></p>`);
   const c=$("#dwchat");
   if(!ASKDW.length) ASKDW.push({w:"a",h:`こんにちは。<b>${esc(D.item)}</b>のデータを読み込み済みです。画面を見ながら、そのまま聞いてください。`});
@@ -4983,8 +5094,9 @@ function openAskAI(){
   c.scrollTop=c.scrollHeight;
   const send=async v=>{
     v=String(v||"").trim(); if(!v) return;
-    ASKDW.push({w:"u",h:esc(v)});
-    pushTo(c,"u",esc(v));
+    const uh=typeof mdU==="function"?mdU(esc(v)):esc(v);
+    ASKDW.push({w:"u",h:uh});
+    pushTo(c,"u",uh);
     const bb=pushTo(c,"a",'<span class="car"></span>'); c.scrollTop=1e6;
     let r; try{ r=await Promise.resolve(brain(v)); }
     catch(e){ r={a:"うまく処理できませんでした。もう一度お試しください。",c:"内部エラー"}; }
@@ -4994,8 +5106,12 @@ function openAskAI(){
     if(typeof logU==="function") logU("ai","（サイドバー）"+v.slice(0,32));
   };
   document.querySelectorAll("[data-dwq]").forEach(b=>b.onclick=()=>send(b.dataset.dwq));
-  $("#dwqgo").onclick=()=>{const v=$("#dwq").value; $("#dwq").value=""; send(v);};
-  $("#dwq").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const v=$("#dwq").value;$("#dwq").value="";send(v);}};
+  const dq=$("#dwq");
+  const dqGrow=()=>{dq.style.height="auto";dq.style.height=Math.min(130,Math.max(38,dq.scrollHeight))+"px";};
+  dq.addEventListener("input",dqGrow);
+  $("#dwqgo").onclick=()=>{const v=dq.value; dq.value=""; dqGrow(); send(v);};
+  dq.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();const v=dq.value;dq.value="";dqGrow();send(v);}};
+  if(typeof mdBarBind==="function") mdBarBind(document.querySelector("#pn"));
 }
 
 /* ═════════ ① 商品情報を登録（アップロード） ═════════ */
@@ -5550,10 +5666,12 @@ function vShip(p){
         <h3>AI商社マンにまかせる</h3><span class="p or">案件 ${S.no}</span></div>
       <div class="chat" id="schat"></div>
       <div class="qb" id="sbtn"></div>
-      <div class="rw" style="gap:6px;margin-top:10px">
-        <input class="sel" id="sq" style="flex:1;min-width:140px" autocomplete="off"
-          placeholder="手続きの途中でも、何でも質問できます">
-        <button class="btn g" id="sqgo">質問する</button></div>
+      <div style="margin-top:10px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+        ${typeof mdBarHtml==="function"?mdBarHtml("sq"):""}
+        <textarea class="sel" id="sq" rows="1" placeholder="手続きの途中でも、何でも質問できます（Enterで送信・Shift+Enterで改行）"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:36px;max-height:120px;overflow-y:auto;line-height:1.6"></textarea>
+        <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
+          <button class="btn g" id="sqgo">質問する</button></div></div>
       <div class="qb" style="margin-top:6px">${["この運送会社で大丈夫？","書類は何が必要？","いつ届きますか？","入金はいつ？"]
         .map(x=>`<button class="q" data-sq="${x}">${x}</button>`).join("")}</div>
     </div>
@@ -5587,9 +5705,13 @@ function shipRender(){
   SHIPQA.forEach(x=>{ pushTo(c,"u",esc(x.q));
     const b=pushTo(c,"a",x.a); b.insertAdjacentHTML("beforeend",`<div class="ci">${x.ci}</div>`); });
   c.scrollTop=c.scrollHeight;
-  const sgo=()=>{const v=($("#sq").value||"").trim(); if(v){askShip(v);$("#sq").value="";}};
+  const sqEl=$("#sq");
+  const sqGrow=()=>{sqEl.style.height="auto";sqEl.style.height=Math.min(120,Math.max(36,sqEl.scrollHeight))+"px";};
+  sqEl.addEventListener("input",sqGrow);
+  const sgo=()=>{const v=(sqEl.value||"").trim(); if(v){askShip(v);sqEl.value="";sqGrow();}};
   $("#sqgo").onclick=sgo;
-  $("#sq").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();sgo();}};
+  sqEl.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sgo();}};
+  if(typeof mdBarBind==="function") mdBarBind();
   document.querySelectorAll("[data-sq]").forEach(b=>b.onclick=()=>askShip(b.dataset.sq));
   const nb=$("#sbtn");
   if(shipStep<ST.length-1){
@@ -5663,6 +5785,14 @@ function openDealForm(){
   const CTYS=(typeof KNOWN_CTY!=="undefined"?KNOWN_CTY:["香港","台湾","シンガポール","アメリカ","タイ","ベトナム"]);
   openDW(`<h3>＋ 商談を記録する</h3>
     <p class="nn" style="margin-top:4px">3分で入力できます。<b>この記録がダッシュボード・AIの回答・脈あり度にすぐ反映</b>されます（STANDAGE担当も契約期間中は同じ画面に入力します）。</p>
+    <div style="margin-top:8px;border:1px solid var(--bl);border-radius:var(--r2);padding:9px 11px;background:var(--bl-soft)">
+      <b style="font-size:11.5px">📋 議事録から自動入力 <span class="nt">この版で新規</span></b>
+      <p class="nn" style="margin:3px 0 6px">ZoomやGoogle Meetの議事録・メモを<b>貼り付け</b>または<b>ファイル添付</b>（txt / vtt / docx / pdf / 画像）→ 🤖AIが整理して下のフォームに反映します。<b>保存前に確認・修正できます。</b></p>
+      <textarea class="sel" id="dfMin" style="width:100%;min-height:54px;box-sizing:border-box;resize:vertical" placeholder="ここに議事録・商談メモを貼り付け"></textarea>
+      <div class="rw" style="gap:6px;margin-top:6px;align-items:center">
+        <label class="btn g" style="padding:5px 10px;cursor:pointer">📎 議事録ファイル<input type="file" id="dfMinF" hidden accept=".txt,.vtt,.docx,.pdf,.png,.jpg,.jpeg"></label>
+        <button class="btn" id="dfMinGo">🤖 AIで整理して反映</button>
+        <span class="nn" id="dfMinSt" style="margin:0"></span></div></div>
     <div class="g2" style="gap:8px;margin-top:6px">
       <div>${lb("商談日")}<input type="date" class="sel" id="dfD" value="${TODAYS}" style="width:100%;box-sizing:border-box"></div>
       <div>${lb("担当（記録者）")}<input class="sel" id="dfOwner" value="${esc((typeof SES!=="undefined"&&SES&&SES.who)||"貴社担当")}" style="width:100%;box-sizing:border-box"></div>
@@ -5706,6 +5836,64 @@ function openDealForm(){
       x.style.color=on?"var(--or-deep)":"var(--ink-2)";});});
   $("#dfSt").onchange=()=>{ $("#dfWhyBox").hidden=$("#dfSt").value!=="失注"; };
   $("#dfSave").onclick=()=>dealSave();
+  /* 議事録→自動入力 */
+  let MINATT=null;
+  const minF=$("#dfMinF");
+  if(minF) minF.onchange=async e=>{
+    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    const st=$("#dfMinSt");
+    const ext=(typeof FEXT==="function"?FEXT(f.name):"");
+    try{
+      if(/^(txt|vtt)$/.test(ext)){ $("#dfMin").value=(await f.text()).slice(0,20000); MINATT=null;
+        if(st) st.textContent="OK: "+f.name+" を読み込みました"; }
+      else if(ext==="docx"){ const ex=await extractDocx(f); $("#dfMin").value=ex.text.slice(0,20000); MINATT=null;
+        if(st) st.textContent="OK: "+f.name+" を読み込みました"; }
+      else if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
+        if(!(typeof llmCanFile==="function"&&llmCanFile(ext))){
+          if(st) st.textContent="PDF・画像の読み取りはAIエンジン接続時のみ（Gemini／Claude／ChatGPT系）"; return; }
+        MINATT={mime:FMIME[ext],b64:await fileB64(f),name:f.name}; $("#dfMin").value="";
+        if(st) st.textContent="OK: "+f.name+"（AIが直接読み取ります）"; }
+      else if(st) st.textContent="対応形式：txt / vtt / docx / pdf / 画像";
+    }catch(e2){ if(st) st.textContent="読み込めませんでした："+String(e2.message).slice(0,40); }
+  };
+  const mg=$("#dfMinGo");
+  if(mg) mg.onclick=()=>dealFromMinutes(($("#dfMin")&&$("#dfMin").value||"").trim(),MINATT);
+}
+/* (3) 議事録（Zoom・Meet等）→ AIが商談記録の項目へ整理して反映 */
+async function dealFromMinutes(text,att){
+  const st=$("#dfMinSt"); const say=m=>{ if(st) st.innerHTML=m; };
+  if(!text&&!att){ say("議事録を貼り付けるか、ファイルを添付してください"); return; }
+  if(!(typeof ppReady==="function"&&ppReady())){
+    if(text){ const n=$("#dfNote"); if(n&&!n.value) n.value=text.slice(0,800);
+      say("AIエンジン未接続のため自動整理は使えません。<b>議事録は背景メモに転記しました</b>——他の項目のご入力をお願いします（接続すると全自動になります）。"); }
+    else say("AIエンジン未接続のため、ファイルの自動整理は使えません（管理コンソールで接続できます）。");
+    return;
+  }
+  say('<span class="spin"></span> AIが議事録を整理しています…（10〜30秒）');
+  try{
+    const r=await llmAsk(
+'次の商談議事録から、商談記録をJSONのみで抽出してください：\n'+
+'{"d":"商談日 YYYY-MM-DD（不明なら空）","b":"バイヤー会社名","c":"国（日本語）",'+
+'"ch":"展示会|オンライン商談|メール・DM|紹介|バイヤーDB経由|その他",'+
+'"spec":"先方の要望・要求スペック","price":"希望価格","lot":"数量","term":"FOB|CIF|DDP|EXW|",'+
+'"react":"高|中|低","st":"商談中|見積提示|サンプル発送|受注|失注|保留","why":"断られた理由（失注時のみ）",'+
+'"owner":"当社側の出席者・担当者名（不明なら空）","note":"背景メモ（3行以内の要約。決定事項・次のアクションを含める）"}\n'+
+'議事録に書かれていないことは空にする（創作禁止）。オンライン会議なら ch は「オンライン商談」。\n'+
+(text?("=== 議事録 ===\n"+text.slice(0,18000)):"（添付ファイルが議事録です）"),
+      900,{noWeb:1,timeout:90000,att:att||undefined});
+    const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+    const set=(id,v)=>{ const e=$("#"+id); if(e&&v&&String(v).trim()) e.value=String(v).trim(); };
+    if(/^\d{4}-\d{2}-\d{2}$/.test(j.d||"")) set("dfD",j.d);
+    set("dfB",j.b); set("dfC",typeof cnorm==="function"?cnorm(j.c||""):j.c);
+    if(j.ch){ const e=$("#dfCh"); if(e&&[...e.options].some(o=>o.value===j.ch)) e.value=j.ch; }
+    set("dfSpec",j.spec); set("dfP",j.price); set("dfL",j.lot);
+    if(j.term){ const e=$("#dfT"); if(e&&[...e.options].some(o=>o.value===j.term)) e.value=j.term; }
+    if(/^(高|中|低)$/.test(j.react||"")){ const b2=document.querySelector('[data-react="'+j.react+'"]'); if(b2) b2.click(); }
+    if(j.st){ const e=$("#dfSt"); if(e&&[...e.options].some(o=>o.value===j.st)){ e.value=j.st; if(e.onchange) e.onchange(); } }
+    set("dfWhy",j.why); set("dfOwner",j.owner); set("dfNote",j.note);
+    say('✓ 反映しました。<b>内容をご確認・修正のうえ「記録する」</b>を押してください（議事録に無い項目は空欄のままです）。');
+    if(typeof logU==="function") logU("ai","議事録から商談記録を抽出");
+  }catch(e){ say("整理できませんでした："+esc(String(e.message)).slice(0,60)); }
 }
 function dealAdviseLocal(rec){
   const tips=[];
@@ -5794,10 +5982,12 @@ function vAI(p){
       <div class="chat" id="chat"></div>
       <div class="qb">${D.aiq.map((x,i)=>`<button class="q" data-q="${i}">${x.q}</button>`).join("")}
         ${SUG.map(s=>`<button class="q" data-free="${esc(s)}">${esc(s)}</button>`).join("")}</div>
-      <div class="rw" style="gap:6px;margin-top:9px">
-        <input class="sel" id="aiq" style="flex:1;min-width:150px" autocomplete="off"
-          placeholder="自由に質問してください（例：香港に500袋送るといくら？）">
-        <button class="btn" id="aisend">質問する</button></div>
+      <div style="margin-top:9px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+        ${typeof mdBarHtml==="function"?mdBarHtml("aiq"):""}
+        <textarea class="sel" id="aiq" rows="1" placeholder="自由に質問してください（例：香港に500袋送るといくら？）　Enterで送信・Shift+Enterで改行"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
+        <div class="rw" style="justify-content:flex-end;padding:6px 8px;border-top:1px solid var(--line-2)">
+          <button class="btn" id="aisend">質問する</button></div></div>
       <p class="nn" id="ainote" style="margin-top:8px">回答は<b>登録されている情報だけ</b>から組み立てます。答えの下に必ず根拠が付きます。</p>
     </div>
     <div class="stk">
@@ -5844,7 +6034,7 @@ async function askFree(q){
   if(!q||!q.trim()) return;
   if(typing){clearInterval(typing);typing=null;}
   const c=$("#chat"); if(!c) return;
-  pushTo(c,"u",esc(q.trim()));
+  pushTo(c,"u",typeof mdU==="function"?mdU(esc(q.trim())):esc(q.trim()));
   const searching=(typeof WEBON!=="undefined"&&WEBON);
   const bb=pushTo(c,"a",(searching?'<span style="color:var(--ink-3);font-size:11.5px">🌐 Webを検索しています… </span>':"")+'<span class="car"></span>');
   c.scrollTop=1e6;
@@ -5857,7 +6047,7 @@ async function askShip(q){
   if(!q||!q.trim()) return;
   if(typeof logU==="function") logU("ai","（出荷画面）"+String(q).slice(0,36));
   const c=$("#schat"); if(!c) return;
-  pushTo(c,"u",esc(q.trim()));
+  pushTo(c,"u",typeof mdU==="function"?mdU(esc(q.trim())):esc(q.trim()));
   const searching=(typeof WEBON!=="undefined"&&WEBON);
   const bb=pushTo(c,"a",(searching?'<span style="color:var(--ink-3);font-size:11.5px">🌐 Webを検索しています… </span>':"")+'<span class="car"></span>');
   c.scrollTop=1e6;
@@ -6247,9 +6437,13 @@ function render(){
     if(typeof planBind==="function") planBind();
     document.querySelectorAll("[data-q]").forEach(b=>b.addEventListener("click",()=>askAI(+b.dataset.q)));
     document.querySelectorAll("[data-free]").forEach(b=>b.addEventListener("click",()=>askFree(b.dataset.free)));
-    const send=()=>{const v=$("#aiq").value.trim(); if(v){askFree(v);$("#aiq").value="";}};
+    const aq=$("#aiq");
+    const aqGrow=()=>{aq.style.height="auto";aq.style.height=Math.min(150,Math.max(38,aq.scrollHeight))+"px";};
+    aq.addEventListener("input",aqGrow);
+    const send=()=>{const v=aq.value.trim(); if(v){askFree(v);aq.value="";aqGrow();}};
     $("#aisend").onclick=send;
-    $("#aiq").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();send();}};
+    aq.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
+    if(typeof mdBarBind==="function") mdBarBind();
     pushTo($("#chat"),"a",`こんにちは。${esc(D.co)}さん専用のAIです。<br><b>${esc(D.item)}</b>について、
       <b>商品マスタ（価格${(D.priceRows||[]).length}行・寸法${(D.dimRows||[]).length}行）／${esc(D.compTitle||"成分表")} ${(D.compRows||[]).length}項目／規制調査 ${Object.keys(D.regs||{}).length}か国／商談記録 ${(D.fb||[]).length}件</b>
       を読み込んでいます。下の入力欄から自由に質問してください。`);}
@@ -6663,7 +6857,9 @@ async function llmAsk(q,maxTok,opts){
   /* opts.model：呼び出し側プラン（例：物流会社プラン）による稼働モデルの上書き */
   const prov=LLM.prov, P=PROV[prov], key=llmKey(), model=opts.model||llmModel(), ep=llmEp();
   const sys=opts.sys||llmSysPrompt();
-  const webOK=(typeof WEBON!=="undefined"&&WEBON&&(typeof webPerm!=="function"||webPerm()))&&!opts.noWeb;
+  /* opts.forceWeb：この呼び出しに限りネイティブWeb検索を有効化（対応プロバイダのみ） */
+  const webOK=(opts.forceWeb&&P.search)
+    ||((typeof WEBON!=="undefined"&&WEBON&&(typeof webPerm!=="function"||webPerm()))&&!opts.noWeb);
   let userQ=q, extHits=[];
   if(webOK&&!P.search){ const w=await llmWebCtx(q); userQ=q+w.txt; extHits=w.hits; }
 
@@ -7776,7 +7972,7 @@ function fwdBrain(q){
 async function fwdAsk(v){
   v=String(v||"").trim(); if(!v) return;
   FWDB.chat=FWDB.chat||[];
-  FWDB.chat.push({w:"u",t:esc(v),ts:Date.now()});
+  FWDB.chat.push({w:"u",t:(typeof mdU==="function"?mdU(esc(v)):esc(v)),ts:Date.now()});
   fwdSave(); fwdRender();
   let r;
   if(fwdReady()){
@@ -7811,10 +8007,12 @@ function fwdChatHtml(){
         <h3>AI物流マン</h3><span class="p on">${esc(FWDB.profile.co)} 専用</span></div>
       <div class="chat" id="fwdchat" style="max-height:420px">${chat||`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">こんにちは。${esc(FWDB.profile.co)}のAI物流マンです。<b>レート表 ${FWDB.rates.length}レーン・見積依頼 ${FWDB.reqs.length}件・操作履歴</b>を読み込んでいます。何でも聞いてください。</div></div>`}</div>
       <div class="qb" style="margin-top:8px">${SUGS.map(x=>`<button class="q" data-fq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
-      <div class="rw" style="gap:6px;margin-top:8px">
-        <input class="sel" id="fwdq" style="flex:1;min-width:150px" autocomplete="off"
-          placeholder="自由に質問（例：釜山向けの運賃は？／昨日アップロードした表は？）">
-        <button class="btn" id="fwdqgo">質問する</button></div>
+      <div style="margin-top:8px;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden">
+        ${typeof mdBarHtml==="function"?mdBarHtml("fwdq"):""}
+        <textarea class="sel" id="fwdq" rows="1" placeholder="自由に質問（例：釜山向けの運賃は？）　Enterで送信・Shift+Enterで改行"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:38px;max-height:130px;overflow-y:auto;line-height:1.6"></textarea>
+        <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
+          <button class="btn" id="fwdqgo">質問する</button></div></div>
       <p class="nn" style="margin-top:7px">回答は<b>貴社の登録データだけ</b>から組み立てます（根拠付き）。${fwdReady()?"":"AIエンジン接続＋スタンダード以上で、自由文の質問に実AIが答えます。"}</p>
     </div>
     <div class="stk">
@@ -8126,9 +8324,12 @@ function fwdBindPage(){
   document.querySelectorAll("[data-fq]").forEach(b=>b.addEventListener("click",()=>fwdAsk(b.dataset.fq)));
   const fq=$("#fwdq");
   if(fq){
-    const go=()=>{const v=fq.value.trim(); if(v){ fq.value=""; fwdAsk(v); }};
+    const fqGrow=()=>{fq.style.height="auto";fq.style.height=Math.min(130,Math.max(38,fq.scrollHeight))+"px";};
+    fq.addEventListener("input",fqGrow);
+    const go=()=>{const v=fq.value.trim(); if(v){ fq.value=""; fqGrow(); fwdAsk(v); }};
     $("#fwdqgo").onclick=go;
-    fq.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();go();}};
+    fq.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();go();}};
+    if(typeof mdBarBind==="function") mdBarBind();
   }
   const dz=$("#fwdrop"), fi=$("#fwdfile");
   if(dz&&fi){
