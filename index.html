@@ -1887,6 +1887,11 @@ function tenantFromSample(x){
 
 /* アップロードしたテナント → 画面が使う D を構築（1日目の状態） */
 function tenantToD(t){
+  /* 旧データ移行：未分割の進出希望国（「米国・韓国・インドネシア」等）を分割・正規化 */
+  if(t.targets&&t.targets.some(c=>/[・･、,\/／]/.test(String(c)))){
+    t.targets=[...new Set(t.targets.flatMap(c=>String(c).split(/[・･、,\/／\s]+/))
+      .filter(Boolean).map(c=>typeof cnorm==="function"?cnorm(c):c))];
+  }
   const cat=t.catKey||catKeyOf(t.cat);
   const av=(t.co||"?").replace(/^(株式会社|有限会社)/,"").slice(0,1)||"?";
   const top=(t.priceRows&&t.priceRows[0])||null;
@@ -2824,7 +2829,7 @@ fillAnswer=function(v){
 /* ═══════════ ④ データ健全性チェック（AIによる登録データの点検・修復） ═══════════
    過去の誤登録（修正依頼文・質問文・「わかりません」等がそのまま値になっている）を検出し、
    AI接続時は正しい値を提案。修正はワンクリックで全画面（書類・営業資料・AI回答）へ波及する。 */
-const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|气温|暑い|好热|好熱|寒い|テストです|～～)/;
+const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|气温|暑い|暑さ|好热|好熱|寒い|テストです|～～|あっち)/;
 function valSick(v){
   v=String(v||"").trim(); if(!v) return false;
   if(SICK_RE.test(v)) return true;
@@ -3046,7 +3051,10 @@ function dkCollectMedia(){
     DK_MEDIA.push({u8:b64u8(o.b64),ext:o.mime==="image/png"?"png":"jpeg",w:o.w||0,h:o.h||0});
     return DK_MEDIA.length-1; };
   DK_LOGO=put(A.logo);
-  DK_PH=[0,1,2].map(i=>put(A.ph&&A.ph[i]));
+  /* 表紙から良い写真を使うため、公式サイト・アップロード由来を先頭に並べ替え */
+  const phs=[0,1,2].map(i=>A.ph&&A.ph[i]).filter(Boolean)
+    .sort((x,y)=>{const pr=o=>o.src==="site"?0:o.src==="upload"?1:2; return pr(x)-pr(y);});
+  DK_PH=[0,1,2].map(i=>put(phs[i]));
 }
 function shpImg(x,y,w,h,mi){
   const m=DK_MEDIA[mi]; if(!m) return "";
@@ -3289,6 +3297,89 @@ JSONのみ：{"exact":[この商品・この会社そのものの可能性が高
     say(`検索できませんでした（${esc(String(e.message)).slice(0,50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
   }
 }
+/* ═══ 公式サイトで資料を強化：コピー・特徴・ラインアップ・使い方をAIが取込み、
+   空き／Web検索由来のスロットには公式サイト画像を（AI検査のうえ）自動設定 ═══ */
+async function deckEnrich(){
+  const A=dkEnsureAssets(); if(!A){ toast("先に商品情報を登録してください"); return; }
+  if(!(typeof ppReady==="function"&&ppReady())){ toast("AIエンジン接続時に利用できます（管理コンソールで接続）"); return; }
+  const url=(($("#dksite")&&$("#dksite").value)||dkMeta().web||"").trim();
+  if(!url){ toast("公式サイトのURLを入力してください"); const e=$("#dksite"); if(e) e.focus(); return; }
+  const say=m=>{ const e=$("#dkenst"); if(e) e.innerHTML=m; };
+  try{
+    TEN.deckMeta=TEN.deckMeta||{}; TEN.deckMeta.web=url;
+    say('<span class="spin"></span> 公式サイトを読み込んでいます…');
+    const pg=await fetchPageText(url);
+    const host=(pg.url.match(/^https?:\/\/([^\/]+)/)||[])[1]||pg.url;
+    const txt=String(pg.raw).replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ")
+      .replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,14000);
+    say('<span class="spin"></span> AIがサイトから営業素材を抽出しています…（10〜40秒）');
+    const r=await llmAsk(
+'会社「'+D.co+'」・商品「'+D.item+'」の公式サイト本文から、営業資料用の素材をJSONのみで抽出してください：\n'+
+'{"catch":"キャッチコピー（サイトの文言を活かす・20字以内）","tagline":"商品を一言で（25字以内）",'+
+'"mission":"ブランドの想い1文（40字以内）","brandStory":"ブランド紹介2文（90字以内）",'+
+'"features":[["特徴・成分の見出し（数字があれば残す）","補足20字"]…最大5件],'+
+'"lineup":[{"name":"商品名","desc":"説明20字","size":"容量など"}…最大3件],'+
+'"usage":["使い方ステップ（各25字以内）"…最大4件]}\n'+
+'サイトに書かれていない要素は空にする（創作禁止）。\n=== 公式サイト本文（'+pg.url+'） ===\n'+txt,
+      1600,{noWeb:1,timeout:90000});
+    const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+    const rich={catch:String(j.catch||"").slice(0,40),tagline:String(j.tagline||"").slice(0,50),
+      mission:String(j.mission||"").slice(0,80),brandStory:String(j.brandStory||"").slice(0,180),
+      features:(Array.isArray(j.features)?j.features:[]).map(f=>[String((f&&f[0])||"").slice(0,40),String((f&&f[1])||"").slice(0,60)]).filter(f=>f[0]).slice(0,5),
+      lineup:(Array.isArray(j.lineup)?j.lineup:[]).map(x=>({name:String((x&&x.name)||"").slice(0,40),desc:String((x&&x.desc)||"").slice(0,40),size:String((x&&x.size)||"").slice(0,20)})).filter(x=>x.name).slice(0,3),
+      usage:(Array.isArray(j.usage)?j.usage:[]).map(String).filter(Boolean).slice(0,4),
+      srcUrl:pg.url,host};
+    TEN.deckRich=rich;
+    if(rich.mission&&!TEN.deckMeta.mission) TEN.deckMeta.mission=rich.mission;
+    if(rich.usage.length&&!(TEN.deckMeta.usage&&TEN.deckMeta.usage.length)) TEN.deckMeta.usage=rich.usage.slice();
+    if(typeof saveTen==="function") saveTen();
+    /* 画像の自動設定：空き or Web検索由来スロットのみ。公式サイト画像をAI検査のうえ差し込む */
+    say('<span class="spin"></span> 公式サイトの画像を検査して設定しています…');
+    const ex=extractSiteImages(pg.raw,pg.url);
+    let setPh=0, setLogo=false, checked=0;
+    const slots=[0,1,2].filter(i=>!A.ph[i]||A.ph[i].src==="web");
+    for(const u of ex.imgs){
+      if(!slots.length||checked>=5) break;
+      checked++;
+      try{
+        const a2=await dkFetchImg(wsrv(u,900),900);
+        const v=await dkVerifyImg(a2,"公式サイト掲載の商品画像");
+        if(!v.ok) continue;
+        const slot=slots.shift();
+        A.ph[slot]={b64:a2.b64,mime:a2.mime,w:a2.w,h:a2.h,src:"site",
+          cap:decodeURIComponent((u.split("/").pop()||"").split("?")[0]).slice(0,50),from:"公式サイト: "+host};
+        setPh++;
+      }catch(e){}
+    }
+    if(!A.logo&&ex.logos.length){
+      for(const u of ex.logos.slice(0,2)){
+        try{
+          const a2=await dkFetchImg(wsrv(u,600),600);
+          const v=await dkVerifyImg(a2,"会社ロゴ");
+          if(!v.ok) continue;
+          A.logo={b64:a2.b64,mime:a2.mime,w:a2.w,h:a2.h,src:"site",
+            cap:decodeURIComponent((u.split("/").pop()||"").split("?")[0]).slice(0,50),from:"公式サイト: "+host};
+          setLogo=true; break;
+        }catch(e){}
+      }
+    }
+    if(typeof saveTen==="function") saveTen();
+    if(typeof logU==="function") logU("ai","公式サイトで資料強化:"+host);
+    render();
+    const got=[rich.catch?"キャッチコピー":"",rich.brandStory?"ブランド紹介":"",
+      rich.features.length?("特徴"+rich.features.length+"件"):"",
+      rich.lineup.length?("ラインアップ"+rich.lineup.length+"件"):"",
+      rich.usage.length?("使い方"+rich.usage.length+"手順"):""].filter(Boolean);
+    say('<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.75">'+
+      '<b style="color:var(--good)">✓ 公式サイトから取り込みました：</b>'+(got.join("・")||"（テキスト素材なし）")+
+      (setPh?('<br>写真'+setPh+'枚を公式サイト画像に設定'+((A.ph||[]).some(x=>x&&x.src==="web")?"":"（Web検索由来の画像は差し替え済み）")):'')+
+      (setLogo?'<br>ロゴを公式サイトから設定':'')+
+      '<br><span style="font-size:10px;color:var(--ink-3)">次の生成から資料に反映されます。内容は「AI商社マンと仕上げる」でいつでも修正できます。</span></div>');
+  }catch(e){
+    say('取り込めませんでした（'+esc(String(e.message)).slice(0,60)+'）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。');
+  }
+}
+
 /* 候補ピッカー（セクション形式）：お客様が確認して採用（採用時に接続AIが画像そのものを最終判定） */
 function openDeckPicker(SECS){
   const on=(typeof ppReady==="function"&&ppReady());
@@ -3325,12 +3416,22 @@ function openDeckPicker(SECS){
       const A=dkEnsureAssets();
       const entry={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:c.site?"site":"web",
         cap:(c.generic?"イメージ素材: ":"")+(c.title||""),lic:c.lic||"",from:c.from||""};
+      let slotMsg="ロゴ";
       if(c.as==="logo") A.logo=entry;
-      else{ const free=[0,1,2].find(i=>!(A.ph&&A.ph[i])); A.ph[free!==undefined?free:2]=entry; }
+      else{
+        A.ph=A.ph||[];
+        let slot=[0,1,2].find(i=>!A.ph[i]);                       /* 空きスロット優先 */
+        if(slot===undefined) slot=[0,1,2].find(i=>A.ph[i]&&A.ph[i].src==="web"); /* 次にWeb検索由来を差し替え */
+        if(slot===undefined) slot=2;                               /* 最後は3枠目を置換 */
+        const replaced=!!A.ph[slot];
+        A.ph[slot]=entry;
+        slotMsg="商品写真"+(slot+1)+(replaced?"（差し替え）":"");
+      }
       if(typeof saveTen==="function") saveTen();
-      if(typeof logU==="function") logU("ai","画像を採用:"+(c.as==="logo"?"ロゴ":"写真")+(c.site?"（公式サイト）":""));
+      if(typeof logU==="function") logU("ai","画像を採用:"+slotMsg+(c.site?"（公式サイト）":""));
       b.textContent="✓ 採用済み";
-      toast(c.as==="logo"?"ロゴに採用しました":"商品写真に採用しました");
+      if(typeof render==="function") render();   /* 背面のスロット表示を即時更新 */
+      toast(c.as==="logo"?"ロゴに設定しました":slotMsg+"に設定しました");
     }catch(e){ b.textContent="✗ 取得失敗"; toast("画像を取得できませんでした"); }
   });
 }
@@ -3420,17 +3521,37 @@ function ctyL(lang,name){ const e=CTY_L[name]; return e?e[CTY_LI[lang]]:name; }
 /* ── 値の翻訳（AI接続時のみ。内容ハッシュでキャッシュ＝データを直すと必ず作り直す） ── */
 let DECKC={};
 function djb2(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(36);}
-/* 資料に載せる商品ラインアップ（複数商品登録時は他スロットも載せる） */
+/* 資料に載せる商品ラインアップ：公式サイト由来 → 価格表の品名 → 単品（他商品スロットは混ぜない） */
 function deckLineup(){
-  const list=(typeof TENS!=="undefined"&&TENS&&TENS.length>1)
-    ?TENS.slice(0,3).map(t=>[t.item||t.file||"—",[t.cat,t.moq?("MOQ "+t.moq):""].filter(Boolean).join(" / ")])
-    :(D.priceRows||[]).slice(0,3).map(r=>[String(r[0]||""),String((r[1]&&String(r[1]).charAt(0)!=="$"&&!/^\d/.test(String(r[1])))?r[1]:"")]);
-  return list.filter(x=>x[0]&&x[0]!=="—").length?list:[[D.item||"—",D.cat||""]];
+  const RICH=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{};
+  if(Array.isArray(RICH.lineup)&&RICH.lineup.length)
+    return RICH.lineup.slice(0,3).map(x=>[String(x.name||"").slice(0,40),
+      [x.size||"",x.desc||""].filter(Boolean).join(" / ").slice(0,60)]).filter(x=>x[0]);
+  const sick=v=>typeof valSick==="function"&&valSick(String(v||""));
+  const rows=(D.priceRows||[]).map(r=>[String(r[0]||""),
+      String((r[1]&&String(r[1]).charAt(0)!=="$"&&!/^[\d¥￥]/.test(String(r[1])))?r[1]:"")])
+    .filter(x=>x[0]&&!sick(x[0])&&!/^\d|^[〜~]/.test(x[0])).slice(0,3);
+  if(rows.length) return rows;
+  return [[D.item||"—",D.cat||""]];
 }
 function deckSrc(lang){
   const docs=(Object.values(D.regs||{})[0]||{docs:[]}).docs.slice(0,6).map(String);
-  const src={item:D.item||"",tagline:D.tagline||"",cat:D.cat||"",
-    strengths:(D.strengths||[]).slice(0,5).map(s=>[s[0]||"",s[1]||""]),
+  const sick=v=>typeof valSick==="function"&&valSick(String(v||""));
+  /* 「強み」でないもの：会話文汚染に加え、単なる属性値（内容量・寸法・品番など）も除外 */
+  const notStrength=v=>sick(v)||/^(内容量|容量|重量|サイズ|寸法|品番|型番|価格|単価|税率|入数|\d+(粒|ml|mL|g|kg|cm|mm|本|個|枚))/.test(String(v||"").trim());
+  const RICH=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{};
+  /* 汚染データ（会話文・気温など）は資料に載せない。不足は公式サイト由来のfeaturesで補完 */
+  let okS=(D.strengths||[]).filter(x=>!notStrength(x[0])&&!sick(x[1]||"")).map(s=>[s[0]||"",s[1]||""]);
+  if(okS.length<3&&Array.isArray(RICH.features))
+    RICH.features.forEach(f=>{ if(okS.length<5&&f&&f[0]&&!okS.some(x=>x[0]===f[0])) okS.push([String(f[0]),String(f[1]||"")]); });
+  okS=okS.slice(0,5);
+  const tagline=(!sick(D.tagline)&&D.tagline)?D.tagline
+    :(RICH.tagline&&!sick(RICH.tagline)?RICH.tagline:okS.slice(0,2).map(x=>x[0]).join("・")||D.item||"");
+  const DMm=dkMeta();
+  const src={item:D.item||"",tagline:tagline||"",cat:D.cat||"",
+    catch2:(RICH.catch&&!sick(RICH.catch))?String(RICH.catch):"",
+    brandStory:(RICH.brandStory&&!sick(RICH.brandStory))?String(RICH.brandStory):"",
+    strengths:okS,
     specs:(D.compRows||[]).slice(0,6).map(r=>[String(r[0]||""),String(r[1]||"")]),
     priceCols:(D.priceCols||[]).map(String),
     priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(v=>String(v??""))),
@@ -3438,8 +3559,9 @@ function deckSrc(lang){
     cert:D.cert||"",shelf:D.shelf||"",origin:D.city||D.origin||"",
     moq:D.moq||"",lead:D.lead||"",pay:D.pay||"",term:D.term||"",pol:D.pol||"",
     docs,lineup:deckLineup(),
-    mission:(dkMeta().mission||""),usage:(dkMeta().usage||[]).slice(0,4).map(String),
-    biz:(dkMeta().biz||""),addr:(dkMeta().addr||""),est2:(dkMeta().est||"")};
+    mission:((!sick(DMm.mission)&&DMm.mission)||(RICH.mission&&!sick(RICH.mission)?RICH.mission:"")||""),
+    usage:((DMm.usage&&DMm.usage.length?DMm.usage:(RICH.usage||[])).slice(0,4).map(String)),
+    biz:(DMm.biz||""),addr:(DMm.addr||""),est2:(DMm.est||"")};
   if(lang==="en"&&D.itemEn&&!/[ぁ-ヶ一-龠]/.test(D.itemEn)) src.item=D.itemEn;
   return src;
 }
@@ -3471,7 +3593,10 @@ ${JSON.stringify(src)}`,3200,{noWeb:1,timeout:120000,
 function deckSlides(lang,T){
   const L=DECK_L[lang], ea=L.ea, S=[];
   const DM=dkMeta(); let PGN=0; const foot=()=>footer(++PGN);
-  const strengths=(T.strengths&&T.strengths.length?T.strengths:(D.strengths||[]).slice(0,5));
+  const sick=v=>typeof valSick==="function"&&valSick(String(v||""));
+  const RICH=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{};
+  const strengths=(T.strengths&&T.strengths.length?T.strengths
+    :(D.strengths||[]).filter(x=>!sick(x[0])).slice(0,5));
   const eyebrow=(t)=>shpRect(48,44,44,4,OR)+shpText(48,54,600,22,[{t,sz:12,b:1,c:BL}],{ea});
   const footer=(n)=>shpText(48,512,500,16,[{t:`${D.coEn||D.co||""}  |  ${L.conf}`,sz:8,c:"8A97A6"}],{ea})+
     shpText(880,512,32,16,[{t:String(n),sz:9,c:"8A97A6",al:"r"}],{ea});
@@ -3491,6 +3616,7 @@ function deckSlides(lang,T){
     shpText(60,150,540,150,[{t:T.item||D.item||"",sz:40,b:1,c:INK}],{ea})+
     (cleanEn(D.itemEn)&&lang!=="en"?shpText(60,268,540,24,[{t:D.itemEn,sz:14,c:SUB}],{ea}):"")+
     shpText(60,300,540,22,[{t:(T.cat||D.cat||"")+"　|　"+L.made,sz:12,b:1,c:OR}],{ea})+
+    (T.catch2?shpText(60,332,540,40,[{t:"“ "+T.catch2+" ”",sz:13,i:1,c:SUB}],{ea}):"")+
     shpText(60,420,540,60,[{t:D.coEn||D.co||"",sz:16,b:1,c:NV},{t:(T.origin||D.city||"")+"  ·  "+TODAYS,sz:10,c:SUB,spcB:4}],{ea})+
     phOr(640,110,272,330,0,L.photo,ea)+
     logoOr(652,40,260,54)+
@@ -3507,7 +3633,8 @@ function deckSlides(lang,T){
     shpText(68,244,440,112,(
       (T.mission||DM.mission)
         ?[{t:L.mission,sz:9.5,b:1,c:OR},{t:"“ "+(T.mission||DM.mission)+" ”",sz:15,b:1,c:INK,spcB:4},{t:(T.biz||L.supply),sz:10,c:SUB,spcB:8}]
-        :[{t:"“ "+(T.tagline||D.tagline||T.item||"")+" ”",sz:17,b:1,c:INK},{t:(T.biz||L.supply),sz:10.5,c:SUB,spcB:8}]),{ea})+
+        :[{t:"“ "+(T.tagline||T.item||"")+" ”",sz:17,b:1,c:INK},{t:(T.biz||L.supply),sz:10.5,c:SUB,spcB:8}])
+      .concat(T.brandStory?[{t:T.brandStory,sz:9.5,c:SUB,spcB:7}]:[]),{ea})+
     shpRect(560,96,352,340,NV,{round:5000})+
     shpText(588,122,296,300,[{t:L.whyjp,sz:12,b:1,c:OR}]
       .concat(strengths.slice(0,3).map((s,i)=>({t:"✓  "+(s[0]||""),sz:12,b:1,c:"FFFFFF",spcB:i?8:12})))
@@ -3527,8 +3654,8 @@ function deckSlides(lang,T){
     }).join("")+
     shpText(48,452,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
     foot());
-  /* 4) 強み（大数字ハイライト） */
-  S.push(
+  /* 4) 強み（大数字ハイライト）※載せられる強みが無ければスキップ */
+  if(strengths.length) S.push(
     eyebrow(L.str)+
     strengths.slice(0,5).map((s,i)=>{
       const big=i===0, x=big?48:48+((i-1)%2)*438, y=big?96:250+Math.floor((i-1)/2)*120;
@@ -3560,9 +3687,9 @@ function deckSlides(lang,T){
       {t:dim0,sz:9.5,c:SUB,spcB:3},
       {t:dim1,sz:9.5,c:SUB,spcB:2}],{ea})+
     foot());
-  /* 使い方（AI商社マンとの仕上げヒアリングで入力された場合のみ） */
-  if(DM.usage&&DM.usage.length){
-    const us=(T.usage&&T.usage.length?T.usage:DM.usage).slice(0,4);
+  /* 使い方（仕上げヒアリング入力 or 公式サイト由来） */
+  if((DM.usage&&DM.usage.length)||(RICH.usage&&RICH.usage.length)){
+    const us=(T.usage&&T.usage.length?T.usage:(DM.usage&&DM.usage.length?DM.usage:RICH.usage)).slice(0,4);
     S.push(
       eyebrow(L.usage)+
       shpText(48,86,860,30,[{t:T.item||D.item||"",sz:16,b:1,c:INK}],{ea})+
@@ -3574,11 +3701,11 @@ function deckSlides(lang,T){
       }).join("")+
       foot());
   }
-  /* 6) ターゲット市場と関税 */
+  /* 6) ターゲット市場と関税 ※進出国が未登録ならスキップ */
   const tg=Object.entries(D.regs||{}).slice(0,6);
-  S.push(
+  if(tg.length) S.push(
     eyebrow(L.market)+
-    shpText(48,86,860,56,[{t:T.tagline||D.tagline||T.item||D.item||"",sz:22,b:1,c:INK}],{ea})+
+    shpText(48,86,860,56,[{t:T.tagline||T.item||D.item||"",sz:22,b:1,c:INK}],{ea})+
     tg.map(([c,r],i)=>{
       const x=48+(i%3)*292, y=170+Math.floor(i/3)*140;
       return shpRect(x,y,272,120,LGT,{round:6000})+
@@ -3588,10 +3715,10 @@ function deckSlides(lang,T){
     }).join("")+
     shpText(48,478,860,16,[{t:"*  "+L.dutyNote,sz:8.5,c:"8A97A6"}],{ea})+
     foot());
-  /* 7) 価格と取引条件 */
+  /* 7) 価格と取引条件 ※価格も条件も未登録ならスキップ */
   const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
   const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
-  S.push(
+  if(pr.length||D.moq||D.lead||D.term||D.pay) S.push(
     eyebrow(L.price)+
     shpRect(48,96,540,36,NV)+
     pc.map((c,i)=>shpText(60+i*130,104,124,22,[{t:String(c),sz:10,b:1,c:"FFFFFF"}],{ea})).join("")+
@@ -3608,9 +3735,9 @@ function deckSlides(lang,T){
       }).join("")+
     shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
     foot());
-  /* 8) 物流・リードタイム */
+  /* 8) 物流・リードタイム ※納期・港・MOQ・梱包が全て未登録ならスキップ */
   const FL=L.flow||["Inquiry","Order","Production","Shipping","Delivery"];
-  S.push(
+  if(D.moq||D.lead||D.pol||dim0) S.push(
     eyebrow(L.logi)+
     FL.map((f,i)=>{
       const x=48+i*176;
@@ -3633,9 +3760,9 @@ function deckSlides(lang,T){
     shpText(652,334,240,90,[{t:L.supply,sz:11,b:1,c:"FFFFFF"},
       {t:(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:9.5,c:"C9D2DE",spcB:6}],{ea})+
     foot());
-  /* 9) 認証・輸出書類 */
+  /* 9) 認証・輸出書類 ※認証・書類とも無ければスキップ */
   const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
-  S.push(
+  if((D.cert&&D.cert!=="なし")||docs.length) S.push(
     eyebrow(L.comp)+
     shpText(48,96,420,20,[{t:L.cert,sz:11,b:1,c:INK}],{ea})+
     shpRect(48,122,420,74,LGT,{round:5000})+
@@ -3785,6 +3912,10 @@ function deckAssetCard(){
       <input class="sel" id="dksite" value="${esc(dkMeta().web||"")}" placeholder="https://…（貴社公式サイトのURL）" style="flex:1;min-width:220px">
       <button class="btn" id="dksitego">🏠 公式サイトから画像を取得</button></div>
     <p class="nn" style="margin-top:4px">公式サイトの画像は<b>貴社が掲載許可をお持ちの前提</b>で採用できます（候補を提示→選択→AI検査）。</p>
+    <div class="rw" style="margin-top:7px;gap:6px;align-items:center">
+      <button class="btn" id="dkenrich" style="background:var(--bl);border-color:var(--bl)">⚡ 公式サイトで資料を強化（コピー・特徴・画像を自動取込）</button>
+      <span class="nn" style="margin:0">キャッチコピー・ブランド紹介・特徴・ラインアップ・使い方・画像を、サイトからまとめて取り込みます。</span></div>
+    <div id="dkenst" style="margin-top:7px"></div>
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
       ${slot("logo")}${slot("ph",0)}${slot("ph",1)}${slot("ph",2)}
     </div>
@@ -3938,6 +4069,7 @@ function deckBind(){
     if(key==="logo") dkDelAsset("logo"); else dkDelAsset("ph",parseInt(key.slice(2),10)||0);
   }));
   const wb=$("#dkweb"); if(wb) wb.onclick=()=>deckWebImgs();
+  const en=$("#dkenrich"); if(en) en.onclick=()=>deckEnrich();
   const sg=$("#dksitego"); if(sg) sg.onclick=()=>{
     const u=($("#dksite")&&$("#dksite").value||"").trim();
     if(!u){ toast("公式サイトのURLを入力してください"); return; }
