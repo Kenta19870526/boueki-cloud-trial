@@ -382,7 +382,7 @@ body.locked .pg-ft{display:none}
       <button class="tgl hm" id="mob" aria-pressed="false"><span class="sw"></span>スマホ表示</button>
       <button class="ib" id="bell" aria-label="通知">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-        <span class="bdg n">3</span></button>
+        <span class="bdg n" id="belln">3</span></button>
       <button class="ib hm" aria-label="ヘルプ">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 2.4M12 17h.01"/></svg></button>
       <div class="usr hm"><span><b>kenta omori</b><span>STANDAGE Inc.</span></span></div>
@@ -2222,9 +2222,10 @@ async function fileB64(file){
 /* 接続中プロバイダがこの形式を扱えるか（接続状態は見ない・純粋な能力判定） */
 function provCanFile(ext){
   if(typeof LLM==="undefined") return false;
-  const p=LLM.prov;
+  const act=(typeof llmActive==="function")?llmActive():[LLM.prov];
+  if(!act.length) return false;
   if(/^(png|jpg|jpeg)$/.test(ext)) return true;               /* 画像は4社対応 */
-  if(ext==="pdf") return p==="gemini"||p==="anthropic"||p==="openai";
+  if(ext==="pdf") return act.some(p=>p==="gemini"||p==="anthropic"||p==="openai");
   return false;
 }
 /* AIエンジン（荷主側プラン）がこの形式を直接読めるか */
@@ -4032,7 +4033,7 @@ async function deckWizard(){
           siteTxt=String(pg.raw).replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,12000);
         }catch(e){}
       }
-      say2('<span class="spin"></span> '+(siteTxt?"公式サイトの内容と":"")+'登録データ'+((PROV[LLM.prov]||{}).search?"＋Web検索":"")+'から全項目の案を作成しています…（10〜40秒）');
+      say2('<span class="spin"></span> '+(siteTxt?"公式サイトの内容と":"")+'登録データ'+((typeof llmActive==="function"&&llmActive().some(k=>PROV[k].search))?"＋Web検索":"")+'から全項目の案を作成しています…（10〜40秒）');
       /* ② 汚染された強み（会話文など）は根拠から除外 */
       const goodStr=(D.strengths||[]).filter(x=>!(typeof valSick==="function"&&valSick(x[0]))).slice(0,3);
       const r=await llmAsk(
@@ -4811,7 +4812,7 @@ function sendMsg(){
         } else if(online&&(office||llmCanFile(ext))){
           let att=null,text=null;
           if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
-            if(!llmCanFile(ext)){ put(`接続中の${esc(PROV[LLM.prov].nm)}は${ext==="pdf"?"PDF":"この形式"}の直接読み取りに未対応です。GeminiまたはClaudeに切り替えるか、Excel/Word形式でお送りください。`,""); return; }
+            if(!llmCanFile(ext)){ put(`接続中のエンジンは${ext==="pdf"?"PDF":"この形式"}の直接読み取りに未対応です。Gemini／Claude／ChatGPT系を有効にするか、Excel/Word形式でお送りください。`,""); return; }
             att={mime:FMIME[ext],b64:await fileB64(attF),name:attF.name};
           } else if(/^(docx|pptx)$/.test(ext)){
             const ex=ext==="docx"?await extractDocx(attF):await extractPptx(attF); text=ex.text.slice(0,11000);
@@ -4827,7 +4828,7 @@ function sendMsg(){
           if(x&&Object.keys(x).length){ MSGX={x,file:attF.name}; }
           put(fmt(body)+(MSGX&&MSGX.file===attF.name
               ?`<div style="margin-top:8px;padding:7px 10px;border-radius:var(--r2);background:var(--or-soft);font-size:11px">📎 商品情報として読み取れる項目があります。「<b>商品情報に追加して</b>」と送ると、未登録の項目に反映します。</div>`:""),
-            `エンジン：${esc(PROV[LLM.prov].nm)}（実AI・添付ファイル解析）`);
+            `エンジン：${esc(llmLabel())}（実AI・添付ファイル解析）`);
           if(typeof logU==="function") logU("ai","添付解析:"+attF.name);
         } else {
           put(`この形式（.${esc(ext)}）の読み取りには対応していません。${/^(pdf|png|jpg|jpeg)$/.test(ext)?"PDF・画像の解析には<b>管理コンソールでAIエンジンの接続</b>が必要です。":"Excel・Word・PowerPoint・PDF・画像でお願いします。"}<br>Googleドキュメント類は「ファイル→ダウンロード」でOffice形式に書き出せます。`,"");
@@ -5091,6 +5092,434 @@ function fillRender(){
 }
 function wireFill(){ fillRender(); }
 
+/* ═════════ ② 契約書関連（AI商社マン・法務担当） ═════════
+   多形式の契約書を取り込み → AI法務が全文レビュー →
+   修正履歴（w:ins/w:del）＋意図コメント（w:comments）付きの修正版DOCXを出力。
+   ひな型が無い場合は、直接メッセージでやり取りのあるBuyerに限定して自動起草。
+   レビューの規則：原文に実在する文言のみ引用・推測で断定しない（誤情報ゼロ方針）。 */
+
+function LEG(){
+  if(typeof TEN!=="undefined"&&TEN){ TEN.legal=TEN.legal||{docs:[],chat:[]}; return TEN.legal; }
+  window.__leg=window.__leg||{docs:[],chat:[]}; return window.__leg;
+}
+function legSave(){ if(typeof saveTen==="function") saveTen(); }
+const LEG_ACCEPT=".pdf,.docx,.pptx,.xlsx,.xlsm,.csv,.txt,.png,.jpg,.jpeg";
+const LEG_TYPES=["AIにおまかせ（やり取りから判断）","売買契約書（Sales Agreement）","販売店契約書（Distributorship Agreement)","代理店契約書（Agency Agreement）","秘密保持契約書（NDA）","OEM製造委託契約書","品質保証合意書（Quality Agreement）"];
+
+/* ── 多形式取り込み：{text?, att?, name, kind} ── */
+function legGridsTxt(grids){
+  return (grids||[]).map(g=>g.map(r=>r.join(" | ")).join("\n")).join("\n\n");
+}
+async function legalExtract(f){
+  const ext=FEXT(f.name);
+  if(ext==="docx"){ const d=await extractDocx(f); return {text:d.text+"\n"+legGridsTxt(d.grids),name:f.name,kind:"Word"}; }
+  if(ext==="pptx"){ const d=await extractPptx(f); return {text:d.text+"\n"+legGridsTxt(d.grids),name:f.name,kind:"PowerPoint"}; }
+  if(ext==="xlsx"||ext==="xlsm"){ const ss=await readWorkbook(f);
+    return {text:ss.map(s=>"【"+s.name+"】\n"+s.grid.map(r=>r.join(" | ")).join("\n")).join("\n\n"),name:f.name,kind:"Excel"}; }
+  if(ext==="csv"||ext==="txt"){ const t=typeof fwdDecodeText==="function"?fwdDecodeText(await f.arrayBuffer()):await f.text();
+    return {text:t,name:f.name,kind:ext.toUpperCase()}; }
+  if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
+    if(!provCanFile(ext)) throw new Error(ext==="pdf"
+      ?"PDFの読取には Gemini／Claude／OpenAI いずれかのAIエンジン接続が必要です（管理コンソール→AIエンジンで接続）"
+      :"画像の読取にはAIエンジン接続が必要です");
+    return {att:{mime:FMIME[ext],b64:await fileB64(f)},name:f.name,kind:ext==="pdf"?"PDF":"画像"};
+  }
+  throw new Error("対応していない形式です（"+LEG_ACCEPT+"）");
+}
+/* Google Document / Slide のURL取り込み（公開リンクを読取中継で試行） */
+async function legalFromUrl(url){
+  const m=String(url||"").match(/docs\.google\.com\/(document|presentation|spreadsheets)\/d\/([\w-]+)/);
+  if(!m) throw new Error("Google ドキュメント／スライド／スプレッドシートのURLを貼り付けてください");
+  const kind=m[1]==="document"?"Google Document":m[1]==="presentation"?"Google Slide":"Google Sheet";
+  const exp=m[1]==="document"?`https://docs.google.com/document/d/${m[2]}/export?format=txt`
+    :`https://docs.google.com/${m[1]}/d/${m[2]}/export?format=${m[1]==="presentation"?"txt":"csv"}`;
+  let text="";
+  try{ const r=await fetch(exp,{signal:AbortSignal.timeout(12000)}); if(r.ok) text=await r.text(); }catch(e){}
+  if(!text&&typeof fetchPageText==="function"){ try{ text=await fetchPageText(exp); }catch(e){} }
+  if(!text||text.length<40||/accounts\.google\.com|ServiceLogin/.test(text.slice(0,600)))
+    throw new Error("このURLは読み取れませんでした。共有設定を「リンクを知っている全員」にするか、"+
+      "「ファイル→ダウンロード→Word(.docx)」で書き出してアップロードしてください");
+  return {text:text.slice(0,60000),name:kind+"（URL取込）",kind};
+}
+
+/* ── AI法務レビュー（最上位モデルへ自動ルーティング task:"legal"） ── */
+async function legalReview(src){
+  const sys=`あなたは海外取引・貿易実務に長けた社内法務アドバイザー（AI商社マン・法務担当）。
+依頼主は日本の輸出者（ユーザー側）。契約書を隅々まで読み、公平さは保ちつつ、ユーザー側に不利な項目を見逃さない。
+JSONのみを返す（前後の文章・コードフェンス禁止）。スキーマ:
+{"summary":"この契約が何かを2文で","type":"売買契約|販売店契約|代理店契約|秘密保持契約|OEM契約|その他",
+ "parties":["当事者A（役割）","当事者B（役割）"],"law":"準拠法・裁判管轄・言語の記載（無ければ「記載なし」）",
+ "risks":[{"quote":"原文の該当文言（原文の言語のまま・60語以内・一字一句正確に）","issue":"何が問題か",
+   "severity":"高|中|低","fix":"修正後の文言（quoteと同じ言語で・そのまま差し替え可能な完全な文）",
+   "reason":"修正の意図・背景・考え（日本語で。貿易実務の慣行・リスクの具体例を添える）"}],
+ "missing":[{"item":"欠けている条項名","why":"なぜ必要か（日本語）","draft":"追加すべき条文の文案（契約書と同じ言語で）"}],
+ "fairNote":"相手方にとっての公平性への配慮（日本語1〜2文）"}
+規則：
+・quoteは本文に実在する文字列のみ。存在しない文言を作らない。
+・不利な項目の典型：一方的解約権、無制限の損害賠償、支払サイトの偏り、独占権の無条件付与、最低購入数量の欠如、
+  準拠法/仲裁地が相手国のみ、インコタームズ不明確、知財の帰属、為替リスクの押し付け、不可抗力の欠如。
+・確認できないことは書かない。原文が読み取れない場合はrisksを空にしてsummaryにその旨を書く。
+・risksは重要な順に最大8件。missingは最大4件。`;
+  const user=`次の契約書（またはドラフト）を法務チェックしてください。\n=== 契約書 ===\n${
+    src.text?String(src.text).slice(0,24000):"（添付ファイルの本文を読み取って審査してください）"}`;
+  const opt={sys,noWeb:1,timeout:180000,task:"legal"};
+  if(src.att) opt.att=src.att;
+  let j;
+  try{ j=xParseJson((await llmAsk(user,5200,opt)).txt); }
+  catch(e1){ j=xParseJson((await llmAsk(user+"\n※必ず完全なJSONのみ。",4500,opt)).txt); }
+  j.risks=Array.isArray(j.risks)?j.risks.filter(r=>r&&r.quote&&r.fix):[];
+  j.missing=Array.isArray(j.missing)?j.missing.filter(x=>x&&x.item):[];
+  return j;
+}
+
+/* ── 修正履歴＋コメント付きDOCXの自前生成 ──
+   Wordの校閲表示（w:ins/w:del）とコメント（w:comments）を最小OOXMLで構成。
+   Google Docsにアップロードすると、そのまま「提案」と「コメント」として表示される。 */
+const xesc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LEG_AUTHOR="AI商社マン（法務担当）", LEG_DATE="2026-08-04T09:00:00Z";
+function legRun(t,b){ return `<w:r><w:rPr>${b?"<w:b/>":""}</w:rPr><w:t xml:space="preserve">${xesc(t)}</w:t></w:r>`; }
+function legIns(t,id){ return `<w:ins w:id="${id}" w:author="${xesc(LEG_AUTHOR)}" w:date="${LEG_DATE}"><w:r><w:rPr><w:color w:val="C00000"/></w:rPr><w:t xml:space="preserve">${xesc(t)}</w:t></w:r></w:ins>`; }
+function legDel(t,id){ return `<w:del w:id="${id}" w:author="${xesc(LEG_AUTHOR)}" w:date="${LEG_DATE}"><w:r><w:delText xml:space="preserve">${xesc(t)}</w:delText></w:r></w:del>`; }
+function legCmtRef(cid){ return `<w:commentRangeEnd w:id="${cid}"/><w:r><w:commentReference w:id="${cid}"/></w:r>`; }
+function legP(inner,style){ return `<w:p><w:pPr>${style?`<w:pStyle w:val="${style}"/>`:""}<w:spacing w:after="120"/></w:pPr>${inner}</w:p>`; }
+function legalBuildDocx(o){
+  /* o={title, paras:[...], risks:[], missing:[], mode:"rev"|"clean", noteHead} */
+  let wid=100; const cmts=[]; const body=[];
+  const addCmt=txt=>{ const cid=cmts.length;
+    cmts.push(`<w:comment w:id="${cid}" w:author="${xesc(LEG_AUTHOR)}" w:date="${LEG_DATE}" w:initials="AI">
+      <w:p><w:r><w:t xml:space="preserve">${xesc(txt)}</w:t></w:r></w:p></w:comment>`); return cid; };
+  body.push(legP(legRun(o.title,1),"Heading1"));
+  const pend=(o.risks||[]).slice();
+  o.paras.forEach(line=>{
+    if(!line.trim()){ body.push("<w:p/>"); return; }
+    let runs="", rest=line, hit=false;
+    for(let i=0;i<pend.length;i++){
+      const rk=pend[i], q=String(rk.quote||"").trim();
+      const at=q?rest.indexOf(q):-1;
+      if(q&&at>=0){
+        const cid=addCmt(`【${rk.severity||"中"}】${rk.issue}\n— 修正の意図：${rk.reason}`);
+        runs+=legRun(rest.slice(0,at))
+          +`<w:commentRangeStart w:id="${cid}"/>`
+          +legDel(q,++wid)+legIns(rk.fix,++wid)
+          +legCmtRef(cid);
+        rest=rest.slice(at+q.length); pend.splice(i,1); hit=true; i--;
+      }
+    }
+    runs+=legRun(rest);
+    body.push(legP(runs));
+  });
+  /* 段落内で見つからなかった指摘＋欠落条項 → 末尾に挿入提案（すべてw:ins＝追加提案扱い） */
+  const extra=pend.filter(r=>r.fix);
+  if(o.mode==="rev"&&(extra.length||(o.missing||[]).length)){
+    body.push(legP(legIns(o.noteHead||"■ AI法務からの追加提案（本文に対応箇所が特定できなかった指摘・欠落条項）",++wid)));
+    extra.forEach(rk=>{ const cid=addCmt(`【${rk.severity||"中"}】${rk.issue}\n— 意図：${rk.reason}\n— 原文該当（要確認）：${rk.quote}`);
+      body.push(legP(`<w:commentRangeStart w:id="${cid}"/>`+legIns("・"+rk.fix,++wid)+legCmtRef(cid))); });
+    (o.missing||[]).forEach(ms=>{ const cid=addCmt(`【欠落条項】${ms.item}\n— なぜ必要か：${ms.why}`);
+      body.push(legP(`<w:commentRangeStart w:id="${cid}"/>`+legIns("・【追加条項案】"+(ms.draft||ms.item),++wid)+legCmtRef(cid))); });
+  }
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>${body.join("")}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`;
+  const cxml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${cmts.join("")}</w:comments>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Yu Mincho" w:eastAsia="Yu Mincho"/><w:sz w:val="21"/></w:rPr></w:rPrDefault></w:docDefaults>
+<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style></w:styles>`;
+  const u8=zipStore([
+    ["[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`],
+    ["_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`],
+    ["word/_rels/document.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`],
+    ["word/document.xml",doc],["word/comments.xml",cxml],["word/styles.xml",styles],
+  ]);
+  return new Blob([u8],{type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+}
+function legDl(blob,nm){ const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=nm; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }
+
+/* 修正版の出力（Word / Google Document 選択） */
+function legalExport(i,mode){
+  const d=LEG().docs[i]; if(!d||!d.rv) return;
+  const paras=String(d.srcText||"").split(/\n/);
+  if(!d.srcText){ toast("PDF・画像から取り込んだ契約書は本文を保持していないため、追加提案のみのWordを出力します"); }
+  const blob=legalBuildDocx({title:"修正版（AI法務チェック済）："+d.name,
+    paras:d.srcText?paras:[ "（原本はPDF/画像のため、以下はAI法務の指摘・提案の一覧です。原本と突き合わせてご確認ください）" ],
+    risks:d.rv.risks,missing:d.rv.missing,mode:"rev"});
+  const nm="修正版_"+d.name.replace(/\.[a-z0-9]+$/i,"")+".docx";
+  legDl(blob,nm);
+  if(mode==="gdoc"){
+    openDW(`<h3>📄 Google Document で開く手順</h3>
+      <p class="nn" style="margin-top:6px">いまダウンロードした <b>${esc(nm)}</b> は、Wordの修正履歴とコメントをそのまま含んでいます。</p>
+      <ol style="font-size:12px;line-height:2;margin:10px 0 0 18px">
+        <li><a href="https://drive.google.com" target="_blank" rel="noopener"><b>Google Drive</b></a> にこのファイルをドラッグ＆ドロップ</li>
+        <li>アップロードされたファイルをダブルクリック →「Google ドキュメントで開く」</li>
+        <li>修正箇所は<b style="color:var(--crit)">「提案」</b>として、修正の意図は<b>コメント</b>として表示されます</li>
+        <li>提案ごとに ✓（承認）／✕（却下）で取捨選択できます</li></ol>
+      <div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  }else{
+    toast("修正版Wordを出力しました。Wordの「校閲」タブで修正履歴とコメントが確認できます");
+  }
+}
+
+/* ── ひな型の自動起草（直接メッセージでやり取りのあるBuyer限定） ── */
+async function legalDraft(buyerId,typeSel){
+  const th=(typeof dmThreads==="function"?dmThreads():{})[buyerId];
+  if(!th||!th.msgs||!th.msgs.length) throw new Error("このBuyerとのやり取りが見つかりません");
+  const hist=th.msgs.map(m=>(m.w==="me"?"[Seller] ":"[Buyer] ")+(m.subj?m.subj+"\n":"")+m.body).join("\n---\n").slice(0,9000);
+  const dd=typeof D!=="undefined"&&D?D:{};
+  const prof=`商品:${dd.item||""}(${dd.itemEn||""}) / HS:${dd.hs||""} / 認証:${dd.cert||""} / MOQ:${dd.moq||""} / インコタームズ:${dd.term||""} / 支払:${dd.pay||""} / 仕出港:${dd.pol||""}`;
+  const want=typeSel&&!/おまかせ/.test(typeSel)?`契約種別は「${typeSel}」で作成。`:"契約種別はやり取りの内容から最適なものをあなたが判断。";
+  const sys=`あなたは海外取引に長けた社内法務アドバイザー。日本の輸出者（Seller）側の立場で、公平だがSellerに不利のない英文契約書ドラフトを作成する。JSONのみ返す。
+スキーマ:{"type":"選んだ契約種別（日本語）","typeWhy":"その種別にした理由（日本語2文）","title":"契約書の英文タイトル",
+"body":"契約書全文（英文・条番号付き・ARTICLE 1〜。当事者名はやり取り/概要から。未確定の社名・住所・数値は [　] で明示的にブランクにする）",
+"points":["Sellerを守るために入れた工夫（日本語・最大5点）"]}
+規則：やり取りに現れた条件（価格・数量・港・支払など）を必ず反映。確認できない情報は創作せず [　] にする。`;
+  const user=`${want}\nBuyer: ${th.cty}の${th.biz}（ID ${th.id}）\n自社(Seller)概要: ${prof}\n=== これまでの直接メッセージ全文 ===\n${hist}`;
+  const j=xParseJson((await llmAsk(user,5200,{sys,noWeb:1,timeout:180000,task:"legal"})).txt);
+  return j;
+}
+
+/* ── 画面 ── */
+let legBusy=0, legChatH=[];
+function legRiskChip(rv){
+  if(!rv) return '<span class="p lo">未レビュー</span>';
+  const hi=rv.risks.filter(r=>r.severity==="高").length;
+  return `<span class="p ${hi?"no":rv.risks.length?"mid":"hi"}">指摘 ${rv.risks.length}件${hi?"（重大 "+hi+"）":""}</span>`;
+}
+function vLegal(p){
+  const on=typeof ppReady==="function"&&ppReady();
+  const L=LEG();
+  const ths=(typeof dmActiveThreads==="function")?dmActiveThreads():[];
+  return ph(p,"<b>この画面でできること：</b>相手から届いた契約書をAI法務（AI商社マン・法務担当）がチェックし、<b>修正履歴＋修正の意図コメント付き</b>の修正版をWord／Google Document形式で出力。ひな型が無い場合は、やり取り中のBuyer向けにAIがドラフトを起草します。")+`
+  ${on?"":`<div class="c" style="border-color:var(--warn);margin-bottom:11px"><b>⚠ AIエンジン未接続です。</b>
+    <span style="font-size:12px;color:var(--ink-2)">契約書のAIレビュー・自動起草には、管理コンソール→AIエンジンでの接続（有償プラン）が必要です。接続すると、この画面のすべての機能が使えます。</span></div>`}
+
+  <div class="g2" style="align-items:start">
+   <div class="c" id="legdz">
+    <h3>① 契約書をチェックに出す <span class="nt">この版で新規</span></h3>
+    <p class="nn" style="margin-top:4px">対応形式：PDF / Word / Excel / PowerPoint / 画像（JPEG・PNG）/ CSV・テキスト。<b>ここにドラッグ＆ドロップ</b>でもOK。
+      AI法務が全文を読み、ユーザー側に不利な項目・欠落条項を洗い出します。</p>
+    <div class="rw" style="margin-top:9px">
+      <input type="file" id="legf" accept="${LEG_ACCEPT}" style="font-size:12px" multiple></div>
+    <p class="lbl" style="margin-top:11px">Google ドキュメント／スライドのURLから取り込む</p>
+    <div class="rw" style="margin-top:4px">
+      <input class="sel" id="legurl" placeholder="https://docs.google.com/document/d/…（共有：リンクを知っている全員）" style="flex:1;min-width:0">
+      <button class="btn g" id="legurlgo">取り込む</button></div>
+    <div id="legprog"></div>
+    ${L.docs.length?`<div class="tw" style="margin-top:11px"><table><thead><tr>
+      <th>契約書</th><th>形式</th><th>種別</th><th>チェック結果</th><th></th></tr></thead><tbody>
+      ${L.docs.map((d,i)=>`<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.kind)}</td>
+        <td style="font-size:11px">${esc(d.rv?d.rv.type:"—")}</td><td>${legRiskChip(d.rv)}</td>
+        <td style="white-space:nowrap">${d.rv?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legopen="${i}">結果を見る</button>`
+          :on?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legrev="${i}">AIレビュー</button>`:""}
+        <button class="btn g" style="padding:3px 8px;font-size:10.5px" data-legdel="${i}" title="削除">🗑</button></td></tr>`).join("")}
+    </tbody></table></div>`:""}
+   </div>
+
+   <div class="c">
+    <h3>② ひな型が来ない → AI法務が起草 <span class="nt">この版で新規</span></h3>
+    <p class="nn" style="margin-top:4px">相手からドラフトが上がってこない場合、<b>直接メッセージでやり取りのあるBuyerに限定</b>して、
+      やり取りの全文とBuyer概要・登録商品データを理解した上で、AI法務が契約書ドラフト（英文）を起草します。</p>
+    ${ths.length?`
+    <p class="lbl" style="margin-top:10px">どのBuyerとの契約ですか（やり取り中のみ表示）</p>
+    <select class="sel" id="legbuyer" style="width:100%;box-sizing:border-box">
+      ${ths.map(t=>`<option value="${esc(String(t.id))}">${esc(t.cty)}／${esc(t.biz)}（ID ${esc(String(t.id))}・往復 ${t.msgs.length}通）</option>`).join("")}</select>
+    <p class="lbl" style="margin-top:8px">契約書の種別</p>
+    <select class="sel" id="legtype" style="width:100%;box-sizing:border-box">
+      ${LEG_TYPES.map(t=>`<option>${esc(t)}</option>`).join("")}</select>
+    <div class="rw" style="margin-top:10px">
+      <button class="btn" id="leggo" ${on?"":"disabled"}>AI法務にドラフトを起草させる</button>
+      <button class="btn g" id="legwhich" ${on?"":"disabled"}>どの契約書が良いか相談する</button></div>
+    <div id="legdraftout"></div>`
+    :`<div style="margin-top:10px;padding:12px;border:1.5px dashed var(--line);border-radius:8px;font-size:12px;color:var(--ink-2)">
+      まだ直接メッセージでやり取り中のBuyerがいません。<br>まずは「バイヤーDB・拠点」から気になるバイヤーに直接連絡し、返信のやり取りを始めてください。
+      <div style="margin-top:8px"><button class="btn g" onclick="go('db')">バイヤーDB・拠点を開く</button></div></div>`}
+   </div>
+  </div>
+
+  <div class="c" style="margin-top:11px">
+    <h3>③ AI法務に相談する</h3>
+    <p class="nn" style="margin-top:4px">「この条項はどういう意味？」「独占権を求められたらどうする？」など、契約まわりを何でも。
+      アップロード済みの契約書・Buyerとのやり取り・登録商品データを踏まえて回答します。</p>
+    <div id="legchat" style="margin-top:9px;max-height:340px;overflow-y:auto"></div>
+    <div class="composer" style="margin-top:9px">
+      ${typeof mdBarHtml==="function"?mdBarHtml("legq"):""}
+      <textarea class="sel" id="legq" rows="3" placeholder="例：サンプル無償提供の条件を契約に入れるべき？（Enterで送信・Shift+Enterで改行）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
+      <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
+        <button class="btn" id="legsend">送信</button></div></div>
+  </div>
+  <p class="nn" style="margin-top:8px">※ AIレビューは法的助言（弁護士業務）ではなく、社内検討のための参考情報です。重要な契約は締結前に弁護士のリーガルチェックを受けてください。</p>`;
+}
+
+/* レビュー結果ドロワー */
+function openLegalDoc(i){
+  const d=LEG().docs[i]; if(!d||!d.rv) return;
+  const rv=d.rv, sevP={高:"no",中:"mid",低:"lo"};
+  openDW(`<h3>⚖️ ${esc(d.name)} <span class="p on">${esc(rv.type||"契約書")}</span></h3>
+   <p style="font-size:12px;color:var(--ink-2);margin-top:6px">${esc(rv.summary||"")}</p>
+   <div class="dl" style="margin-top:8px">
+     <span>当事者</span><span>${(rv.parties||[]).map(esc).join("　")}</span>
+     <span>準拠法・管轄</span><span>${esc(rv.law||"記載なし")}</span></div>
+   <p class="lbl" style="margin-top:12px">ユーザー側に不利・要修正の項目（${rv.risks.length}件）</p>
+   ${rv.risks.map((r,k)=>`<div style="margin-top:8px;padding:10px;border:1px solid var(--line);border-left:3px solid var(--${r.severity==="高"?"crit":r.severity==="中"?"warn":"line"});border-radius:6px">
+     <div class="rw" style="justify-content:space-between"><b style="font-size:12px">${k+1}. ${esc(r.issue)}</b>
+       <span class="p ${sevP[r.severity]||"lo"}">${esc(r.severity||"—")}</span></div>
+     <div style="font-size:11px;margin-top:5px;color:var(--ink-2)"><b>原文：</b><span style="text-decoration:line-through">${esc(r.quote)}</span></div>
+     <div style="font-size:11px;margin-top:3px;color:var(--crit)"><b>修正案：</b>${esc(r.fix)}</div>
+     <div style="font-size:11px;margin-top:3px;color:var(--ink-2)"><b>💬 意図・背景：</b>${esc(r.reason)}</div></div>`).join("")||'<p class="nn">重大な不利益条項は見つかりませんでした。</p>'}
+   ${rv.missing.length?`<p class="lbl" style="margin-top:12px">欠けている条項（${rv.missing.length}件）</p>
+   ${rv.missing.map(m=>`<div style="margin-top:6px;padding:9px;border:1px dashed var(--line);border-radius:6px;font-size:11px">
+     <b>＋ ${esc(m.item)}</b><span style="color:var(--ink-2)">　${esc(m.why)}</span>
+     ${m.draft?`<div style="margin-top:3px;color:var(--ink-2)">文案：${esc(m.draft)}</div>`:""}</div>`).join("")}`:""}
+   ${rv.fairNote?`<p class="nn" style="margin-top:10px">⚖ 公平性への配慮：${esc(rv.fairNote)}</p>`:""}
+   <p class="lbl" style="margin-top:14px">修正版を出力（修正履歴＋意図コメント付き）</p>
+   <div class="rw" style="margin-top:6px">
+     <button class="btn" onclick="legalExport(${i},'word')">📝 Word（.docx）で出力</button>
+     <button class="btn g" onclick="legalExport(${i},'gdoc')">📄 Google Document で使う</button>
+     <button class="btn g" onclick="closeDW()">閉じる</button></div>
+   <p class="nn" style="margin-top:7px">Wordは「校閲」タブ、Google Docsは「提案モード」で修正箇所と意図コメントが表示され、1件ずつ承認／却下できます。</p>`);
+}
+
+/* レビュー実行（プログレス付き） */
+async function legalRun(i){
+  const L=LEG(), d=L.docs[i]; if(!d||legBusy) return;
+  legBusy=1;
+  const pg=$("#legprog");
+  if(pg) pg.innerHTML=`<div style="margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:12px">
+    ⏳ AI法務が「${esc(d.name)}」を隅々まで読んでいます…（30秒〜2分）</div>`;
+  try{
+    d.rv=await legalReview(d);
+    legSave();
+    toast(`チェック完了：指摘 ${d.rv.risks.length}件・欠落 ${d.rv.missing.length}件`);
+    render(); openLegalDoc(i);
+  }catch(e){
+    if(pg) pg.innerHTML=`<div style="margin-top:9px;padding:10px;border:1px solid var(--crit);border-radius:8px;font-size:12px;color:var(--crit)">
+      レビューに失敗しました：${esc(String(e.message).slice(0,120))}<br>
+      <span style="color:var(--ink-2)">もう一度お試しください。PDFが画像スキャンの場合は、鮮明な状態でアップロードし直すと成功しやすくなります。</span></div>`;
+  }
+  legBusy=0;
+}
+/* 取り込み共通 */
+async function legalTake(src){
+  const L=LEG();
+  L.docs.push({name:src.name,kind:src.kind,text:!!src.text,srcText:src.text||"",att:src.att||null,rv:null});
+  legSave(); render();
+  if(typeof ppReady==="function"&&ppReady()) await legalRun(L.docs.length-1);
+  else toast("取り込みました。AIエンジン接続後に「AIレビュー」を押すとチェックできます");
+}
+function legChatPush(w,h){
+  legChatH.push({w,h});
+  const box=$("#legchat"); if(!box) return;
+  box.innerHTML=legChatH.map(m=>`<div style="display:flex;gap:8px;margin-bottom:9px;${m.w==="a"?"":"flex-direction:row-reverse"}">
+    <span style="width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:10px;font-weight:800;
+      background:${m.w==="a"?"var(--or)":"var(--sunk)"};color:${m.w==="a"?"#fff":"var(--ink-2)"}">${m.w==="a"?"⚖️":"貴社"}</span>
+    <div style="max-width:86%;padding:8px 11px;border-radius:10px;font-size:12px;line-height:1.75;background:${m.w==="a"?"var(--or-soft)":"var(--sunk)"}">${m.h}</div></div>`).join("");
+  box.scrollTop=box.scrollHeight;
+}
+function legCtx(){
+  const L=LEG(), dd=typeof D!=="undefined"&&D?D:{};
+  const ths=(typeof dmActiveThreads==="function")?dmActiveThreads():[];
+  return `自社商品:${dd.item||""}/${dd.itemEn||""} HS:${dd.hs||""} 認証:${dd.cert||""} MOQ:${dd.moq||""} 条件:${dd.term||""} ${dd.pay||""}
+アップ済み契約書:${L.docs.map(d=>d.name+(d.rv?`(${d.rv.type}・指摘${d.rv.risks.length}件)`:"(未レビュー)")).join("、")||"なし"}
+やり取り中Buyer:${ths.map(t=>`${t.cty}の${t.biz}(往復${t.msgs.length})`).join("、")||"なし"}`;
+}
+async function legAskAI(q){
+  legChatPush("u",esc(q).replace(/\n/g,"<br>"));
+  legChatPush("a","⏳ 検討中…");
+  const done=h=>{ legChatH.pop(); legChatPush("a",h); };
+  if(!(typeof ppReady==="function"&&ppReady())){
+    done(`AIエンジン未接続のため、一般論でお答えします。<br><b>基本の考え方：</b>①価格・数量・納期・支払は必ず書面化（メール合意だけにしない）②準拠法と紛争解決地は日本または中立地（シンガポール仲裁など）を主張 ③独占権は「最低購入数量とセット」でのみ付与 ④支払はT/T前払い or L/Cから開始。<br>詳細な検討は管理コンソールでAIエンジンを接続してからご相談ください。`);
+    return;
+  }
+  try{
+    const r=await llmAsk(`あなたはAI商社マン（法務担当）。日本の輸出者の社内法務アドバイザーとして、下記の相談に日本語で答える。
+根拠のない断定をせず、実務的な選択肢と推奨を示す。350字以内。箇条書き可。
+=== 社内データ ===\n${legCtx()}\n=== 相談 ===\n${q}`,1400,{noWeb:1,timeout:90000,task:"legal"});
+    done(esc(r.txt).replace(/\n/g,"<br>")+(r.provNm?`<div style="margin-top:5px;font-size:9.5px;color:var(--ink-3)">使用エンジン：${esc(r.provNm)}（${esc(r.why||"")}）</div>`:""));
+  }catch(e){ done("エラー："+esc(String(e.message).slice(0,80))); }
+}
+
+function legalBind(){
+  const dz=$("#legdz");
+  if(dz&&typeof dropZone==="function") dropZone(dz,async f=>{ try{ await legalTake(await legalExtract(f)); }catch(e){ toast(String(e.message).slice(0,90)); } });
+  const fi=$("#legf");
+  if(fi) fi.addEventListener("change",async()=>{
+    for(const f of [...fi.files]){ try{ await legalTake(await legalExtract(f)); }catch(e){ toast(String(e.message).slice(0,90)); } }
+    fi.value="";
+  });
+  const ug=$("#legurlgo");
+  if(ug) ug.onclick=async()=>{
+    const u=($("#legurl")&&$("#legurl").value||"").trim(); if(!u) return;
+    ug.disabled=true; ug.textContent="取込中…";
+    try{ await legalTake(await legalFromUrl(u)); }
+    catch(e){ toast(String(e.message).slice(0,120)); }
+    ug.disabled=false; ug.textContent="取り込む";
+  };
+  document.querySelectorAll("[data-legopen]").forEach(b=>b.addEventListener("click",()=>openLegalDoc(+b.dataset.legopen)));
+  document.querySelectorAll("[data-legrev]").forEach(b=>b.addEventListener("click",()=>legalRun(+b.dataset.legrev)));
+  document.querySelectorAll("[data-legdel]").forEach(b=>b.addEventListener("click",()=>{
+    LEG().docs.splice(+b.dataset.legdel,1); legSave(); render(); }));
+  const go2=$("#leggo");
+  if(go2) go2.onclick=async()=>{
+    const out=$("#legdraftout");
+    go2.disabled=true; go2.textContent="起草中…（1〜2分）";
+    try{
+      const j=await legalDraft($("#legbuyer").value,$("#legtype").value);
+      const L=LEG();
+      L.docs.push({name:(j.title||"Draft Agreement")+".docx（AI起草）",kind:"AI起草",text:true,srcText:j.body||"",rv:null,draft:j});
+      legSave();
+      if(out) out.innerHTML=`<div style="margin-top:10px;padding:11px;border:1px solid var(--good);border-radius:8px;font-size:12px">
+        ✅ <b>${esc(j.type||"契約書")}</b>のドラフトを起草しました。<br>
+        <span style="color:var(--ink-2)">${esc(j.typeWhy||"")}</span>
+        ${(j.points||[]).length?`<div style="margin-top:6px"><b>Sellerを守る工夫：</b><ul style="margin:3px 0 0 16px">${j.points.map(pt=>`<li>${esc(pt)}</li>`).join("")}</ul></div>`:""}
+        <div class="rw" style="margin-top:9px">
+          <button class="btn" onclick="legDraftDl(${L.docs.length-1})">📝 Wordで出力</button>
+          <button class="btn g" onclick="legalExport(${L.docs.length-1},'gdoc')">📄 Google Documentで使う</button></div></div>`;
+      render();
+      const out2=$("#legdraftout"); if(out2&&out) out2.innerHTML=out.innerHTML;
+      toast("ドラフトを起草しました（一覧にも追加済み）");
+    }catch(e){ if(out) out.innerHTML=`<p style="margin-top:8px;font-size:12px;color:var(--crit)">起草に失敗：${esc(String(e.message).slice(0,120))}</p>`; }
+    go2.disabled=false; go2.textContent="AI法務にドラフトを起草させる";
+  };
+  const wh=$("#legwhich");
+  if(wh) wh.onclick=()=>{
+    const sel=$("#legbuyer"); const th=(typeof dmThreads==="function"?dmThreads():{})[sel?sel.value:""];
+    legAskAI(`${th?th.cty+"の"+th.biz:"やり取り中のBuyer"}と取引を始めます。どの種別の契約書を、どの順番で締結すべきですか？やり取りの状況も踏まえて教えてください。`);
+    const c=$("#legchat"); if(c) c.scrollIntoView({behavior:"smooth"});
+  };
+  const ta=$("#legq");
+  if(ta){
+    const send=()=>{ const v=(ta.value||"").trim(); if(!v) return; ta.value=""; legAskAI(v); };
+    $("#legsend").onclick=send;
+    ta.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } };
+  }
+  if(typeof mdBarBind==="function") mdBarBind();
+  /* 画面遷移から戻っても相談履歴を再描画 */
+  if(legChatH.length){ const h=legChatH.slice(); legChatH.length=0; h.forEach(m=>legChatPush(m.w,m.h)); }
+}
+/* 起草ドラフトのクリーンWord出力（修正履歴なし・本文のみ） */
+function legDraftDl(i){
+  const d=LEG().docs[i]; if(!d) return;
+  const blob=legalBuildDocx({title:(d.draft&&d.draft.title)||d.name,paras:String(d.srcText||"").split(/\n/),risks:[],missing:[],mode:"clean"});
+  legDl(blob,d.name.replace(/（AI起草）/,"").replace(/\.docx$/,"")+".docx");
+  toast("ドラフトWordを出力しました。[　]の空欄を埋めてからBuyerに送付してください");
+}
+
 /* ═════════ 用語辞書（新人向け） ═════════ */
 const GL = {
  "FOB":"本船渡し。輸出港で船に積むまでが売り手の負担。そこから先の運賃・保険は買い手が持ちます。",
@@ -5210,6 +5639,8 @@ const PAGES=[
   ic:'<path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>'},
  {id:"ops",ly:"②",nm:"貿易実務・書類",grp:"業務を回す",
   ic:'<path d="M14 3v5h5"/><path d="M19 8v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8z"/><path d="M8 13h8M8 17h5"/>'},
+ {id:"legal",ly:"②⑤",nm:"契約書関連",grp:"業務を回す",nw:1,
+  ic:'<path d="M12 3l7 3v5c0 4.5-3 8.4-7 10-4-1.6-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'},
  {id:"ai",ly:"⑤",nm:"AI商社マン",grp:"自走する",nw:1,
   ic:'<path d="M12 3v2.6M5.6 5.6l1.9 1.9M3 12h2.6M5.6 18.4l1.9-1.9M12 21v-2.6M18.4 18.4l-1.9-1.9M21 12h-2.6M18.4 5.6l-1.9 1.9"/><circle cx="12" cy="12" r="3"/>'},
  {id:"ship",ly:"②⑤",nm:"出荷を進める",grp:"自走する",nw:1,
@@ -6414,13 +6845,18 @@ function rDB(){
   const rows=bnQuery(f), sent=outreachList();
   $("#dbb").innerHTML=rows.length?rows.map(b=>{
     const done=sent.some(o=>o.id===b.id);
+    const th=dmThreads()[b.id];
+    const thChip=th&&th.msgs&&th.msgs.length
+      ?(th.unread?`<span class="p no" style="cursor:pointer" data-dmopen="${b.id}">📨 返信${th.unread}件</span> `
+        :`<span class="p on" style="cursor:pointer" data-dmopen="${b.id}">やり取り中</span> `)
+      :(done?'<span class="p hi" title="直接メッセージを送信済み">連絡済</span> ':"");
     return `<tr>
     <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・正式契約後に開示</span></td>
     <td><span class="p lo">${esc(b.catNm)}</span><br><span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
     <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td>
     <td>${b.lv==="高"?'<span class="p hi">高</span>':b.lv==="中"?'<span class="p mid">中</span>':'<span class="p lo">−</span>'}</td>
     <td class="num">${b.deals}件</td>
-    <td style="white-space:nowrap">${done?'<span class="p hi" title="直接メッセージを送信済み">連絡済</span> ':""}
+    <td style="white-space:nowrap">${thChip}
       <button class="btn g" style="padding:3px 7px;font-size:10px" data-dm="${b.id}" data-cty="${esc(b.cty)}" data-biz="${esc(b.biz)}"
         title="無料：貿易クラウドが仲介し、匿名のまま直接メッセージを届けます">直接連絡</button>
       <button class="btn g" style="padding:3px 7px;font-size:10px" data-req="${b.id}"
@@ -6430,6 +6866,7 @@ function rDB(){
     toast("ID "+b.dataset.req+" へ現地拠点から接触します（48時間以内に着手・別途費用）")));
   document.querySelectorAll("[data-dm]").forEach(b=>b.addEventListener("click",()=>
     openDM(b.dataset.dm,b.dataset.cty,b.dataset.biz)));
+  document.querySelectorAll("[data-dmopen]").forEach(x=>x.addEventListener("click",()=>openDMThread(x.dataset.dmopen)));
 }
 /* 拠点メンバーのプロフィール */
 function rStaff(){
@@ -6446,6 +6883,77 @@ function rStaff(){
         <span style="font-size:9.5px;color:var(--ink-3)">🗣 ${esc(m.lg)}／経験 ${esc(m.yr)}／貿易クラウド対応実績 <b>${m.dl}</b>件</span></span></div>`).join("")}
     </div><p class="nn" style="margin-top:5px">メンバー情報はトライアル用の見本表示です。</p>`
    :`<p class="nn">この拠点は開設準備中です。開設まではシンガポール拠点（ASEAN統括）が対応します。</p>`;
+}
+/* ═══ ③ バイヤー直接メッセージ：スレッド化・返信の受信・通知 ═══
+   送信元は登録メールアドレス。トライアルでは返信を（やり取りの文脈から）AIがシミュレートし、
+   製品版では実メール連携（登録アドレスから送信・該当相手からの返信のみ自動取込）になる。 */
+function dmThreads(){ if(typeof TEN!=="undefined"&&TEN){ TEN.dmThreads=TEN.dmThreads||{}; return TEN.dmThreads; } return {}; }
+function dmActiveThreads(){ return Object.values(dmThreads()).filter(t=>t.msgs&&t.msgs.length); }
+function dmUnreadSum(){ return dmActiveThreads().reduce((a,t)=>a+(t.unread||0),0); }
+function updateBell(){
+  const b=document.querySelector("#belln"); if(!b) return;
+  const n=3+dmUnreadSum();
+  b.textContent=String(n);
+}
+function dmNow(){ const d=new Date(); return TODAYS+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function dmNotify(th){
+  if(typeof TEN==="undefined"||!TEN) return;
+  TEN.dmNotifs=(TEN.dmNotifs||[]);
+  TEN.dmNotifs.unshift({t:dmNow(),txt:`${th.cty}の${th.biz}（ID ${th.id}）から返信が届きました`,id:th.id,cty:th.cty,biz:th.biz});
+  TEN.dmNotifs=TEN.dmNotifs.slice(0,12);
+}
+/* 返信本文の生成（接続時は文脈からAI・未接続は定型） */
+async function dmReplyText(th){
+  const last=th.msgs.filter(m=>m.w==="me").slice(-1)[0];
+  if(typeof ppReady==="function"&&ppReady()){
+    try{
+      const hist=th.msgs.slice(-6).map(m=>(m.w==="me"?"[Seller] ":"[Buyer] ")+String(m.body).slice(0,500)).join("\n---\n");
+      const r=await llmAsk(
+`あなたは${th.cty}の${th.biz}のバイヤー担当者です。日本のサプライヤーからの下記メールに、バイヤーとして自然な返信を書いてください。
+言語：${th.lang||"English"}／長さ：80語程度／トーン：ビジネスライクだが前向き。
+必ず「関心のポイント1つ」と「次に知りたい具体的な質問1〜2個」（価格・MOQ・サンプル・認証・納期など）を含める。署名は "Purchasing Team (ID ${th.id})"。
+=== これまでのやり取り ===
+${hist}`,600,{noWeb:1,timeout:60000});
+      return r.txt.trim();
+    }catch(e){}
+  }
+  const v=(th.msgs.filter(m=>m.w==="by").length%2===1)
+    ?`Thank you for your message. Your product looks interesting for our market.\nCould you share your best FOB price for a first order, and the MOQ?\nAlso, do you have an English label available?\n\nBest regards,\nPurchasing Team (ID ${th.id})`
+    :`Thanks for the details. We would like to evaluate samples.\nPlease advise sample cost and lead time to ${th.cty}. Do you have relevant certificates for import?\n\nBest regards,\nPurchasing Team (ID ${th.id})`;
+  return v;
+}
+function dmReplyArrive(id){
+  const th=dmThreads()[id]; if(!th||!th.wait) return;
+  th.wait=0;
+  dmReplyText(th).then(body=>{
+    th.msgs.push({w:"by",t:dmNow(),body:String(body)});
+    th.unread=(th.unread||0)+1;
+    dmNotify(th);
+    if(typeof saveTen==="function") saveTen();
+    updateBell();
+    toast(`📨 ${th.cty}の${th.biz}から返信が届きました（通知🔔からも開けます）`);
+    const pn=document.querySelector("#pn");
+    if(pn&&pn.dataset.dmid===String(id)&&document.querySelector("#dmThread")
+       &&$("#dw").dataset.open==="true"){ openDMThread(id); }
+    if(cur==="db") render();
+  });
+}
+function dmScheduleReply(id){
+  const th=dmThreads()[id]; if(!th) return;
+  th.wait=Date.now();
+  setTimeout(()=>dmReplyArrive(id),9000+Math.floor(Math.random()*8000));
+}
+/* 送信（スレッドへ追記→返信シミュレーションを予約） */
+function dmSend(id,cty,biz,subj,body,lang){
+  const T2=dmThreads();
+  const th=T2[id]=T2[id]||{id,cty,biz,lang:lang||"English",unread:0,msgs:[]};
+  th.lang=lang||th.lang;
+  th.msgs.push({w:"me",t:dmNow(),subj:subj||"",body:String(body||"")});
+  const sent=outreachList();
+  if(!sent.some(o=>o.id===id)) sent.push({id,cty,d:TODAYS,lang:th.lang});
+  if(typeof saveTen==="function") saveTen();
+  if(typeof logU==="function") logU("ai","直接連絡:"+id);
+  dmScheduleReply(id);
 }
 /* バイヤーへの直接メッセージ（無料・仲介送信・国の言語でAI生成） */
 const DM_LANG={"香港":"繁體中文","台湾":"繁體中文","中国":"简体中文","韓国":"한국어",
@@ -6494,6 +7002,8 @@ ${b.co} — Export Team
 (Sent via STANDAGE BOEKI CLOUD. Your contact details remain private until you reply.)`};
 }
 function openDM(id,cty,biz){
+  const th0=dmThreads()[id];
+  if(th0&&th0.msgs&&th0.msgs.length){ return openDMThread(id); }
   const b=dmBrief();
   const t0=dmTemplateEN(b,id,cty,biz);
   const autoL=DM_LANG[cty]||"English";
@@ -6507,6 +7017,9 @@ function openDM(id,cty,biz){
       <span class="p on" style="font-size:9.5px">${esc(cty)}の商習慣では ${esc(autoL)} が一般的</span>
       ${on?`<button class="btn" id="dmGen">🤖 この言語でAIが作成</button>`:""}</div>
     ${on?"":`<p class="nn" style="margin-top:5px">🤖 AIエンジン接続時は、強み・価格・実績を織り込んだ文面を<b>選んだ言語で自動生成</b>します（現在は英語テンプレート）。</p>`}
+    <p class="lbl" style="margin-top:10px">送信元メールアドレス（貴社）</p>
+    <input class="sel" id="dmFrom" value="${esc((typeof TEN!=="undefined"&&TEN&&TEN.dmFrom)||"")}" placeholder="例：export@your-company.co.jp" style="width:100%;box-sizing:border-box">
+    <p class="nn" style="margin:3px 0 0">このアドレスが送信元になります。<b>相手からの返信はこの画面のスレッドに自動で届き、🔔通知でお知らせします</b>（トライアルでは返信をAIがシミュレート。製品版は実メール連携で、送信した相手からの返信のみ取り込みます）。</p>
     <p class="lbl" style="margin-top:10px">件名</p>
     <input class="sel" id="dmS" value="${esc(t0.subj)}" style="width:100%;box-sizing:border-box">
     <p class="lbl" style="margin-top:9px">本文</p>
@@ -6552,12 +7065,56 @@ ${JSON.stringify(b)}
     ai.disabled=false;
   };
   $("#dmSend").onclick=()=>{
-    outreachList().push({id,cty,d:TODAYS,lang:$("#dmL")?$("#dmL").value:"English"});
-    if(typeof saveTen==="function") saveTen();
-    if(typeof logU==="function") logU("ai","直接連絡:"+id);
-    closeDW(); rDB();
-    toast("送信しました（ID "+id+"）。返信が来ると「やりとり」に届きます");
+    const from=($("#dmFrom")&&$("#dmFrom").value||"").trim();
+    if(!from||!/@/.test(from)){ toast("送信元メールアドレスをご入力ください"); const e=$("#dmFrom"); if(e) e.focus(); return; }
+    if(typeof TEN!=="undefined"&&TEN) TEN.dmFrom=from;
+    dmSend(id,cty,biz,($("#dmS")&&$("#dmS").value)||"",($("#dmB")&&$("#dmB").value)||"",$("#dmL")?$("#dmL").value:"English");
+    openDMThread(id);
+    rDB();
+    toast("送信しました（ID "+id+"）。返信が届くと🔔と一覧でお知らせします");
   };
+}
+/* スレッドビュー（メールの往復＋返信ボックス） */
+function openDMThread(id){
+  const th=dmThreads()[id]; if(!th) return;
+  th.unread=0; if(typeof saveTen==="function") saveTen(); updateBell();
+  const on=typeof ppReady==="function"&&ppReady();
+  const bub=m=>`<div style="display:flex;gap:8px;margin-bottom:9px;${m.w==="by"?"":"flex-direction:row-reverse"}">
+    <span style="width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:9px;font-weight:800;
+      background:${m.w==="by"?"var(--bl)":"var(--or)"};color:#fff">${m.w==="by"?"Buyer":"貴社"}</span>
+    <div style="max-width:84%;padding:8px 11px;border-radius:10px;font-size:11.5px;line-height:1.7;white-space:pre-wrap;
+      background:${m.w==="by"?"var(--bl-soft)":"var(--or-soft)"}">${m.subj?`<b>${esc(m.subj)}</b>\n`:""}${esc(m.body)}<div style="margin-top:4px;font-size:9px;color:var(--ink-3)">${esc(m.t)}</div></div></div>`;
+  openDW(`<h3>📨 ${esc(th.cty)}の${esc(th.biz)} <span class="p on">ID ${esc(th.id)}</span></h3>
+    <p class="nn" style="margin-top:4px">送信元：<b>${esc((typeof TEN!=="undefined"&&TEN&&TEN.dmFrom)||"未設定")}</b>／相手の実アドレスは仲介のため非開示。
+      <b>この相手からの返信だけ</b>がこのスレッドに届きます${th.wait?"（📡 返信待ち…数秒〜十数秒でシミュレート返信が届きます）":""}。</p>
+    <div style="margin-top:9px;max-height:44vh;overflow-y:auto;padding-right:4px" id="dmThread">${th.msgs.map(bub).join("")}</div>
+    <div class="composer" style="margin-top:9px">
+      ${typeof mdBarHtml==="function"?mdBarHtml("dmR"):""}
+      <textarea class="sel" id="dmR" rows="3" placeholder="返信を入力（Enterで送信・Shift+Enterで改行）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:180px;overflow-y:auto;line-height:1.6"></textarea>
+      <div class="rw" style="justify-content:flex-end;gap:6px;padding:5px 8px;border-top:1px solid var(--line-2)">
+        ${on?`<button class="btn g" id="dmRai" style="margin-right:auto">🤖 AIが返信案を作成（${esc(th.lang||"English")}）</button>`:""}
+        <button class="btn" id="dmRgo">送信</button></div></div>
+    <p class="nn" style="margin-top:6px">このやり取りは保存され、<b>契約書関連（AI法務）でも文脈として利用</b>されます。</p>`);
+  const pn=document.querySelector("#pn"); if(pn) pn.dataset.dmid=String(id);
+  const ta=$("#dmR");
+  const send=()=>{ const v=(ta.value||"").trim(); if(!v) return;
+    ta.value=""; dmSend(id,th.cty,th.biz,"",v,th.lang); openDMThread(id); };
+  $("#dmRgo").onclick=send;
+  ta.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } };
+  if(typeof mdBarBind==="function") mdBarBind(document.querySelector("#pn"));
+  const ai=$("#dmRai");
+  if(ai) ai.onclick=async()=>{
+    ai.disabled=true; ai.textContent="作成中…";
+    try{
+      const hist=th.msgs.slice(-6).map(m=>(m.w==="me"?"[自社] ":"[Buyer] ")+String(m.body).slice(0,400)).join("\n---\n");
+      const r=await llmAsk(`海外バイヤーとの下記やり取りに対する、次の返信案を${th.lang||"English"}で作成してください（本文のみ・120語以内・具体的に前進させる内容）。\n登録データ：${dmBrief?JSON.stringify(dmBrief()).slice(0,900):""}\n=== やり取り ===\n${hist}`,700,{noWeb:1,timeout:60000});
+      ta.value=r.txt.trim(); ta.dispatchEvent(new Event("input"));
+      ai.textContent="🤖 もう一度作成";
+    }catch(e){ toast("AI生成に失敗："+String(e.message).slice(0,40)); ai.textContent="🤖 AIが返信案を作成"; }
+    ai.disabled=false;
+  };
+  const box=$("#dmThread"); if(box) box.scrollTop=box.scrollHeight;
 }
 
 /* ═════════ 改善サマリー ═════════ */
@@ -6572,9 +7129,13 @@ function openDW(h){
 function closeDW(){$("#dw").dataset.open="false";}
 function openNotif(){
   if(!PID) return openDW(`<h3>通知</h3><p class="nn" style="margin-top:8px">商品情報を登録すると、通知が届くようになります。</p>`);
+  const dmn=(typeof TEN!=="undefined"&&TEN&&TEN.dmNotifs)||[];
   openDW(`<h3>通知</h3><p class="nn" style="margin-bottom:9px">アプリの中に集約しました。メールの遅延に左右されません。</p>
+   ${dmn.map(n=>`<div class="nf" style="cursor:pointer" data-dmnotif="${esc(String(n.id))}"><span class="d" style="background:var(--crit)"></span>
+       <div><b>📨 ${esc(n.txt)}</b><br><span style="color:var(--ink-2)">タップしてスレッドを開く</span><time>${esc(n.t)}</time></div></div>`).join("")}
    ${D.notif.map(([c,t,d,w])=>`<div class="nf"><span class="d" style="background:var(--${c})"></span>
        <div><b>${esc(t)}</b><br><span style="color:var(--ink-2)">${esc(d)}</span><time>${esc(w)}</time></div></div>`).join("")}`);
+  document.querySelectorAll("[data-dmnotif]").forEach(x=>x.addEventListener("click",()=>{ openDMThread(x.dataset.dmnotif); }));
 }
 function openReport(){
   const K=D.kpi;
@@ -6611,8 +7172,10 @@ function render(){
   const p=PAGES.find(x=>x.id===cur);
   if(!PID && !p.free){cur="up";return render();}
   well.innerHTML=({up:vUp,dash:vDash,item:vItem,deal:vDeal,task:vTask,ai:vAI,ship:vShip,
-    ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp)})[cur](p);
+    ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp),
+    legal:(typeof vLegal==="function"?vLegal:vUp)})[cur](p);
   if(cur==="deck"&&typeof deckBind==="function") deckBind();
+  if(cur==="legal"&&typeof legalBind==="function") legalBind();
   if(cur==="up") wireUp();
   if(cur==="task"&&taskTab==="task"){tRows();["tHide","tSt"].forEach(id=>$("#"+id).addEventListener("change",tRows));}
   if(cur==="task"&&taskTab==="apr") document.querySelectorAll("[data-apr]").forEach(b=>
@@ -6660,6 +7223,7 @@ function render(){
     バイヤーDBの件数（取引先6,933社・バイヤー${typeof bnTotal==="function"?bnTotal().toLocaleString():"7,060"}名・83か国）と海外14拠点の配置は、貿易クラウド本番APIで稼働中325プロジェクトを全件集計した実データに基づいています。一覧のバイヤー個社は<b>名称・連絡先を伏せた見本表示</b>です。<br>
     <b>デザイン</b>　本番の貿易クラウド（digitrad.trade/boueki）の実装値に合わせています。白のトップバー48px、選択中メニューは #FFF4E6、プライマリは #F8951D・角丸5px、罫線 rgba(70,86,109,.15)、書体 Lato。`;
   updateGuide();
+  updateBell();
 }
 /* ═════════ はじめてでも迷わないガイドバー ═════════ */
 function guideState(){
@@ -6897,14 +7461,15 @@ const PROV={
 const PPKEY="bc20_llm_v1";
 let LLM=(function(){
   try{const j=JSON.parse(localStorage.getItem(PPKEY));
-    if(j&&j.prov&&PROV[j.prov]) return {on:!!j.on,prov:j.prov,keys:j.keys||{},models:j.models||{},eps:j.eps||{}};
+    if(j&&j.prov&&PROV[j.prov]) return {on:!!j.on,prov:j.prov,keys:j.keys||{},models:j.models||{},eps:j.eps||{},
+      act:j.act||(j.on&&j.keys&&j.keys[j.prov]?{[j.prov]:true}:{}),route:j.route!==false};
   }catch(e){}
   /* 旧設定（Perplexity単体 bc20_pplx_v1）からの移行 */
   try{const o=JSON.parse(localStorage.getItem("bc20_pplx_v1"));
     if(o&&o.key) return {on:!!o.on,prov:"perplexity",keys:{perplexity:o.key},
       models:{perplexity:o.model||"sonar"},eps:{}};
   }catch(e){}
-  return {on:false,prov:"perplexity",keys:{},models:{},eps:{}};
+  return {on:false,prov:"perplexity",keys:{},models:{},eps:{},act:{},route:true};
 })();
 function ppSave(){ try{localStorage.setItem(PPKEY,JSON.stringify(LLM));}catch(e){} }
 /* ── タブ間同期 ──
@@ -6915,7 +7480,8 @@ function ppSave(){ try{localStorage.setItem(PPKEY,JSON.stringify(LLM));}catch(e)
 function llmReload(){
   try{const j=JSON.parse(localStorage.getItem(PPKEY));
     if(j&&j.prov&&PROV[j.prov]){ LLM.on=!!j.on; LLM.prov=j.prov;
-      LLM.keys=j.keys||{}; LLM.models=j.models||{}; LLM.eps=j.eps||{}; }
+      LLM.keys=j.keys||{}; LLM.models=j.models||{}; LLM.eps=j.eps||{};
+      LLM.act=j.act||LLM.act||{}; LLM.route=j.route!==false; }
   }catch(e){}
   try{const p=localStorage.getItem("bc20_plan_v1"); if(typeof PLANS!=="undefined"&&PLANS[p]) USERPLAN=p;}catch(e){}
   try{const f=localStorage.getItem("bc20_fwdplan_v1");
@@ -6923,6 +7489,7 @@ function llmReload(){
 }
 function llmSig(){
   return [LLM.on?1:0,LLM.prov,(LLM.keys[LLM.prov]||"").length,
+    Object.keys(LLM.act||{}).filter(k=>LLM.act[k]).join("+"),LLM.route?1:0,
     typeof USERPLAN!=="undefined"?USERPLAN:"",
     typeof FWDPLAN!=="undefined"?FWDPLAN:""].join("|");
 }
@@ -6956,6 +7523,43 @@ function setPlan(p){
   toast(`プランを「${PLANS[p].nm}」に変更しました（${PLANS[p].price}）`);
   if(typeof render==="function") render();
 }
+/* 有効✓かつキーのあるプロバイダ一覧（無ければ従来のprimary単独） */
+function llmActive(){
+  const act=Object.keys(PROV).filter(k=>LLM.act&&LLM.act[k]&&(LLM.keys[k]||"").trim());
+  if(act.length) return act;
+  return (LLM.on&&(LLM.keys[LLM.prov]||"").trim())?[LLM.prov]:[];
+}
+function llmKeyOf(p){ return (LLM.keys[p]||"").trim(); }
+function llmEpOf(p){ return (LLM.eps[p]||"").trim()||PROV[p].ep; }
+function llmModelOf(p,tier){
+  const t=PLANS[tier==="pro"?"pro":USERPLAN==="lite"?"std":USERPLAN];
+  if(t&&t.models&&t.models[p]) return t.models[p];
+  return (LLM.models[p]||"").trim()||PROV[p].def;
+}
+/* ── 自律ルーティング：質問内容に応じて最適かつ最安のエンジン・モデルを選ぶ ──
+   優先表（左ほど優先。能力を満たすものから最安を選ぶ）：
+   ・Web検索が必要 → ネイティブ検索を持つ Perplexity ＞ Gemini
+   ・PDF読取 → Gemini ＞ Claude ＞ ChatGPT／画像 → Gemini ＞ Claude ＞ ChatGPT ＞ Perplexity
+   ・契約書・複雑な判断（task:"legal"/"heavy"）→ 品質優先 Claude ＞ ChatGPT ＞ Gemini ＞ Perplexity（最上位モデル）
+   ・抽出・翻訳・通常の質問 → 最安の高速モデル Gemini ＞ Claude(Haiku) ＞ Perplexity ＞ ChatGPT */
+function llmRoute(opts){
+  opts=opts||{};
+  const act=llmActive();
+  if(!act.length) return null;
+  const forced=opts.prov&&act.includes(opts.prov)?opts.prov:null;
+  const one=act.length===1||LLM.route===false;
+  const pick=order=>{ const hit=order.find(p=>act.includes(p)); return hit||act[0]; };
+  let p, tier="std", why="標準";
+  const att=opts.att;
+  if(forced){ p=forced; why="指定"; }
+  else if(one){ p=act.includes(LLM.prov)?LLM.prov:act[0]; why="単独接続"; }
+  else if(att&&att.mime==="application/pdf"){ p=pick(["gemini","anthropic","openai"]); why="PDF読取"; }
+  else if(att){ p=pick(["gemini","anthropic","openai","perplexity"]); why="画像読取"; }
+  else if(opts.needWeb){ p=pick(["perplexity","gemini"]); why="Web検索"; }
+  else if(opts.task==="legal"||opts.task==="heavy"){ p=pick(["anthropic","openai","gemini","perplexity"]); tier="pro"; why="高精度（法務・複雑判断）"; }
+  else { p=pick(["gemini","anthropic","perplexity","openai"]); why="最安・高速"; }
+  return {prov:p,model:opts.model||llmModelOf(p,opts.planTier||tier),why};
+}
 function llmKey(){ return (LLM.keys[LLM.prov]||"").trim(); }
 function llmModel(){
   const t=PLANS[USERPLAN];
@@ -6963,8 +7567,12 @@ function llmModel(){
   return (LLM.models[LLM.prov]||"").trim()||PROV[LLM.prov].def;
 }
 function llmEp(){ return (LLM.eps[LLM.prov]||"").trim()||PROV[LLM.prov].ep; }
-function llmLabel(){ return PROV[LLM.prov].short; }
-function ppReady(){ return !!(LLM&&LLM.on&&llmKey())&&USERPLAN!=="lite"; }
+function llmLabel(){
+  const act=llmActive();
+  if(act.length>=2&&LLM.route!==false) return "AI自動選択（"+act.length+"社）";
+  return PROV[(act[0]||LLM.prov)].short;
+}
+function ppReady(){ return llmActive().length>0&&USERPLAN!=="lite"; }
 /* AI商社マン画面のプラン選択カード */
 function planCardHtml(){
   const conn=!!(LLM&&LLM.on&&llmKey());
@@ -7052,10 +7660,13 @@ async function llmWebCtx(q){
 async function llmAsk(q,maxTok,opts){
   if(typeof window!=="undefined"&&window.__llmMock) return window.__llmMock(q,maxTok,opts);
   opts=opts||{};
-  /* opts.model：呼び出し側プラン（例：物流会社プラン）による稼働モデルの上書き */
-  const prov=LLM.prov, P=PROV[prov], key=llmKey(), model=opts.model||llmModel(), ep=llmEp();
+  /* 自律ルーティング：質問内容（添付・Web検索・task）に応じて最適かつ最安のエンジンを選択。
+     opts.model は呼び出し側の明示指定（物流会社プラン等）として最優先。 */
+  const wantWeb=(opts.forceWeb||((typeof WEBON!=="undefined"&&WEBON&&(typeof webPerm!=="function"||webPerm()))&&!opts.noWeb));
+  const RT=llmRoute({att:opts.att,needWeb:wantWeb&&!opts.noWeb,task:opts.task,model:opts.model,prov:opts.prov,planTier:opts.planTier})
+    ||{prov:LLM.prov,model:opts.model||llmModel(),why:"未接続"};
+  const prov=RT.prov, P=PROV[prov], key=llmKeyOf(prov), model=RT.model, ep=llmEpOf(prov);
   const sys=opts.sys||llmSysPrompt();
-  /* opts.forceWeb：この呼び出しに限りネイティブWeb検索を有効化（対応プロバイダのみ） */
   const webOK=(opts.forceWeb&&P.search)
     ||((typeof WEBON!=="undefined"&&WEBON&&(typeof webPerm!=="function"||webPerm()))&&!opts.noWeb);
   let userQ=q, extHits=[];
@@ -7152,7 +7763,7 @@ async function llmAsk(q,maxTok,opts){
       return llmAsk(q,(maxTok||900)*3,Object.assign({},opts,{_retry2:1}));
     throw new Error("回答が空でした（AIの内部思考がトークン上限に達した可能性。もう一度お試しいただくか、管理コンソールでモデルを変更してください）");
   }
-  return {txt,cits:cits||[],model:mdl,extHits};
+  return {txt,cits:cits||[],model:mdl,extHits,prov,provNm:PROV[prov].short,why:RT.why};
 }
 /* 旧名互換（接続テスト等） */
 function ppAsk(q,maxTok,opts){ return llmAsk(q,maxTok,opts); }
@@ -7182,7 +7793,7 @@ brain=function(q){
       const usedWeb=(r.cits&&r.cits.length)||(r.extHits&&r.extHits.length);
       if(typeof logU==="function"&&typeof WEBON!=="undefined"&&WEBON&&usedWeb)
         logU("web",llmLabel()+"検索："+String(q).slice(0,32));
-      return {a,c:`エンジン：${esc(PROV[LLM.prov].nm)} ${esc(r.model)}（実AI・ライブ）／社内データを注入済み`+
+      return {a,c:`エンジン：${esc(r.provNm||PROV[LLM.prov].short)} ${esc(r.model)}（${esc(r.why||"実AI")}・自動選択）／社内データを注入済み`+
         (usedWeb?`／Web情報を参照`:`／Web検索は未使用`)};
     }catch(e){
       const r=await Promise.resolve(__brainB4pplx(q));
@@ -7225,7 +7836,7 @@ function llmExtraHook(){
 function llmExtraStart(){
   FILL.cur=null; FILL.xq="loading"; FILL.xi=0;
   fillSay("ai",`基本項目のヒアリングはここまでです。<br>
-    ここからは接続中のAI（<b>${esc(PROV[LLM.prov].nm)}</b>）が<b>資料全体をもう一度読み直して</b>、
+    ここからは接続中のAI（<b>${esc(llmLabel())}</b>）が<b>資料全体をもう一度読み直して</b>、
     この商材だからこそ確認すべき点がないか分析しています…<span class="p bl">数秒〜十数秒かかります</span>`);
   render();
   llmGapAnalyze().then(res=>{
@@ -7291,51 +7902,76 @@ fillAnswer=function(v){
   return __fillAnsB4x(v);
 };
 
-/* ── 管理コンソール用カード ── */
+/* ── 管理コンソール用カード（複数エンジン同時接続＋自律ルーティング） ── */
 function ppCardHtml(){
-  const P=PROV[LLM.prov];
-  return `<div class="c" style="margin-bottom:11px;border-color:${ppReady()?"var(--good)":"var(--line)"}">
-    <div class="rw" style="justify-content:space-between">
-      <div><h3>AIエンジン設定（ChatGPT / Gemini / Claude / Perplexity）</h3>
-        <p class="nn">お使いのAPIキーを接続すると、AI商社マンの自由質問と資料の追加分析が<b>実際のLLM</b>で動きます。社内データは質問のたびにコンテキストとして渡されます。</p></div>
-      <span class="p ${ppReady()?"hi":"lo"}">${ppReady()?esc(P.short)+"接続中":"未接続（内蔵エンジンで稼働）"}</span></div>
-    <div class="rw" style="margin-top:10px">
-      <label style="font-size:11.5px;display:flex;align-items:center;gap:5px">
-        <input type="checkbox" id="ppon" ${LLM.on?"checked":""}> 有効にする</label>
-      <select class="sel" id="ppprov" title="AIエンジンの提供元">
-        ${Object.keys(PROV).map(k=>`<option value="${k}" ${LLM.prov===k?"selected":""}>${PROV[k].nm}</option>`).join("")}</select>
-      <input class="sel" id="ppkey" type="password" placeholder="APIキー（${esc(P.ph)}）" value="${esc(LLM.keys[LLM.prov]||"")}" style="flex:2;min-width:180px" autocomplete="off">
-      <input class="sel" id="ppmodel" list="ppmlist" placeholder="モデル" value="${esc(LLM.models[LLM.prov]||P.def)}" style="width:170px" autocomplete="off">
-      <datalist id="ppmlist">${P.models.map(m=>`<option value="${m}">`).join("")}</datalist>
-      <button class="btn g" id="pptest">接続テスト</button>
+  const act=llmActive();
+  const row=k=>{
+    const P=PROV[k], on=!!(LLM.act&&LLM.act[k]), key=LLM.keys[k]||"";
+    return `<tr>
+      <td style="white-space:nowrap"><label style="display:flex;gap:7px;align-items:center;font-size:12px;font-weight:700;cursor:pointer">
+        <input type="checkbox" data-ppact="${k}" ${on?"checked":""}> ${esc(P.nm)}</label>
+        <span style="font-size:9px;color:var(--ink-3)">${P.search?"🌐検索対応":""}${k!=="perplexity"?" 📄PDF/画像":" 🖼画像"}</span></td>
+      <td><input class="sel" type="password" data-ppkey="${k}" value="${esc(key)}" placeholder="${esc(P.ph)}" autocomplete="off" style="width:100%;box-sizing:border-box;min-height:34px;padding:6px 9px;font-size:12px"></td>
+      <td><input class="sel" data-ppmodel="${k}" list="ppml-${k}" value="${esc(LLM.models[k]||"")}" placeholder="自動（プラン準拠）" autocomplete="off" style="width:150px;min-height:34px;padding:6px 9px;font-size:12px">
+        <datalist id="ppml-${k}">${P.models.map(mm=>`<option value="${mm}">`).join("")}</datalist></td>
+      <td style="white-space:nowrap">
+        ${key.trim()?(on?'<span class="p hi">有効</span>':'<span class="p on">キーあり</span>'):'<span class="p lo">未設定</span>'}
+        <button class="btn g" data-pptest="${k}" style="padding:3px 9px;font-size:10px">テスト</button></td></tr>`;
+  };
+  return `<div class="c" style="margin-bottom:11px;border-color:${act.length?"var(--good)":"var(--line)"}">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3>AIエンジン設定（複数同時接続・自律ルーティング）</h3>
+        <p class="nn">複数のエンジンに✓を入れると、<b>質問の内容に応じて最適かつ最安のAIを自動で使い分けます</b>：
+        🌐Web検索が要る質問→Perplexity/Gemini、📄PDF・画像の読取→Gemini/Claude、⚖️契約書など複雑な判断→最上位モデル、✂️抽出・翻訳・通常の質問→最安の高速モデル。</p></div>
+      <span class="p ${act.length?"hi":"lo"}">${act.length?("接続中 "+act.length+"社"+(act.length>=2&&LLM.route!==false?"・自動選択ON":"")):"未接続（内蔵エンジンで稼働）"}</span></div>
+    <div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>
+      <th>エンジン（✓で有効）</th><th>APIキー</th><th>モデル上書き（任意）</th><th>状態</th></tr></thead><tbody>
+      ${Object.keys(PROV).map(row).join("")}
+    </tbody></table></div>
+    <div class="rw" style="margin-top:9px;align-items:center">
+      <label style="font-size:11.5px;display:flex;align-items:center;gap:6px;font-weight:700">
+        <input type="checkbox" id="pproute" ${LLM.route!==false?"checked":""}> 🧭 自律ルーティング（2社以上のとき、内容で自動選択）</label>
+      <span class="nn" style="margin:0">OFFにすると「優先エンジン」だけを使います：</span>
+      <select class="sel" id="ppprov" style="min-height:34px;padding:5px 8px;font-size:12px">
+        ${Object.keys(PROV).map(k=>`<option value="${k}" ${LLM.prov===k?"selected":""}>${PROV[k].short}</option>`).join("")}</select>
       <button class="btn" id="ppsave">保存</button></div>
-    <div class="rw" style="margin-top:7px">
-      <input class="sel" id="ppep" value="${esc(LLM.eps[LLM.prov]||P.ep)}" style="flex:1;min-width:260px;font-size:10.5px" title="エンドポイント（プロキシ経由にする場合のみ変更）"></div>
-    <p class="nn" style="margin-top:7px">${P.hint}</p>
-    <p id="ppres" class="nn" style="margin-top:5px"></p>
+    <p id="ppres" class="nn" style="margin-top:6px"></p>
+    <p class="nn" style="margin-top:5px">${PROV[LLM.prov].hint}</p>
     <div style="margin-top:9px;padding:9px 12px;border-radius:var(--r2);background:var(--warn-soft);font-size:10.5px;line-height:1.7;color:var(--warn)">
-      <b>キーの取り扱い</b>　APIキーは<b>この端末のブラウザにのみ</b>保存されます。キーを入れたままの端末を顧客に渡したり、配布用HTMLにキーを書き込んだりしないでください（開いた人は誰でもキーを抜き出せます）。顧客配布版は未接続のまま＝内蔵エンジンで動かすのが安全です。<br>
-      claude.aiのリンク版は外部通信が遮断されるため、この連携は<b>配布用HTMLファイルでのみ</b>動きます。ブラウザ直接接続の対応（実測）：Perplexity○／Gemini○／Claude○／OpenAI×（プロキシ必要）。</div></div>`;
+      <b>キーの取り扱い</b>　APIキーは<b>この端末のブラウザにのみ</b>保存されます。キーを入れたままの端末を顧客に渡したり、配布用HTMLにキーを書き込んだりしないでください。顧客配布版は未接続のまま＝内蔵エンジンで動かすのが安全です。<br>
+      ブラウザ直接接続の対応（実測）：Perplexity○／Gemini○／Claude○／OpenAI（環境により可・まず「テスト」で確認）。</div></div>`;
 }
 function ppBind(){
-  const rd=()=>{LLM.on=$("#ppon").checked;
-    LLM.keys[LLM.prov]=$("#ppkey").value.trim();
-    LLM.models[LLM.prov]=$("#ppmodel").value.trim();
-    const ep=$("#ppep").value.trim();
-    if(ep&&ep!==PROV[LLM.prov].ep) LLM.eps[LLM.prov]=ep; else delete LLM.eps[LLM.prov];};
-  const res=(m,ok)=>{const e=$("#ppres");e.innerHTML=m;e.style.color=ok?"var(--good)":"var(--crit)";};
-  $("#ppprov").onchange=()=>{rd();LLM.prov=$("#ppprov").value;ppSave();renderAdmin();};
-  $("#ppsave").onclick=()=>{rd();ppSave();renderAdmin();
-    toast(LLM.on&&llmKey()?"保存しました（"+PROV[LLM.prov].short+"接続中）":"保存しました");};
-  $("#pptest").onclick=async()=>{
-    rd(); if(!llmKey()){res("APIキーを入力してください。",false);return;}
-    res("接続しています…（"+esc(PROV[LLM.prov].nm)+"）",true);
-    const keep=LLM.on; LLM.on=true;
-    try{ const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1});
-      res(`✓ 接続できました（model: ${esc(r.model)}／応答: ${esc(r.txt).slice(0,40)}）。「保存」を押すと有効になります。`,true); }
-    catch(e){ res("✗ 接続できませんでした："+esc(String(e.message)).slice(0,150),false); }
-    LLM.on=keep;
+  const rd=()=>{
+    LLM.act=LLM.act||{};
+    Object.keys(PROV).forEach(k=>{
+      const ck=document.querySelector(`[data-ppact="${k}"]`);
+      const ky=document.querySelector(`[data-ppkey="${k}"]`);
+      const md=document.querySelector(`[data-ppmodel="${k}"]`);
+      if(ky) LLM.keys[k]=ky.value.trim();
+      if(md){ const v=md.value.trim(); if(v) LLM.models[k]=v; else delete LLM.models[k]; }
+      if(ck) LLM.act[k]=ck.checked&&!!(LLM.keys[k]||"").trim();
+    });
+    const rt=$("#pproute"); if(rt) LLM.route=rt.checked;
+    const pv=$("#ppprov"); if(pv) LLM.prov=pv.value;
+    LLM.on=llmActive().length>0;
   };
+  const res=(m2,ok)=>{const e=$("#ppres");if(e){e.innerHTML=m2;e.style.color=ok?"var(--good)":"var(--crit)";}};
+  const sv=$("#ppsave");
+  if(sv) sv.onclick=()=>{rd();ppSave();renderAdmin();
+    const act=llmActive();
+    toast(act.length?("保存しました（"+act.map(k=>PROV[k].short).join("・")+" 接続中"+(act.length>=2&&LLM.route!==false?"・自動選択":"")+"）"):"保存しました（未接続＝内蔵エンジン）");};
+  document.querySelectorAll("[data-pptest]").forEach(b=>b.onclick=async()=>{
+    const k=b.dataset.pptest; rd();
+    if(!(LLM.keys[k]||"").trim()){ res(PROV[k].nm+"：APIキーを入力してください。",false); return; }
+    res("接続しています…（"+esc(PROV[k].nm)+"）",true);
+    const keepAct=LLM.act[k], keepOn=LLM.on;
+    LLM.act[k]=true; LLM.on=true;
+    try{ const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1,prov:k,model:llmModelOf(k)});
+      res(`✓ ${esc(PROV[k].nm)}：接続できました（model: ${esc(r.model)}／応答: ${esc(r.txt).slice(0,30)}）。✓を入れて「保存」すると有効になります。`,true); }
+    catch(e){ res(`✗ ${esc(PROV[k].nm)}：接続できませんでした：`+esc(String(e.message)).slice(0,140),false); }
+    LLM.act[k]=keepAct; LLM.on=keepOn;
+  });
 }
 
 /* ═══════════ ①② トライアル：ログイン／アカウント発行／管理コンソール ═══════════
@@ -7890,7 +8526,7 @@ function fwdSetPlan(p){
   if(FWDON) fwdRender(); else if(typeof render==="function") render();
 }
 /* エンジン接続（管理者がキーを設定済みか）と、物流会社プランでの稼働可否 */
-function fwdConnected(){ return !!(typeof LLM!=="undefined"&&LLM&&LLM.on&&(LLM.keys[LLM.prov]||"").trim()); }
+function fwdConnected(){ return !!(typeof llmActive==="function"&&llmActive().length); }
 function fwdReady(){ return fwdConnected()&&FWDPLAN!=="lite"; }
 function fwdModel(){
   if(FWDPLAN!=="lite"&&typeof PLANS!=="undefined"&&PLANS[FWDPLAN]&&PLANS[FWDPLAN].models)
@@ -7947,7 +8583,7 @@ function fwdAiBind(){
     if(FWDPLAN==="lite"){ out("ライトプランは内蔵エンジンで動作します（実AIのテストはスタンダード以上）。"); return; }
     ts.disabled=true; out(`<span class="spin"></span> ${esc(fwdEngLabel())} に接続しています…`);
     try{
-      const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1,model:fwdModel()});
+      const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1,planTier:(FWDPLAN==="pro"?"pro":"std")});
       out(`<span style="color:var(--good)">✓ AI物流マンは稼働できます（model: ${esc(r.model)}／応答: ${esc(r.txt).slice(0,30)}）</span>`);
     }catch(e){
       out(`<span style="color:var(--crit)">✗ 接続できませんでした：${esc(String(e.message)).slice(0,110)}</span>`);
@@ -8008,7 +8644,7 @@ ${facts}
 ・物流マンは危険物と貨物量を確認→国別に照合結果を提示（提案できる国とできない国を正直に分ける）。
 　最後は商社マンが荷主向けに「提案できる国の金額」と「未登録国の扱い」をまとめる。
 ・数字と可否は上の事実から一切変えないこと。`,1600,{noWeb:1,timeout:60000,
-    model:fwdReady()?fwdModel():undefined,
+    planTier:(typeof FWDPLAN!=="undefined"&&FWDPLAN==="pro"?"pro":"std"),
     sys:"あなたは貿易実務のシミュレーター。返答は指定JSONのみ。"});
   let t=r.txt.replace(/```json|```/g,"").trim();
   const a=t.indexOf("{"),b=t.lastIndexOf("}");
@@ -8175,7 +8811,7 @@ async function fwdAsk(v){
   let r;
   if(fwdReady()){
     try{
-      const res=await llmAsk(v,900,{noWeb:1,timeout:60000,model:fwdModel(),
+      const res=await llmAsk(v,900,{noWeb:1,timeout:60000,planTier:(FWDPLAN==="pro"?"pro":"std"),
         sys:`あなたは物流会社「${FWDB.profile.co}」の社内AI「AI物流マン」。以下の社内データだけを根拠に、日本語で簡潔に（結論から）答える。数値・日付はデータのまま使い、データに無いことは「未登録」「記録なし」と正直に言う。\n=== 社内データ ===\n${fwdContext()}`});
       r={a:(typeof ppFormat==="function"?ppFormat(res.txt):esc(res.txt)),
          c:`エンジン：${esc(fwdEngLabel())}（実AI・社内物流データを注入済み）`};
@@ -8432,7 +9068,7 @@ const FWD_XPROMPT=(isText)=>(isText?`次の物流レート表データから運�
 async function fwdRatesLLM(src){
   const ask=(extra,tok)=>llmAsk(FWD_XPROMPT(!!src.text)+(extra||"")+
       (src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),tok,
-    {att:src.att,noWeb:1,timeout:150000,model:fwdModel(),
+    {att:src.att,noWeb:1,timeout:150000,planTier:(FWDPLAN==="pro"?"pro":"std"),
      sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ（コードフェンス・説明文禁止）。"});
   let j;
   try{ j=xParseJson((await ask("",3600)).txt); }
@@ -8505,7 +9141,7 @@ async function fwdRateFile(f){
         return fail(`現在<b>ライトプラン（内蔵エンジン）</b>のため、PDF・画像のAI読み取りは停止中です。下の<b>「🤖 AI物流マンの稼働設定」でスタンダード（＋3万円/月）以上</b>に変更してください。トライアル中は無料で切り替えられます。<br>💡 Excel（.xlsx）・CSVはライトのままでも取り込めます。`);
       }
       if(!provCanFile(ext)){
-        return fail(`接続中の<b>${esc(PROV[LLM.prov].nm)}</b>は、${ext==="pdf"?"PDF":"この形式"}の直接読み取りに対応していません。管理コンソールで<b>Gemini／Claude／ChatGPT系</b>のエンジンに切り替えるか、Excel（.xlsx）・CSVでお願いします。`);
+        return fail(`接続中のエンジンは、${ext==="pdf"?"PDF":"この形式"}の直接読み取りに対応していません。管理コンソールで<b>Gemini／Claude／ChatGPT系</b>を有効にするか、Excel（.xlsx）・CSVでお願いします。`);
       }
       say(`<span class="spin"></span> AI物流マン（${esc(fwdEngLabel())}）がレート表を読み取っています…（10〜60秒）`);
       const rates=await fwdRatesLLM({att:{mime:FMIME[ext],b64:await fileB64(f),name:f.name}});
