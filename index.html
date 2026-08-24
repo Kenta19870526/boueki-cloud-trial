@@ -5112,6 +5112,8 @@ function LEG(){
 function legSave(){ if(typeof saveTen==="function") saveTen(); }
 const LEG_ACCEPT=".pdf,.docx,.pptx,.xlsx,.xlsm,.csv,.txt,.png,.jpg,.jpeg";
 const LEG_TYPES=["AIにおまかせ（やり取りから判断）","売買契約書（Sales Agreement）","販売店契約書（Distributorship Agreement)","代理店契約書（Agency Agreement）","秘密保持契約書（NDA）","OEM製造委託契約書","品質保証合意書（Quality Agreement）"];
+function legNow(){ const d=new Date(),z=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes())+":"+z(d.getSeconds()); }
 
 /* ── 多形式取り込み：{text?, att?, name, kind} ── */
 function legGridsTxt(grids){
@@ -5146,7 +5148,7 @@ async function legalFromUrl(url){
   if(!text||text.length<40||/accounts\.google\.com|ServiceLogin/.test(text.slice(0,600)))
     throw new Error("このURLは読み取れませんでした。共有設定を「リンクを知っている全員」にするか、"+
       "「ファイル→ダウンロード→Word(.docx)」で書き出してアップロードしてください");
-  return {text:text.slice(0,60000),name:kind+"（URL取込）",kind};
+  return {text:text.slice(0,60000),name:kind+"（URL "+m[2].slice(0,8)+"）",kind};
 }
 
 /* ── AI法務レビュー（最上位モデルへ自動ルーティング task:"legal"） ── */
@@ -5323,29 +5325,24 @@ function vLegal(p){
   ${on?"":`<div class="c" style="border-color:var(--warn);margin-bottom:11px"><b>⚠ AIエンジン未接続です。</b>
     <span style="font-size:12px;color:var(--ink-2)">契約書のAIレビュー・自動起草には、管理コンソール→AIエンジンでの接続（有償プラン）が必要です。接続すると、この画面のすべての機能が使えます。</span></div>`}
 
-  <div class="g2" style="align-items:start">
-   <div class="c" id="legdz">
-    <h3>① 契約書をチェックに出す <span class="nt">この版で新規</span></h3>
-    <p class="nn" style="margin-top:4px">対応形式：PDF / Word / Excel / PowerPoint / 画像（JPEG・PNG）/ CSV・テキスト。<b>ここにドラッグ＆ドロップ</b>でもOK。
-      AI法務が全文を読み、ユーザー側に不利な項目・欠落条項を洗い出します。</p>
-    <div class="rw" style="margin-top:9px">
-      <input type="file" id="legf" accept="${LEG_ACCEPT}" style="font-size:12px" multiple></div>
-    <p class="lbl" style="margin-top:11px">Google ドキュメント／スライドのURLから取り込む</p>
-    <div class="rw" style="margin-top:4px">
-      <input class="sel" id="legurl" placeholder="https://docs.google.com/document/d/…（共有：リンクを知っている全員）" style="flex:1;min-width:0">
-      <button class="btn g" id="legurlgo">取り込む</button></div>
-    <div id="legprog"></div>
-    ${L.docs.length?`<div class="tw" style="margin-top:11px"><table><thead><tr>
-      <th>契約書</th><th>形式</th><th>種別</th><th>チェック結果</th><th></th></tr></thead><tbody>
-      ${L.docs.map((d,i)=>`<tr><td><b>${esc(d.name)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${
-        d.srcText?("本文 "+d.srcText.length.toLocaleString()+"字を取り込み済み"):d.att?"AIがファイルを直接読取":"本文なし"}</span></td><td>${esc(d.kind)}</td>
-        <td style="font-size:11px">${esc(d.rv?d.rv.type:"—")}</td><td>${legRiskChip(d.rv)}</td>
-        <td style="white-space:nowrap">${d.rv?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legopen="${i}">結果を見る</button>`
-          :on?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legrev="${i}">AIレビュー</button>`:""}
-        <button class="btn g" style="padding:3px 8px;font-size:10.5px" data-legdel="${i}" title="削除">🗑</button></td></tr>`).join("")}
-    </tbody></table></div>`:""}
-   </div>
+  <div class="c" id="legconsult">
+    <h3>① AI法務に相談する <span class="nt">この版で強化</span></h3>
+    <p class="nn" style="margin-top:4px">「この条項はどういう意味？」「独占権を求められたらどうする？」など、契約まわりを何でも。
+      <b>Buyerとのやり取りの全文・商談記録・案件状況・アップロード済み契約書</b>を読み込んだ上で回答します。
+      契約書などのファイルを<b>下の入力欄にドラッグ＆ドロップ</b>（または📎）すると、その中身についても質問できます。</p>
+    <div id="legchat" style="margin-top:9px;max-height:340px;overflow-y:auto"></div>
+    <div class="composer" id="legqbox" style="margin-top:9px">
+      ${typeof mdBarHtml==="function"?mdBarHtml("legq"):""}
+      <div id="legatt"></div>
+      <textarea class="sel" id="legq" rows="3" placeholder="例：サンプル無償提供の条件を契約に入れるべき？（Enterで送信・Shift+Enterで改行／ファイルをここにドロップで添付）"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
+      <div class="rw" style="justify-content:flex-end;gap:6px;padding:5px 8px;border-top:1px solid var(--line-2)">
+        <button class="btn g" id="legfilebtn" style="margin-right:auto">📎 ファイル添付</button>
+        <input type="file" id="legqf" accept="${LEG_ACCEPT}" hidden>
+        <button class="btn" id="legsend">送信</button></div></div>
+  </div>
 
+  <div class="g2" style="margin-top:11px;align-items:start">
    <div class="c">
     <h3>② ひな型が来ない → AI法務が起草 <span class="nt">この版で新規</span></h3>
     <p class="nn" style="margin-top:4px">相手からドラフトが上がってこない場合、<b>直接メッセージでやり取りのあるBuyerに限定</b>して、
@@ -5365,20 +5362,34 @@ function vLegal(p){
       まだ直接メッセージでやり取り中のBuyerがいません。<br>まずは「バイヤーDB・拠点」から気になるバイヤーに直接連絡し、返信のやり取りを始めてください。
       <div style="margin-top:8px"><button class="btn g" onclick="go('db')">バイヤーDB・拠点を開く</button></div></div>`}
    </div>
+   <div class="c" id="legdz">
+    <h3>③ 契約書をチェックに出す <span class="nt">この版で新規</span></h3>
+    <p class="nn" style="margin-top:4px"><b>相手方や自社にてひな型をお持ちの場合。</b>対応形式：PDF / Word / Excel / PowerPoint / 画像（JPEG・PNG）/ CSV・テキスト。
+      AI法務が全文を読み、ユーザー側に不利な項目・欠落条項を洗い出します。</p>
+    <div id="legdrop" tabindex="0" role="button" aria-label="契約書ファイルをドラッグ＆ドロップ、またはクリックで選択"
+      style="margin-top:9px;padding:18px 12px;border:2px dashed var(--or);border-radius:10px;text-align:center;cursor:pointer;background:var(--or-soft)">
+      <div style="font-size:20px;line-height:1">📄</div>
+      <b style="font-size:12.5px;display:block;margin-top:5px">ここに契約書ファイルをドラッグ＆ドロップ</b>
+      <span style="font-size:10.5px;color:var(--ink-2)">またはクリックしてファイルを選択（複数可）</span></div>
+    <input type="file" id="legf" accept="${LEG_ACCEPT}" multiple hidden>
+    <p class="lbl" style="margin-top:11px">Google ドキュメント／スライドのURLから取り込む</p>
+    <div class="rw" style="margin-top:4px">
+      <input class="sel" id="legurl" placeholder="https://docs.google.com/document/d/…（共有：リンクを知っている全員）" style="flex:1;min-width:0">
+      <button class="btn g" id="legurlgo">取り込む</button></div>
+    <div id="legprog"></div>
+    ${L.docs.length?`<div class="tw" style="margin-top:11px"><table><thead><tr>
+      <th>契約書</th><th>形式</th><th>種別</th><th>チェック結果</th><th></th></tr></thead><tbody>
+      ${L.docs.map((d,i)=>`<tr><td><b>${esc(d.name)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${
+        d.srcText?("本文 "+d.srcText.length.toLocaleString()+"字を取り込み済み"):d.att?"AIがファイルを直接読取":"本文なし"}${d.ts?("　"+esc(d.ts)+" 取込"):""}</span></td><td>${esc(d.kind)}</td>
+        <td style="font-size:11px">${esc(d.rv?d.rv.type:"—")}</td><td>${legRiskChip(d.rv)}</td>
+        <td style="white-space:nowrap">${d.rv?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legopen="${i}">結果を見る</button>`
+          :on?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legrev="${i}">AIレビュー</button>`:""}
+        <button class="btn g" style="padding:3px 8px;font-size:10.5px" data-legdel="${i}" title="削除">🗑</button></td></tr>`).join("")}
+    </tbody></table></div>`:""}
+   </div>
+
   </div>
 
-  <div class="c" style="margin-top:11px">
-    <h3>③ AI法務に相談する</h3>
-    <p class="nn" style="margin-top:4px">「この条項はどういう意味？」「独占権を求められたらどうする？」など、契約まわりを何でも。
-      アップロード済みの契約書・Buyerとのやり取り・登録商品データを踏まえて回答します。</p>
-    <div id="legchat" style="margin-top:9px;max-height:340px;overflow-y:auto"></div>
-    <div class="composer" style="margin-top:9px">
-      ${typeof mdBarHtml==="function"?mdBarHtml("legq"):""}
-      <textarea class="sel" id="legq" rows="3" placeholder="例：サンプル無償提供の条件を契約に入れるべき？（Enterで送信・Shift+Enterで改行）"
-        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
-      <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
-        <button class="btn" id="legsend">送信</button></div></div>
-  </div>
   <p class="nn" style="margin-top:8px">※ AIレビューは法的助言（弁護士業務）ではなく、社内検討のための参考情報です。重要な契約は締結前に弁護士のリーガルチェックを受けてください。</p>`;
 }
 
@@ -5397,7 +5408,13 @@ function openLegalDoc(i){
        <span class="p ${sevP[r.severity]||"lo"}">${esc(r.severity||"—")}</span></div>
      <div style="font-size:11px;margin-top:5px;color:var(--ink-2)"><b>原文：</b><span style="text-decoration:line-through">${esc(r.quote)}</span></div>
      <div style="font-size:11px;margin-top:3px;color:var(--crit)"><b>修正案：</b>${esc(r.fix)}</div>
-     <div style="font-size:11px;margin-top:3px;color:var(--ink-2)"><b>💬 意図・背景：</b>${esc(r.reason)}</div></div>`).join("")||'<p class="nn">重大な不利益条項は見つかりませんでした。</p>'}
+     <div style="font-size:11px;margin-top:3px;color:var(--ink-2)"><b>💬 意図・背景：</b>${esc(r.reason)}</div>
+     <div style="margin-top:7px">
+       <button class="btn g" style="padding:3px 9px;font-size:10.5px" data-rq="${k}">💬 この条項についてAI法務に質問${(r.qa||[]).length?`（${r.qa.length}件）`:""}</button>
+       <div id="rqa${k}" ${(r.qa||[]).length?"":"hidden"} style="margin-top:6px">
+         <div id="rqh${k}">${rqaHtml(r)}</div>
+         <div class="rw" style="margin-top:5px"><input class="sel" id="rqi${k}" placeholder="例：相手がこの修正を拒否したら、どこまで譲歩できますか？" style="flex:1;min-width:0">
+         <button class="btn" data-rqgo="${k}" style="padding:6px 12px;white-space:nowrap">送信</button></div></div></div></div>`).join("")||'<p class="nn">重大な不利益条項は見つかりませんでした。</p>'}
    ${rv.missing.length?`<p class="lbl" style="margin-top:12px">欠けている条項（${rv.missing.length}件）</p>
    ${rv.missing.map(m=>`<div style="margin-top:6px;padding:9px;border:1px dashed var(--line);border-radius:6px;font-size:11px">
      <b>＋ ${esc(m.item)}</b><span style="color:var(--ink-2)">　${esc(m.why)}</span>
@@ -5409,6 +5426,42 @@ function openLegalDoc(i){
      <button class="btn g" onclick="legalExport(${i},'gdoc')">📄 Google Document で使う</button>
      <button class="btn g" onclick="closeDW()">閉じる</button></div>
    <p class="nn" style="margin-top:7px">Wordは「校閲」タブ、Google Docsは「提案モード」で修正箇所と意図コメントが表示され、1件ずつ承認／却下できます。</p>`);
+  document.querySelectorAll("[data-rq]").forEach(b=>b.onclick=()=>{
+    const e2=$("#rqa"+b.dataset.rq); if(!e2) return; e2.hidden=!e2.hidden;
+    if(!e2.hidden){ const f2=$("#rqi"+b.dataset.rq); if(f2) f2.focus(); } });
+  document.querySelectorAll("[data-rqgo]").forEach(b=>b.onclick=()=>riskAsk(i,+b.dataset.rqgo));
+  rv.risks.forEach((r,k)=>{ const f2=$("#rqi"+k);
+    if(f2) f2.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); riskAsk(i,k); } }; });
+}
+/* 条項別Q&A（結果は契約書に紐づけて保存） */
+function rqaHtml(r){
+  return (r.qa||[]).map(x=>`<div style="margin:5px 0;padding:7px 9px;border-radius:8px;background:var(--sunk);font-size:11px">
+    <b>Q. ${esc(x.q)}</b><div style="margin-top:3px;color:var(--ink-2);line-height:1.75">${esc(x.a).replace(/\n/g,"<br>")}</div></div>`).join("");
+}
+async function riskAsk(di,k){
+  const d=LEG().docs[di]; if(!d||!d.rv) return;
+  const r=d.rv.risks[k], inp=$("#rqi"+k), go2=document.querySelector(`[data-rqgo="${k}"]`), hist=$("#rqh"+k);
+  const q=(inp&&inp.value||"").trim(); if(!q) return;
+  inp.value="";
+  if(!(typeof ppReady==="function"&&ppReady())){
+    if(hist) hist.innerHTML+=`<div style="margin:5px 0;padding:7px 9px;border-radius:8px;background:var(--sunk);font-size:11px">
+      <b>Q. ${esc(q)}</b><div style="margin-top:3px;color:var(--crit)">AIエンジン未接続のため、この条項への個別回答はできません（管理コンソールで接続後にご利用ください）。</div></div>`;
+    return;
+  }
+  if(go2){ go2.disabled=true; go2.textContent="…"; }
+  if(hist) hist.innerHTML+=`<div id="rqw${k}" style="margin:5px 0;padding:7px 9px;border-radius:8px;background:var(--sunk);font-size:11px"><b>Q. ${esc(q)}</b><div style="margin-top:3px;color:var(--ink-3)">⏳ 検討中…</div></div>`;
+  try{
+    const prior=(r.qa||[]).slice(-2).map(x=>`Q:${x.q}\nA:${x.a}`).join("\n");
+    const res=await llmAsk(`あなたはAI商社マン（法務担当）。下記の契約条項への指摘について、担当者の質問に日本語で答える。300字以内・実務的に・根拠のない断定をしない。
+契約書：${d.name}（${d.rv.type||""}）概要：${String(d.rv.summary||"").slice(0,200)}
+【指摘した条項】原文:${r.quote}／問題:${r.issue}／修正案:${r.fix}／意図:${r.reason}
+${prior?"【これまでのQ&A】\n"+prior:""}【質問】${q}`,1300,{noWeb:1,timeout:90000,task:"legal"});
+    r.qa=r.qa||[]; r.qa.push({q,a:res.txt.trim()}); legSave();
+    if(hist) hist.innerHTML=rqaHtml(r);
+  }catch(e){
+    const w=$("#rqw"+k); if(w) w.querySelector("div").innerHTML='<span style="color:var(--crit)">回答に失敗：'+esc(String(e.message).slice(0,60))+'</span>';
+  }
+  if(go2){ go2.disabled=false; go2.textContent="送信"; }
 }
 
 /* レビュー実行（プログレス付き） */
@@ -5433,7 +5486,17 @@ async function legalRun(i){
 /* 取り込み共通 */
 async function legalTake(src){
   const L=LEG();
-  L.docs.push({name:src.name,kind:src.kind,srcText:src.text||"",att:src.att||null,rv:null});
+  /* 同じファイル名は区別がつかなくなるため登録不可（正直に理由と対処を提示） */
+  const dup=L.docs.find(d=>d.name===src.name);
+  if(dup){
+    const pg=$("#legprog");
+    if(pg) pg.innerHTML=`<div style="margin-top:9px;padding:10px;border:1px solid var(--crit);border-radius:8px;font-size:12px;color:var(--crit)">
+      「${esc(src.name)}」は既に取り込み済みです${dup.ts?`（${esc(dup.ts)} 取込）`:""}。区別がつかなくなるため、<b>同じファイル名は登録できません</b>。<br>
+      <span style="color:var(--ink-2)">別の契約書ならファイル名を変えて、同じ契約書のやり直しなら一覧の🗑で既存の行を削除してから、もう一度アップロードしてください。</span></div>`;
+    toast("同じファイル名は登録できません："+String(src.name).slice(0,28));
+    return;
+  }
+  L.docs.push({name:src.name,kind:src.kind,srcText:src.text||"",att:src.att||null,rv:null,ts:legNow()});
   legSave(); render();
   if(typeof ppReady==="function"&&ppReady()) await legalRun(L.docs.length-1);
   else toast("取り込みました。AIエンジン接続後に「AIレビュー」を押すとチェックできます");
@@ -5450,22 +5513,54 @@ function legChatPush(w,h){
 function legCtx(){
   const L=LEG(), dd=typeof D!=="undefined"&&D?D:{};
   const ths=(typeof dmActiveThreads==="function")?dmActiveThreads():[];
-  return `自社商品:${dd.item||""}/${dd.itemEn||""} HS:${dd.hs||""} 認証:${dd.cert||""} MOQ:${dd.moq||""} 条件:${dd.term||""} ${dd.pay||""}
-アップ済み契約書:${L.docs.map(d=>d.name+(d.rv?`(${d.rv.type}・指摘${d.rv.risks.length}件)`:"(未レビュー)")).join("、")||"なし"}
-やり取り中Buyer:${ths.map(t=>`${t.cty}の${t.biz}(往復${t.msgs.length})`).join("、")||"なし"}`;
+  const thTxt=ths.map(t=>`■${t.cty}の${t.biz}（ID ${t.id}・往復${t.msgs.length}通）\n`+
+    t.msgs.slice(-6).map(m=>(m.w==="me"?"自社: ":"Buyer: ")+(m.subj?m.subj+" / ":"")+String(m.body).replace(/\s+/g," ").slice(0,280)).join("\n")).join("\n").slice(0,5500);
+  const docsTxt=L.docs.map(d=>`・${d.name}${d.ts?"（"+d.ts+"取込）":""}：${d.rv
+    ?`${d.rv.type}・指摘${d.rv.risks.length}件 ${d.rv.risks.slice(0,3).map(r=>"「"+r.issue+"」").join("")}／${String(d.rv.summary||"").slice(0,100)}`
+    :"未レビュー"}`).join("\n").slice(0,1800);
+  const fbTxt=JSON.stringify((dd.fb||[]).slice(0,6)).slice(0,1400);
+  const caseTxt=`PJ:${dd.pj||"—"}・${dd.month||"—"}ヶ月目／商材:${dd.item||""}(${dd.itemEn||""}) HS:${dd.hs||""} 認証:${dd.cert||""} MOQ:${dd.moq||""} 条件:${dd.term||""} ${dd.pay||""} 仕出:${dd.pol||""}／進出候補:${(dd.targets||[]).join("・")||"—"}／規制調査済:${Object.keys(dd.regs||{}).join("・")||"—"}`;
+  return `【案件状況】${caseTxt}
+【Buyerとの直接メッセージ（直近全文）】
+${thTxt||"（やり取りなし）"}
+【商談記録（直近・生データ）】${fbTxt}
+【契約書ファイル】
+${docsTxt||"（なし）"}`;
+}
+let LEGATT=null;   /* 相談用の添付（{name,kind,text?,att?}・✕で外すまで質問のたびに参照） */
+async function legAttach(f){
+  try{
+    const src=await legalExtract(f);
+    LEGATT={name:src.name,kind:src.kind,text:src.text||"",att:src.att||null};
+    legAttDraw();
+    toast("添付しました。この内容について質問できます（✕で外すまで参照し続けます）");
+  }catch(e){ toast(String(e.message).slice(0,90)); }
+}
+function legAttDraw(){
+  const e=$("#legatt"); if(!e) return;
+  e.innerHTML=LEGATT?`<div class="rw" style="padding:6px 8px;border-bottom:1px solid var(--line-2);font-size:11px;gap:7px">
+    <span class="p on">📎 ${esc(LEGATT.name)}</span>
+    <span style="color:var(--ink-3)">${LEGATT.text?LEGATT.text.length.toLocaleString()+"字を読取済み":"AIが直接読取"}</span>
+    <button class="btn g" id="legattx" style="margin-left:auto;padding:2px 8px;font-size:10.5px">✕ 外す</button></div>`:"";
+  const x=$("#legattx"); if(x) x.onclick=()=>{ LEGATT=null; legAttDraw(); };
 }
 async function legAskAI(q){
-  legChatPush("u",esc(q).replace(/\n/g,"<br>"));
+  const att=LEGATT;
+  legChatPush("u",(att?`<span class="p on" style="font-size:10px">📎 ${esc(att.name)}</span><br>`:"")+esc(q).replace(/\n/g,"<br>"));
   legChatPush("a","⏳ 検討中…");
   const done=h=>{ legChatH.pop(); legChatPush("a",h); };
   if(!(typeof ppReady==="function"&&ppReady())){
-    done(`AIエンジン未接続のため、一般論でお答えします。<br><b>基本の考え方：</b>①価格・数量・納期・支払は必ず書面化（メール合意だけにしない）②準拠法と紛争解決地は日本または中立地（シンガポール仲裁など）を主張 ③独占権は「最低購入数量とセット」でのみ付与 ④支払はT/T前払い or L/Cから開始。<br>詳細な検討は管理コンソールでAIエンジンを接続してからご相談ください。`);
+    done(`AIエンジン未接続のため、一般論でお答えします。${att?"<br><b>📎 添付ファイルの読み取りにはAIエンジン接続が必要です。</b>":""}<br><b>基本の考え方：</b>①価格・数量・納期・支払は必ず書面化（メール合意だけにしない）②準拠法と紛争解決地は日本または中立地（シンガポール仲裁など）を主張 ③独占権は「最低購入数量とセット」でのみ付与 ④支払はT/T前払い or L/Cから開始。<br>詳細な検討は管理コンソールでAIエンジンを接続してからご相談ください。`);
     return;
   }
   try{
-    const r=await llmAsk(`あなたはAI商社マン（法務担当）。日本の輸出者の社内法務アドバイザーとして、下記の相談に日本語で答える。
-根拠のない断定をせず、実務的な選択肢と推奨を示す。350字以内。箇条書き可。
-=== 社内データ ===\n${legCtx()}\n=== 相談 ===\n${q}`,1400,{noWeb:1,timeout:90000,task:"legal"});
+    const attTxt=att&&att.text?`\n=== 添付ファイル（${att.name}） ===\n${String(att.text).slice(0,12000)}`
+      :att?`\n（添付ファイル「${att.name}」の中身を直接読み取り、回答の根拠に使うこと）`:"";
+    const opt={noWeb:1,timeout:120000,task:"legal"};
+    if(att&&att.att) opt.att=att.att;
+    const r=await llmAsk(`あなたはAI商社マン（法務担当）。日本の輸出者の社内法務アドバイザーとして、下記の社内データ（Buyerとのやり取り全文・商談記録・案件状況・契約書）${att?"と添付ファイル":""}を漏れなく読み取り、相談に日本語で答える。
+関係するBuyer・国・条項を特定して具体的に。根拠のない断定をせず、実務的な選択肢と推奨を示す。400字以内。箇条書き可。
+=== 社内データ ===\n${legCtx()}${attTxt}\n=== 相談 ===\n${q}`,1800,opt);
     done(esc(r.txt).replace(/\n/g,"<br>")+(r.provNm?`<div style="margin-top:5px;font-size:9.5px;color:var(--ink-3)">使用エンジン：${esc(r.provNm)}（${esc(r.why||"")}）</div>`:""));
   }catch(e){ done("エラー："+esc(String(e.message).slice(0,80))); }
 }
@@ -5478,6 +5573,17 @@ function legalBind(){
     for(const f of [...fi.files]){ try{ await legalTake(await legalExtract(f)); }catch(e){ toast(String(e.message).slice(0,90)); } }
     fi.value="";
   });
+  const ld=$("#legdrop");
+  if(ld&&fi){
+    ld.onclick=()=>fi.click();
+    ld.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fi.click(); } };
+    if(typeof dropZone==="function") dropZone(ld,async f=>{ try{ await legalTake(await legalExtract(f)); }catch(e){ toast(String(e.message).slice(0,90)); } });
+  }
+  const qb=$("#legqbox");
+  if(qb&&typeof dropZone==="function") dropZone(qb,f=>legAttach(f));
+  const fb2=$("#legfilebtn"), qf=$("#legqf");
+  if(fb2&&qf){ fb2.onclick=()=>qf.click(); qf.onchange=()=>{ if(qf.files[0]) legAttach(qf.files[0]); qf.value=""; }; }
+  legAttDraw();
   const ug=$("#legurlgo");
   if(ug) ug.onclick=async()=>{
     const u=($("#legurl")&&$("#legurl").value||"").trim(); if(!u) return;
@@ -5497,7 +5603,9 @@ function legalBind(){
     try{
       const j=await legalDraft($("#legbuyer").value,$("#legtype").value);
       const L=LEG();
-      L.docs.push({name:(j.title||"Draft Agreement")+".docx（AI起草）",kind:"AI起草",text:true,srcText:j.body||"",rv:null,draft:j});
+      const nm0=(j.title||"Draft Agreement")+".docx（AI起草）"; let nm=nm0,c2=2;
+      while(L.docs.some(d2=>d2.name===nm)) nm=nm0.replace("（AI起草）","（AI起草 "+(c2++)+"）");
+      L.docs.push({name:nm,kind:"AI起草",srcText:j.body||"",rv:null,draft:j,ts:legNow()});
       legSave();
       if(out) out.innerHTML=`<div style="margin-top:10px;padding:11px;border:1px solid var(--good);border-radius:8px;font-size:12px">
         ✅ <b>${esc(j.type||"契約書")}</b>のドラフトを起草しました。<br>
@@ -5532,7 +5640,7 @@ function legalBind(){
 function legDraftDl(i){
   const d=LEG().docs[i]; if(!d) return;
   const blob=legalBuildDocx({title:(d.draft&&d.draft.title)||d.name,paras:String(d.srcText||"").split(/\n/),risks:[],missing:[],mode:"clean"});
-  legDl(blob,d.name.replace(/（AI起草）/,"").replace(/\.docx$/,"")+".docx");
+  legDl(blob,d.name.replace(/（AI起草.*?）/,"").replace(/\.docx$/,"")+".docx");
   toast("ドラフトWordを出力しました。[　]の空欄を埋めてからBuyerに送付してください");
 }
 
