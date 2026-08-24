@@ -5099,8 +5099,15 @@ function wireFill(){ fillRender(); }
    レビューの規則：原文に実在する文言のみ引用・推測で断定しない（誤情報ゼロ方針）。 */
 
 function LEG(){
-  if(typeof TEN!=="undefined"&&TEN){ TEN.legal=TEN.legal||{docs:[],chat:[]}; return TEN.legal; }
-  window.__leg=window.__leg||{docs:[],chat:[]}; return window.__leg;
+  const L=(typeof TEN!=="undefined"&&TEN)?(TEN.legal=TEN.legal||{docs:[],chat:[]})
+        :(window.__leg=window.__leg||{docs:[],chat:[]});
+  /* v11.1移行：旧バグ（AIに本文が渡らず「確認できません・指摘0件」で保存されたレビュー）を
+     無効化し、「AIレビュー」ボタンで再チェックできる状態に戻す */
+  (L.docs||[]).forEach(d=>{
+    if(d&&d.rv&&!(d.rv.risks||[]).length&&!(d.rv.missing||[]).length
+       &&/確認できません|読み取れません|提示されて|内容は「?true/.test(String(d.rv.summary||"")+String(d.rv.fairNote||""))) d.rv=null;
+  });
+  return L;
 }
 function legSave(){ if(typeof saveTen==="function") saveTen(); }
 const LEG_ACCEPT=".pdf,.docx,.pptx,.xlsx,.xlsm,.csv,.txt,.png,.jpg,.jpeg";
@@ -5160,8 +5167,12 @@ JSONのみを返す（前後の文章・コードフェンス禁止）。スキ�
   準拠法/仲裁地が相手国のみ、インコタームズ不明確、知財の帰属、為替リスクの押し付け、不可抗力の欠如。
 ・確認できないことは書かない。原文が読み取れない場合はrisksを空にしてsummaryにその旨を書く。
 ・risksは重要な順に最大8件。missingは最大4件。`;
+  /* 本文の解決：srcText（保存済みdoc）→ text（抽出直後）。boolean等の非文字列は本文として扱わない */
+  const body=(typeof src.srcText==="string"&&src.srcText.trim())?src.srcText
+            :(typeof src.text==="string"&&src.text.trim())?src.text:"";
+  if(!body&&!src.att) throw new Error("契約書の本文を取り込めていません。ファイルをアップロードし直してください");
   const user=`次の契約書（またはドラフト）を法務チェックしてください。\n=== 契約書 ===\n${
-    src.text?String(src.text).slice(0,24000):"（添付ファイルの本文を読み取って審査してください）"}`;
+    body?body.slice(0,24000):"（添付ファイルの本文を読み取って審査してください）"}`;
   const opt={sys,noWeb:1,timeout:180000,task:"legal"};
   if(src.att) opt.att=src.att;
   let j;
@@ -5169,6 +5180,10 @@ JSONのみを返す（前後の文章・コードフェンス禁止）。スキ�
   catch(e1){ j=xParseJson((await llmAsk(user+"\n※必ず完全なJSONのみ。",4500,opt)).txt); }
   j.risks=Array.isArray(j.risks)?j.risks.filter(r=>r&&r.quote&&r.fix):[];
   j.missing=Array.isArray(j.missing)?j.missing.filter(x=>x&&x.item):[];
+  /* 最終防衛線：AIが「本文を確認できない」と答えているのに指摘0件を「問題なし」として
+     保存しない（誤解を招く緑チップの防止）。本文を渡せているのにこの回答なら再試行を促す */
+  if(!j.risks.length&&!j.missing.length&&/確認できません|読み取れません|本文があり|提示されて|内容は「?true/.test(String(j.summary||"")+String(j.fairNote||"")))
+    throw new Error("AIが契約書本文を受け取れませんでした。もう一度「AIレビュー」をお試しください");
   return j;
 }
 
@@ -5322,7 +5337,8 @@ function vLegal(p){
     <div id="legprog"></div>
     ${L.docs.length?`<div class="tw" style="margin-top:11px"><table><thead><tr>
       <th>契約書</th><th>形式</th><th>種別</th><th>チェック結果</th><th></th></tr></thead><tbody>
-      ${L.docs.map((d,i)=>`<tr><td><b>${esc(d.name)}</b></td><td>${esc(d.kind)}</td>
+      ${L.docs.map((d,i)=>`<tr><td><b>${esc(d.name)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${
+        d.srcText?("本文 "+d.srcText.length.toLocaleString()+"字を取り込み済み"):d.att?"AIがファイルを直接読取":"本文なし"}</span></td><td>${esc(d.kind)}</td>
         <td style="font-size:11px">${esc(d.rv?d.rv.type:"—")}</td><td>${legRiskChip(d.rv)}</td>
         <td style="white-space:nowrap">${d.rv?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legopen="${i}">結果を見る</button>`
           :on?`<button class="btn g" style="padding:3px 9px;font-size:10.5px" data-legrev="${i}">AIレビュー</button>`:""}
@@ -5417,7 +5433,7 @@ async function legalRun(i){
 /* 取り込み共通 */
 async function legalTake(src){
   const L=LEG();
-  L.docs.push({name:src.name,kind:src.kind,text:!!src.text,srcText:src.text||"",att:src.att||null,rv:null});
+  L.docs.push({name:src.name,kind:src.kind,srcText:src.text||"",att:src.att||null,rv:null});
   legSave(); render();
   if(typeof ppReady==="function"&&ppReady()) await legalRun(L.docs.length-1);
   else toast("取り込みました。AIエンジン接続後に「AIレビュー」を押すとチェックできます");
