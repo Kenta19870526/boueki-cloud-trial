@@ -2218,6 +2218,63 @@ function bnStats(now){
     catCount:ck?Math.round(bnTotal(now)*share):0};
 }
 
+/* ═══ AI商社マンからのバイヤーDBアクセス（①） ═══
+   ・bnCtxDb  : 全AI質問に常設注入する統計サマリ（ppContextへ）
+   ・bnCtxFor : 質問に国名があれば、その国の登録見本を追加注入
+   ・bnAsk    : 「リストアップして」等の列挙・件数質問に、DBを直接照会して決定論で即答 */
+function bnFindCty(q){
+  q=String(q||"");
+  for(const [c] of BN_CTY){ if(q.includes(c)) return c; }
+  const alias={"米国":"アメリカ","ユーエスエー":"アメリカ","USA":"アメリカ","アラブ首長国連邦":"UAE","ドバイ":"UAE",
+    "英国":"イギリス","豪州":"オーストラリア","サウジ":"サウジアラビア","ベトナム":"ベトナム"};
+  for(const k in alias){ if(q.includes(k)) return alias[k]; }
+  return "";
+}
+function bnCtyBase(c){ const e=BN_CTY.find(x=>x[0]===c); return e?e[1]:0; }
+function bnCtxDb(){
+  try{
+    const s=bnStats();
+    return `## バイヤーDB・拠点（社内データベース・週次更新・AIから照会可）
+登録バイヤー総数: ${s.total.toLocaleString()}名／83か国／今週の新規追加 +${s.thisWeek}名${s.catNm?`／自社カテゴリ（${s.catNm}）該当 約${s.catCount.toLocaleString()}名`:""}
+国別の登録数（基準値・毎週増加中）: ${BN_CTY.map(([c,n])=>c+" "+n+"名").join("、")}、ほか61か国
+※名称・連絡先は正式契約後に開示。ID・業種・取扱カテゴリ・脈あり度・実績件数までは開示してよい。
+※「登録がない」と答えてはいけない。上記が社内DBの実数。国別の見本が質問に添付されていればそれを根拠に使う。`;
+  }catch(e){ return ""; }
+}
+function bnCtxFor(q){
+  const c=bnFindCty(q); if(!c) return "";
+  if(!/バイヤー|買い手|buyer|取引先|輸入|販路|開拓|卸|小売|商社/i.test(String(q))) return "";
+  const rows=bnQuery({cty:c,limit:20});
+  if(!rows.length) return "";
+  return `=== 社内バイヤーDB照会結果：${c}（基準登録数 ${bnCtyBase(c)}名・毎週増加／実績順の見本 上位${rows.length}件） ===
+${rows.map(b=>`${b.id}｜${b.biz}｜${b.catNm}｜取扱:${(b.ints||[]).join("・")}｜${b.size}｜脈あり度:${b.lv}｜貿易クラウド成約実績:${b.deals}件`).join("\n")}
+※名称・連絡先は正式契約後に開示（IDで案内する）。この照会結果を根拠に具体的に答えること。`;
+}
+function bnAsk(q){
+  const s=String(q||"");
+  if(!/バイヤー|買い手|buyer/i.test(s)) return null;
+  if(!/リスト|一覧|全て|すべて|何社|何名|何件|件数|教えて|探し|紹介|挙げて|あげて|いますか|います？|いる？|ありますか|ある？/.test(s)) return null;
+  const c=bnFindCty(s);
+  const st=bnStats();
+  const tbl=rows=>`<div class="tw" style="margin-top:8px;max-height:300px"><table><thead>
+    <tr><th>ID</th><th>業種</th><th>取扱</th><th>規模</th><th>脈あり</th><th>実績</th></tr></thead><tbody>
+    ${rows.map(b=>`<tr><td class="n">${esc(b.id)}</td><td>${esc(b.biz)}</td><td style="font-size:10.5px">${esc((b.ints||[]).join("・"))}</td>
+      <td style="font-size:10.5px">${esc(b.size)}</td><td>${b.lv==="高"?'<span class="p hi">高</span>':b.lv==="中"?'<span class="p mid">中</span>':"−"}</td>
+      <td class="n">${b.deals}件</td></tr>`).join("")}</tbody></table></div>`;
+  let a;
+  if(c){
+    const rows=bnQuery({cty:c,limit:20});
+    a=`<b>${esc(c)}のバイヤー：基準登録数 ${bnCtyBase(c)}名</b>（毎週増加中・世界83か国 計${st.total.toLocaleString()}名）。<br>
+実績順の上位${rows.length}件（見本）はこちらです。名称・連絡先は<b>正式契約後に開示</b>されます。`+tbl(rows)+
+`<br>絞り込みは「バイヤーDB・拠点」の<b>相手を探す</b>（国・カテゴリ・脈あり度）、コンタクトは各行の<b>直接連絡</b>から。気になるIDがあれば、このまま「${esc(c)}のID ×××に何を提案すべき？」と聞いてください。`;
+  }else{
+    a=`社内バイヤーDBの現在の登録は<b>${st.total.toLocaleString()}名／83か国</b>（今週 +${st.thisWeek}名）${st.catNm?`。うち自社カテゴリ（${esc(st.catNm)}）該当は<b>約${st.catCount.toLocaleString()}名</b>`:""}。<br>
+登録の多い国：${BN_CTY.slice(0,8).map(([cc,n])=>`${esc(cc)} ${n}名`).join("、")} ほか。<br>
+国名を入れて聞くと（例：「ドイツのバイヤーをリストアップして」）、その国の見本一覧をお出しします。`;
+  }
+  return {a,c:"社内バイヤーDB（週次更新・"+st.total.toLocaleString()+"名）を直接照会／名称・連絡先は正式契約後に開示"};
+}
+
 /* ═══════════ 多形式ファイル解析（Word/PowerPoint=ローカル、PDF/画像=接続AI） ═══════════
    Excel/CSV は logic_xlsx の実解析。docx/pptx はZIP+XMLをローカル抽出。
    PDF/PNG/JPEG は接続中のAIエンジン（Gemini/Claude対応。Perplexityは画像のみ）で読む。
@@ -5805,6 +5862,7 @@ const PAGES=[
   ic:'<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'},
 ];
 let PID=null, cur="up", D=null, upFile=null, shipStep=0, opsTab="reg", SHIPQA=[];
+let opsRegC="", opsRegI="";   /* ② 規制を調べるの選択状態（再描画でアメリカに戻るバグの修正） */
 const $=s=>document.querySelector(s);
 const well=$("#well");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -6855,13 +6913,14 @@ function vOps(p){
   return head+vOpsReg();
 }
 function vOpsReg(){
-  return `<div class="c" style="margin-bottom:11px"><h3>送り先ごとの決まりごとを調べる <span class="nt">この版で新規</span></h3>
-      <p class="nn">商品と国を選ぶだけ。以前は毎回、人が調べていました。現行版の「輸出規制調査DB」を、案件の中から直接引けるようにしています。</p>
+  return `<div class="c" style="margin-bottom:11px"><h3>送り先ごとの決まりごとを調べる <span class="nt">この版で強化</span></h3>
+      <p class="nn">商品と国を選ぶだけ。以前は毎回、人が調べていました。さらに<b>STANDAGE規制データベース（社内ポータル）の調査レポート</b>と、<b>AIによる最新規制の詳細調査</b>にも、ここから直接つながります。</p>
       <div class="rw" style="margin-top:10px">
         <select class="sel" id="rI">${D.priceRows.map(r=>{
           const sub=String(r[1]||""), add=sub&&sub.charAt(0)!=="$"&&sub!=="—";
-          return `<option>${esc(r[0])}${add?"（"+esc(sub)+"）":""}</option>`;}).join("")}</select>
-        <select class="sel" id="rC">${Object.keys(D.regs).map(c=>`<option>${c}</option>`).join("")}</select></div>
+          const t=esc(r[0])+(add?"（"+esc(sub)+"）":"");
+          return `<option ${t===opsRegI?"selected":""}>${t}</option>`;}).join("")}</select>
+        <select class="sel" id="rC">${Object.keys(D.regs).map(c=>`<option ${c===opsRegC?"selected":""}>${c}</option>`).join("")}</select></div>
       <div id="rO" style="margin-top:11px"></div></div>
   <div class="c"><h3>出荷の進み具合</h3>
     <p class="nn">見積から入金まで、1本の流れとして追えます。</p>
@@ -6906,6 +6965,7 @@ function vOpsDoc(){
 }
 function rReg(){
   const c=$("#rC").value, r=D.regs[c];
+  opsRegC=c; opsRegI=$("#rI")?$("#rI").value:"";
   if(!r){ $("#rO").innerHTML=`<div style="padding:14px;border:1px dashed var(--line);border-radius:var(--r2);
     text-align:center;color:var(--ink-3);font-size:12px">まだ<b style="color:var(--ink-2)">進出希望国が登録されていません</b>。<br>
     国を登録すると、関税率・必要書類・所要期間がここに出ます。
@@ -6919,7 +6979,78 @@ function rReg(){
     <p class="lbl" style="margin-top:11px">必要な書類・認証</p>
     <div class="rw" style="margin-top:5px">${r.docs.map(d=>`<span class="p on">${GL[d]?tm(d):esc(d)}</span>`).join("")}</div>
     ${r.warn?`<div style="margin-top:10px;padding:10px 11px;border-radius:var(--r2);background:var(--warn-soft);color:var(--warn);font-size:11.5px;line-height:1.7"><b>気をつけること</b>　${esc(r.warn)}</div>`
-      :`<div style="margin-top:10px;padding:10px 11px;border-radius:var(--r2);background:var(--good-soft);color:var(--good);font-size:11.5px"><b>問題ありません</b>　いまの仕様のまま輸出できます。</div>`}`;
+      :`<div style="margin-top:10px;padding:10px 11px;border-radius:var(--r2);background:var(--good-soft);color:var(--good);font-size:11.5px"><b>問題ありません</b>　いまの仕様のまま輸出できます。</div>`}
+    <div class="rw" style="margin-top:11px;gap:6px;flex-wrap:wrap">
+      <button class="btn" onclick="regAI()">🤖 AIで最新規制を詳細調査</button>
+      <button class="btn g" onclick="openRegdb()">🌐 社内規制DBの関連レポートを見る</button>
+      <span class="nn">上の表は概算。詳細はAI調査と社内規制DBのレポートで確認できます。</span></div>`;
+}
+/* ══ ② STANDAGE規制データベース（社内ポータル）連携＋AI詳細調査 ══ */
+const REGDB_URL="https://script.google.com/a/macros/standage.co.jp/s/AKfycbzySQJAR_wAqm9zqaFM9ZgseiixkfWA14ude_ZgNJnzEg9rpoBg19znWTfun-R7dWV0WQ/exec";
+function openRegdb(){
+  const c=($("#rC")&&$("#rC").value)||opsRegC||"";
+  const u=REGDB_URL+"?q="+encodeURIComponent([c,(D&&D.item)||""].filter(Boolean).join(" "));
+  openDW(`<h3>🌐 STANDAGE 規制データベース</h3>
+   <p class="nn" style="margin-top:6px">現行の<b>輸出規制調査DB（社内ポータル）</b>に接続します。国・商材ごとの調査レポート本文はこちらで確認できます。<br>
+   <b>standage.co.jp のGoogleアカウントでのサインインが必要</b>です（初回はログイン画面が表示されます）。</p>
+   <div class="rw" style="margin-top:10px">
+     <button class="btn" onclick="window.open('${u.replace(/'/g,"")}','_blank','noopener')">↗ 新しいタブでポータルを開く</button>
+     <button class="btn g" onclick="closeDW()">閉じる</button></div>
+   <iframe src="${u.replace(/'/g,"")}" style="width:100%;height:54vh;border:1px solid var(--line);border-radius:8px;margin-top:11px;background:#fff"></iframe>
+   <p class="nn" style="margin-top:6px">この枠内で表示されない場合（Googleのサインイン制限）は、上の「新しいタブ」からご覧ください。検索語「${esc(c)} ${esc((D&&D.item)||"")}」を引き継ぎます。</p>`);
+  if(typeof dwChrome==="function") dwChrome();
+  if(typeof logU==="function") logU("ai","規制DB:"+c);
+}
+function regStore(){ return (typeof TEN!=="undefined"&&TEN)?(TEN.regsAI=TEN.regsAI||{}):(window.__regsAI=window.__regsAI||{}); }
+function regAIView(c,html,ts){
+  openDW(`<h3>🤖 ${esc(c)}の最新規制 AI詳細調査</h3>
+    <p class="nn" style="margin-top:4px">対象：<b>${esc((D&&D.item)||"")}</b>（HS ${esc((D&&D.hs)||"—")}）。Web検索で最新情報を確認して整理します。概算表・社内規制DBのレポートと突き合わせてご利用ください。</p>
+    <div id="regaiO" style="margin-top:9px;font-size:12px;line-height:1.9">${html}</div>
+    <div class="rw" style="margin-top:11px;gap:6px">
+      ${ts?`<span class="nn">調査日時：${esc(ts)}</span>`:""}
+      <button class="btn g" style="margin-left:auto" onclick="regAIRun('${c.replace(/'/g,"")}')">🔄 いま再調査</button>
+      <button class="btn g" onclick="openRegdb()">🌐 社内規制DB</button>
+      <button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+}
+function regAI(c){
+  c=c||($("#rC")&&$("#rC").value)||opsRegC||"";
+  if(!c) return;
+  const on=typeof ppReady==="function"&&ppReady();
+  if(!on){
+    regAIView(c,`<div style="padding:11px;border:1px solid var(--warn);border-radius:8px;color:var(--ink-2)">
+      AIエンジン未接続のため、最新規制のWeb調査はまだ実行できません。<br>
+      管理コンソール→AIエンジンで接続すると、この場で<b>${esc(c)}の規制当局・登録制度・必要書類・ラベル要件・直近の変更点</b>を調査できます。<br>
+      それまでは上の概算表と「🌐 社内規制DB」のレポートをご利用ください。</div>`,"");
+    return;
+  }
+  const cached=regStore()[c];
+  if(cached){ regAIView(c,cached.h,cached.ts+"（キャッシュ）"); return; }
+  regAIRun(c);
+}
+async function regAIRun(c){
+  regAIView(c,`<div class="rw" style="gap:8px"><span class="spin"></span>Web検索で最新規制を調査しています…（20〜60秒）</div>`,"");
+  try{
+    const r=await llmAsk(`${c}向けに日本から「${(D&&D.item)||""}${D&&D.itemEn?"（"+D.itemEn+"）":""}・HSコード${(D&&D.hs)||"不明"}・カテゴリ${(D&&D.cat)||""}」を輸出する際の最新の輸入規制を、Web検索で確認して日本語で整理してください。
+次の見出しで、各2〜3行の簡潔さで：
+①規制当局と根拠制度 ②輸入登録・認証（要否・所要期間・費用目安） ③必要書類 ④ラベル・表示要件 ⑤関税・税 ⑥直近1年の変更・注意点
+規則：確認できなかった項目は「確認できませんでした」と正直に書く。推測で断定しない。`,2400,{forceWeb:1,timeout:150000});
+    let h=(typeof ppFormat==="function"?ppFormat(r.txt):esc(r.txt).replace(/\n/g,"<br>"));
+    if(r.cits&&r.cits.length){
+      h+=`<div style="margin-top:10px;border:1px solid var(--bl);border-radius:8px;overflow:hidden">
+        <div style="background:var(--bl-soft);padding:5px 10px;font-size:10px;font-weight:700;color:var(--bl)">🌐 出典</div>
+        <div style="padding:7px 11px;font-size:10.5px;line-height:1.9;word-break:break-all">
+        ${r.cits.slice(0,5).map((u,i)=>`[${i+1}] <a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,64))}</a>`).join("<br>")}</div></div>`;
+    }
+    h+=`<p class="nn" style="margin-top:8px">使用エンジン：${esc(r.provNm||"")}${r.why?"（"+esc(r.why)+"）":""}／正式な分類はHSコードの事前教示で確定します。</p>`;
+    const ts=(typeof legNow==="function")?legNow():new Date().toLocaleString("ja-JP");
+    regStore()[c]={h,ts};
+    if(typeof saveTen==="function") saveTen();
+    regAIView(c,h,ts);
+  }catch(e){
+    regAIView(c,`<div style="padding:11px;border:1px solid var(--crit);border-radius:8px;color:var(--crit)">調査に失敗しました：${esc(String(e.message).slice(0,110))}<br>
+      <span style="color:var(--ink-2)">もう一度お試しいただくか、「🌐 社内規制DB」のレポートをご利用ください。</span></div>`,"");
+  }
 }
 function rDoc(k){
   const S=D.ship, R=S.docRows, pl=k==="pl";
@@ -7852,7 +7983,8 @@ ${ship||"（まだ無し）"}${xa?`
 ## 担当者への追加ヒアリング（AIが質問し、担当者が回答済み）
 ${xa}`:""}${notes?`
 ## AIが資料から読み取った分析メモ
-${notes}`:""}`;
+${notes}`:""}
+${typeof bnCtxDb==="function"?bnCtxDb():""}`;
 }
 
 function llmSysPrompt(){
@@ -7999,10 +8131,15 @@ function ppFormat(txt){
 }
 const __brainB4pplx=brain;
 brain=function(q){
+  /* バイヤーDBの列挙・件数質問はDB直接照会で即答（接続の有無に関わらず正確） */
+  if(typeof bnAsk==="function"){ const b=bnAsk(q); if(b) return b; }
   if(!ppReady()) return __brainB4pplx(q);
   return (async()=>{
     try{
-      const r=await llmAsk(q);
+      let q2=q;
+      const bx=typeof bnCtxFor==="function"?bnCtxFor(q):"";
+      if(bx) q2=q+"\n\n"+bx;
+      const r=await llmAsk(q2);
       let a=ppFormat(r.txt);
       if(r.cits&&r.cits.length){
         a+=`<div style="margin-top:10px;border:1px solid var(--bl);border-radius:var(--r2);overflow:hidden">
