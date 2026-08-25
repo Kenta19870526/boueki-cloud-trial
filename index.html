@@ -5107,6 +5107,15 @@ function LEG(){
     if(d&&d.rv&&!(d.rv.risks||[]).length&&!(d.rv.missing||[]).length
        &&/確認できません|読み取れません|提示されて|内容は「?true/.test(String(d.rv.summary||"")+String(d.rv.fairNote||""))) d.rv=null;
   });
+  /* v11.2b移行：過去のドロップ二重発火等で生じた同名重複を1本化（レビュー済み優先→取込が新しい方） */
+  const byName={};
+  (L.docs||[]).forEach(d=>{ if(!d||!d.name) return;
+    const a=byName[d.name];
+    if(!a) byName[d.name]=d;
+    else byName[d.name]=(d.rv&&!a.rv)?d:(a.rv&&!d.rv)?a:((String(d.ts||"")>String(a.ts||""))?d:a);
+  });
+  const uniq=Object.values(byName);
+  if(uniq.length!==(L.docs||[]).length) L.docs=uniq;
   return L;
 }
 function legSave(){ if(typeof saveTen==="function") saveTen(); }
@@ -5486,6 +5495,12 @@ async function legalRun(i){
 /* 取り込み共通 */
 async function legalTake(src){
   const L=LEG();
+  /* 再入ガード：ドロップ等のイベント二重発火で同じファイルが数秒内に2回届いた場合、
+     2回目は静かに無視（1回目が正常処理済み。誤った「取込済み」エラーを出さない） */
+  legalTake._seen=legalTake._seen||{};
+  const _now=Date.now();
+  if(legalTake._seen[src.name]&&_now-legalTake._seen[src.name]<4000) return;
+  legalTake._seen[src.name]=_now;
   /* 同じファイル名は区別がつかなくなるため登録不可（正直に理由と対処を提示） */
   const dup=L.docs.find(d=>d.name===src.name);
   if(dup){
@@ -5577,7 +5592,8 @@ function legalBind(){
   if(ld&&fi){
     ld.onclick=()=>fi.click();
     ld.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fi.click(); } };
-    if(typeof dropZone==="function") dropZone(ld,async f=>{ try{ await legalTake(await legalExtract(f)); }catch(e){ toast(String(e.message).slice(0,90)); } });
+    /* 注意：ドロップの実処理はカード全体（#legdz）の1本のみ。ここに個別バインドすると
+       ゾーンへのドロップがバブリングで二重処理される（v11.2の実バグ） */
   }
   const qb=$("#legqbox");
   if(qb&&typeof dropZone==="function") dropZone(qb,f=>legAttach(f));
