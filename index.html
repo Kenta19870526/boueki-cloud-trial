@@ -6496,15 +6496,17 @@ function shipSteps(){
   return [
  {t:"受注の内容を確認",ai:`${S.country}の ${S.buyer} さんの受注ですね。商談の記録から内容を読み込みました。<br>
    <b>入力していただくものはありません。</b>商談フィードバックがそのまま使えます。`,
-  art:{h:"受注内容（自動取得）",b:`<div class="doc" style="border:0;padding:0;background:none">
+  art:{h:"受注内容（自動取得）",b:`${shipStep===0
+    ?`<div class="rw" style="justify-content:flex-end;margin-bottom:5px"><button class="btn g" style="padding:3px 10px;font-size:10.5px" onclick="openStepEdit(0)">✎ 受注内容を編集・追加</button></div>`
+    :`<div style="font-size:9.5px;color:var(--ink-3);margin-bottom:5px">🔒 ステップ2以降に進んだため確定（変更する場合は「この案件を最初から」）</div>`}<div class="doc" style="border:0;padding:0;background:none">
    <div class="dl"><span>案件番号</span><span class="n">${S.no}</span>
    <span>お相手</span><span>${esc(S.buyer)}（${S.country}）</span>
    <span>商品</span><span>${esc(D.item)}</span>
    <span>数量</span><span class="n">${esc(S.qty)}</span>
    <span>単価</span><span class="n">${S.unitPrice} ／ 合計 ${S.total}</span>
    <span>取引条件</span><span>${T("{"+S.term.split(" ")[0]+"} "+S.term.split(" ").slice(1).join(" "))}</span>
-   <span>支払</span><span>${tm("T/T")} 30日</span>
-   <span>希望着荷</span><span>${S.want}</span></div></div>`}},
+   <span>支払</span><span>${S.pay?esc(S.pay):tm("T/T")+" 30日"}</span>
+   <span>希望着荷</span><span>${S.want}</span>${(S.extra||[]).map(e=>`<span>${esc(e[0])}</span><span>${esc(e[1])}</span>`).join("")}</div></div>`}},
  {t:"運送会社に見積を頼む",ai:`貨物の大きさと行き先が決まっているので、<b>${tm("フォワーダー")}3社へ同時に見積を依頼</b>します。
    メールを書く必要はありません。書式はこちらで整えて送ります。`,
   art:{h:"送信した依頼内容",b:`<div style="font-size:11.5px;line-height:1.8">
@@ -6556,7 +6558,7 @@ function shipSteps(){
 function shipEnsure(){
   if(!D||!D.ship) return;
   if(!SHIPS||SHIPS._pid!==PID){
-    SHIPS=[{ship:D.ship,step:shipStep||0,qa:SHIPQA||[],seed:1}];
+    SHIPS=[{ship:D.ship,step:shipStep||0,qa:SHIPQA||[],seed:1,mods:{}}];
     SHIPS._pid=PID; SHIPA=0;
   }
   if(!SHIPS[SHIPA]) SHIPA=0;
@@ -6577,7 +6579,7 @@ function shipCaseNew(o){
   ship.buyer=o.buyer||("（想定）"+cty+"の輸入商社");
   const d=new Date(TODAYS+"T00:00:00"); d.setDate(d.getDate()+14+((SHIPS?SHIPS.length:1)*2));
   ship.want=d.toISOString().slice(0,10);
-  return {ship,step:0,qa:[],custom:1,src:o.src||""};
+  return {ship,step:0,qa:[],custom:1,src:o.src||"",mods:{}};
 }
 function shipActivate(i){
   if(!SHIPS||!SHIPS[i]) return;
@@ -6681,6 +6683,100 @@ function shipNewList(q){
   if(!h) h=`<p class="nn" style="padding:10px 0">該当がありません。国名（例：韓国・ドイツ）や相手名で検索してください。<br>チャット欄に「<b>日本から韓国向けの輸入商社の受注、出荷まで進めておいて</b>」のように書いても案件を立ち上げられます。</p>`;
   return h;
 }
+function shipStepDigest(i,S){
+  const ex=(S.extra||[]).map(e=>e[0]+"："+e[1]).join("／");
+  return [
+    `${esc(shipShort(S.buyer))}（${esc(S.country)}）／${esc(S.qty)}／単価 ${esc(S.unitPrice)}・合計 ${esc(S.total)}／${esc(S.term)}／${esc(S.pay||"T/T 30日")}／着荷 ${esc(S.want)}${ex?"／"+esc(ex):""}`,
+    `${esc(S.pol||"神戸港")} → ${esc(S.pod||S.country)}／フォワーダー3社＋<b>貿易クラウド内の物流会社にAI見積</b>（下のボタンから）`,
+    `届いた見積を金額・日数・実績で比較して1社を選定`,
+    `PI・CI・PLを自動作成（「貿易実務・書類」で確認できます）`,
+    `通関業者・銀行・保険会社へデータを連携`,
+    `出荷予定を登録し、バイヤーと共有`,
+    `完了`][i]||"";
+}
+function shipModsCtx(){
+  if(!D||!D.ship) return "";
+  const S=D.ship, mods=(SHIPS&&SHIPS[SHIPA]&&SHIPS[SHIPA].mods)||{};
+  const notes=Object.entries(mods).filter(([k,v])=>v&&v.note).map(([k,v])=>`ステップ${+k+1}: ${v.note}`);
+  return `【この案件の確定内容（回答の前提にすること）】案件${S.no}／${S.buyer}（${S.country}）／数量:${S.qty}／単価:${S.unitPrice}・合計:${S.total}／条件:${S.term}／支払:${S.pay||"T/T 30日"}／希望着荷:${S.want}${(S.extra||[]).length?"／"+S.extra.map(e=>e[0]+":"+e[1]).join("／"):""}${notes.length?"\n【担当者による変更・指示メモ（最優先で尊重）】\n"+notes.join("\n"):""}`;
+}
+/* チャットからの受注修正：「単価を9,000円に変更して」等 → 編集画面へ（ロック時は正直に説明） */
+function shipEditIntent(q){
+  const s2=String(q||"");
+  if(!/(単価|数量|支払|取引条件|着荷|お相手|相手先|受注内容|合計|荷印)/.test(s2)) return false;
+  if(!/(変更|修正|訂正|直して|にして|編集|書き換え|追加して|削除して)/.test(s2)) return false;
+  if(shipStep>0){
+    SHIPQA.push({q:s2,a:`申し訳ありません。この案件はすでに<b>ステップ${shipStep+1}まで進んでいる</b>ため、受注内容の変更はできません（物流会社への依頼内容との整合を保つためです）。<br>変更が必要な場合は「この案件を最初から」でやり直すか、「＋新しい案件」で別案件として立ち上げてください。`,
+      ci:"受注内容はステップ2以降で確定（変更不可ルール）"});
+    render(); return true;
+  }
+  openStepEdit(0);
+  toast("受注内容の編集画面を開きました");
+  return true;
+}
+function openStepEdit(i){
+  shipEnsure();
+  const ST=shipSteps(), c=SHIPS[SHIPA], S=D.ship;
+  if(i<shipStep){ toast("完了済みのステップは変更できません（物流会社と共有済みのため）"); return; }
+  if(i>shipStep){ toast("まだこのステップに達していません（いまはステップ"+(shipStep+1)+"）"); return; }
+  c.mods=c.mods||{};
+  const note=(c.mods[i]&&c.mods[i].note)||"";
+  if(i===0){
+    const ex=(S.extra||[]);
+    openDW(`<h3>✎ 受注内容を編集（ステップ1）</h3>
+      <p class="nn" style="margin-top:4px">ここで直した内容は、<b>以後の見積依頼・書類・AI商社マンの回答すべてに引き継がれます</b>。国を変える場合は「＋新しい案件」で立ち上げてください。</p>
+      ${[["お相手","seB",S.buyer],["数量","seQ",S.qty],["単価","seU",S.unitPrice],["合計","seT",S.total],
+         ["取引条件","seI",S.term],["支払","seP",S.pay||"T/T 30日"]].map(([l,id,v])=>
+        `<p class="lbl" style="margin-top:8px">${l}</p><input class="sel" id="${id}" value="${esc(v)}" style="width:100%;box-sizing:border-box">`).join("")}
+      <p class="lbl" style="margin-top:8px">希望着荷</p>
+      <input type="date" class="sel" id="seW" value="${esc(S.want)}" style="width:100%;box-sizing:border-box">
+      <p class="lbl" style="margin-top:10px">追加項目（ラベル＋内容。空欄にすると削除されます）</p>
+      ${[0,1,2].map(k=>`<div class="rw" style="gap:5px;margin-top:4px">
+        <input class="sel" data-sxl="${k}" value="${esc((ex[k]||[])[0]||"")}" placeholder="例：荷印" style="width:34%">
+        <input class="sel" data-sxv="${k}" value="${esc((ex[k]||[])[1]||"")}" placeholder="例：ETINCELLE / SEOUL" style="flex:1;min-width:0"></div>`).join("")}
+      <p class="lbl" style="margin-top:10px">AI商社マンへの指示・メモ（任意）</p>
+      <textarea class="sel" id="seN" rows="2" placeholder="例：サンプル出荷のためインボイスに No Commercial Value を明記"
+        style="width:100%;box-sizing:border-box;min-height:56px">${esc(note)}</textarea>
+      <div class="rw" style="margin-top:12px"><button class="btn" id="seGo">保存して引き継ぐ</button>
+        <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+    $("#seGo").onclick=()=>{
+      const old={buyer:S.buyer,qty:S.qty,unitPrice:S.unitPrice,total:S.total,term:S.term,pay:S.pay||"T/T 30日",want:S.want};
+      S.buyer=$("#seB").value.trim()||S.buyer; S.qty=$("#seQ").value.trim()||S.qty;
+      S.unitPrice=$("#seU").value.trim()||S.unitPrice; S.total=$("#seT").value.trim()||S.total;
+      S.term=$("#seI").value.trim()||S.term; S.pay=$("#seP").value.trim()||"T/T 30日";
+      S.want=$("#seW").value||S.want;
+      S.extra=[0,1,2].map(k=>[document.querySelector(`[data-sxl="${k}"]`).value.trim(),
+                              document.querySelector(`[data-sxv="${k}"]`).value.trim()]).filter(e=>e[0]&&e[1]);
+      const nn2=($("#seN").value||"").trim();
+      c.mods[0]={note:nn2};
+      const cur3={buyer:S.buyer,qty:S.qty,unitPrice:S.unitPrice,total:S.total,term:S.term,pay:S.pay,want:S.want};
+      const LB={buyer:"お相手",qty:"数量",unitPrice:"単価",total:"合計",term:"取引条件",pay:"支払",want:"希望着荷"};
+      const diffs=Object.keys(LB).filter(k=>String(old[k])!==String(cur3[k])).map(k=>`${LB[k]}：${old[k]} → ${cur3[k]}`);
+      SHIPQA.push({q:`（受注内容を変更）${diffs.join("／")||"追加項目・メモを更新"}${nn2?"／メモ："+nn2:""}`,
+        a:`承知しました。受注内容の変更を反映しました。<b>以後の見積依頼・船積書類・回答に引き継ぎます。</b>`,
+        ci:"変更をAI商社マンに引き継ぎ済み／右の「この手続きでやっていること」にも反映"});
+      closeDW(); render(); toast("受注内容を更新し、AI商社マンに引き継ぎました");
+      if(typeof logU==="function") logU("ai","受注内容編集:"+S.no);
+    };
+  } else {
+    openDW(`<h3>✎ ステップ${i+1}「${esc(ST[i].t)}」の内容を編集</h3>
+      <p class="nn" style="margin-top:4px">現在の内容：<br><span style="color:var(--ink-2)">${shipStepDigest(i,S)}</span></p>
+      <p class="lbl" style="margin-top:10px">変更・指示メモ（AI商社マンと以後の手続きに引き継がれます）</p>
+      <textarea class="sel" id="seN" rows="3" placeholder="例：${i===1?"航空便も見積に含めて。ETDは9/5以降で":i===2?"金額よりも納期を優先して選んで":"このステップへの特記事項があれば記入"}"
+        style="width:100%;box-sizing:border-box;min-height:70px">${esc(note)}</textarea>
+      <div class="rw" style="margin-top:12px"><button class="btn" id="seGo">保存して引き継ぐ</button>
+        <button class="btn g" onclick="closeDW()">キャンセル</button></div>
+      <p class="nn" style="margin-top:8px">※ 次のステップへ進むと、このステップは確定し変更できなくなります（物流会社との整合のため）。</p>`);
+    $("#seGo").onclick=()=>{
+      const nn2=($("#seN").value||"").trim();
+      c.mods[i]={note:nn2};
+      if(nn2) SHIPQA.push({q:`（ステップ${i+1}「${ST[i].t}」に指示）${nn2}`,
+        a:`承知しました。この指示をステップ${i+1}以降の手続きに引き継ぎます。`,ci:"指示をAI商社マンに引き継ぎ済み"});
+      closeDW(); render(); toast(nn2?"指示を保存し、AI商社マンに引き継ぎました":"メモを更新しました");
+    };
+  }
+  if(typeof dwChrome==="function") dwChrome();
+}
 function vShip(p){
   if(!D.ship) return ph(p,"<b>この画面でできること：</b>受注が決まったあとの手続きを、AIとの会話だけで終わらせます。")+
     `<div class="c"><h3>まだ出荷のシナリオを組めません</h3>
@@ -6727,11 +6823,21 @@ function vShip(p){
     </div>
     <div class="stk">
       <div class="c"><h3>この手続きでやっていること</h3>
-        <p class="nn">貿易がはじめてでも、順番だけ分かれば大丈夫です。</p>
+        <p class="nn">各ステップの大事な内容はここに集約されます。<b>編集できるのは現在のステップだけ</b>。進んだステップは、物流会社との整合を保つため確定されます。</p>
         <div class="tl" style="margin-top:10px">
-          ${ST.map((s,i)=>`<div class="ti ${i<shipStep?"g":i===shipStep?"o":""}"
-            style="${i>shipStep?"opacity:.45":""}"><time>ステップ ${i+1}</time><b>${s.t}</b></div>`).join("")}
-        </div></div>
+          ${ST.map((s,i)=>{
+            const md=(SHIPS&&SHIPS[SHIPA]&&SHIPS[SHIPA].mods&&SHIPS[SHIPA].mods[i])||null;
+            return `<div class="ti ${i<shipStep?"g":i===shipStep?"o":""}" style="${i>shipStep?"opacity:.45":""}">
+            <time>ステップ ${i+1}</time><b>${s.t}</b>
+            ${i<=shipStep?`<div style="font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.65">${shipStepDigest(i,D.ship)}</div>`:""}
+            ${md&&md.note?`<div style="font-size:10px;color:var(--or-deep);margin-top:3px">✎ 指示：${esc(md.note).slice(0,70)}</div>`:""}
+            ${i===shipStep?`<button class="btn g" style="margin-top:5px;padding:3px 10px;font-size:10.5px" onclick="openStepEdit(${i})">✎ このステップを編集</button>`
+              :i<shipStep?`<div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">🔒 確定済み・変更不可</div>`:""}
+          </div>`;}).join("")}
+        </div>
+        ${shipStep===1&&typeof fwdInlineHtml==="function"
+          ?`<div style="margin-top:10px">${fwdInlineHtml().replace(/id="fwdgo"/,'id="fwdgo2"').replace(/data-fwdq="/g,'data-fwdq2="')}</div>`:""}
+      </div>
       <div class="c"><h3>データはどこから来ているか</h3>
         <p class="nn">手入力がゼロになるのは、すでに情報がたまっているからです。</p>
         <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
@@ -6760,6 +6866,7 @@ function shipRender(){
   sqEl.addEventListener("input",sqGrow);
   const sgo=()=>{const v=(sqEl.value||"").trim(); if(!v) return;
     sqEl.value=""; sqGrow();
+    if(typeof shipEditIntent==="function"&&shipEditIntent(v)) return;   /* 「単価を…に変更して」→編集（ロック時は説明） */
     if(typeof shipIntent==="function"&&shipIntent(v)) return;   /* 「◯◯の受注、出荷まで進めて」→案件を立ち上げ */
     askShip(v); };
   $("#sqgo").onclick=sgo;
@@ -6768,6 +6875,8 @@ function shipRender(){
   document.querySelectorAll("[data-sq]").forEach(b=>b.onclick=()=>askShip(b.dataset.sq));
   document.querySelectorAll("[data-shiptab]").forEach(b=>b.onclick=()=>shipActivate(+b.dataset.shiptab));
   document.querySelectorAll("[data-shipx]").forEach(b=>b.onclick=e=>{e.stopPropagation();shipCloseCase(+b.dataset.shipx);});
+  const fg2=$("#fwdgo2"); if(fg2&&typeof fwdRequest==="function") fg2.onclick=()=>fwdRequest();
+  document.querySelectorAll("[data-fwdq2]").forEach(x=>{ if(typeof openFwdQuote==="function") x.onclick=()=>openFwdQuote(x.dataset.fwdq2); });
   const nb=$("#sbtn");
   if(shipStep<ST.length-1){
     nb.innerHTML=`<button class="btn" id="snext">${ST[shipStep+1].t} へ進む →</button>
@@ -7093,7 +7202,8 @@ async function askFree(q){
   const searching=(typeof WEBON!=="undefined"&&WEBON);
   const bb=pushTo(c,"a",(searching?'<span style="color:var(--ink-3);font-size:11.5px">🌐 Webを検索しています… </span>':"")+'<span class="car"></span>');
   c.scrollTop=1e6;
-  let r; try{ r=await Promise.resolve(brain(q.trim())); }
+  const _mx=typeof shipModsCtx==="function"?shipModsCtx():"";
+  let r; try{ r=await Promise.resolve(brain(_mx?q.trim()+"\n\n"+_mx:q.trim())); }
   catch(e){ r={a:"うまく処理できませんでした。もう一度お試しください。",c:"内部エラー"}; }
   typeOut(bb,T(r.a),T(r.c),c);
 }
