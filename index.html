@@ -8106,7 +8106,7 @@ async function llmAsk(q,maxTok,opts){
     if(att) parts.push({inline_data:{mime_type:att.mime,data:att.b64}});
     const body={system_instruction:{parts:[{text:sys}]},
       contents:[{role:"user",parts}],
-      generationConfig:{maxOutputTokens:maxTok||900,temperature:0.2}};
+      generationConfig:{maxOutputTokens:(maxTok||900)+(/-3\.5|pro|think/i.test(model)?8000:0),temperature:0.2}};
     if(webOK&&!att) body.tools=[{google_search:{}}];
     req=fetch(ep+"/models/"+encodeURIComponent(model)+":generateContent",
       {method:"POST",headers:{"Content-Type":"application/json","x-goog-api-key":key},
@@ -8165,32 +8165,40 @@ async function llmAsk(q,maxTok,opts){
     throw new Error("HTTP "+r.status+(msg?"："+String(msg).slice(0,110):"")); }
   const jr=await r.json();
 
-  let txt="",cits=[],mdl=model;
+  let txt="",cits=[],mdl=model,cut=false;
   if(prov==="gemini"){
     const cand=jr.candidates&&jr.candidates[0];
     if(!cand){ const br=jr.promptFeedback&&jr.promptFeedback.blockReason;
       throw new Error(br?("回答がブロックされました："+br):"回答が返りませんでした"); }
     txt=((cand.content&&cand.content.parts)||[]).map(p=>p.text||"").join("");
+    cut=cand.finishReason==="MAX_TOKENS";
     const gm=cand.groundingMetadata;
     if(gm&&gm.groundingChunks) cits=gm.groundingChunks.map(c=>c.web&&c.web.uri).filter(Boolean);
     mdl=jr.modelVersion||model;
   } else if(prov==="anthropic"){
     if(jr.stop_reason==="refusal") throw new Error("安全性の観点から回答が控えられました");
     txt=(jr.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+    cut=jr.stop_reason==="max_tokens";
     mdl=jr.model||model;
   } else {
     txt=(jr.choices&&jr.choices[0]&&jr.choices[0].message&&jr.choices[0].message.content)||"";
+    cut=!!(jr.choices&&jr.choices[0]&&jr.choices[0].finish_reason==="length");
     cits=jr.citations||[];
     if((!cits||!cits.length)&&jr.search_results) cits=jr.search_results.map(x=>x.url).filter(Boolean);
     mdl=jr.model||model;
   }
   if(!txt.trim()){
     /* 推論モデルが思考でトークンを使い切ると本文が空になる → 上限を3倍にして1回だけ自動再試行 */
-    if(!opts._retry2&&(prov==="openai"||prov==="anthropic"))
-      return llmAsk(q,(maxTok||900)*3,Object.assign({},opts,{_retry2:1}));
+    if(!opts._retry2)
+      return llmAsk(q,(maxTok||900)*3+2000,Object.assign({},opts,{prov,_retry2:1,_noFo:1,_why0:opts._why0||RT.why}));
     throw new Error("回答が空でした（AIの内部思考がトークン上限に達した可能性。もう一度お試しいただくか、管理コンソールでモデルを変更してください）");
   }
-  return {txt,cits:cits||[],model:mdl,extHits,prov,provNm:PROV[prov].short,why:RT.why};
+  if(cut&&!opts._retry2){
+    /* 文の途中で出力上限に達した（finish=MAX_TOKENS/length/max_tokens）→ 上限を拡大して自動で取り直す */
+    return llmAsk(q,(maxTok||900)*3+2000,Object.assign({},opts,{prov,_retry2:1,_noFo:1,_why0:opts._why0||RT.why}));
+  }
+  return {txt,cits:cits||[],model:mdl,extHits,prov,provNm:PROV[prov].short,
+    why:(opts._why0||RT.why)+(cut?"・長文のため一部省略":"")};
 }
 /* 旧名互換（接続テスト等） */
 function ppAsk(q,maxTok,opts){ return llmAsk(q,maxTok,opts); }
@@ -8213,7 +8221,8 @@ llmAsk=async function(q,maxTok,opts){
     if(i>0) delete o.model;   /* 明示モデル名は元エンジン専用のため切替先では既定に戻す */
     try{
       const r=await __llmAskCore(q,maxTok,o);
-      if(i>0) r.why=(r.why||"")+"／"+((PROV[order[i-1]]&&PROV[order[i-1]].short)||order[i-1])+"がエラーのため自動切替";
+      r.why=(i===0)?rt.why+(String(r.why||"").includes("一部省略")?"・長文のため一部省略":"")
+        :(((PROV[order[i-1]]&&PROV[order[i-1]].short)||order[i-1])+"がエラーのため自動切替");
       return r;
     }catch(e){ last=e; }
   }
