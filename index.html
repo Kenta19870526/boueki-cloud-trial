@@ -7953,6 +7953,7 @@ function llmRoute(opts){
   else if(opts.needWeb){ p=pick(["perplexity","gemini"]); why="Web検索"; }
   else if(opts.task==="legal"||opts.task==="heavy"){ p=pick(["anthropic","openai","gemini","perplexity"]); tier="pro"; why="高精度（法務・複雑判断）"; }
   else { p=pick(["gemini","anthropic","perplexity","openai"]); why="最安・高速"; }
+  if(opts.task==="legal"||opts.task==="heavy") tier="pro";   /* prov指定の切替時も高精度ティア維持 */
   return {prov:p,model:opts.model||llmModelOf(p,opts.planTier||tier),why};
 }
 function llmKey(){ return (LLM.keys[LLM.prov]||"").trim(); }
@@ -8164,6 +8165,30 @@ async function llmAsk(q,maxTok,opts){
 /* 旧名互換（接続テスト等） */
 function ppAsk(q,maxTok,opts){ return llmAsk(q,maxTok,opts); }
 
+/* ── 多社フェイルオーバー ──
+   自動選択で選ばれたエンジンが 429（クォータ超過）等で失敗した場合、内蔵エンジンに落とす前に
+   残りの有効エンジンへ順に切り替える。切替の事実は回答の根拠行（why）に明示する。 */
+const __llmAskCore=llmAsk;
+llmAsk=async function(q,maxTok,opts){
+  opts=opts||{};
+  if(opts.prov||opts._noFo) return __llmAskCore(q,maxTok,opts);
+  const act=llmActive();
+  if(act.length<2) return __llmAskCore(q,maxTok,opts);
+  const wantWeb=(opts.forceWeb||((typeof WEBON!=="undefined"&&WEBON&&(typeof webPerm!=="function"||webPerm()))&&!opts.noWeb));
+  const rt=llmRoute({att:opts.att,needWeb:wantWeb&&!opts.noWeb,task:opts.task,model:opts.model,planTier:opts.planTier});
+  const order=[rt.prov].concat(act.filter(p=>p!==rt.prov));
+  let last=null;
+  for(let i=0;i<order.length;i++){
+    const o=Object.assign({},opts,{prov:order[i],_noFo:1});
+    if(i>0) delete o.model;   /* 明示モデル名は元エンジン専用のため切替先では既定に戻す */
+    try{
+      const r=await __llmAskCore(q,maxTok,o);
+      if(i>0) r.why=(r.why||"")+"／"+((PROV[order[i-1]]&&PROV[order[i-1]].short)||order[i-1])+"がエラーのため自動切替";
+      return r;
+    }catch(e){ last=e; }
+  }
+  throw last;
+};
 function ppFormat(txt){
   let a=esc(txt);
   a=a.replace(/\*\*([^*\n]{1,80})\*\*/g,"<b>$1</b>");
@@ -8175,12 +8200,16 @@ const __brainB4pplx=brain;
 brain=function(q){
   /* バイヤーDBの列挙・件数質問はDB直接照会で即答（接続の有無に関わらず正確） */
   if(typeof bnAsk==="function"){ const b=bnAsk(q); if(b) return b; }
+  /* 物流費・運賃の質問：登録レートがあればDB直接照会で即答。未登録×未接続は正直回答 */
+  if(typeof shipRateAsk==="function"){ const sr=shipRateAsk(q,ppReady()); if(sr) return sr; }
   if(!ppReady()) return __brainB4pplx(q);
   return (async()=>{
     try{
       let q2=q;
       const bx=typeof bnCtxFor==="function"?bnCtxFor(q):"";
       if(bx) q2=q+"\n\n"+bx;
+      const sx=typeof shipRateCtx==="function"?shipRateCtx(q):"";
+      if(sx) q2=q2+"\n\n"+sx;
       const r=await llmAsk(q2);
       let a=ppFormat(r.txt);
       if(r.cits&&r.cits.length){
@@ -8197,8 +8226,10 @@ brain=function(q){
       return {a,c:`エンジン：${esc(r.provNm||PROV[LLM.prov].short)} ${esc(r.model)}（${esc(r.why||"実AI")}・自動選択）／社内データを注入済み`+
         (usedWeb?`／Web情報を参照`:`／Web検索は未使用`)};
     }catch(e){
-      const r=await Promise.resolve(__brainB4pplx(q));
-      r.c+=`／⚠ ${esc(llmLabel())}接続不可（${esc(String(e.message)).slice(0,80)}）→ 内蔵エンジンで回答`;
+      /* 全エンジン失敗：物流費質問はレートDBの正直回答を優先してから内蔵へ */
+      const so=typeof shipRateAsk==="function"?shipRateAsk(q,false):null;
+      const r=so||await Promise.resolve(__brainB4pplx(q));
+      r.c+=`／⚠ ${esc(llmLabel())}接続不可（${esc(String(e.message)).slice(0,80)}）→ ${so?"社内物流レートDB":"内蔵エンジン"}で回答`;
       return r;
     }
   })();
@@ -9621,5 +9652,72 @@ shipSteps=function(){
 /* 起動時（authBootが先に走っている場合の復元セッション対応） */
 fwdLoad();
 if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.role==="fwd"&&!FWDON) fwdEnter();
+
+/* ═══ AI商社マン（荷主側）からの物流費・運賃質問 ═══
+   物流会社ユーザーの登録レート（FWDB.rates）を直接照会して答える。
+   未登録レーンは「未登録」と正直に伝え、AI見積依頼へ誘導する。 */
+const SHIP_KW=/物流費|物流コスト|輸送費|輸送コスト|運賃|送料|フレート|freight|海上運賃|航空運賃|船賃|シッピング|配送料/i;
+function shipFwdb(){
+  try{ if(typeof FWDB==="undefined"||!FWDB||!Array.isArray(FWDB.rates)) fwdLoad(); }catch(e){ return null; }
+  return (typeof FWDB!=="undefined"&&FWDB&&Array.isArray(FWDB.rates))?FWDB:null;
+}
+function shipDest(q){
+  q=String(q||"");
+  const B=shipFwdb();
+  if(B){ for(const r of B.rates){ if(r.pod&&q.includes(r.pod)) return {pod:r.pod,cty:""}; } }
+  const hit=Object.keys(FWD_POD).find(c=>q.includes(c))||(q.includes("米国")?"アメリカ":null);
+  if(hit) return {pod:FWD_POD[hit],cty:hit};
+  const city={"上海":"上海","青島":"青島","天津":"天津","深圳":"深圳","深セン":"深圳","広州":"広州",
+    "釜山":"釜山","ロサンゼルス":"ロサンゼルス","ニューヨーク":"ニューヨーク","ドバイ":"ジェベルアリ"};
+  for(const k in city){ if(q.includes(k)) return {pod:city[k],cty:""}; }
+  return null;
+}
+function shipRateRows(n){
+  const B=shipFwdb(); if(!B) return [];
+  return B.rates.slice(0,n||15);
+}
+function shipRateTbl(rows){
+  return `<div class="tw" style="margin-top:8px;max-height:260px"><table><thead>
+    <tr><th>レーン</th><th>形態</th><th>運賃</th><th>日数</th><th>有効期限</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td><b>${esc(r.pol)} → ${esc(r.pod)}</b></td><td>${esc(r.mode)}</td>
+      <td class="n">${esc(r.cur)}${r.price.toLocaleString()}${esc(r.unit)}</td>
+      <td class="n">約${r.tt}日</td><td class="n" style="font-size:10px">${esc(r.valid)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+function shipRateCtx(q){
+  if(!SHIP_KW.test(String(q))) return "";
+  const rows=shipRateRows(15); if(!rows.length) return "";
+  const d=shipDest(q);
+  const r=d?fwdFindRate(d.pod):null;
+  return `=== 社内・物流レートDB（物流会社ユーザーの登録レート） ===
+${rows.map(r2=>`${r2.pol}→${r2.pod} ${r2.mode} ${r2.cur}${r2.price.toLocaleString()}${r2.unit}・約${r2.tt}日（有効:${r2.valid}）`).join("\n")}
+LCLは別途 THC ¥${FWD_THC.toLocaleString()}＋書類費 ¥${FWD_DOC.toLocaleString()}。
+${d?(r?`質問の仕向地の該当レーン: ${r.pol}→${r.pod}（${r.mode} ${r.cur}${r.price.toLocaleString()}${r.unit}・約${r.tt}日）。これを第一根拠に回答する。`
+:`質問の仕向地「${d.pod}」のレーンは社内未登録。回答では必ず「社内レートは未登録」と明示し、上の近隣レーンを参考として示し、一般的な市況水準を添える場合は目安であることを断る。正式見積は「出荷を進める」のAI見積依頼を案内する。`):""}`;
+}
+function shipRateAsk(q,online){
+  if(!SHIP_KW.test(String(q))) return null;
+  const B=shipFwdb(); if(!B) return null;
+  const d=shipDest(q); if(!d) return null;
+  const r=fwdFindRate(d.pod);
+  const cta=`<p class="nn" style="margin-top:7px">正式なお見積は「出荷を進める」→<b>AI商社マンにまかせる</b>（AI物流マンとの交渉見積）から。物流会社のレート提供には貿易クラウドの物流会社ユーザー登録が前提です。</p>`;
+  if(r){
+    const ex=fwdQuoteCalc(r,1);
+    const near=B.rates.filter(x=>x.pod===r.pod);
+    return {a:`<b>${esc(d.cty?d.cty+"（"+d.pod+"）":d.pod)}向けの登録レート</b>（物流会社ユーザー提供・有効:${esc(r.valid)}）：`
+      +shipRateTbl(near.length?near:[r])
+      +(ex.courier?`<br>小包1個（最小重量帯）目安：<b>¥${ex.total.toLocaleString()}</b>／約${ex.tt}日`
+        :`<br>概算例（LCL 1m³の場合）：運賃 ¥${ex.freight.toLocaleString()}＋THC ¥${ex.thc.toLocaleString()}＋書類 ¥${ex.doc.toLocaleString()}＝<b>合計 ¥${ex.total.toLocaleString()}</b>／約${ex.tt}日`)
+      +cta,
+      c:"社内・物流レートDB（物流会社ユーザーの登録レート）を直接照会"};
+  }
+  if(online) return null;   /* 接続時はLLMに市況目安まで答えさせる（shipRateCtxで未登録を明示済み） */
+  const rows=shipRateRows(12);
+  return {a:`<b>${esc(d.pod)}向けの社内登録レートは未登録です</b>（推測の金額はお出ししません）。<br>
+現在の登録レーン（横浜発）はこちらです。近い港のレートが目安になります：`
+    +shipRateTbl(rows)
+    +`<p class="nn" style="margin-top:7px">${esc(d.pod)}のレートが必要な場合：①「出荷を進める」→<b>AI商社マンにまかせる</b>でAI見積を依頼（レーン未登録でも依頼は届きます）②物流会社ユーザーが${esc(d.pod)}レーンをレート表に登録すると、ここで即答できるようになります。</p>`,
+    c:"社内・物流レートDB照会（該当レーンなし・正直回答）"};
+}
 
 </script>
