@@ -2193,17 +2193,26 @@ function bnNew(now){
     }});
   return out.sort((a,b)=>(b.isNew?1:0)-(a.isNew?1:0));
 }
+function bnShare(k){ const e=BN_CATS.find(x=>x[0]===k); return e?e[2]:0; }
+function bnEst(cty,catKey){
+  const e=BN_CTY.find(x=>x[0]===cty); if(!e) return 0;
+  return catKey?Math.max(1,Math.round(e[1]*bnShare(catKey))):e[1];
+}
 function bnQuery(f){
   f=f||{};
   const out=[];
-  for(let i=0;i<900&&out.length<220;i++){
+  /* 見本プールは6000件走査（決定論・軽量）。小さい国×カテゴリでも基準値ぶんの見本を実体化できる */
+  for(let i=0;i<6000&&out.length<220;i++){
     const b=bnGen(i);
     if(f.cty&&b.cty!==f.cty) continue;
     if(f.cat&&b.cat!==f.cat) continue;
     if(f.lv&&b.lv!==f.lv) continue;
     out.push(b);
   }
-  return out.sort((a,b)=>(b.deals-a.deals)||(a.days-b.days)).slice(0,f.limit||45);
+  /* 表示件数は基準登録数（本番DB集計値）を超えない */
+  let lim=f.limit||45;
+  if(f.cty){ const est=bnEst(f.cty,f.cat||""); if(est>0) lim=Math.min(lim,est); }
+  return out.sort((a,b)=>(b.deals-a.deals)||(a.days-b.days)).slice(0,lim);
 }
 function bnStats(now){
   const W=bnWeek(now);
@@ -2238,17 +2247,32 @@ function bnCtxDb(){
 登録バイヤー総数: ${s.total.toLocaleString()}名／83か国／今週の新規追加 +${s.thisWeek}名${s.catNm?`／自社カテゴリ（${s.catNm}）該当 約${s.catCount.toLocaleString()}名`:""}
 国別の登録数（基準値・毎週増加中）: ${BN_CTY.map(([c,n])=>c+" "+n+"名").join("、")}、ほか61か国
 ※名称・連絡先は正式契約後に開示。ID・業種・取扱カテゴリ・脈あり度・実績件数までは開示してよい。
-※「登録がない」と答えてはいけない。上記が社内DBの実数。国別の見本が質問に添付されていればそれを根拠に使う。`;
+※「登録がない」と答えてはいけない。上記が社内DBの実数（基準登録数）。国別の見本が質問に添付されていればそれを根拠に使う。
+※画面の「相手を探す」一覧に出るのは基準登録数のうち業種・国まで開示できる「匿名見本」の一部。件数の差を聞かれたら「一覧＝見本、基準登録数＝実数」と説明する。`;
   }catch(e){ return ""; }
+}
+function bnSampleMix(c,n){
+  /* 自社カテゴリを優先し、残りを他カテゴリで補完した見本 */
+  const myCat=(typeof D!=="undefined"&&D&&D.catKey)||"";
+  let rows=myCat?bnQuery({cty:c,cat:myCat,limit:Math.min(n,12)}):[];
+  const seen=new Set(rows.map(b=>b.id));
+  bnQuery({cty:c,limit:n}).forEach(b=>{ if(rows.length<n&&!seen.has(b.id)){ rows.push(b); seen.add(b.id); } });
+  return rows;
+}
+function bnCatBreak(c){
+  return BN_CATS.filter(x=>x[0]!=="other").map(([k,nm])=>nm+" 約"+bnEst(c,k)+"名").join("、");
 }
 function bnCtxFor(q){
   const c=bnFindCty(q); if(!c) return "";
   if(!/バイヤー|買い手|buyer|取引先|輸入|販路|開拓|卸|小売|商社/i.test(String(q))) return "";
-  const rows=bnQuery({cty:c,limit:20});
+  const rows=bnSampleMix(c,20);
   if(!rows.length) return "";
-  return `=== 社内バイヤーDB照会結果：${c}（基準登録数 ${bnCtyBase(c)}名・毎週増加／実績順の見本 上位${rows.length}件） ===
+  return `=== 社内バイヤーDB照会結果：${c}（基準登録数 ${bnCtyBase(c)}名＝全カテゴリ合計・毎週増加） ===
+カテゴリ別の目安: ${bnCatBreak(c)}
+実績順の見本 上位${rows.length}件（自社カテゴリ優先）:
 ${rows.map(b=>`${b.id}｜${b.biz}｜${b.catNm}｜取扱:${(b.ints||[]).join("・")}｜${b.size}｜脈あり度:${b.lv}｜貿易クラウド成約実績:${b.deals}件`).join("\n")}
-※名称・連絡先は正式契約後に開示（IDで案内する）。この照会結果を根拠に具体的に答えること。`;
+※名称・連絡先は正式契約後に開示（IDで案内する）。この照会結果を根拠に具体的に答えること。
+※「相手を探す」一覧は上記のうち匿名見本の一部（基準登録数が実数）。`;
 }
 function bnAsk(q){
   const s=String(q||"");
@@ -2263,10 +2287,14 @@ function bnAsk(q){
       <td class="n">${b.deals}件</td></tr>`).join("")}</tbody></table></div>`;
   let a;
   if(c){
-    const rows=bnQuery({cty:c,limit:20});
-    a=`<b>${esc(c)}のバイヤー：基準登録数 ${bnCtyBase(c)}名</b>（毎週増加中・世界83か国 計${st.total.toLocaleString()}名）。<br>
-実績順の上位${rows.length}件（見本）はこちらです。名称・連絡先は<b>正式契約後に開示</b>されます。`+tbl(rows)+
-`<br>絞り込みは「バイヤーDB・拠点」の<b>相手を探す</b>（国・カテゴリ・脈あり度）、コンタクトは各行の<b>直接連絡</b>から。気になるIDがあれば、このまま「${esc(c)}のID ×××に何を提案すべき？」と聞いてください。`;
+    const rows=bnSampleMix(c,20);
+    const myCat=(typeof D!=="undefined"&&D&&D.catKey)||"";
+    const myNm=myCat?(BN_CATS.find(x=>x[0]===myCat)||["",""])[1]:"";
+    a=`<b>${esc(c)}のバイヤー：基準登録数 ${bnCtyBase(c)}名</b>（全カテゴリ合計・毎週増加中・世界83か国 計${st.total.toLocaleString()}名）。<br>
+カテゴリ別の目安：${esc(bnCatBreak(c))}。<br>
+実績順の上位${rows.length}件（見本${myNm?"・"+esc(myNm)+"を優先":""}）はこちらです。名称・連絡先は<b>正式契約後に開示</b>されます。`+tbl(rows)+
+`<p class="nn" style="margin-top:6px">※「相手を探す」の一覧に出るのは、基準登録数のうち<b>業種・国まで開示できる匿名見本</b>です（一覧の件数＝見本数、基準登録数＝実数）。</p>
+絞り込みは「バイヤーDB・拠点」の<b>相手を探す</b>（国・カテゴリ・脈あり度）、コンタクトは各行の<b>直接連絡</b>から。気になるIDがあれば、このまま「${esc(c)}のID ×××に何を提案すべき？」と聞いてください。`;
   }else{
     a=`社内バイヤーDBの現在の登録は<b>${st.total.toLocaleString()}名／83か国</b>（今週 +${st.thisWeek}名）${st.catNm?`。うち自社カテゴリ（${esc(st.catNm)}）該当は<b>約${st.catCount.toLocaleString()}名</b>`:""}。<br>
 登録の多い国：${BN_CTY.slice(0,8).map(([cc,n])=>`${esc(cc)} ${n}名`).join("、")} ほか。<br>
@@ -7109,6 +7137,7 @@ function vDB(p){
         <select class="sel" id="dC"><option value="">すべての国</option>${BN_CTY.map(([c])=>`<option>${c}</option>`).join("")}</select>
         <select class="sel" id="dK"><option value="">すべてのカテゴリ</option>${BN_CATS.map(([k,n])=>`<option value="${k}" ${st.catKey===k?"selected":""}>${n}</option>`).join("")}</select>
         <select class="sel" id="dL"><option value="">すべての脈あり度</option><option>高</option><option>中</option></select></div>
+      <p class="nn" id="dbcount" style="margin:8px 0 0"></p>
       <div class="tw" style="margin-top:10px;max-height:300px"><table><thead><tr>
         <th>バイヤー</th><th>取扱・関心</th><th>規模</th><th>脈あり</th><th class="num">実績</th><th></th>
       </tr></thead><tbody id="dbb"></tbody></table></div>
@@ -7140,6 +7169,19 @@ function outreachList(){
 function rDB(){
   const f={cty:$("#dC")?.value||"",cat:$("#dK")?.value||"",lv:$("#dL")?.value||""};
   const rows=bnQuery(f), sent=outreachList();
+  /* 基準登録数（実数）と匿名見本（表示）の関係を常に明示 */
+  const cnt=$("#dbcount");
+  if(cnt){
+    if(f.cty){
+      const est=bnEst(f.cty,f.cat||"");
+      const catNm=f.cat?(BN_CATS.find(x=>x[0]===f.cat)||["",""])[1]:"";
+      cnt.innerHTML=`該当（基準登録数）：<b>${esc(f.cty)}${catNm?" × "+esc(catNm):""} 約${est}名</b>`+
+        `${f.cat?`（${esc(f.cty)}全体 ${bnCtyBase(f.cty)}名）`:""}・毎週増加中／うち<b>匿名見本 ${rows.length}件</b>を表示${f.lv?"（脈あり度で絞り込み中）":""}。`+
+        `名称・連絡先は正式契約後に開示されます。`;
+    }else{
+      cnt.innerHTML=`世界83か国 <b>${bnStats().total.toLocaleString()}名</b>から、実績順の匿名見本 ${rows.length}件を表示中。国とカテゴリで絞り込めます。`;
+    }
+  }
   $("#dbb").innerHTML=rows.length?rows.map(b=>{
     const done=sent.some(o=>o.id===b.id);
     const th=dmThreads()[b.id];
