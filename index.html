@@ -2993,7 +2993,7 @@ fillAnswer=function(v){
 /* ═══════════ ④ データ健全性チェック（AIによる登録データの点検・修復） ═══════════
    過去の誤登録（修正依頼文・質問文・「わかりません」等がそのまま値になっている）を検出し、
    AI接続時は正しい値を提案。修正はワンクリックで全画面（書類・営業資料・AI回答）へ波及する。 */
-const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|气温|暑い|暑さ|好热|好熱|寒い|テストです|～～|あっち)/;
+const SICK_RE=/(変更して|変えて|直して|修正して|にしてください|に更新して|を追加して|ですか|どちら|どっち|わかりません|分かりません|わからない|不明です|教えてください|気温|气温|暑い|暑さ|好热|好熱|寒い|天気|天氣|今日の|今日は|[0-9０-９]{1,2}\s*度(ある|です|くらい|超え)|℃|テストです|～～|あっち)/;
 function valSick(v){
   v=String(v||"").trim(); if(!v) return false;
   if(SICK_RE.test(v)) return true;
@@ -6345,13 +6345,22 @@ function vItem(p){
   </div>
 
   <div class="c" style="margin-bottom:11px">
-    <div class="rw" style="justify-content:space-between"><h3>① 商品情報・強み</h3><span class="src">シート①から</span></div>
-    <p class="nn">海外のバイヤーに「なぜこれを選ぶのか」を説明するための材料です。AIはここを引用して商談準備の答えを作ります。</p>
+    <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px"><h3>① 商品情報・強み</h3>
+      <div class="rw" style="gap:6px">
+        <button class="btn g" onclick="openStrEdit(-1)">＋ 強みを追加</button>
+        <button class="btn" onclick="strengthsAI()" title="読み込んだ資料・公式サイト・Web検索から、バイヤーに刺さる強みをAIが提案します（適用前に選べます）">🤖 AIで強みを充実</button></div></div>
+    <p class="nn">海外のバイヤーに「なぜこれを選ぶのか」を説明するための材料です。AIはここを引用して商談準備の答えを作ります。各カードの ✎ で編集、🗑 で削除できます。</p>
     <div class="g2" style="margin-top:11px;gap:8px">
       ${D.strengths.map(([t,d],i)=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;background:var(--surface-2)">
-        <div class="rw" style="gap:7px"><span style="width:17px;height:17px;border-radius:4px;background:var(--or);color:#fff;
-          font-size:9.5px;font-weight:700;display:grid;place-items:center">${i+1}</span><b style="font-size:12px">${esc(t)}</b></div>
-        <p style="font-size:11px;color:var(--ink-2);margin-top:4px;line-height:1.65">${esc(d)}</p></div>`).join("")}
+        <div class="rw" style="gap:7px;justify-content:space-between;align-items:flex-start">
+          <span class="rw" style="gap:7px;min-width:0"><span style="width:17px;height:17px;border-radius:4px;background:var(--or);color:#fff;
+            font-size:9.5px;font-weight:700;display:grid;place-items:center;flex:none">${i+1}</span><b style="font-size:12px">${esc(t)}</b></span>
+          <span class="rw" style="gap:3px;flex:none">
+            <button class="btn g" style="padding:2px 8px;font-size:10.5px" onclick="openStrEdit(${i})" title="この強みを編集">✎</button>
+            <button class="btn g" style="padding:2px 8px;font-size:10.5px" onclick="strDel(${i})" title="この強みを削除">🗑</button></span></div>
+        <p style="font-size:11px;color:var(--ink-2);margin-top:4px;line-height:1.65">${esc(d)}</p>
+        ${typeof valSick==="function"&&valSick(t)?'<span class="p no" style="margin-top:6px;display:inline-block">⚠ 強みでない文の可能性。✎で修正するか🗑で削除を</span>':""}</div>`).join("")
+      ||`<div style="grid-column:1/-1;padding:14px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">まだ強みが登録されていません。「＋ 強みを追加」または「🤖 AIで強みを充実」から登録できます。</div>`}
     </div>
   </div>
 
@@ -7592,6 +7601,104 @@ function toast(m){
 function tgOld(){const b=$("#cmp");b.hidden=!b.hidden;}
 function go(id){cur=id;document.body.classList.remove("snav");buildNav();render();scrollTo({top:0});}
 
+/* ══ ① 商品情報・強み：編集・追加・削除＋AIによる充実（資料＋公式サイト＋Web検索・確認つき） ══ */
+function strList(){ return (D&&D.strengths||[]).map(s2=>[String(s2[0]||""),String(s2[1]||"")]); }
+function strSave(list){
+  list=list.filter(s2=>s2&&String(s2[0]||"").trim()).slice(0,8);
+  if(typeof TEN!=="undefined"&&TEN&&TEN.src!=="sample"){
+    TEN.strengths=list;
+    if(typeof saveTen==="function") saveTen();
+    if(typeof syncTenant==="function") syncTenant(); else D.strengths=list;
+  } else D.strengths=list;
+  render();
+}
+function strDel(i){
+  const list=strList(); const t=(list[i]||[])[0]||"";
+  list.splice(i,1); strSave(list);
+  toast("削除しました："+t.slice(0,20));
+}
+function openStrEdit(i){
+  const list=strList();
+  const cur=i>=0?list[i]:["",""];
+  openDW(`<h3>${i>=0?"✎ 強みを編集":"＋ 強みを追加"}</h3>
+    <p class="nn" style="margin-top:4px">見出しは数値・固有名詞入りが効きます（例：「ゲニステイン25mg配合」「掛川産一番茶100%」）。</p>
+    <p class="lbl" style="margin-top:10px">見出し</p>
+    <input class="sel" id="stT" value="${esc(cur[0])}" placeholder="例：リプログラミング技術（特許出願中）" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">補足・根拠</p>
+    <textarea class="sel" id="stD" rows="3" placeholder="例：年齢サインに多角的にアプローチする独自製法。臨床データあり"
+      style="width:100%;box-sizing:border-box;resize:vertical;min-height:70px">${esc(cur[1])}</textarea>
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="stGo">${i>=0?"保存する":"追加する"}</button>
+      <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+  $("#stGo").onclick=()=>{
+    const t=($("#stT").value||"").trim(), d2=($("#stD").value||"").trim();
+    if(!t){ toast("見出しをご入力ください"); $("#stT").focus(); return; }
+    if(typeof valSick==="function"&&valSick(t)){ toast("会話文・天気などは強みとして登録できません。内容を見直してください"); return; }
+    if(i>=0) list[i]=[t,d2]; else list.push([t,d2]);
+    strSave(list); closeDW(); toast(i>=0?"保存しました":"追加しました");
+  };
+}
+async function strengthsAI(){
+  const on=typeof ppReady==="function"&&ppReady();
+  if(!on){
+    openDW(`<h3>🤖 AIで強みを充実</h3>
+      <p class="nn" style="margin-top:6px">AIエンジン未接続のため、資料・Web検索からの強み提案はまだ使えません。<br>
+      管理コンソール→AIエンジンで接続すると、読み込んだ資料・公式サイト・Web検索から「内容量・差別化・エビデンス」を含む強み候補を提案し、選んで反映できます。<br>
+      それまでは「＋ 強みを追加」「✎」で手動編集が可能です。</p>
+      <div class="rw" style="margin-top:11px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+    return;
+  }
+  openDW(`<h3>🤖 AIで強みを充実</h3>
+    <div class="rw" style="gap:8px;margin-top:10px"><span class="spin"></span>
+    <span style="font-size:12px">読み込んだ資料・公式サイト・Webを調査しています…（20〜60秒）</span></div>`);
+  try{
+    let site="";
+    const web=(typeof TEN!=="undefined"&&TEN&&TEN.deckMeta&&TEN.deckMeta.web)||"";
+    if(web&&typeof fetchPageText==="function"){ try{ site=String(await fetchPageText(web)).slice(0,9000); }catch(e){} }
+    const rich=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)?JSON.stringify(TEN.deckRich).slice(0,2000):"";
+    const r=await llmAsk(`あなたは海外バイヤー向け商品訴求のプロ。下記の登録データ（読み込んだ資料の構造化結果）と公式サイト本文、必要ならWeb検索を使い、海外バイヤーに刺さる「商品の強み」を提案してください。
+JSONのみ返す：{"strengths":[["見出し（数値・固有名詞を含め28字以内）","補足・根拠（45字以内）"]]}
+規則：最大6件。内容量・成分・エビデンス・差別化・製造背景・認証・産地を優先。**確認できないことは書かない（創作禁止）**。会話文・天気・気温など強みでないものは禁止。既存の強みの言い換えだけでなく、資料・サイトから新しい訴求点を発掘する。
+=== 登録データ ===
+${typeof ppContext==="function"?ppContext().slice(0,6000):""}
+=== 公式サイト本文 ===
+${site||"（未登録）"}
+=== 資料からの追加情報 ===
+${rich||"（なし）"}`,2200,{forceWeb:1,timeout:150000});
+    const j=xParseJson(r.txt);
+    const cand=(j.strengths||[]).map(s2=>[String(s2[0]||"").trim(),String(s2[1]||"").trim()])
+      .filter(s2=>s2[0]&&!(typeof valSick==="function"&&valSick(s2[0]))).slice(0,8);
+    if(!cand.length){ openDW(`<h3>🤖 AIで強みを充実</h3><p class="nn" style="margin-top:8px">資料・Webから追加できる確かな強みは見つかりませんでした（推測では書きません）。「＋ 強みを追加」で手動登録いただくか、公式サイトURLを「外国語 営業資料」画面で登録してから再度お試しください。</p><div class="rw" style="margin-top:10px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`); return; }
+    window.__strCand=cand;
+    openDW(`<h3>🤖 強みの候補 ${cand.length}件</h3>
+      <p class="nn" style="margin-top:4px">採用するものに✓を入れて反映してください（確認できた内容のみ提案しています）。</p>
+      <div style="margin-top:9px;max-height:46vh;overflow-y:auto">
+        ${cand.map((s2,k)=>`<label style="display:flex;gap:9px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;align-items:flex-start">
+          <input type="checkbox" data-strc="${k}" checked style="margin-top:2px">
+          <span style="min-width:0"><b style="font-size:12px">${esc(s2[0])}</b><br>
+          <span style="font-size:11px;color:var(--ink-2)">${esc(s2[1])}</span></span></label>`).join("")}
+      </div>
+      ${r.cits&&r.cits.length?`<p class="nn" style="margin-top:6px">🌐 参照：${r.cits.slice(0,3).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,40))}</a>`).join("　")}</p>`:""}
+      <div class="rw" style="margin-top:11px;gap:6px;flex-wrap:wrap">
+        <button class="btn" onclick="strApplyAI('add')">✓を既存に追加</button>
+        <button class="btn g" onclick="strApplyAI('rep')">✓で置き換える</button>
+        <button class="btn g" onclick="closeDW()">キャンセル</button></div>
+      <p class="nn" style="margin-top:6px">使用エンジン：${esc(r.provNm||"")}${r.why?"（"+esc(r.why)+"）":""}</p>`);
+  }catch(e){
+    openDW(`<h3>🤖 AIで強みを充実</h3><p style="margin-top:8px;font-size:12px;color:var(--crit)">調査に失敗しました：${esc(String(e.message).slice(0,110))}</p>
+      <div class="rw" style="margin-top:10px"><button class="btn" onclick="strengthsAI()">もう一度</button><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  }
+}
+function strApplyAI(mode){
+  const cand=window.__strCand||[];
+  const sel=[...document.querySelectorAll("[data-strc]:checked")].map(c=>cand[+c.dataset.strc]).filter(Boolean);
+  if(!sel.length){ toast("採用する強みに✓を入れてください"); return; }
+  let list=mode==="rep"?sel.slice():strList();
+  if(mode!=="rep"){ const seen=new Set(list.map(s2=>s2[0])); sel.forEach(s2=>{ if(!seen.has(s2[0])) list.push(s2); }); }
+  strSave(list); closeDW();
+  toast(mode==="rep"?`強みを${sel.length}件で置き換えました`:`強みに${sel.length}件を追加しました`);
+  if(typeof logU==="function") logU("ai","強みAI充実:"+sel.length+"件");
+}
 /* ═════════ ルーティング ═════════ */
 function render(){
   const p=PAGES.find(x=>x.id===cur);
