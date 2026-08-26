@@ -6558,7 +6558,8 @@ function shipSteps(){
 function shipEnsure(){
   if(!D||!D.ship) return;
   if(!SHIPS||SHIPS._pid!==PID){
-    SHIPS=[{ship:D.ship,step:shipStep||0,qa:SHIPQA||[],seed:1,mods:{}}];
+    SHIPS=[{ship:D.ship,step:shipStep||0,qa:SHIPQA||[],seed:1,mods:{},open:1,at:1}];
+    SHIPS._seq=1;
     SHIPS._pid=PID; SHIPA=0;
   }
   if(!SHIPS[SHIPA]) SHIPA=0;
@@ -6579,7 +6580,15 @@ function shipCaseNew(o){
   ship.buyer=o.buyer||("（想定）"+cty+"の輸入商社");
   const d=new Date(TODAYS+"T00:00:00"); d.setDate(d.getDate()+14+((SHIPS?SHIPS.length:1)*2));
   ship.want=d.toISOString().slice(0,10);
-  return {ship,step:0,qa:[],custom:1,src:o.src||"",mods:{}};
+  return {ship,step:0,qa:[],custom:1,src:o.src||"",mods:{},open:1,at:(SHIPS?(SHIPS._seq=(SHIPS._seq||1)+1):1)};
+}
+function shipSlot(keep){
+  /* タブ表示は4件まで：あふれたら最も使っていない案件をタブから外す（データは保持） */
+  const open=SHIPS.map((c,i)=>({c,i})).filter(x=>x.c.open!==false);
+  if(open.length<=4) return;
+  const lru=open.filter(x=>x.i!==keep&&x.i!==SHIPA).sort((a,b)=>(a.c.at||0)-(b.c.at||0))[0];
+  if(lru){ lru.c.open=false;
+    toast("タブが4件のため "+lru.c.ship.no+" をタブから外しました（案件は保存済み・🔍検索から再開できます）"); }
 }
 function shipActivate(i){
   if(!SHIPS||!SHIPS[i]) return;
@@ -6587,23 +6596,25 @@ function shipActivate(i){
   if(cur2){ cur2.step=shipStep; cur2.qa=SHIPQA; }
   SHIPA=i;
   const c=SHIPS[i];
+  if(c.open===false) c.open=1;
+  c.at=(SHIPS._seq=(SHIPS._seq||1)+1);
+  shipSlot(i);
   shipStep=c.step||0; SHIPQA=c.qa||[];
   if(c.custom) D.ship=c.ship; else if(SHIPS[0]&&SHIPS[0].seed) D.ship=SHIPS[0].ship;
   render();
 }
 function shipCloseCase(i){
   if(!SHIPS||i===0||!SHIPS[i]) return;
+  SHIPS[i].open=false;
   const no=SHIPS[i].ship.no;
-  SHIPS.splice(i,1);
-  if(SHIPA>=SHIPS.length) SHIPA=SHIPS.length-1;
-  const c=SHIPS[SHIPA];
-  shipStep=c.step||0; SHIPQA=c.qa||[];
-  D.ship=c.custom?c.ship:SHIPS[0].ship;
-  render(); toast("案件 "+no+" を閉じました（データは残ります。検索から再開できます）");
+  if(SHIPA===i){
+    const first=SHIPS.findIndex(c=>c.open!==false);
+    shipActivate(first>=0?first:0);
+  } else render();
+  toast("案件 "+no+" をタブから外しました（案件は保存済み・🔍検索からいつでも再開できます）");
 }
 function shipStartCase(o){
   shipEnsure();
-  if(SHIPS.length>=4){ toast("同時に開けるのは4件までです。タブの✕でどれかを閉じてから追加してください"); return false; }
   const c=shipCaseNew(o);
   SHIPS.push(c);
   closeDW();
@@ -6683,11 +6694,27 @@ function shipNewList(q){
   if(!h) h=`<p class="nn" style="padding:10px 0">該当がありません。国名（例：韓国・ドイツ）や相手名で検索してください。<br>チャット欄に「<b>日本から韓国向けの輸入商社の受注、出荷まで進めておいて</b>」のように書いても案件を立ち上げられます。</p>`;
   return h;
 }
+function shipFold(i){
+  shipEnsure(); const c=SHIPS[SHIPA]; c.fold=c.fold||{};
+  const cur=(c.fold[i]!==undefined)?c.fold[i]:(i===shipStep);
+  c.fold[i]=!cur; render();
+}
+function shipFoldAll(v){
+  shipEnsure(); const c=SHIPS[SHIPA]; c.fold={};
+  for(let i=0;i<=shipStep;i++) c.fold[i]=v;
+  render();
+}
 function shipArtJump(i){
-  const el=document.getElementById("stepart"+i); if(!el) return;
-  el.scrollIntoView({behavior:"smooth",block:"center"});
-  el.style.outline="2.5px solid var(--or)"; el.style.outlineOffset="3px"; el.style.borderRadius="8px";
-  setTimeout(()=>{ el.style.outline=""; },1700);
+  const c=SHIPS&&SHIPS[SHIPA];
+  if(c){ c.fold=c.fold||{};
+    const opn=(c.fold[i]!==undefined)?c.fold[i]:(i===shipStep);
+    if(!opn){ c.fold[i]=true; render(); } }
+  setTimeout(()=>{
+    const el=document.getElementById("stepart"+i); if(!el) return;
+    el.scrollIntoView({behavior:"smooth",block:"center"});
+    el.style.outline="2.5px solid var(--or)"; el.style.outlineOffset="3px"; el.style.borderRadius="8px";
+    setTimeout(()=>{ el.style.outline=""; },1700);
+  },80);
 }
 function shipStepDigest(i,S){
   const ex=(S.extra||[]).map(e=>e[0]+"："+e[1]).join("／");
@@ -6800,12 +6827,17 @@ function vShip(p){
   <div class="c" style="margin-bottom:11px;padding:9px 13px">
     <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center">
       <span class="lbl" style="margin:0 4px 0 0">案件</span>
-      ${SHIPS.map((cs,i)=>`<span class="rw" style="gap:0;flex:none">
+      ${SHIPS.map((cs,i)=>({cs,i})).filter(x=>x.cs.open!==false).map(({cs,i})=>`<span class="rw" style="gap:0;flex:none">
         <button class="btn ${i===SHIPA?"":"g"}" style="padding:5px 10px;font-size:11px;${i>0?"border-radius:8px 0 0 8px":""}" data-shiptab="${i}"
           title="${esc(cs.ship.buyer)}">${esc(cs.ship.no)}｜${esc(cs.ship.country)}｜${(i===SHIPA?shipStep:cs.step||0)+1}/${ST.length}</button>
-        ${i>0?`<button class="btn g" style="padding:5px 7px;font-size:11px;border-radius:0 8px 8px 0;border-left:0" data-shipx="${i}" title="この案件タブを閉じる">✕</button>`:""}</span>`).join("")}
-      ${SHIPS.length<4?`<button class="btn g" style="padding:5px 11px;font-size:11px" onclick="openShipNew()">＋ 新しい案件（検索）</button>`
-        :`<span class="nn">同時に開けるのは4件まで（✕で閉じると追加できます）</span>`}
+        ${i>0?`<button class="btn g" style="padding:5px 7px;font-size:11px;border-radius:0 8px 8px 0;border-left:0" data-shipx="${i}" title="この案件をタブから外す（保存されます）">✕</button>`:""}</span>`).join("")}
+      <button class="btn g" style="padding:5px 11px;font-size:11px;flex:none" onclick="openShipNew()">＋ 新しい案件</button>
+      <span style="position:relative;flex:1;min-width:180px;max-width:320px">
+        <input class="sel" id="shipsq" placeholder="🔍 案件を検索（番号・国・相手先）" autocomplete="off"
+          style="width:100%;box-sizing:border-box;padding:6px 11px;font-size:12px;min-height:32px">
+        <div id="shipsqout" style="position:absolute;top:calc(100% + 3px);left:0;right:0;z-index:30;background:var(--surface);
+          border:1px solid var(--line);border-radius:9px;box-shadow:var(--pop);display:none;max-height:260px;overflow-y:auto"></div></span>
+      <span class="nn" style="flex:none">案件数は無制限（タブ表示は4件・外した案件は🔍から再開）</span>
     </div></div>
   <div class="c" style="margin-bottom:11px">
     <p class="lbl" style="margin-bottom:9px">いまどこ？　<span style="color:var(--or-deep)">ステップ ${shipStep+1} / ${ST.length}　${ST[shipStep].t}</span></p>
@@ -6828,18 +6860,27 @@ function vShip(p){
         .map(x=>`<button class="q" data-sq="${x}">${x}</button>`).join("")}</div>
     </div>
     <div class="stk">
-      <div class="c"><h3>この手続きでやっていること</h3>
-        <p class="nn">各ステップの大事な内容はここに集約されます。<b>編集できるのは現在のステップだけ</b>。進んだステップは、物流会社との整合を保つため確定されます。</p>
+      <div class="c"><div class="rw" style="justify-content:space-between;align-items:center;gap:6px">
+        <h3>この手続きでやっていること</h3>
+        <span class="rw" style="gap:4px;flex:none">
+          <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="shipFoldAll(true)">すべて開く</button>
+          <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="shipFoldAll(false)">すべて閉じる</button></span></div>
+        <p class="nn">各ステップの大事な内容はここに集約されます（見出しクリックで開閉）。<b>編集できるのは現在のステップだけ</b>。進んだステップは、物流会社との整合を保つため確定されます。</p>
         <div class="tl" style="margin-top:10px">
           ${ST.map((s,i)=>{
-            const md=(SHIPS&&SHIPS[SHIPA]&&SHIPS[SHIPA].mods&&SHIPS[SHIPA].mods[i])||null;
+            const cse=(SHIPS&&SHIPS[SHIPA])||{};
+            const md=(cse.mods&&cse.mods[i])||null;
+            const opn=(cse.fold&&cse.fold[i]!==undefined)?cse.fold[i]:(i===shipStep);
             return `<div class="ti ${i<shipStep?"g":i===shipStep?"o":""}" style="${i>shipStep?"opacity:.45":""}">
-            <time>ステップ ${i+1}</time><b>${s.t}</b>
-            ${i<=shipStep?`<div style="font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.65">${shipStepDigest(i,D.ship)}</div>`:""}
-            ${i<=shipStep&&s.art?`<div class="art" id="stepart${i}" style="margin-top:7px"><div class="ah"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>${s.art.h}</div><div class="ab" style="overflow-x:auto">${s.art.b}</div></div>`:""}
-            ${md&&md.note?`<div style="font-size:10px;color:var(--or-deep);margin-top:3px">✎ 指示：${esc(md.note).slice(0,70)}</div>`:""}
-            ${i===shipStep?`<button class="btn g" style="margin-top:5px;padding:3px 10px;font-size:10.5px" onclick="openStepEdit(${i})">✎ このステップを編集</button>`
-              :i<shipStep?`<div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">🔒 確定済み・変更不可</div>`:""}
+            <time>ステップ ${i+1}</time>
+            <b ${i<=shipStep?`style="cursor:pointer" onclick="shipFold(${i})" title="クリックで詳細を開閉"`:""}>${s.t}${i<=shipStep?` <span style="font-size:9px;color:var(--${opn?"ink-3":"bl"});font-weight:600">${opn?"▲ 閉じる":"▼ 詳細"}</span>`:""}</b>
+            ${i<=shipStep&&opn?`
+              <div style="font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.65">${shipStepDigest(i,D.ship)}</div>
+              ${s.art?`<div class="art" id="stepart${i}" style="margin-top:7px"><div class="ah"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>${s.art.h}</div><div class="ab" style="overflow-x:auto">${s.art.b}</div></div>`:""}
+              ${md&&md.note?`<div style="font-size:10px;color:var(--or-deep);margin-top:3px">✎ 指示：${esc(md.note).slice(0,70)}</div>`:""}
+              ${i===shipStep?`<button class="btn g" style="margin-top:5px;padding:3px 10px;font-size:10.5px" onclick="openStepEdit(${i})">✎ このステップを編集</button>`
+                :`<div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">🔒 確定済み・変更不可</div>`}`
+              :i<shipStep&&md&&md.note?`<div style="font-size:9.5px;color:var(--ink-3);margin-top:2px">✎ 指示あり（▼で表示）</div>`:""}
           </div>`;}).join("")}
         </div>
       </div>
@@ -6882,6 +6923,26 @@ function shipRender(){
   document.querySelectorAll("[data-sq]").forEach(b=>b.onclick=()=>askShip(b.dataset.sq));
   document.querySelectorAll("[data-shiptab]").forEach(b=>b.onclick=()=>shipActivate(+b.dataset.shiptab));
   document.querySelectorAll("[data-shipx]").forEach(b=>b.onclick=e=>{e.stopPropagation();shipCloseCase(+b.dataset.shipx);});
+  const sq2=$("#shipsq"), sqo=$("#shipsqout");
+  if(sq2&&sqo){
+    const drawq=()=>{
+      const q=(sq2.value||"").trim().toLowerCase();
+      if(!q){ sqo.style.display="none"; sqo.innerHTML=""; return; }
+      const hits=SHIPS.map((c2,i)=>({c2,i})).filter(x=>
+        (x.c2.ship.no+" "+x.c2.ship.country+" "+x.c2.ship.buyer).toLowerCase().includes(q)).slice(0,12);
+      sqo.innerHTML=hits.length?hits.map(({c2,i})=>
+        `<div class="rw" data-shipfind="${i}" style="justify-content:space-between;gap:6px;padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--line-2);font-size:11.5px">
+          <span style="min-width:0"><b>${esc(c2.ship.no)}</b>｜${esc(c2.ship.country)}・${esc(shipShort(c2.ship.buyer))}</span>
+          <span style="color:var(--ink-3);flex:none">${(i===SHIPA?shipStep:c2.step||0)+1}/7・${c2.open!==false?"タブ表示中":"保管中"}</span></div>`).join("")
+        :`<div style="padding:9px 11px;font-size:11.5px;color:var(--ink-3)">該当する案件がありません。「＋ 新しい案件」から開始できます。</div>`;
+      sqo.style.display="block";
+      sqo.querySelectorAll("[data-shipfind]").forEach(x=>x.onclick=()=>{
+        sq2.value=""; sqo.style.display="none"; shipActivate(+x.dataset.shipfind); });
+    };
+    sq2.addEventListener("input",drawq);
+    sq2.addEventListener("focus",drawq);
+    sq2.addEventListener("blur",()=>setTimeout(()=>{ if(sqo) sqo.style.display="none"; },180));
+  }
   
   const nb=$("#sbtn");
   if(shipStep<ST.length-1){
