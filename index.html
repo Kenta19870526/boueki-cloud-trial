@@ -2396,9 +2396,39 @@ const XPROD_SCHEMA=`{"name":"短い商品名","item":"商品名","itemEn":"英�
 "priceCols":["列名"],"priceRows":[["行"]],"dimCols":[],"dimRows":[],"compCols":[],"compRows":[],"compTitle":"表の名前"}`;
 function xParseJson(raw){
   let t=String(raw||"").replace(/```json|```/g,"").trim();
-  const a=t.indexOf("{"),b=t.lastIndexOf("}");
-  if(a<0||b<=a) throw new Error("抽出結果の形式が不正");
-  return JSON.parse(t.slice(a,b+1));
+  const a=t.indexOf("{");
+  if(a<0) throw new Error("抽出結果の形式が不正（応答冒頭：「"+t.slice(0,80)+"…」）");
+  const b=t.lastIndexOf("}");
+  if(b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch(e){} }
+  /* 途中切れ・前置き文の救済：先頭の{から括弧のバランスを走査し、
+     最後に完全だった位置まで切って不足の閉じ括弧を補完してパースする */
+  const sal=xJsonSalvage(t.slice(a));
+  if(sal!==null) return sal;
+  throw new Error("抽出結果の形式が不正（応答冒頭：「"+t.slice(0,80)+"…」）");
+}
+function xJsonSalvage(t){
+  /* 末尾側の } ] を候補に、そこまでの開き括弧の不足を補完して最大30回パース試行 */
+  const closers=[];
+  for(let i=t.length-1;i>=0&&closers.length<30;i--){ const ch=t[i]; if(ch==="}"||ch==="]") closers.push(i); }
+  for(const end of closers){
+    const part=t.slice(0,end+1);
+    /* 文字列リテラルを考慮して開閉の残数を数える */
+    const st=[]; let inStr=false,escp=false,bad=false;
+    for(let i=0;i<part.length;i++){
+      const ch=part[i];
+      if(inStr){ if(escp) escp=false; else if(ch==="\\") escp=true; else if(ch==="\"") inStr=false; continue; }
+      if(ch==="\"") inStr=true;
+      else if(ch==="{"||ch==="[") st.push(ch);
+      else if(ch==="}"||ch==="]"){ const o=st.pop(); if((ch==="}"&&o!=="{")||(ch==="]"&&o!=="[")){ bad=true; break; } }
+    }
+    if(bad||inStr) continue;
+    let fix=part;
+    /* 末尾のぶら下がりカンマを除去してから閉じ括弧を補完 */
+    fix=fix.replace(/,\s*$/,"");
+    for(let i=st.length-1;i>=0;i--) fix+=(st[i]==="{"?"}":"]");
+    try{ return JSON.parse(fix); }catch(e){}
+  }
+  return null;
 }
 async function llmXtract(o){  /* o={text?|att?,filename} → 部分テナント（フラット互換＋_multi） */
   const sys=`あなたは貿易商社の資料読み取り専門家。与えられた商品資料を深く読み、JSONだけを返す（前後の文章・コードフェンス禁止）。
@@ -9495,6 +9525,9 @@ const FWD_XPROMPT=(isText)=>(isText?`次の物流レート表データから運�
   priceは最小重量帯（例:1.0kg）の料金、unit:"/個(1kg)"、noteに「重量帯制 1kg〜最大◯kg・最大料金◯円」の形で範囲を書く。
   同じ地帯に複数の国が並ぶ場合は、国ごとに同じ料金で別の行にする（国名は日本語：HONG KONG→香港、AUSTRALIA→オーストラリア等）。
 ・仕出地の記載がなければ pol:"日本"。
+・FedEx・DHL・UPS等の<b>ゾーン制の料金表</b>（料金がゾーンA/B/1/2…単位で、別表にゾーン⇔国の対応がある形式）：
+  ゾーン定義から国へ展開して国ごとに1行（mode:"COURIER"）。対象国が多い場合は主要20か国に絞る。
+  サービス種別（Priority/Economy/Connect等）が複数ある場合は標準的な1種のみを使い、noteにサービス名を書く。
 ・行数は最大40行。読み取れた行のみ。通貨がUSDならpriceはそのまま数値、noteに"USD建て"と書く。`+
 (isText?"":"");
 async function fwdRatesLLM(src){
@@ -9502,10 +9535,30 @@ async function fwdRatesLLM(src){
       (src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),tok,
     {att:src.att,noWeb:1,timeout:150000,planTier:(FWDPLAN==="pro"?"pro":"std"),
      sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ（コードフェンス・説明文禁止）。"});
-  let j;
-  try{ j=xParseJson((await ask("",3600)).txt); }
-  catch(e){ /* JSON崩れ・途中切れ → 行数を絞って1回だけ再試行 */
-    j=xParseJson((await ask("\n※必ず完全なJSONのみ。行が多い場合は主要30行以内に絞ること。",3000)).txt);
+  let j=null,lastRaw="";
+  const tryParse=async(extra,tok,prov)=>{
+    const o=prov?{prov}:null;
+    const r=await (o?llmAsk(FWD_XPROMPT(!!src.text)+(extra||"")+
+        (src.text?`\n\n=== データ ===\n${src.text.slice(0,15000)}`:""),tok,
+      Object.assign({att:src.att,noWeb:1,timeout:150000,
+        sys:"あなたは物流レート表の読み取り専門家。返答は指定JSONのみ（コードフェンス・説明文禁止）。"},o))
+      :ask(extra,tok));
+    lastRaw=String(r.txt||"");
+    return xParseJson(lastRaw);
+  };
+  try{ j=await tryParse("",4800); }
+  catch(e1){
+    try{ j=await tryParse("\n※必ず完全なJSONのみ。行が多い場合は主要20行以内に絞ること。",3000); }
+    catch(e2){
+      /* 使用エンジンの応答がJSONにならない → 別の有効エンジン（ファイル読取対応）で最後の再試行 */
+      const act=(typeof llmActive==="function")?llmActive():[];
+      const cap=src.att?act.filter(p=>p==="gemini"||p==="anthropic"||p==="openai"):act.slice();
+      const rt=(typeof llmRoute==="function")?llmRoute({att:src.att,planTier:(FWDPLAN==="pro"?"pro":"std")}):null;
+      const alt=cap.find(p=>!rt||p!==rt.prov);
+      if(!alt) throw new Error("AIの応答をレート表として解釈できませんでした（応答冒頭：「"+lastRaw.slice(0,100)+"…」）。Excel（.xlsx）またはCSVでのアップロードなら確実に取り込めます");
+      try{ j=await tryParse("\n※必ず完全なJSONのみ。行が多い場合は主要20行以内に絞ること。",3000,alt); }
+      catch(e3){ throw new Error("AIの応答をレート表として解釈できませんでした（"+(PROV[alt]&&PROV[alt].short||alt)+"でも再試行済み。応答冒頭：「"+lastRaw.slice(0,100)+"…」）。Excel（.xlsx）またはCSVでのアップロードなら確実に取り込めます"); }
+    }
   }
   return (j.rates||[]).filter(x=>x&&x.pod&&+x.price)
     .map(x=>({pol:String(x.pol||"日本"),pod:String(x.pod),mode:fwdNormMode(x.mode),
