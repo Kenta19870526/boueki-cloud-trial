@@ -6683,11 +6683,17 @@ function shipNewList(q){
   if(!h) h=`<p class="nn" style="padding:10px 0">該当がありません。国名（例：韓国・ドイツ）や相手名で検索してください。<br>チャット欄に「<b>日本から韓国向けの輸入商社の受注、出荷まで進めておいて</b>」のように書いても案件を立ち上げられます。</p>`;
   return h;
 }
+function shipArtJump(i){
+  const el=document.getElementById("stepart"+i); if(!el) return;
+  el.scrollIntoView({behavior:"smooth",block:"center"});
+  el.style.outline="2.5px solid var(--or)"; el.style.outlineOffset="3px"; el.style.borderRadius="8px";
+  setTimeout(()=>{ el.style.outline=""; },1700);
+}
 function shipStepDigest(i,S){
   const ex=(S.extra||[]).map(e=>e[0]+"："+e[1]).join("／");
   return [
     `${esc(shipShort(S.buyer))}（${esc(S.country)}）／${esc(S.qty)}／単価 ${esc(S.unitPrice)}・合計 ${esc(S.total)}／${esc(S.term)}／${esc(S.pay||"T/T 30日")}／着荷 ${esc(S.want)}${ex?"／"+esc(ex):""}`,
-    `${esc(S.pol||"神戸港")} → ${esc(S.pod||S.country)}／フォワーダー3社＋<b>貿易クラウド内の物流会社にAI見積</b>（下のボタンから）`,
+    `${esc(S.pol||"神戸港")} → ${esc(S.pod||S.country)}／フォワーダー3社＋<b>貿易クラウド内の物流会社にAI見積</b>（下の依頼内容ブロックから）`,
     `届いた見積を金額・日数・実績で比較して1社を選定`,
     `PI・CI・PLを自動作成（「貿易実務・書類」で確認できます）`,
     `通関業者・銀行・保険会社へデータを連携`,
@@ -6830,13 +6836,12 @@ function vShip(p){
             return `<div class="ti ${i<shipStep?"g":i===shipStep?"o":""}" style="${i>shipStep?"opacity:.45":""}">
             <time>ステップ ${i+1}</time><b>${s.t}</b>
             ${i<=shipStep?`<div style="font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.65">${shipStepDigest(i,D.ship)}</div>`:""}
+            ${i<=shipStep&&s.art?`<div class="art" id="stepart${i}" style="margin-top:7px"><div class="ah"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>${s.art.h}</div><div class="ab" style="overflow-x:auto">${s.art.b}</div></div>`:""}
             ${md&&md.note?`<div style="font-size:10px;color:var(--or-deep);margin-top:3px">✎ 指示：${esc(md.note).slice(0,70)}</div>`:""}
             ${i===shipStep?`<button class="btn g" style="margin-top:5px;padding:3px 10px;font-size:10.5px" onclick="openStepEdit(${i})">✎ このステップを編集</button>`
               :i<shipStep?`<div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">🔒 確定済み・変更不可</div>`:""}
           </div>`;}).join("")}
         </div>
-        ${shipStep===1&&typeof fwdInlineHtml==="function"
-          ?`<div style="margin-top:10px">${fwdInlineHtml().replace(/id="fwdgo"/,'id="fwdgo2"').replace(/data-fwdq="/g,'data-fwdq2="')}</div>`:""}
       </div>
       <div class="c"><h3>データはどこから来ているか</h3>
         <p class="nn">手入力がゼロになるのは、すでに情報がたまっているからです。</p>
@@ -6856,7 +6861,9 @@ function shipRender(){
   for(let i=0;i<=shipStep && i<ST.length;i++){
     const s=ST[i], b=pushTo(c,"a",s.ai);
     if(s.art) b.insertAdjacentHTML("beforeend",
-      `<div class="art"><div class="ah"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>${s.art.h}</div><div class="ab">${s.art.b}</div></div>`);
+      `<div class="art" style="cursor:pointer" onclick="shipArtJump(${i})" title="クリックすると右の「この手続きでやっていること」の該当箇所へ移動します">
+        <div class="ah"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>${s.art.h}
+        <span style="margin-left:auto;font-weight:600;color:var(--bl);font-size:10px">→ 右の手続きパネルに表示中</span></div></div>`);
   }
   SHIPQA.forEach(x=>{ pushTo(c,"u",esc(x.q));
     const b=pushTo(c,"a",x.a); b.insertAdjacentHTML("beforeend",`<div class="ci">${x.ci}</div>`); });
@@ -6875,8 +6882,7 @@ function shipRender(){
   document.querySelectorAll("[data-sq]").forEach(b=>b.onclick=()=>askShip(b.dataset.sq));
   document.querySelectorAll("[data-shiptab]").forEach(b=>b.onclick=()=>shipActivate(+b.dataset.shiptab));
   document.querySelectorAll("[data-shipx]").forEach(b=>b.onclick=e=>{e.stopPropagation();shipCloseCase(+b.dataset.shipx);});
-  const fg2=$("#fwdgo2"); if(fg2&&typeof fwdRequest==="function") fg2.onclick=()=>fwdRequest();
-  document.querySelectorAll("[data-fwdq2]").forEach(x=>{ if(typeof openFwdQuote==="function") x.onclick=()=>openFwdQuote(x.dataset.fwdq2); });
+  
   const nb=$("#sbtn");
   if(shipStep<ST.length-1){
     nb.innerHTML=`<button class="btn" id="snext">${ST[shipStep+1].t} へ進む →</button>
