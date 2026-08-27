@@ -410,7 +410,7 @@ body.locked .pg-ft{display:none}
 <div class="dw" id="dw" data-open="false" role="dialog" aria-modal="true" aria-label="詳細">
   <div class="sc" data-close></div><div class="pn" id="pn"></div>
 </div>
-<input type="file" id="fin" hidden accept=".xlsx,.xlsm,.xls,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg">
+<input type="file" id="fin" hidden accept=".xlsx,.xlsm,.xls,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg,.zip">
 
 <script>
 "use strict";
@@ -1401,6 +1401,38 @@ async function unzip(buf){
   return out;
 }
 const XT=u8=>new TextDecoder("utf-8").decode(u8);
+/* 顧客Zip用の汎用展開：パスフィルタなし・日本語Windowsのファイル名（Shift-JIS）に対応 */
+async function unzipAll(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf), out={};
+  let eo=-1;
+  for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-66000);i--)
+    if(dv.getUint32(i,true)===0x06054b50){eo=i;break;}
+  if(eo<0) throw new Error("not-zip");
+  const n=dv.getUint16(eo+10,true), cd=dv.getUint32(eo+16,true);
+  let p=cd, total=0;
+  for(let k=0;k<n;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const flag=dv.getUint16(p+8,true), meth=dv.getUint16(p+10,true),
+      csz=dv.getUint32(p+20,true), usz=dv.getUint32(p+24,true),
+      nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true),
+      lho=dv.getUint32(p+42,true);
+    const nameRaw=u8.subarray(p+46,p+46+nl);
+    let name;
+    if(flag&0x800){ name=new TextDecoder().decode(nameRaw); }
+    else{
+      try{ name=new TextDecoder("utf-8",{fatal:true}).decode(nameRaw); }
+      catch(e){ try{ name=new TextDecoder("shift_jis").decode(nameRaw); }
+        catch(e2){ name=new TextDecoder().decode(nameRaw); } }
+    }
+    p+=46+nl+el+cl;
+    if(name.endsWith("/")||name.startsWith("__MACOSX/")||/(^|\/)\./.test(name)) continue;
+    if(usz>30e6||total+usz>90e6) continue;
+    const lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
+    const ds=lho+30+lnl+lel, raw=u8.subarray(ds,ds+csz);
+    try{ out[name]=meth===8?await inflateRaw(raw):raw; total+=usz; }catch(e){}
+  }
+  return out;
+}
 const colNum=r=>{let c=0;for(const ch of r.replace(/\d+/g,""))c=c*26+(ch.charCodeAt(0)-64);return c;};
 
 function parseSheet(xml,ss){
@@ -2310,7 +2342,7 @@ function bnAsk(q){
    Word/Excel/PowerPoint形式に書き出してからアップロードする。 */
 const FEXT=n=>String(n||"").toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]||"";
 const FMIME={pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg"};
-const FACCEPT=".xlsx,.xlsm,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg";
+const FACCEPT=".xlsx,.xlsm,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg,.zip";
 async function fileB64(file){
   const b=new Uint8Array(await file.arrayBuffer());
   let s=""; const CH=8192;
@@ -2526,8 +2558,151 @@ function xPend(t,x){
   return t;
 }
 /* アップロード画面のマスターエントリ：どの形式でもテナントを返す */
+/* ── ① Zip一括取り込み：中の資料をすべて読み、1商品の資料一式として統合 ── */
+function zipTextDec(u8){
+  try{ return new TextDecoder("utf-8",{fatal:true}).decode(u8).replace(/^\uFEFF/,""); }
+  catch(e){ try{ return new TextDecoder("shift_jis").decode(u8); }
+    catch(e2){ return new TextDecoder().decode(u8); } }
+}
+function u8b64(b){ let s=""; const CH=8192;
+  for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));
+  return btoa(s); }
+async function zipCorpus(file){
+  const fs=await unzipAll(await file.arrayBuffer());
+  const files=[],skipped=[],grids=[]; let corpus="",pdfAtt=null;
+  const PER=6000, MAX=60000;
+  for(const name of Object.keys(fs)){
+    const base=name.split("/").pop(), ext=FEXT(base), u8=fs[name];
+    if(files.length>=20||corpus.length>MAX){ skipped.push(name); continue; }
+    try{
+      if(ext==="xlsx"||ext==="xlsm"){
+        const ss=await readWorkbook(new File([u8],base));
+        const t2=ss.map(s2=>"【"+s2.name+"】\n"+s2.grid.map(r=>r.filter(Boolean).join(" | ")).filter(Boolean).join("\n")).join("\n");
+        ss.forEach(s2=>grids.push(s2.grid));
+        corpus+=`\n=== ファイル: ${name}（Excel） ===\n${t2.slice(0,PER)}\n`;
+        files.push({name,kind:"Excel",chars:t2.length});
+      } else if(ext==="docx"||ext==="pptx"){
+        const ex=ext==="docx"?await extractDocx(new File([u8],base)):await extractPptx(new File([u8],base));
+        (ex.grids||[]).forEach(g=>grids.push(g));
+        const t2=ex.text+"\n"+(ex.grids||[]).map(g=>g.map(r=>r.join(" | ")).join("\n")).join("\n");
+        corpus+=`\n=== ファイル: ${name}（${ext==="docx"?"Word":"PowerPoint"}） ===\n${t2.slice(0,PER)}\n`;
+        files.push({name,kind:ext==="docx"?"Word":"PowerPoint",chars:t2.length});
+      } else if(ext==="csv"||ext==="txt"){
+        const t2=zipTextDec(u8);
+        corpus+=`\n=== ファイル: ${name}（${ext.toUpperCase()}） ===\n${t2.slice(0,PER)}\n`;
+        files.push({name,kind:ext.toUpperCase(),chars:t2.length});
+      } else if(ext==="pdf"){
+        if(!pdfAtt&&u8.length<8e6&&typeof provCanFile==="function"&&provCanFile("pdf")&&typeof ppReady==="function"&&ppReady()){
+          pdfAtt={mime:"application/pdf",b64:u8b64(u8),name:base};
+          files.push({name,kind:"PDF（AI読取）",chars:0});
+        } else skipped.push(name);
+      } else skipped.push(name);
+    }catch(e){ skipped.push(name+"（読取失敗）"); }
+  }
+  return {corpus:corpus.trim(),grids,files,pdfAtt,skipped};
+}
+/* ── ② クラウドURL取り込み（Google Drive／Docs／OneDrive・公開リンク前提） ── */
+async function pageTextRaw(u){
+  /* fetchPageTextは{raw,via,url}を返す：本文文字列だけ取り出す */
+  const r=await fetchPageText(u);
+  return (r&&typeof r==="object"&&"raw" in r)?String(r.raw||""):String(r||"");
+}
+function odShareId(url){
+  const b=btoa(unescape(encodeURIComponent(url))).replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
+  return "u!"+b;
+}
+function bytesToFile(u8,base){
+  const sig=String.fromCharCode.apply(null,u8.subarray(0,Math.min(4,u8.length)));
+  if(sig.indexOf("%PDF")===0) return new File([u8],base+".pdf",{type:"application/pdf"});
+  if(sig.indexOf("PK")===0){
+    let s2=""; const lim=Math.min(u8.length,120000);
+    for(let i=0;i<lim;i+=8192) s2+=String.fromCharCode.apply(null,u8.subarray(i,Math.min(lim,i+8192)));
+    const ext=s2.includes("xl/workbook.xml")?"xlsx":s2.includes("word/document.xml")?"docx"
+      :s2.includes("ppt/presentation.xml")?"pptx":"zip";
+    return new File([u8],base+"."+ext,{type:"application/octet-stream"});
+  }
+  if(u8[0]===0x89&&u8[1]===0x50) return new File([u8],base+".png",{type:"image/png"});
+  if(u8[0]===0xFF&&u8[1]===0xD8) return new File([u8],base+".jpg",{type:"image/jpeg"});
+  const head=String.fromCharCode.apply(null,u8.subarray(0,Math.min(200,u8.length))).toLowerCase();
+  if(head.includes("<!doctype")||head.includes("<html")) return null;
+  try{ new TextDecoder("utf-8",{fatal:true}).decode(u8); return new File([u8],base+".txt",{type:"text/plain"}); }
+  catch(e){ return null; }
+}
+async function cloudFetch(url){
+  url=String(url||"").trim();
+  if(!/^https?:\/\//.test(url)) throw new Error("URLを貼り付けてください（https://…で始まる共有リンク）");
+  const to=ms=>({signal:AbortSignal.timeout(ms)});
+  if(/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(url))
+    throw new Error("Googleドライブの【フォルダ】は、共有仕様上ブラウザから直接読めません。フォルダを右クリック→「ダウンロード」（自動でZipになります）→そのZipをアップロードしてください。Zipなら中の資料をまとめて読み込めます");
+  const gm=url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
+  if(gm){
+    const exp=gm[1]==="spreadsheets"
+      ?`https://docs.google.com/spreadsheets/d/${gm[2]}/export?format=csv`
+      :`https://docs.google.com/${gm[1]}/d/${gm[2]}/export?format=txt`;
+    let text="";
+    try{ const r=await fetch(exp,to(15000)); if(r.ok) text=await r.text(); }catch(e){}
+    if(!text&&typeof fetchPageText==="function"){ try{ text=await pageTextRaw(exp); }catch(e){} }
+    if(!text||text.length<20||/accounts\.google\.com|ServiceLogin/.test(text.slice(0,600)))
+      throw new Error("このGoogleドキュメントは読み取れませんでした。共有を「リンクを知っている全員」に変更するか、「ファイル→ダウンロード」でWord/Excel形式にしてアップロードしてください");
+    const nm={document:"Googleドキュメント",spreadsheets:"Googleスプレッドシート",presentation:"Googleスライド"}[gm[1]]+"（URL取込）";
+    return {text:text.slice(0,60000),name:nm};
+  }
+  const dm=url.match(/drive\.google\.com\/file\/d\/([\w-]+)/)||url.match(/drive\.google\.com\/(?:open|uc)\?[^#]*id=([\w-]+)/);
+  if(dm){
+    try{
+      const r=await fetch(`https://drive.google.com/uc?export=download&id=${dm[1]}`,to(20000));
+      if(r.ok){ const f=bytesToFile(new Uint8Array(await r.arrayBuffer()),"GoogleDrive資料"); if(f) return {file:f}; }
+    }catch(e){}
+    if(typeof fetchPageText==="function"){
+      try{ const t2=await pageTextRaw(url);
+        if(t2&&t2.length>200&&!/accounts\.google\.com/.test(t2.slice(0,400)))
+          return {text:t2.slice(0,60000),name:"GoogleDriveファイル（URL取込・本文抽出）"}; }catch(e){}
+    }
+    throw new Error("このGoogleドライブのファイルはブラウザから直接取得できませんでした（Googleの共有仕様）。ファイルをダウンロードしてアップロードするか、複数ある場合はZipにまとめてどうぞ");
+  }
+  if(/1drv\.ms|onedrive\.live\.com|sharepoint\.com/.test(url)){
+    try{
+      const r=await fetch("https://api.onedrive.com/v1.0/shares/"+odShareId(url)+"/root/content",to(25000));
+      if(r.ok){ const f=bytesToFile(new Uint8Array(await r.arrayBuffer()),"OneDrive資料"); if(f) return {file:f}; }
+    }catch(e){}
+    if(typeof fetchPageText==="function"){
+      try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200) return {text:t2.slice(0,60000),name:"OneDrive（URL取込・本文抽出）"}; }catch(e){}
+    }
+    throw new Error("このOneDrive共有リンクは読み取れませんでした。共有を「リンクを知っている全員（表示可能）」にするか、ファイル／フォルダをダウンロード（フォルダはZipになります）してアップロードしてください");
+  }
+  if(typeof fetchPageText==="function"){
+    try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200) return {text:t2.slice(0,60000),name:"Webページ（URL取込）"}; }catch(e){}
+  }
+  throw new Error("このURLは読み取れませんでした。Google Drive／OneDriveの共有リンク、またはファイルのアップロードをご利用ください");
+}
+/* URLから取れたテキストをテナント化（Zipと同じ統合フロー） */
+async function textToTenant(text,name){
+  const t=tenantFromTextGrids(String(text),[],name,1);
+  t.srcDocs=[{name,kind:"クラウド取込",chars:String(text).length}];
+  t.srcCorpus=String(text).slice(0,30000);
+  if(typeof ppReady==="function"&&ppReady()){
+    try{ const x=await llmXtract({text:String(text).slice(0,18000),filename:name}); t.aiRead=1; xPend(t,x); }catch(e){}
+  }
+  return t;
+}
 async function fileToTenant(file){
   const ext=FEXT(file.name);
+  if(ext==="zip"){
+    const z=await zipCorpus(file);
+    if(!z.files.length&&!z.pdfAtt)
+      throw new Error("Zipの中に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／テキスト）");
+    const t=tenantFromTextGrids(z.corpus,z.grids,file.name,Math.max(1,z.files.length));
+    t.srcDocs=z.files; t.srcCorpus=z.corpus.slice(0,30000);
+    if(z.skipped.length) t.srcSkipped=z.skipped.slice(0,10);
+    if(typeof ppReady==="function"&&ppReady()){
+      try{
+        const o={text:z.corpus.slice(0,18000),filename:file.name+"（Zip内 "+z.files.length+"ファイル統合）"};
+        if(z.pdfAtt) o.att=z.pdfAtt;
+        const x=await llmXtract(o); t.aiRead=1; xPend(t,x);
+      }catch(e){}
+    }
+    return t;
+  }
   if(/^(xlsx|xlsm|csv|txt)$/.test(ext)) return await buildTenant(file);
   if(ext==="docx"||ext==="pptx"){
     const ex=ext==="docx"?await extractDocx(file):await extractPptx(file);
@@ -5281,7 +5456,7 @@ async function legalFromUrl(url){
     :`https://docs.google.com/${m[1]}/d/${m[2]}/export?format=${m[1]==="presentation"?"txt":"csv"}`;
   let text="";
   try{ const r=await fetch(exp,{signal:AbortSignal.timeout(12000)}); if(r.ok) text=await r.text(); }catch(e){}
-  if(!text&&typeof fetchPageText==="function"){ try{ text=await fetchPageText(exp); }catch(e){} }
+  if(!text&&typeof fetchPageText==="function"){ try{ const r2=await fetchPageText(exp); text=(r2&&typeof r2==="object"&&"raw" in r2)?String(r2.raw||""):String(r2||""); }catch(e){} }
   if(!text||text.length<40||/accounts\.google\.com|ServiceLogin/.test(text.slice(0,600)))
     throw new Error("このURLは読み取れませんでした。共有設定を「リンクを知っている全員」にするか、"+
       "「ファイル→ダウンロード→Word(.docx)」で書き出してアップロードしてください");
@@ -6054,15 +6229,21 @@ function vUp(p){
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c">
       <h3>資料をアップロードする</h3>
-      <p class="nn"><b>Excel・CSV・Word・PowerPoint・PDF・画像（PNG/JPEG）</b>に対応。①商品情報 ②価格表・寸法 ③成分表・素材表 の3種類がそろうと、AIが最も正確に働きます。<br>
-      <span style="font-size:10px;color:var(--ink-3)">PDF・画像・文書の高精度読み取りは、管理者がAIエンジン（ChatGPT/Gemini/Claude等）を接続している場合に有効。Googleドキュメント／スプレッドシート／スライドは「ファイル→ダウンロード」でWord/Excel/PowerPoint形式にしてからどうぞ。</span></p>
+      <p class="nn"><b>Excel・CSV・Word・PowerPoint・PDF・画像（PNG/JPEG）・Zip</b>に対応。①商品情報 ②価格表・寸法 ③成分表・素材表 の3種類がそろうと、AIが最も正確に働きます。<br>
+      <span style="font-size:10px;color:var(--ink-3)"><b>Zipは中の資料をまとめて読み込み、1つの商品資料一式として統合</b>します（PCのフォルダごと取り込みたいときに）。PDF・画像の高精度読み取りは、管理者がAIエンジンを接続している場合に有効です。</span></p>
       <div class="drop" id="drop" role="button" tabindex="0" style="margin-top:11px">
         <div class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
           stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/></svg></div>
         <h3>ここにファイルをドラッグ＆ドロップ</h3>
         <p>またはクリックしてファイルを選択</p>
-        <p style="color:var(--ink-3);margin-top:7px;font-size:10.5px">1ファイルに複数シートが入っていても、自動で読み分けます</p>
+        <p style="color:var(--ink-3);margin-top:7px;font-size:10.5px">複数ファイルは<b>Zipにまとめて</b>どうぞ。中身を全部読み込みます</p>
       </div>
+      <p class="lbl" style="margin-top:12px">☁ Google Drive／OneDrive のURLから取り込む</p>
+      <div class="rw" style="margin-top:4px">
+        <input class="sel" id="cldu" placeholder="共有リンクを貼り付け（「リンクを知っている全員」の設定で）" style="flex:1;min-width:0">
+        <button class="btn g" id="cldgo" style="flex:none">取り込む</button></div>
+      <p class="nn" style="margin:4px 0 0;font-size:10px">Googleドキュメント／スプレッドシート／スライドのURLはそのまま読めます。Driveのフォルダは「右クリック→ダウンロード」でZip化してアップロードしてください。</p>
+      <div id="cldst"></div>
       <div id="prg" hidden style="margin-top:12px"></div>
       <div id="pick" hidden style="margin-top:12px"></div>
     </div>
@@ -6229,6 +6410,26 @@ function wireUp(){
   ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over");}));
   dz.addEventListener("drop",e=>take(e.dataTransfer.files[0]));
   fin.onchange=e=>{take(e.target.files[0]);e.target.value="";};
+  const cgo=$("#cldgo"), cin=$("#cldu");
+  if(cgo&&cin) cgo.onclick=async()=>{
+    const u=(cin.value||"").trim(); if(!u){ cin.focus(); return; }
+    cgo.disabled=true; cgo.textContent="取込中…";
+    const st=$("#cldst");
+    if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">☁ 読み取り中…（リンクの種類により数十秒かかることがあります）</p>`;
+    try{
+      const r2=await cloudFetch(u);
+      if(r2.file){ if(st) st.innerHTML=""; cin.value=""; await take(r2.file); }
+      else{
+        const info={name:r2.name,kb:Math.max(1,Math.round(r2.text.length/1024)),sheets:1};
+        const t=await textToTenant(r2.text,r2.name);
+        if(st) st.innerHTML=""; cin.value="";
+        runParseReal(t,info,new File([r2.text],r2.name+".txt",{type:"text/plain"}));
+      }
+    }catch(e){
+      if(st) st.innerHTML=`<div style="margin-top:7px;padding:9px 11px;border:1px solid var(--crit);border-radius:8px;font-size:11.5px;color:var(--crit);line-height:1.7">${esc(String(e.message))}</div>`;
+    }
+    cgo.disabled=false; cgo.textContent="取り込む";
+  };
   document.querySelectorAll("[data-smp]").forEach(b=>b.addEventListener("click",()=>{
     const x=PRODUCTS[b.dataset.smp];
     runParse(x.key,{name:x.file,kb:{food:26,cosme:24,parts:25}[x.key],sheets:3});
@@ -8487,6 +8688,11 @@ ${ship||"（まだ無し）"}${xa?`
 ${xa}`:""}${notes?`
 ## AIが資料から読み取った分析メモ
 ${notes}`:""}
+${(typeof TEN!=="undefined"&&TEN&&TEN.srcDocs&&TEN.srcDocs.length)?`
+## アップロード資料一式（Zip／クラウドURL取込・${TEN.srcDocs.length}ファイル）
+${TEN.srcDocs.map(d2=>"・"+d2.name+"（"+d2.kind+"）").join("\n")}
+### 原文抜粋（この原文も回答の根拠に使ってよい）
+${String(TEN.srcCorpus||"").slice(0,5000)}`:""}
 ${typeof bnCtxDb==="function"?bnCtxDb():""}`;
 }
 
