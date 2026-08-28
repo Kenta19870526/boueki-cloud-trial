@@ -2335,6 +2335,202 @@ function bnAsk(q){
   return {a,c:"社内バイヤーDB（週次更新・"+st.total.toLocaleString()+"名）を直接照会／名称・連絡先は正式契約後に開示"};
 }
 
+/* ═══ ① 自社で開拓したBuyerの登録（手動・会社URL・ファイル）＋AI商社マンの自動チェック ═══ */
+function myBuyers(){
+  if(typeof TEN!=="undefined"&&TEN){ TEN.myBuyers=TEN.myBuyers||[]; return TEN.myBuyers; }
+  window.__myb=window.__myb||[]; return window.__myb;
+}
+function mybSave(){ if(typeof saveTen==="function") saveTen(); }
+function mybNew(){ return {id:"MY-"+Date.now().toString(36).toUpperCase().slice(-5),co:"",cty:"",biz:"",
+  ints:"",size:"",url:"",contact:"",memo:"",added:(typeof legNow==="function"?legNow():""),ai:null}; }
+/* AI商社マン：不足確認＋アドバイス＋ファクトチェック（Web検索・正直方針） */
+async function buyerAICheck(b){
+  const NEEDB=[["co","会社名"],["cty","国"],["biz","業種・業態"],["ints","取扱・関心カテゴリ"],["contact","担当者・連絡先"]];
+  const localMissing=NEEDB.filter(([k])=>!String(b[k]||"").trim()).map(([,n])=>n);
+  if(!(typeof ppReady==="function"&&ppReady())){
+    b.ai={missing:localMissing,advice:["AIエンジン接続後に、実在確認（ファクトチェック）と商談アドバイスを自動実施します"],
+      fact:{verdict:"未実施",note:"AIエンジン未接続のためWeb確認は未実施です",cits:[]},checkedAt:(typeof legNow==="function"?legNow():"")};
+    mybSave(); return b.ai;
+  }
+  const r=await llmAsk(`ユーザーが手動登録した海外Buyer情報を検証してください。Web検索で会社の実在・業種・所在国を確認すること。
+JSONのみ返す：
+{"missing":["商談開始前に埋めるべき不足項目（最大4・具体的に）"],
+ "advice":["このBuyerと商談を進める実務アドバイス（最大3・この会社/国/業種に固有の内容）"],
+ "fact":{"verdict":"確認できた|一部確認できた|確認できず","note":"Webで確認できた事実と、確認できなかった点を正直に（80字以内）"}}
+規則：確認できないことを「実在する」と断定しない。検索でヒットしない場合はverdict=確認できずとし、社名表記ゆれの可能性も添える。
+=== 登録されたBuyer情報 ===
+会社名:${b.co}／国:${b.cty}／業種:${b.biz}／取扱:${b.ints}／規模:${b.size}／URL:${b.url||"なし"}／連絡先:${b.contact||"なし"}／メモ:${b.memo||"なし"}`,
+    1600,{forceWeb:1,timeout:120000});
+  const j=xParseJson(r.txt);
+  b.ai={missing:[...new Set([...(localMissing||[]),...((j.missing||[]).slice(0,4))])].slice(0,5),
+    advice:(j.advice||[]).slice(0,3),
+    fact:{verdict:(j.fact&&j.fact.verdict)||"確認できず",note:(j.fact&&j.fact.note)||"",cits:(r.cits||[]).slice(0,3)},
+    engine:r.provNm||"",checkedAt:(typeof legNow==="function"?legNow():"")};
+  mybSave(); return b.ai;
+}
+async function buyerFromUrl(url){
+  const raw=await pageTextRaw(url);
+  if(!raw||raw.length<100) throw new Error("このURLの本文を読み取れませんでした");
+  if(!(typeof ppReady==="function"&&ppReady()))
+    throw new Error("会社URLからの自動読み取りにはAIエンジン接続が必要です（手動入力はご利用いただけます）");
+  const r=await llmAsk(`次の企業サイト本文から、貿易のBuyer候補情報をJSONで抽出（不明はnull・創作禁止）：
+{"co":"会社名","cty":"国（日本語）","biz":"業種・業態","ints":"取扱・関心カテゴリ","size":"規模感（従業員・年商など記載があれば）","contact":"問い合わせ先（メール・電話など記載があれば）","memo":"特徴を1文"}
+=== サイト本文 ===\n${String(raw).slice(0,12000)}`,1200,{noWeb:1,timeout:90000});
+  const j=xParseJson(r.txt);
+  return {co:j.co||"",cty:(typeof cnorm==="function"?cnorm(j.cty||""):j.cty)||"",biz:j.biz||"",
+    ints:j.ints||"",size:j.size||"",contact:j.contact||"",memo:j.memo||"",url};
+}
+async function buyerFromFile(f){
+  const ext=FEXT(f.name);
+  let text="",att=null;
+  if(ext==="docx"){ const d=await extractDocx(f); text=d.text; }
+  else if(ext==="pptx"){ const d=await extractPptx(f); text=d.text; }
+  else if(ext==="xlsx"||ext==="xlsm"){ const ss=await readWorkbook(f);
+    text=ss.map(s2=>s2.grid.map(r=>r.filter(Boolean).join(" | ")).join("\n")).join("\n"); }
+  else if(ext==="csv"||ext==="txt"){ text=zipTextDec(new Uint8Array(await f.arrayBuffer())); }
+  else if(/^(pdf|png|jpg|jpeg)$/.test(ext)){
+    if(!(typeof provCanFile==="function"&&provCanFile(ext)&&typeof ppReady==="function"&&ppReady()))
+      throw new Error("PDF・画像の読み取りにはAIエンジン接続が必要です");
+    att={mime:FMIME[ext],b64:await fileB64(f)};
+  } else throw new Error("対応形式：Excel/CSV/Word/PowerPoint/PDF/画像/テキスト");
+  if(!(typeof ppReady==="function"&&ppReady()))
+    throw new Error("ファイルからの自動読み取りにはAIエンジン接続が必要です（手動入力はご利用いただけます）");
+  const o={noWeb:1,timeout:120000}; if(att) o.att=att;
+  const r=await llmAsk(`${att?"添付ファイル":"次の資料"}から、海外Buyer（取引先候補）の情報をJSONで抽出（不明はnull・創作禁止）：
+{"co":"会社名","cty":"国（日本語）","biz":"業種・業態","ints":"取扱・関心カテゴリ","size":"規模感","contact":"担当者・連絡先","memo":"特徴を1文"}${text?"\n=== 資料 ===\n"+text.slice(0,12000):""}`,1200,o);
+  const j=xParseJson(r.txt);
+  return {co:j.co||"",cty:(typeof cnorm==="function"?cnorm(j.cty||""):j.cty)||"",biz:j.biz||"",
+    ints:j.ints||"",size:j.size||"",contact:j.contact||"",memo:j.memo||"",url:""};
+}
+/* 追加ドロワー（手動フォーム共通。URL/ファイルは読み取り→フォームに反映→ユーザー確認→保存） */
+function openBuyerAdd(pre){
+  pre=pre||{};
+  const on=typeof ppReady==="function"&&ppReady();
+  openDW(`<h3>＋ Buyerを追加（自社で開拓した相手）</h3>
+    <p class="nn" style="margin-top:4px">保存すると<b>AI商社マンが自動で「不足情報の確認・商談アドバイス・実在のファクトチェック（Web検索）」</b>を行います${on?"":"（AIエンジン接続後に自動実施）"}。</p>
+    <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap">
+      <span class="rw" style="flex:1;min-width:220px;gap:5px">
+        <input class="sel" id="mbUrl" placeholder="会社サイトURLから自動入力（任意）" style="flex:1;min-width:0">
+        <button class="btn g" id="mbUrlGo" style="flex:none" ${on?"":"disabled title='AIエンジン接続後に使えます'"}>読み取る</button></span>
+      <label class="btn g" style="cursor:pointer;flex:none" ${on?"":"disabled"}>📎 ファイルから
+        <input type="file" id="mbFile" hidden accept=".xlsx,.xlsm,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg"></label></div>
+    <div id="mbSt"></div>
+    ${[["会社名 *","mbCo",pre.co,"例：Formosa Fine Foods Ltd."],["国 *","mbCty",pre.cty,"例：台湾"],
+       ["業種・業態 *","mbBiz",pre.biz,"例：食品輸入商社"],["取扱・関心","mbInt",pre.ints,"例：抹茶・調味料・健康食品"],
+       ["規模感","mbSize",pre.size,"例：年商 $5〜20M・従業員80名"],["会社URL","mbWeb",pre.url,"https://…"],
+       ["担当者・連絡先","mbCt",pre.contact,"例：Mr. Chen／purchasing@…"]].map(([l,id,v,ph2])=>
+      `<p class="lbl" style="margin-top:8px">${l}</p><input class="sel" id="${id}" value="${esc(v||"")}" placeholder="${esc(ph2)}" style="width:100%;box-sizing:border-box">`).join("")}
+    <p class="lbl" style="margin-top:8px">メモ</p>
+    <textarea class="sel" id="mbMemo" rows="2" style="width:100%;box-sizing:border-box;min-height:52px">${esc(pre.memo||"")}</textarea>
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="mbGo">保存してAIチェック</button>
+      <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  const st=$("#mbSt");
+  const fill=d2=>{ [["mbCo","co"],["mbCty","cty"],["mbBiz","biz"],["mbInt","ints"],["mbSize","size"],["mbWeb","url"],["mbCt","contact"],["mbMemo","memo"]]
+    .forEach(([id,k])=>{ const e2=$("#"+id); if(e2&&d2[k]) e2.value=d2[k]; }); };
+  const ug=$("#mbUrlGo");
+  if(ug) ug.onclick=async()=>{
+    const u=($("#mbUrl").value||"").trim(); if(!u) return;
+    ug.disabled=true; if(st) st.innerHTML='<p class="nn" style="margin-top:6px">🌐 サイトを読み取り中…</p>';
+    try{ fill(await buyerFromUrl(u)); if(st) st.innerHTML='<p class="nn" style="margin-top:6px;color:var(--good)">✓ 読み取りました。内容をご確認のうえ保存してください（推測は入れていません）</p>'; }
+    catch(e){ if(st) st.innerHTML=`<p class="nn" style="margin-top:6px;color:var(--crit)">${esc(String(e.message).slice(0,90))}</p>`; }
+    ug.disabled=false;
+  };
+  const mf=$("#mbFile");
+  if(mf) mf.onchange=async()=>{
+    const f=mf.files[0]; mf.value=""; if(!f) return;
+    if(st) st.innerHTML='<p class="nn" style="margin-top:6px">📎 ファイルを読み取り中…</p>';
+    try{ fill(await buyerFromFile(f)); if(st) st.innerHTML='<p class="nn" style="margin-top:6px;color:var(--good)">✓ 読み取りました。内容をご確認のうえ保存してください</p>'; }
+    catch(e){ if(st) st.innerHTML=`<p class="nn" style="margin-top:6px;color:var(--crit)">${esc(String(e.message).slice(0,90))}</p>`; }
+  };
+  $("#mbGo").onclick=async()=>{
+    const b=Object.assign(mybNew(),{co:$("#mbCo").value.trim(),cty:(typeof cnorm==="function"?cnorm($("#mbCty").value.trim()):$("#mbCty").value.trim()),
+      biz:$("#mbBiz").value.trim(),ints:$("#mbInt").value.trim(),size:$("#mbSize").value.trim(),
+      url:$("#mbWeb").value.trim(),contact:$("#mbCt").value.trim(),memo:$("#mbMemo").value.trim()});
+    if(!b.co||!b.cty||!b.biz){ toast("会社名・国・業種は必須です"); return; }
+    myBuyers().unshift(b); mybSave();
+    closeDW(); if(typeof rDB==="function"&&document.querySelector("#dbb")) rDB();
+    toast("Buyerを登録しました。AI商社マンがチェック中…");
+    try{ await buyerAICheck(b); }catch(e){ b.ai={missing:[],advice:[],fact:{verdict:"チェック失敗",note:String(e.message).slice(0,80),cits:[]}}; mybSave(); }
+    if(typeof rDB==="function"&&document.querySelector("#dbb")) rDB();
+    toast("AIチェック完了："+(b.ai&&b.ai.fact?b.ai.fact.verdict:"—")+"（行をクリックで詳細）");
+    if(typeof logU==="function") logU("ai","Buyer追加:"+b.co);
+  };
+}
+function openMyBuyer(i){
+  const b=myBuyers()[i]; if(!b) return;
+  const ai=b.ai;
+  const vP={確認できた:"hi",一部確認できた:"mid",確認できず:"no",未実施:"lo"};
+  openDW(`<h3>🏷 ${esc(b.co)} <span class="p or">自社登録</span></h3>
+    <div class="dl" style="margin-top:8px">
+      <span>ID</span><span class="n">${esc(b.id)}</span><span>国</span><span>${esc(b.cty)}</span>
+      <span>業種</span><span>${esc(b.biz)}</span><span>取扱</span><span>${esc(b.ints||"—")}</span>
+      <span>規模</span><span>${esc(b.size||"—")}</span><span>URL</span><span style="word-break:break-all">${b.url?`<a href="${esc(b.url)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(b.url.slice(0,40))}</a>`:"—"}</span>
+      <span>連絡先</span><span>${esc(b.contact||"—")}</span><span>登録日</span><span class="n">${esc(b.added||"—")}</span></div>
+    ${b.memo?`<p style="font-size:11.5px;color:var(--ink-2);margin-top:7px">${esc(b.memo)}</p>`:""}
+    <p class="lbl" style="margin-top:12px">🤖 AI商社マンのチェック${ai&&ai.checkedAt?`（${esc(ai.checkedAt)}）`:""}</p>
+    ${ai?`
+      <div style="margin-top:5px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;line-height:1.8">
+        <b>ファクトチェック：</b><span class="p ${vP[ai.fact.verdict]||"lo"}">${esc(ai.fact.verdict)}</span><br>
+        <span style="color:var(--ink-2)">${esc(ai.fact.note||"")}</span>
+        ${(ai.fact.cits||[]).length?`<br><span style="font-size:10px">🌐 ${ai.fact.cits.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,36))}</a>`).join("　")}</span>`:""}
+        ${(ai.missing||[]).length?`<br><b>不足情報：</b>${ai.missing.map(esc).join("／")}`:"<br><b>不足情報：</b>ありません"}
+        ${(ai.advice||[]).length?`<br><b>アドバイス：</b><br>${ai.advice.map(a2=>"・"+esc(a2)).join("<br>")}`:""}
+      </div>`
+    :'<p class="nn">まだチェックが実行されていません。</p>'}
+    <div class="rw" style="margin-top:12px;gap:6px;flex-wrap:wrap">
+      <button class="btn" onclick="closeDW();openDM('${esc(b.id)}','${esc(b.cty)}','${esc(b.co)}')">✉ 直接連絡</button>
+      <button class="btn g" id="mbRe">🔄 AIで再チェック</button>
+      <button class="btn g" onclick="openBuyerEdit(${i})">✎ 編集</button>
+      <button class="btn g" id="mbDel">🗑 削除</button>
+      <button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#mbRe").onclick=async()=>{ const e2=$("#mbRe"); e2.disabled=true; e2.textContent="チェック中…";
+    try{ await buyerAICheck(b); openMyBuyer(i); toast("再チェック完了"); }
+    catch(err){ toast("チェック失敗："+String(err.message).slice(0,50)); e2.disabled=false; e2.textContent="🔄 AIで再チェック"; } };
+  $("#mbDel").onclick=()=>{ myBuyers().splice(i,1); mybSave(); closeDW(); if(typeof rDB==="function"&&document.querySelector("#dbb")) rDB(); toast("削除しました："+b.co); };
+}
+function openBuyerEdit(i){
+  const b=myBuyers()[i]; if(!b) return;
+  openBuyerAdd(b);
+  /* 保存を「更新」に差し替え */
+  const go2=$("#mbGo");
+  if(go2){ go2.textContent="更新してAIチェック";
+    go2.onclick=async()=>{
+      b.co=$("#mbCo").value.trim(); b.cty=(typeof cnorm==="function"?cnorm($("#mbCty").value.trim()):$("#mbCty").value.trim());
+      b.biz=$("#mbBiz").value.trim(); b.ints=$("#mbInt").value.trim(); b.size=$("#mbSize").value.trim();
+      b.url=$("#mbWeb").value.trim(); b.contact=$("#mbCt").value.trim(); b.memo=$("#mbMemo").value.trim();
+      if(!b.co||!b.cty||!b.biz){ toast("会社名・国・業種は必須です"); return; }
+      mybSave(); closeDW(); if(typeof rDB==="function"&&document.querySelector("#dbb")) rDB(); toast("更新しました。AIが再チェック中…");
+      try{ await buyerAICheck(b); }catch(e){}
+      if(typeof rDB==="function"&&document.querySelector("#dbb")) rDB(); toast("AIチェック完了");
+    }; }
+}
+/* 相手を探すの一覧に、自社登録Buyerを先頭表示（実名・非マスク） */
+function mybRows(f){
+  const list=myBuyers().filter(b=>{
+    if(f.cty&&b.cty!==f.cty) return false;
+    if(f.cat){ const nm=(BN_CATS.find(x=>x[0]===f.cat)||["",""])[1];
+      if(nm&&!(b.ints||"").includes(nm)&&!(b.biz||"").includes(nm)) return false; }
+    return true;
+  });
+  return list.map(b=>{
+    const i=myBuyers().indexOf(b);
+    const v=b.ai&&b.ai.fact?b.ai.fact.verdict:"";
+    return `<tr style="cursor:pointer" onclick="openMyBuyer(${i})" title="クリックで詳細・AIチェック結果">
+    <td><b>🏷 ${esc(b.co)}</b> <span class="p or" style="font-size:9px">自社登録</span><br>
+      <span style="font-size:9.5px;color:var(--ink-3)">ID ${esc(b.id)}・${esc(b.cty)}${v?`・AI:${esc(v)}`:""}</span></td>
+    <td><span class="p lo">${esc(b.biz)}</span><br><span style="font-size:10px;color:var(--ink-2)">${esc(b.ints||"")}</span></td>
+    <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size||"—")}</td>
+    <td>${b.ai&&(b.ai.missing||[]).length?'<span class="p mid" title="不足情報あり">要補完</span>':'<span class="p hi">整備済</span>'}</td>
+    <td class="num">—</td>
+    <td style="white-space:nowrap" onclick="event.stopPropagation()">
+      <button class="btn g" style="padding:3px 7px;font-size:10px" data-dm="${esc(b.id)}" data-cty="${esc(b.cty)}" data-biz="${esc(b.co)}">直接連絡</button>
+      <button class="btn g" style="padding:3px 7px;font-size:10px" onclick="openMyBuyer(${i})">詳細</button></td></tr>`;
+  }).join("");
+}
+
 /* ═══════════ 多形式ファイル解析（Word/PowerPoint=ローカル、PDF/画像=接続AI） ═══════════
    Excel/CSV は logic_xlsx の実解析。docx/pptx はZIP+XMLをローカル抽出。
    PDF/PNG/JPEG は接続中のAIエンジン（Gemini/Claude対応。Perplexityは画像のみ）で読む。
@@ -2580,7 +2776,7 @@ async function entriesCorpus(entries,prog){
       if(ent.text!==undefined&&ent.text!==null&&!ent.u8){
         const t2=String(ent.text);
         corpus+=`\n=== ファイル: ${name}（${ent.via||"本文抽出"}） ===\n${t2.slice(0,PER)}\n`;
-        files.push({name,kind:ent.via||"本文抽出",chars:t2.length});
+        files.push({name,kind:ent.via||"本文抽出",chars:t2.length,txt:t2.slice(0,PER)});
         continue;
       }
       const u8=ent.u8;
@@ -2589,17 +2785,17 @@ async function entriesCorpus(entries,prog){
         const t2=ss.map(s2=>"【"+s2.name+"】\n"+s2.grid.map(r=>r.filter(Boolean).join(" | ")).filter(Boolean).join("\n")).join("\n");
         ss.forEach(s2=>grids.push(s2.grid));
         corpus+=`\n=== ファイル: ${name}（Excel） ===\n${t2.slice(0,PER)}\n`;
-        files.push({name,kind:"Excel",chars:t2.length});
+        files.push({name,kind:"Excel",chars:t2.length,txt:t2.slice(0,PER)});
       } else if(ext==="docx"||ext==="pptx"){
         const ex=ext==="docx"?await extractDocx(new File([u8],base)):await extractPptx(new File([u8],base));
         (ex.grids||[]).forEach(g=>grids.push(g));
         const t2=ex.text+"\n"+(ex.grids||[]).map(g=>g.map(r=>r.join(" | ")).join("\n")).join("\n");
         corpus+=`\n=== ファイル: ${name}（${ext==="docx"?"Word":"PowerPoint"}） ===\n${t2.slice(0,PER)}\n`;
-        files.push({name,kind:ext==="docx"?"Word":"PowerPoint",chars:t2.length});
+        files.push({name,kind:ext==="docx"?"Word":"PowerPoint",chars:t2.length,txt:t2.slice(0,PER)});
       } else if(ext==="csv"||ext==="txt"){
         const t2=zipTextDec(u8);
         corpus+=`\n=== ファイル: ${name}（${ext.toUpperCase()}） ===\n${t2.slice(0,PER)}\n`;
-        files.push({name,kind:ext.toUpperCase(),chars:t2.length});
+        files.push({name,kind:ext.toUpperCase(),chars:t2.length,txt:t2.slice(0,PER)});
       } else if(ext==="pdf"){
         if(!pdfAtt&&u8.length<8e6&&typeof provCanFile==="function"&&provCanFile("pdf")&&typeof ppReady==="function"&&ppReady()){
           pdfAtt={mime:"application/pdf",b64:u8b64(u8),name:base};
@@ -2629,6 +2825,9 @@ async function entriesToTenant(entries,label,prog){
     throw new Error("読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）");
   const t=tenantFromTextGrids(z.corpus,z.grids,label,Math.max(1,z.files.length));
   t.srcDocs=z.files; t.srcCorpus=z.corpus.slice(0,30000);
+  t.sources=z.files.filter(f2=>f2.txt).map((f2,i2)=>({id:"S"+Date.now().toString(36)+i2,
+    name:f2.name,kind:f2.kind,chars:f2.chars,txt:f2.txt,on:1,
+    added:(typeof legNow==="function"?legNow():"")}));
   if(z.skipped.length) t.srcSkipped=z.skipped.slice(0,10);
   if(typeof ppReady==="function"&&ppReady()){
     try{
@@ -2816,6 +3015,8 @@ async function textToTenant(text,name){
   const t=tenantFromTextGrids(String(text),[],name,1);
   t.srcDocs=[{name,kind:"クラウド取込",chars:String(text).length}];
   t.srcCorpus=String(text).slice(0,30000);
+  t.sources=[{id:"S"+Date.now().toString(36),name,kind:"クラウド取込",chars:String(text).length,
+    txt:String(text).slice(0,6000),on:1,added:(typeof legNow==="function"?legNow():"")}];
   if(typeof ppReady==="function"&&ppReady()){
     try{ const x=await llmXtract({text:String(text).slice(0,18000),filename:name}); t.aiRead=1; xPend(t,x); }catch(e){}
   }
@@ -6199,6 +6400,8 @@ const PAGES=[
   ic:'<path d="M3 13h6V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h6v-4H3z"/>'},
  {id:"item",ly:"①",nm:"商品情報",grp:"データを貯める",nw:1,
   ic:'<path d="M20.5 7.3 12 2 3.5 7.3v9.4L12 22l8.5-5.3z"/><path d="M3.5 7.3 12 12.5l8.5-5.2M12 22V12.5"/>'},
+ {id:"srcs",ly:"①",nm:"取り込んだ情報一覧",grp:"データを貯める",nw:1,
+  ic:'<path d="M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z"/><path d="M7 6h.01M7 12h.01M7 18h.01"/>'},
  {id:"deal",ly:"①",nm:"商談・バイヤー",grp:"データを貯める",
   ic:'<rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'},
  {id:"deck",ly:"①⑤",nm:"外国語 営業資料",grp:"データを貯める",nw:1,
@@ -7832,7 +8035,8 @@ function vDB(p){
       <div class="rw" style="margin-top:10px">
         <select class="sel" id="dC"><option value="">すべての国</option>${BN_CTY.map(([c])=>`<option>${c}</option>`).join("")}</select>
         <select class="sel" id="dK"><option value="">すべてのカテゴリ</option>${BN_CATS.map(([k,n])=>`<option value="${k}" ${st.catKey===k?"selected":""}>${n}</option>`).join("")}</select>
-        <select class="sel" id="dL"><option value="">すべての脈あり度</option><option>高</option><option>中</option></select></div>
+        <select class="sel" id="dL"><option value="">すべての脈あり度</option><option>高</option><option>中</option></select>
+        <button class="btn" style="margin-left:auto;flex:none" onclick="openBuyerAdd()">＋ Buyerを追加（自社開拓）</button></div>
       <p class="nn" id="dbcount" style="margin:8px 0 0"></p>
       <div class="tw" style="margin-top:10px;max-height:300px"><table><thead><tr>
         <th>バイヤー</th><th>取扱・関心</th><th>規模</th><th>脈あり</th><th class="num">実績</th><th></th>
@@ -7863,6 +8067,7 @@ function outreachList(){
     ?(TEN.outreach=TEN.outreach||[]):(D.outreach=D.outreach||[]);
 }
 function rDB(){
+  if(!$("#dbb")) return;   /* 非同期完了コールバックが別画面で走っても安全に */
   const f={cty:$("#dC")?.value||"",cat:$("#dK")?.value||"",lv:$("#dL")?.value||""};
   const rows=bnQuery(f), sent=outreachList();
   /* 基準登録数（実数）と匿名見本（表示）の関係を常に明示 */
@@ -7878,7 +8083,8 @@ function rDB(){
       cnt.innerHTML=`世界83か国 <b>${bnStats().total.toLocaleString()}名</b>から、実績順の匿名見本 ${rows.length}件を表示中。国とカテゴリで絞り込めます。`;
     }
   }
-  $("#dbb").innerHTML=rows.length?rows.map(b=>{
+  const myR=(typeof mybRows==="function")?mybRows(f):"";
+  $("#dbb").innerHTML=myR+(rows.length?rows.map(b=>{
     const done=sent.some(o=>o.id===b.id);
     const th=dmThreads()[b.id];
     const thChip=th&&th.msgs&&th.msgs.length
@@ -7896,7 +8102,7 @@ function rDB(){
         title="無料：貿易クラウドが仲介し、匿名のまま直接メッセージを届けます">直接連絡</button>
       <button class="btn g" style="padding:3px 7px;font-size:10px" data-req="${b.id}"
         title="現地拠点メンバーが代行で接触・商談（別途費用：稼働費・成果報酬）">拠点に依頼</button></td></tr>`;}).join("")
-   :`<tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:18px">該当なし</td></tr>`;
+   :(myR?"":`<tr><td colspan="6" style="text-align:center;color:var(--ink-3);padding:18px">該当なし</td></tr>`));
   document.querySelectorAll("[data-req]").forEach(b=>b.addEventListener("click",()=>
     toast("ID "+b.dataset.req+" へ現地拠点から接触します（48時間以内に着手・別途費用）")));
   document.querySelectorAll("[data-dm]").forEach(b=>b.addEventListener("click",()=>
@@ -8356,15 +8562,133 @@ function strApplyAI(mode){
   toast(mode==="rep"?`強みを${sel.length}件で置き換えました`:`強みに${sel.length}件を追加しました`);
   if(typeof logU==="function") logU("ai","強みAI充実:"+sel.length+"件");
 }
+/* ══ 取り込んだ情報一覧（AIが参照する情報源の管理・NotebookLM型） ══ */
+function srcList(){
+  if(typeof TEN!=="undefined"&&TEN){ TEN.sources=TEN.sources||[]; return TEN.sources; }
+  window.__srcs=window.__srcs||[]; return window.__srcs;
+}
+function srcSave(){ if(typeof saveTen==="function") saveTen(); }
+function vSrcs(p){
+  const L=srcList();
+  const onN=L.filter(x=>x.on!==false).length;
+  return ph(p,"<b>この画面でできること：</b>AI商社マンが参照する情報源を、ここで一元管理します。追加・削除に加えて、<b>✓の付け外しで「どのソースを根拠に使うか」をあなたが選べます</b>（NotebookLMのソース選択と同じ考え方）。")+`
+  <div class="g2" style="align-items:start">
+   <div class="c" id="srcdz">
+    <h3>ソースを追加</h3>
+    <p class="nn" style="margin-top:4px">PDF・Excel・PowerPoint・Word・CSV・画像・<b>Zip（中身をまとめて）</b>に対応。ここにドラッグ＆ドロップでもOK。</p>
+    <div class="rw" style="margin-top:9px">
+      <input type="file" id="srcf" accept="${typeof FACCEPT!=="undefined"?FACCEPT:".pdf,.xlsx,.zip"}" multiple style="font-size:12px"></div>
+    <p class="lbl" style="margin-top:11px">☁ URLから追加（Google Document／Slide／Sheet・Drive／OneDriveのファイル・フォルダ）</p>
+    <div class="rw" style="margin-top:4px">
+      <input class="sel" id="srcu" placeholder="共有リンク（リンクを知っている全員）" style="flex:1;min-width:0">
+      <button class="btn g" id="srcugo" style="flex:none">追加</button></div>
+    <div id="srcst"></div>
+   </div>
+   <div class="c">
+    <h3>参照ソース <span class="p on">${onN}/${L.length} 件をAIが参照中</span></h3>
+    <p class="nn" style="margin-top:4px">✓を外したソースは、AI商社マンの回答の根拠から除外されます（データは残ります）。名前をクリックで中身を確認。</p>
+    ${L.length?`<div class="tw" style="margin-top:9px;max-height:420px"><table><thead><tr>
+      <th style="width:34px">参照</th><th>ソース</th><th>種別</th><th class="num">文字数</th><th></th></tr></thead><tbody>
+      ${L.map((x,i)=>`<tr style="${x.on===false?"opacity:.55":""}">
+        <td><input type="checkbox" data-srcon="${i}" ${x.on!==false?"checked":""} title="AIの参照に含める"></td>
+        <td><b style="cursor:pointer" data-srcprev="${i}">${esc(x.name)}</b><br>
+          <span style="font-size:9.5px;color:var(--ink-3)">${esc(x.added||"")}</span></td>
+        <td><span class="p lo">${esc(x.kind)}</span></td>
+        <td class="num">${(x.chars||String(x.txt||"").length).toLocaleString()}</td>
+        <td><button class="btn g" style="padding:3px 8px;font-size:10.5px" data-srcdel="${i}" title="このソースを削除">🗑</button></td></tr>`).join("")}
+    </tbody></table></div>`
+    :`<div style="margin-top:10px;padding:14px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">
+      まだソースがありません。左から追加するか、「商品情報を登録」でZip／フォルダURLを取り込むと、ここに一覧されます。</div>`}
+   </div>
+  </div>`;
+}
+async function srcIngestEntries(entries,label){
+  const st=$("#srcst");
+  const prog=m2=>{ if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">${esc(m2)}</p>`; };
+  const z=await entriesCorpus(entries,prog);
+  const L=srcList(); let added=0;
+  z.files.forEach((f2,i2)=>{
+    if(!f2.txt&&!/AI読取/.test(f2.kind)) return;
+    L.unshift({id:"S"+Date.now().toString(36)+i2,name:f2.name,kind:f2.kind,chars:f2.chars,
+      txt:f2.txt||"",on:1,added:(typeof legNow==="function"?legNow():"")});
+    added++;
+  });
+  /* PDF・画像（att）はAI接続時に本文を書き出してテキストソース化 */
+  if(z.att&&typeof ppReady==="function"&&ppReady()){
+    try{
+      prog("AIが "+z.att.name+" の本文を読み取り中…");
+      const r=await llmAsk("添付資料の内容を、見出し付きの日本語テキストで書き出してください（表は行ごとに・最大2500字・要約でなく記載内容を忠実に）。",2600,
+        {att:z.att,noWeb:1,timeout:150000});
+      const ex=L.find(x=>x.name===z.att.name);
+      if(ex){ ex.txt=String(r.txt).slice(0,6000); ex.chars=r.txt.length; ex.kind=ex.kind.replace("（AI読取）","（AI読取済）"); }
+    }catch(e){}
+  }
+  srcSave();
+  if(st) st.innerHTML=added?`<p class="nn" style="margin-top:6px;color:var(--good)">✓ ${added}件のソースを追加しました</p>`
+    :`<p class="nn" style="margin-top:6px;color:var(--crit)">読み取れるソースがありませんでした${z.skipped.length?"（スキップ："+esc(z.skipped.slice(0,3).join("、"))+"）":""}</p>`;
+  render();
+  return added;
+}
+function srcsBind(){
+  const dz=$("#srcdz");
+  const takeFile=async f=>{
+    try{
+      const ext=FEXT(f.name);
+      if(ext==="zip"){ const fs=await unzipAll(await f.arrayBuffer());
+        await srcIngestEntries(Object.keys(fs).map(n=>({name:n,u8:fs[n]})),f.name); }
+      else await srcIngestEntries([{name:f.name,u8:new Uint8Array(await f.arrayBuffer())}],f.name);
+      toast("ソースを追加しました");
+    }catch(e){ toast(String(e.message).slice(0,80)); }
+  };
+  if(dz&&typeof dropZone==="function") dropZone(dz,takeFile);
+  const fi=$("#srcf");
+  if(fi) fi.addEventListener("change",async()=>{ for(const f of [...fi.files]) await takeFile(f); fi.value=""; });
+  const ug=$("#srcugo");
+  if(ug) ug.onclick=async()=>{
+    const u=($("#srcu").value||"").trim(); if(!u) return;
+    ug.disabled=true; ug.textContent="追加中…";
+    const st=$("#srcst");
+    try{
+      const prog=m2=>{ if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">☁ ${esc(m2)}</p>`; };
+      const r2=await cloudFetch(u,{prog});
+      if(r2.entries) await srcIngestEntries(r2.entries,r2.label);
+      else if(r2.file){ const ext=FEXT(r2.file.name);
+        if(ext==="zip"){ const fs=await unzipAll(await r2.file.arrayBuffer());
+          await srcIngestEntries(Object.keys(fs).map(n=>({name:n,u8:fs[n]})),r2.file.name); }
+        else await srcIngestEntries([{name:r2.file.name,u8:new Uint8Array(await r2.file.arrayBuffer())}],r2.file.name); }
+      else if(r2.text) await srcIngestEntries([{name:r2.name,text:r2.text,via:"クラウド取込"}],r2.name);
+      $("#srcu")&&($("#srcu").value="");
+    }catch(e){ if(st) st.innerHTML=`<div style="margin-top:7px;padding:9px 11px;border:1px solid var(--crit);border-radius:8px;font-size:11.5px;color:var(--crit)">${esc(String(e.message))}</div>`; }
+    ug.disabled=false; ug.textContent="追加";
+  };
+  document.querySelectorAll("[data-srcon]").forEach(c=>c.addEventListener("change",()=>{
+    const x=srcList()[+c.dataset.srcon]; if(!x) return;
+    x.on=c.checked?1:false; srcSave(); render();
+    toast(c.checked?"AIの参照に含めました":"AIの参照から外しました（データは残ります）"); }));
+  document.querySelectorAll("[data-srcdel]").forEach(b=>b.addEventListener("click",()=>{
+    const x=srcList()[+b.dataset.srcdel];
+    srcList().splice(+b.dataset.srcdel,1); srcSave(); render();
+    toast("削除しました："+(x?x.name.slice(0,24):"")); }));
+  document.querySelectorAll("[data-srcprev]").forEach(b=>b.addEventListener("click",()=>{
+    const x=srcList()[+b.dataset.srcprev]; if(!x) return;
+    openDW(`<h3>📄 ${esc(x.name)} <span class="p lo">${esc(x.kind)}</span></h3>
+      <p class="nn" style="margin-top:4px">${(x.chars||0).toLocaleString()}字${x.added?"・"+esc(x.added)+" 取込":""}／参照 ${x.on!==false?"ON":"OFF"}</p>
+      <div style="margin-top:9px;max-height:56vh;overflow-y:auto;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+        font-size:11.5px;line-height:1.8;white-space:pre-wrap">${esc(String(x.txt||"（本文なし：AI読取前のPDF・画像）"))}</div>
+      <div class="rw" style="margin-top:11px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+    if(typeof dwChrome==="function") dwChrome(); }));
+}
 /* ═════════ ルーティング ═════════ */
 function render(){
   const p=PAGES.find(x=>x.id===cur);
   if(!PID && !p.free){cur="up";return render();}
   well.innerHTML=({up:vUp,dash:vDash,item:vItem,deal:vDeal,task:vTask,ai:vAI,ship:vShip,
     ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp),
-    legal:(typeof vLegal==="function"?vLegal:vUp)})[cur](p);
+    legal:(typeof vLegal==="function"?vLegal:vUp),
+    srcs:(typeof vSrcs==="function"?vSrcs:vUp)})[cur](p);
   if(cur==="deck"&&typeof deckBind==="function") deckBind();
   if(cur==="legal"&&typeof legalBind==="function") legalBind();
+  if(cur==="srcs"&&typeof srcsBind==="function") srcsBind();
   if(cur==="up") wireUp();
   if(cur==="task"&&taskTab==="task"){tRows();["tHide","tSt"].forEach(id=>$("#"+id).addEventListener("change",tRows));}
   if(cur==="task"&&taskTab==="apr") document.querySelectorAll("[data-apr]").forEach(b=>
@@ -8821,11 +9145,22 @@ ${ship||"（まだ無し）"}${xa?`
 ${xa}`:""}${notes?`
 ## AIが資料から読み取った分析メモ
 ${notes}`:""}
-${(typeof TEN!=="undefined"&&TEN&&TEN.srcDocs&&TEN.srcDocs.length)?`
-## アップロード資料一式（Zip／クラウドURL取込・${TEN.srcDocs.length}ファイル）
-${TEN.srcDocs.map(d2=>"・"+d2.name+"（"+d2.kind+"）").join("\n")}
-### 原文抜粋（この原文も回答の根拠に使ってよい）
-${String(TEN.srcCorpus||"").slice(0,5000)}`:""}
+${(function(){
+  const T2=(typeof TEN!=="undefined"&&TEN)?TEN:null; if(!T2) return "";
+  const S3=Array.isArray(T2.sources)&&T2.sources.length?T2.sources:null;
+  if(S3){
+    const on=S3.filter(x=>x.on!==false), off=S3.length-on.length;
+    if(!on.length) return `\n## 取り込んだ情報（${S3.length}件・すべて参照OFF）\n※ユーザーが全ソースの参照を外している。原文は根拠に使わないこと。`;
+    const per=Math.max(600,Math.floor(7000/on.length));
+    return `\n## 取り込んだ情報一覧（参照ON ${on.length}件${off?"／OFF "+off+"件":""}・ユーザー選択済み）\n`+
+      on.map(x=>`◆ ${x.name}（${x.kind}）\n${String(x.txt||"").slice(0,per)}`).join("\n")+
+      `\n※上記の原文も回答の根拠に使ってよい。参照OFFのソースは使わない。`;
+  }
+  if(T2.srcDocs&&T2.srcDocs.length) return `\n## アップロード資料一式（${T2.srcDocs.length}ファイル）\n`+
+    T2.srcDocs.map(d2=>"・"+d2.name+"（"+d2.kind+"）").join("\n")+
+    "\n### 原文抜粋（この原文も回答の根拠に使ってよい）\n"+String(T2.srcCorpus||"").slice(0,5000);
+  return "";
+})()}
 ${typeof bnCtxDb==="function"?bnCtxDb():""}`;
 }
 
