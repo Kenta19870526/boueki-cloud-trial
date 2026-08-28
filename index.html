@@ -6515,6 +6515,33 @@ const rp=r=>r==="高"?'<span class="p hi">反応 高</span>':r==="中"?'<span cl
 const sp=s=>s==="失注"?'<span class="p no">失注</span>':s==="受注"?'<span class="p hi">受注</span>':`<span class="p on">${esc(s)}</span>`;
 
 /* ══ 会社（ブランド元）→商品の紐づけと検索 ══ */
+function openProdRename(i){
+  const t=TENS[i]; if(!t) return;
+  openDW(`<h3>✎ 商品名・会社名を編集</h3>
+    <p class="nn" style="margin-top:4px">ここで直すと、切替メニュー・書類・AIの回答すべてに反映されます。<br>
+    チャットで「<b>商品名を◯◯に変更して</b>」とAI商社マンに頼む方法も、引き続きそのまま使えます。</p>
+    <p class="lbl" style="margin-top:10px">商品名</p>
+    <input class="sel" id="prnItem" value="${esc(t.item||"")}" placeholder="例：モイストセラムEX" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">製造販売元（ブランド元）会社名</p>
+    <input class="sel" id="prnCo" value="${esc(t.co||"")}" placeholder="例：株式会社◯◯" style="width:100%;box-sizing:border-box">
+    <div class="rw" style="margin-top:12px"><button class="btn" id="prnGo">保存</button>
+      <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#prnGo").onclick=()=>{
+    const it=($("#prnItem").value||"").trim(), co=($("#prnCo").value||"").trim();
+    if(!it&&!co){ toast("商品名または会社名を入力してください"); return; }
+    if(typeof valSick==="function"&&((it&&valSick(it))||(co&&valSick(co)))){
+      toast("会話文・天気などは名称として登録できません"); return; }
+    if(it) t.item=it;
+    if(co) t.co=co;
+    if(typeof saveTen==="function") saveTen();
+    if(PID==="custom"&&i===TIDX){ TEN=TENS[i]; if(typeof syncTenant==="function") syncTenant(); }
+    closeDW(); buildNav(); render();
+    toast("名称を更新しました："+(it||t.item||""));
+    if(typeof logU==="function") logU("ai","商品名編集:"+(it||"")+(co?"/"+co:""));
+  };
+  $("#prnItem").focus();
+}
 function prodIndex(){
   const out=[];
   TENS.forEach((t,i)=>{ const s2=scoreOf(t);
@@ -6684,7 +6711,9 @@ function vUp(p){
         <div class="rw" style="margin-top:5px;gap:7px;flex-wrap:wrap">
           ${idxs.map(i=>{const t=TENS[i],s=scoreOf(t);
             return `<button class="smp" data-tsw="${i}" data-pf="${esc((co+" "+(t.item||t.file||"")+" "+(t.cat||"")).toLowerCase())}"
-              style="padding:8px 11px;max-width:230px;flex:0 1 auto;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+              style="position:relative;padding:8px 26px 8px 11px;max-width:230px;flex:0 1 auto;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+              <span data-tedit="${i}" title="商品名・会社名を編集" role="button"
+                style="position:absolute;top:4px;right:5px;font-size:11px;padding:2px 5px;border-radius:5px;color:var(--ink-3);border:1px solid transparent">✎</span>
               <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,18))}</b>
               <span style="display:block;font-size:9.5px;color:var(--ink-3)">${esc(t.cat||"未分類")}・充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
             </button>`;}).join("")}
@@ -6921,6 +6950,10 @@ function wireUp(){
     }
     cgo.disabled=false; cgo.textContent="取り込む";
   };
+  document.querySelectorAll("[data-tedit]").forEach(el=>el.addEventListener("click",e=>{
+    e.stopPropagation(); e.preventDefault();
+    openProdRename(+el.dataset.tedit);
+  }));
   const pfq=$("#pfq");
   if(pfq) pfq.addEventListener("input",()=>{
     const q=(pfq.value||"").trim().toLowerCase();
@@ -8750,16 +8783,20 @@ function vSrcs(p){
    </div>
    <div class="c">
     <h3>参照ソース <span class="p on">${onN}/${L.length} 件をAIが参照中</span></h3>
-    <p class="nn" style="margin-top:4px">✓を外したソースは、AI商社マンの回答の根拠から除外されます（データは残ります）。名前をクリックで中身を確認。</p>
+    <p class="nn" style="margin-top:4px">✓を外したソースは、AI商社マンの回答の根拠から除外されます（データは残ります）。名前をクリックで中身を確認、✎で名前を変更。</p>
+    ${L.length?`<input class="sel" id="srq" placeholder="🔍 ソースを検索（名前だけでなく、取り込んだ本文の中身まで対象）" autocomplete="off"
+      style="width:100%;box-sizing:border-box;margin-top:8px;padding:7px 11px;font-size:12px">`:""}
     ${L.length?`<div class="tw" style="margin-top:9px;max-height:420px"><table><thead><tr>
       <th style="width:34px">参照</th><th>ソース</th><th>種別</th><th class="num">文字数</th><th></th></tr></thead><tbody>
-      ${L.map((x,i)=>`<tr style="${x.on===false?"opacity:.55":""}">
+      ${L.map((x,i)=>`<tr data-srcrow="${i}" style="${x.on===false?"opacity:.55":""}">
         <td><input type="checkbox" data-srcon="${i}" ${x.on!==false?"checked":""} title="AIの参照に含める"></td>
         <td><b style="cursor:pointer" data-srcprev="${i}">${esc(x.name)}</b><br>
           <span style="font-size:9.5px;color:var(--ink-3)">${esc(x.added||"")}</span></td>
         <td><span class="p lo">${esc(x.kind)}</span></td>
         <td class="num">${(x.chars||String(x.txt||"").length).toLocaleString()}</td>
-        <td><button class="btn g" style="padding:3px 8px;font-size:10.5px" data-srcdel="${i}" title="このソースを削除">🗑</button></td></tr>`).join("")}
+        <td style="white-space:nowrap">
+          <button class="btn g" style="padding:3px 8px;font-size:10.5px" data-srcren="${i}" title="ソース名を変更">✎</button>
+          <button class="btn g" style="padding:3px 8px;font-size:10.5px" data-srcdel="${i}" title="このソースを削除">🗑</button></td></tr>`).join("")}
     </tbody></table></div>`
     :`<div style="margin-top:10px;padding:14px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">
       まだソースがありません。左から追加するか、「商品情報を登録」でZip／フォルダURLを取り込むと、ここに一覧されます。</div>`}
@@ -8841,6 +8878,31 @@ function srcsBind(){
         font-size:11.5px;line-height:1.8;white-space:pre-wrap">${esc(String(x.txt||"（本文なし：AI読取前のPDF・画像）"))}</div>
       <div class="rw" style="margin-top:11px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
     if(typeof dwChrome==="function") dwChrome(); }));
+  /* ✎ ソース名の変更 */
+  document.querySelectorAll("[data-srcren]").forEach(b=>b.addEventListener("click",()=>{
+    const i=+b.dataset.srcren, x=srcList()[i]; if(!x) return;
+    openDW(`<h3>✎ ソース名を変更</h3>
+      <p class="nn" style="margin-top:4px">種別：${esc(x.kind)}・${(x.chars||0).toLocaleString()}字${x.added?"・"+esc(x.added)+" 取込":""}</p>
+      <input class="sel" id="srnm" value="${esc(x.name)}" style="width:100%;box-sizing:border-box;margin-top:9px">
+      <div class="rw" style="margin-top:12px"><button class="btn" id="srnmGo">保存</button>
+        <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+    const go2=()=>{ const v=($("#srnm").value||"").trim();
+      if(!v){ toast("名前を入力してください"); return; }
+      x.name=v; srcSave(); closeDW(); render(); toast("ソース名を変更しました"); };
+    $("#srnmGo").onclick=go2;
+    $("#srnm").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); go2(); } };
+    $("#srnm").focus(); $("#srnm").select();
+  }));
+  /* 🔍 ソース検索：名前・種別に加えて、取り込んだ本文の中身まで対象 */
+  const srq=$("#srq");
+  if(srq) srq.addEventListener("input",()=>{
+    const q=(srq.value||"").trim().toLowerCase();
+    document.querySelectorAll("[data-srcrow]").forEach(tr=>{
+      const x=srcList()[+tr.dataset.srcrow]; if(!x) return;
+      const hit=!q||((x.name+" "+x.kind).toLowerCase().includes(q))||String(x.txt||"").toLowerCase().includes(q);
+      tr.style.display=hit?"":"none";
+    });
+  });
 }
 /* ═════════ ルーティング ═════════ */
 function render(){
