@@ -390,6 +390,8 @@ body.locked .pg-ft{display:none}
       <div class="usr hm" id="tenant"></div>
       <span class="sp"></span>
       <select class="sel" id="psw" title="商材を切り替えます" aria-label="商材を切り替える" hidden></select>
+      <button class="ib" id="pfind" hidden title="会社・商品を検索して切り替え" aria-label="会社・商品を検索">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
       <button class="tgl" id="easy" aria-pressed="false" title="貿易用語にやさしい説明を表示します">
         <span class="sw"></span>やさしい説明</button>
       <button class="tgl hm" id="mob" aria-pressed="false"><span class="sw"></span>スマホ表示</button>
@@ -2839,6 +2841,13 @@ async function entriesToTenant(entries,label,prog){
   return t;
 }
 /* ── ② クラウドURL取り込み（Google Drive／Docs／OneDrive・公開リンク前提） ── */
+function relayEmptyPdf(t){
+  /* 読取中継がPDFを認識したのに本文がほぼ空＝文字情報のない「画像PDF」 */
+  t=String(t||"");
+  if(!/Number of Pages:/.test(t)) return false;
+  const m=t.match(/Markdown Content:\s*([\s\S]*)$/);
+  return !m||m[1].trim().length<50;
+}
 function webShellJunk(t){
   /* Drive/OneDriveのビューアー画面の殻（HTML/JSコード）や同意・ログイン画面を本文と誤認しない */
   t=String(t||""); if(!t) return true;
@@ -2934,6 +2943,7 @@ async function gdriveEntry(e){
   }catch(err){}
   try{
     const t=await pageTextRaw("https://drive.google.com/uc?export=download&id="+e.id);
+    if(t&&relayEmptyPdf(t)) return {name:e.gname,skip:"画像PDF（DLしてアップロードでAI読取可）"};
     if(t&&t.length>150&&!webShellJunk(t))
       return {name:e.gname||("ファイル_"+e.id.slice(0,6)),text:t.slice(0,12000),via:"本文抽出"};
   }catch(err){}
@@ -2982,12 +2992,14 @@ async function cloudFetch(url,opts){
       const r=await fetch(ucu,to(20000));
       if(r.ok){ const f=bytesToFile(new Uint8Array(await r.arrayBuffer()),"GoogleDrive資料"); if(f) return {file:f}; }
     }catch(e){}
-    /* ② 読取中継でファイル本体を本文化（PDF等はここで読める。ビューアーの殻は除外） */
+    /* ② 読取中継でファイル本体を本文化（PDF等はここで読める。ビューアーの殻・画像PDFは除外） */
     try{
       const t2=await pageTextRaw(ucu);
+      if(t2&&relayEmptyPdf(t2))
+        throw new Error("このPDFは文字情報を持たない【画像PDF】（スキャン・画像書き出し）のため、URL経由では本文を取り出せませんでした。ファイルをダウンロードしてこの画面にアップロードしていただければ、接続中のAIが画像として中身を読み取ります（確実です）");
       if(t2&&t2.length>200&&!webShellJunk(t2))
         return {text:t2.slice(0,60000),name:"GoogleDriveファイル（URL取込・本文抽出）"};
-    }catch(e){}
+    }catch(e){ if(/画像PDF/.test(String(e&&e.message))) throw e; }
     /* ③ 画像ファイルなら画像プロキシでバイト取得（AIが画像として読取） */
     try{
       const wu="https://images.weserv.nl/?url="+encodeURIComponent("drive.google.com/uc?export=download&id="+id)+"&w=1400&output=jpg";
@@ -3649,6 +3661,40 @@ function healthBanner(){
         <p class="nn" style="margin-top:3px">過去の入力で会話文がそのまま登録された可能性があります。修正すると書類・営業資料・AI回答が正しくなります。</p></div>
       <button class="btn" onclick="openHealth()">🧹 内容を確認して修正</button></div></div>`;
 }
+
+/* ═══ ヒアリング中のURL取り込み：チャット欄にクラウドURLを貼る／🔗ボタンで追加 ═══ */
+async function fillUrlIngest(u){
+  u=String(u||"").trim(); if(!u) return;
+  fillSay("u","🔗 "+esc(u.slice(0,70))+(u.length>70?"…":""));
+  fillSay("ai","URLの資料を読み取っています…（フォルダ・PDFは数十秒かかることがあります）");
+  render();
+  try{
+    const r=await cloudFetch(u,{});
+    let f=null;
+    if(r.file) f=r.file;
+    else if(r.entries){
+      const z=await entriesCorpus(r.entries);
+      if(!z.corpus) throw new Error("フォルダ内に読み取れる資料がありませんでした");
+      f=new File([z.corpus],(r.label||"クラウド資料")+".txt",{type:"text/plain"});
+    }
+    else if(r.text) f=new File([r.text],String(r.name||"クラウド資料").replace(/[\\/:*?"<>|]/g,"_")+".txt",{type:"text/plain"});
+    if(!f) throw new Error("読み取れる内容がありませんでした");
+    await fillAttach(f);
+  }catch(e){
+    fillSay("ai","URLを読み取れませんでした："+esc(String(e.message).slice(0,140)));
+    render();
+  }
+}
+/* チャット入力がクラウドURL単体なら、回答でなく資料取り込みとして扱う */
+const __fillAnswerB4Url=fillAnswer;
+fillAnswer=function(v){
+  const m=String(v||"").trim().match(/^(https?:\/\/\S+)$/);
+  if(m&&/drive\.google\.com|docs\.google\.com|1drv\.ms|onedrive\.live\.com|sharepoint\.com/.test(m[1])
+     &&typeof cloudFetch==="function"){
+    fillUrlIngest(m[1]); return;
+  }
+  return __fillAnswerB4Url(v);
+};
 
 /* ═══════════ 外国語 営業資料の自動生成（PPTX・ブラウザ内で完結） ═══════════
    登録済みの商品情報から、英語／中文簡体／中文繁體／Español／한국어 の営業資料を
@@ -5703,7 +5749,8 @@ function fillRender(){
       <textarea class="sel" id="fans" rows="3" placeholder="${esc(cu.ex||"ここに入力")}（Enterで送信・Shift+Enterで改行。ファイルはここにドラッグ＆ドロップOK）"
         style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
       <div class="rw" style="gap:6px;padding:6px 8px;border-top:1px solid var(--line-2);justify-content:flex-end">
-        <label class="btn g" style="padding:6px 11px;cursor:pointer;margin-right:auto" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像。この欄へのドラッグ＆ドロップでも可）">📎 資料を追加<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
+        <label class="btn g" style="padding:6px 11px;cursor:pointer" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像/Zip。この欄へのドラッグ＆ドロップでも可）">📎 資料を追加<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
+        <button class="btn g" type="button" id="furl" style="padding:6px 11px;margin-right:auto" title="Google Drive／OneDrive／Googleドキュメント等の共有URLから資料を追加（チャット欄にURLを貼るだけでもOK）">🔗 URLから</button>
         <button class="btn" id="fsend">送信</button>
         ${cu.k==="_pend"?"":`<button class="btn g" id="fskip">わからない（あとで）</button>`}</div></div>`;
   const fans=$("#fans");
@@ -5714,6 +5761,10 @@ function fillRender(){
   fans.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
   const fa=$("#fatt2"); if(fa) fa.onchange=e=>{const f=e.target.files[0]; e.target.value="";
     if(f&&typeof fillAttach==="function") fillAttach(f);};
+  const fu=$("#furl"); if(fu) fu.onclick=()=>{
+    const u=prompt("資料の共有URL（Google Drive／OneDrive／Googleドキュメント等。フォルダURLもOK）");
+    if(u&&typeof fillUrlIngest==="function") fillUrlIngest(u);
+  };
   if(typeof dropZone==="function"&&typeof fillAttach==="function"){
     dropZone($("#fanswrap"),f=>fillAttach(f));
     const card=c.closest(".c"); if(card) dropZone(card,f=>fillAttach(f));
@@ -6463,6 +6514,72 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const rp=r=>r==="高"?'<span class="p hi">反応 高</span>':r==="中"?'<span class="p mid">反応 中</span>':'<span class="p lo">反応 低</span>';
 const sp=s=>s==="失注"?'<span class="p no">失注</span>':s==="受注"?'<span class="p hi">受注</span>':`<span class="p on">${esc(s)}</span>`;
 
+/* ══ 会社（ブランド元）→商品の紐づけと検索 ══ */
+function prodIndex(){
+  const out=[];
+  TENS.forEach((t,i)=>{ const s2=scoreOf(t);
+    out.push({v:"t:"+i,co:(String(t.co||"").trim())||"（会社名 未登録）",grp:"up",
+      label:t.item||t.file||"（未入力）",sub:(t.cat||"未分類")+"・充足度"+s2.pct+"%",
+      sel:(PID==="custom"&&i===TIDX),ic:cmeta(t.catKey||"custom").ic}); });
+  Object.values(PRODUCTS).forEach(p=>out.push({v:p.key,co:p.co,grp:"demo",
+    label:p.item,sub:p.cat,sel:PID===p.key,ic:cmeta(p.key).ic}));
+  if(typeof SAMPLES2!=="undefined") Object.values(SAMPLES2).forEach(x=>out.push({v:"s2:"+x.key,co:x.co,grp:"s2",
+    label:x.item,sub:x.cat+"・1日目",sel:false,ic:cmeta(x.key).ic}));
+  return out;
+}
+function pswHtml(){
+  const idx=prodIndex();
+  const ups=idx.filter(x=>x.grp==="up");
+  const byCo={}; ups.forEach(x=>{ (byCo[x.co]=byCo[x.co]||[]).push(x); });
+  let h=Object.entries(byCo).map(([co,arr])=>
+    `<optgroup label="🏢 ${esc(co)}">${arr.map(o=>`<option value="${o.v}" ${o.sel?"selected":""}>${esc(o.label.slice(0,20))}（${esc(o.sub.split("・")[0])}）</option>`).join("")}</optgroup>`).join("");
+  if(!ups.length&&PID==="custom") h+=`<option value="custom" selected>${esc(D&&D.cat||"アップロード")}／${esc(D&&D.co||"")}</option>`;
+  h+=`<optgroup label="── デモ商材（架空） ──">${idx.filter(x=>x.grp==="demo").map(o=>
+    `<option value="${o.v}" ${o.sel?"selected":""}>${esc(o.co)}／${esc(o.label.slice(0,16))}</option>`).join("")}</optgroup>`;
+  const s2s=idx.filter(x=>x.grp==="s2");
+  if(s2s.length) h+=`<optgroup label="── 業種サンプル（1日目） ──">${s2s.map(o=>
+    `<option value="${o.v}">${esc(o.co)}／${esc(o.label.slice(0,14))}</option>`).join("")}</optgroup>`;
+  return h;
+}
+function openProdFind(){
+  openDW(`<h3>🔍 会社・商品を検索</h3>
+    <p class="nn" style="margin-top:4px">製造販売元（ブランド元）の会社ごとに商品が紐づいています。会社名・商品名・カテゴリで絞り込み、クリックで切り替えます。</p>
+    <input class="sel" id="pq" placeholder="例：ルミエール／抹茶／化粧品／Antenna…" autocomplete="off"
+      style="width:100%;box-sizing:border-box;margin-top:9px">
+    <div id="pqout" style="margin-top:9px;max-height:56vh;overflow-y:auto"></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  const draw=()=>{
+    const q=($("#pq").value||"").trim().toLowerCase();
+    const idx=prodIndex().filter(x=>!q||(x.co+" "+x.label+" "+x.sub).toLowerCase().includes(q));
+    const grpNm={up:"アップロード済み（貴社データ）",demo:"デモ商材（架空）",s2:"業種サンプル（1日目）"};
+    let h="";
+    ["up","demo","s2"].forEach(g=>{
+      const arr=idx.filter(x=>x.grp===g); if(!arr.length) return;
+      h+=`<p class="lbl" style="margin-top:10px">${grpNm[g]}</p>`;
+      const byCo={}; arr.forEach(x=>{ (byCo[x.co]=byCo[x.co]||[]).push(x); });
+      h+=Object.entries(byCo).map(([co,items])=>`
+        <div style="margin-top:6px;border:1px solid var(--line);border-radius:9px;overflow:hidden">
+          <div style="padding:6px 11px;background:var(--surface-2);font-size:11px;font-weight:800">🏢 ${esc(co)}
+            <span style="color:var(--ink-3);font-weight:400">（商品 ${items.length}件）</span></div>
+          ${items.map(o=>`<button class="rw" data-pgo="${esc(o.v)}" style="width:100%;text-align:left;gap:8px;padding:8px 12px;
+            border:0;border-top:1px solid var(--line-2);background:${o.sel?"var(--or-soft)":"var(--surface)"};cursor:pointer;font:inherit">
+            <span>${o.ic}</span>
+            <span style="min-width:0;flex:1"><b style="font-size:12px">${esc(o.label)}</b><br>
+              <span style="font-size:10px;color:var(--ink-3)">${esc(o.sub)}</span></span>
+            ${o.sel?'<span class="p or" style="flex:none">表示中</span>':'<span class="p lo" style="flex:none">開く</span>'}</button>`).join("")}
+        </div>`).join("");
+    });
+    $("#pqout").innerHTML=h||`<p class="nn" style="padding:10px 0">該当がありません。別のキーワードでお試しください。</p>`;
+    $("#pqout").querySelectorAll("[data-pgo]").forEach(b=>b.onclick=()=>{
+      const sel=$("#psw"); if(!sel) return;
+      sel.value=b.dataset.pgo;
+      sel.dispatchEvent(new Event("change"));
+      closeDW();
+    });
+  };
+  $("#pq").addEventListener("input",draw);
+  draw(); $("#pq").focus();
+}
 function buildNav(){
   let h="",lg=null;
   PAGES.forEach(p=>{ if(p.grp!==lg){lg=p.grp;h+=`<div class="ngrp">${p.grp}</div>`;}
@@ -6481,12 +6598,8 @@ function buildNav(){
     ? `<span class="av">${esc(D.av)}</span><span><b>${esc(D.co)}</b><span>${esc(D.cat)}／PJ ${D.pj}</span></span>`
     : `<span class="av" style="background:var(--sunk);color:var(--ink-3)">?</span><span><b>未登録</b><span>商品情報を登録してください</span></span>`;
   const s=$("#psw"); s.hidden=!PID;
-  if(PID){ s.innerHTML=(PID==="custom"
-      ?(TENS.length?TENS.map((t,i)=>`<option value="t:${i}" ${i===TIDX?"selected":""}>${esc(t.cat||"未分類")}／${esc((t.item||t.file||"").slice(0,18))}</option>`).join("")
-        :`<option value="custom" selected>${esc(D.cat||"アップロード")}／${esc(D.co)}</option>`)
-      :(TENS.length?TENS.map((t,i)=>`<option value="t:${i}">${esc(t.cat||"未分類")}／${esc((t.item||t.file||"").slice(0,18))}</option>`).join(""):""))
-    +Object.values(PRODUCTS).map(p=>`<option value="${p.key}" ${p.key===PID?"selected":""}>${p.cat}／${p.co}</option>`).join("")
-    +(typeof SAMPLES2!=="undefined"?Object.values(SAMPLES2).map(x=>`<option value="s2:${x.key}">${x.cat}／${x.co}（1日目）</option>`).join(""):""); }
+  const pf=$("#pfind"); if(pf){ pf.hidden=!PID; if(!pf._b){ pf._b=1; pf.addEventListener("click",openProdFind); } }
+  if(PID){ s.innerHTML=pswHtml(); }
 }
 function ph(p,can,extra){
   /* ④ 全ページ共通：「AIに質問」→ 画面遷移せず右サイドバーでAI商社マンと対話 */
@@ -6555,19 +6668,28 @@ function vUp(p){
   if(FILL.on) return vFill(p);
   let plist="";
   if(TENS.length){
+    const __byCo={};
+    TENS.forEach((t,i)=>{ const co=(String(t.co||"").trim())||"（会社名 未登録）"; (__byCo[co]=__byCo[co]||[]).push(i); });
     plist=`<div class="c" style="margin-bottom:11px">
-      <div class="rw" style="justify-content:space-between">
+      <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
         <h3>登録済みの商品 <span class="n" style="color:var(--ink-3);font-weight:400">${TENS.length}/${TEN_MAX}</span></h3>
-        ${TENS.length<TEN_MAX?`<span class="nn">新しい資料をアップロードすると、<b>別の商品として追加</b>されます</span>`
-          :`<span class="p no">上限（${TEN_MAX}件）です。不要な商品を削除してください</span>`}</div>
-      <div class="rw" style="margin-top:9px;gap:7px;flex-wrap:wrap">
-        ${TENS.map((t,i)=>{const s=scoreOf(t);
-          return `<button class="smp" data-tsw="${i}" style="padding:8px 11px;max-width:230px;flex:0 1 auto;
-            ${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
-            <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,18))}</b>
-            <span style="display:block;font-size:9.5px;color:var(--ink-3)">${esc(t.cat||"未分類")}・充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
-          </button>`;}).join("")}
-      </div></div>`;
+        <div class="rw" style="gap:6px;flex-wrap:wrap">
+          <input class="sel" id="pfq" placeholder="🔍 会社名・商品名で検索" autocomplete="off"
+            style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px">
+          ${TENS.length<TEN_MAX?`<span class="nn" style="align-self:center">新しい資料は<b>別の商品として追加</b></span>`
+            :`<span class="p no" style="align-self:center">上限（${TEN_MAX}件）</span>`}</div></div>
+      ${Object.entries(__byCo).map(([co,idxs])=>`
+      <div data-pfg style="margin-top:9px">
+        <p class="lbl" data-pft="${esc(co.toLowerCase())}">🏢 ${esc(co)} <span style="color:var(--ink-3);font-weight:400">（商品 ${idxs.length}件）</span></p>
+        <div class="rw" style="margin-top:5px;gap:7px;flex-wrap:wrap">
+          ${idxs.map(i=>{const t=TENS[i],s=scoreOf(t);
+            return `<button class="smp" data-tsw="${i}" data-pf="${esc((co+" "+(t.item||t.file||"")+" "+(t.cat||"")).toLowerCase())}"
+              style="padding:8px 11px;max-width:230px;flex:0 1 auto;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+              <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,18))}</b>
+              <span style="display:block;font-size:9.5px;color:var(--ink-3)">${esc(t.cat||"未分類")}・充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
+            </button>`;}).join("")}
+        </div></div>`).join("")}
+      </div>`;
   }
   let resume="";
   if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
@@ -6799,6 +6921,15 @@ function wireUp(){
     }
     cgo.disabled=false; cgo.textContent="取り込む";
   };
+  const pfq=$("#pfq");
+  if(pfq) pfq.addEventListener("input",()=>{
+    const q=(pfq.value||"").trim().toLowerCase();
+    document.querySelectorAll("[data-pf]").forEach(b=>{ b.style.display=(!q||b.dataset.pf.includes(q))?"":"none"; });
+    document.querySelectorAll("[data-pfg]").forEach(g2=>{
+      const any=[...g2.querySelectorAll("[data-pf]")].some(b=>b.style.display!=="none");
+      g2.style.display=any?"":"none";
+    });
+  });
   document.querySelectorAll("[data-smp]").forEach(b=>b.addEventListener("click",()=>{
     const x=PRODUCTS[b.dataset.smp];
     runParse(x.key,{name:x.file,kb:{food:26,cosme:24,parts:25}[x.key],sheets:3});
