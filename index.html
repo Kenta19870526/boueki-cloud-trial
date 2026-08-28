@@ -2839,6 +2839,16 @@ async function entriesToTenant(entries,label,prog){
   return t;
 }
 /* ── ② クラウドURL取り込み（Google Drive／Docs／OneDrive・公開リンク前提） ── */
+function webShellJunk(t){
+  /* Drive/OneDriveのビューアー画面の殻（HTML/JSコード）や同意・ログイン画面を本文と誤認しない */
+  t=String(t||""); if(!t) return true;
+  const head=t.slice(0,5000);
+  if(/accounts\.google\.com|ServiceLogin|docs\.google\.com\/static|drive-viewer|DOCS_timing|_DRIVE_ivd|drive\.google\.com\/viewer/i.test(head)) return true;
+  if(/<script|<style\b|<!doctype|<html|window\.|function\s*\(|=>\{|self\.__/i.test(head)) return true;
+  const code=(head.match(/[{};=]/g)||[]).length;
+  if(code/Math.max(1,head.length)>0.05&&!/[ぁ-ん一-龠]{8}/.test(head)) return true;
+  return false;
+}
 async function pageTextRaw(u){
   /* fetchPageTextは{raw,via,url}を返す：本文文字列だけ取り出す */
   const r=await fetchPageText(u);
@@ -2923,8 +2933,13 @@ async function gdriveEntry(e){
       if(f) return {name:f.name,u8}; }
   }catch(err){}
   try{
+    const t=await pageTextRaw("https://drive.google.com/uc?export=download&id="+e.id);
+    if(t&&t.length>150&&!webShellJunk(t))
+      return {name:e.gname||("ファイル_"+e.id.slice(0,6)),text:t.slice(0,12000),via:"本文抽出"};
+  }catch(err){}
+  try{
     const t=await pageTextRaw("https://drive.google.com/file/d/"+e.id+"/view");
-    if(t&&t.length>150&&!/accounts\.google\.com/.test(t.slice(0,400)))
+    if(t&&t.length>150&&!webShellJunk(t))
       return {name:e.gname||("ファイル_"+e.id.slice(0,6)),text:t.slice(0,12000),via:"プレビュー本文"};
   }catch(err){}
   return {name:e.gname,skip:"取得不可"};
@@ -2960,16 +2975,34 @@ async function cloudFetch(url,opts){
   }
   const dm=url.match(/drive\.google\.com\/file\/d\/([\w-]+)/)||url.match(/drive\.google\.com\/(?:open|uc)\?[^#]*id=([\w-]+)/);
   if(dm){
+    const id=dm[1], ucu="https://drive.google.com/uc?export=download&id="+id;
+    if(opts&&opts.prog){ try{ opts.prog("Google Driveファイルを取得中…"); }catch(e){} }
+    /* ① バイト直接取得（CORS許可時のみ成功） */
     try{
-      const r=await fetch(`https://drive.google.com/uc?export=download&id=${dm[1]}`,to(20000));
+      const r=await fetch(ucu,to(20000));
       if(r.ok){ const f=bytesToFile(new Uint8Array(await r.arrayBuffer()),"GoogleDrive資料"); if(f) return {file:f}; }
     }catch(e){}
-    if(typeof fetchPageText==="function"){
-      try{ const t2=await pageTextRaw(url);
-        if(t2&&t2.length>200&&!/accounts\.google\.com/.test(t2.slice(0,400)))
-          return {text:t2.slice(0,60000),name:"GoogleDriveファイル（URL取込・本文抽出）"}; }catch(e){}
-    }
-    throw new Error("このGoogleドライブのファイルはブラウザから直接取得できませんでした（Googleの共有仕様）。ファイルをダウンロードしてアップロードするか、複数ある場合はZipにまとめてどうぞ");
+    /* ② 読取中継でファイル本体を本文化（PDF等はここで読める。ビューアーの殻は除外） */
+    try{
+      const t2=await pageTextRaw(ucu);
+      if(t2&&t2.length>200&&!webShellJunk(t2))
+        return {text:t2.slice(0,60000),name:"GoogleDriveファイル（URL取込・本文抽出）"};
+    }catch(e){}
+    /* ③ 画像ファイルなら画像プロキシでバイト取得（AIが画像として読取） */
+    try{
+      const wu="https://images.weserv.nl/?url="+encodeURIComponent("drive.google.com/uc?export=download&id="+id)+"&w=1400&output=jpg";
+      const r=await fetch(wu,to(25000));
+      if(r.ok){ const u8=new Uint8Array(await r.arrayBuffer());
+        if(u8.length>400&&(u8[0]===0xFF||u8[0]===0x89))
+          return {file:new File([u8],"GoogleDrive画像.jpg",{type:"image/jpeg"})}; }
+    }catch(e){}
+    /* ④ 閲覧ページの本文（殻でない場合のみ） */
+    try{
+      const t2=await pageTextRaw(url);
+      if(t2&&t2.length>200&&!webShellJunk(t2))
+        return {text:t2.slice(0,60000),name:"GoogleDriveファイル（URL取込・本文抽出）"};
+    }catch(e){}
+    throw new Error("このGoogleドライブのファイルは、Driveのビューアー画面しか取得できず、本文を取り出せませんでした（Word/Excel形式のDriveリンクで起きやすい制約です）。確実な方法：①ファイルをダウンロードしてアップロード ②複数あるならZipにまとめて ③フォルダごとならフォルダURLをどうぞ。PDF・画像・Googleドキュメント形式のリンクは読み取りやすくなっています");
   }
   if(/1drv\.ms|onedrive\.live\.com|sharepoint\.com/.test(url)){
     const api="https://api.onedrive.com/v1.0/shares/"+odShareId(url);
@@ -3001,12 +3034,12 @@ async function cloudFetch(url,opts){
       if(r.ok){ const f=bytesToFile(new Uint8Array(await r.arrayBuffer()),"OneDrive資料"); if(f) return {file:f}; }
     }catch(e){}
     if(typeof fetchPageText==="function"){
-      try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200) return {text:t2.slice(0,60000),name:"OneDrive（URL取込・本文抽出）"}; }catch(e){}
+      try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200&&!webShellJunk(t2)) return {text:t2.slice(0,60000),name:"OneDrive（URL取込・本文抽出）"}; }catch(e){}
     }
     throw new Error("このOneDrive共有リンクは読み取れませんでした。共有を「リンクを知っている全員（表示可能）」にするか、ファイル／フォルダをダウンロード（フォルダはZipになります）してアップロードしてください");
   }
   if(typeof fetchPageText==="function"){
-    try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200) return {text:t2.slice(0,60000),name:"Webページ（URL取込）"}; }catch(e){}
+    try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200&&!webShellJunk(t2)) return {text:t2.slice(0,60000),name:"Webページ（URL取込）"}; }catch(e){}
   }
   throw new Error("このURLは読み取れませんでした。Google Drive／OneDriveの共有リンク、またはファイルのアップロードをご利用ください");
 }
