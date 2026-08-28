@@ -2567,14 +2567,23 @@ function zipTextDec(u8){
 function u8b64(b){ let s=""; const CH=8192;
   for(let i=0;i<b.length;i+=CH) s+=String.fromCharCode.apply(null,b.subarray(i,i+CH));
   return btoa(s); }
-async function zipCorpus(file){
-  const fs=await unzipAll(await file.arrayBuffer());
-  const files=[],skipped=[],grids=[]; let corpus="",pdfAtt=null;
+async function entriesCorpus(entries,prog){
+  /* entries: [{name, u8?|text?, via?, skip?}] → 資料一式の統合コーパス */
+  const files=[],skipped=[],grids=[]; let corpus="",pdfAtt=null,imgAtt=null,imgN=0;
   const PER=6000, MAX=60000;
-  for(const name of Object.keys(fs)){
-    const base=name.split("/").pop(), ext=FEXT(base), u8=fs[name];
+  for(const ent of entries){
+    const name=ent.name||"file", base=name.split("/").pop(), ext=FEXT(base);
+    if(ent.skip){ skipped.push(name+"（"+ent.skip+"）"); continue; }
     if(files.length>=20||corpus.length>MAX){ skipped.push(name); continue; }
+    if(prog){ try{ prog("読み取り中: "+base); }catch(e){} }
     try{
+      if(ent.text!==undefined&&ent.text!==null&&!ent.u8){
+        const t2=String(ent.text);
+        corpus+=`\n=== ファイル: ${name}（${ent.via||"本文抽出"}） ===\n${t2.slice(0,PER)}\n`;
+        files.push({name,kind:ent.via||"本文抽出",chars:t2.length});
+        continue;
+      }
+      const u8=ent.u8;
       if(ext==="xlsx"||ext==="xlsm"){
         const ss=await readWorkbook(new File([u8],base));
         const t2=ss.map(s2=>"【"+s2.name+"】\n"+s2.grid.map(r=>r.filter(Boolean).join(" | ")).filter(Boolean).join("\n")).join("\n");
@@ -2596,10 +2605,39 @@ async function zipCorpus(file){
           pdfAtt={mime:"application/pdf",b64:u8b64(u8),name:base};
           files.push({name,kind:"PDF（AI読取）",chars:0});
         } else skipped.push(name);
+      } else if(/^(png|jpe?g|webp)$/.test(ext)){
+        imgN++;
+        corpus+=`\n（画像ファイル: ${name}）\n`;
+        if(!imgAtt&&u8.length<6e6&&typeof provCanFile==="function"&&provCanFile("png")&&typeof ppReady==="function"&&ppReady()){
+          const mime=(u8[0]===0x89)?"image/png":"image/jpeg";
+          imgAtt={mime,b64:u8b64(u8),name:base};
+          files.push({name,kind:"画像（AI読取）",chars:0});
+        } else files.push({name,kind:"画像",chars:0});
       } else skipped.push(name);
     }catch(e){ skipped.push(name+"（読取失敗）"); }
   }
-  return {corpus:corpus.trim(),grids,files,pdfAtt,skipped};
+  return {corpus:corpus.trim(),grids,files,pdfAtt,imgAtt,att:pdfAtt||imgAtt,skipped,imgN};
+}
+async function zipCorpus(file){
+  const fs=await unzipAll(await file.arrayBuffer());
+  return entriesCorpus(Object.keys(fs).map(n=>({name:n,u8:fs[n]})));
+}
+/* 資料一式（Zip・クラウドフォルダ）→ 1商品のテナントに統合 */
+async function entriesToTenant(entries,label,prog){
+  const z=await entriesCorpus(entries,prog);
+  if(!z.files.length&&!z.att)
+    throw new Error("読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）");
+  const t=tenantFromTextGrids(z.corpus,z.grids,label,Math.max(1,z.files.length));
+  t.srcDocs=z.files; t.srcCorpus=z.corpus.slice(0,30000);
+  if(z.skipped.length) t.srcSkipped=z.skipped.slice(0,10);
+  if(typeof ppReady==="function"&&ppReady()){
+    try{
+      const o={text:z.corpus.slice(0,18000),filename:label+"（"+z.files.length+"ファイル統合）"};
+      if(z.att) o.att=z.att;
+      const x=await llmXtract(o); t.aiRead=1; xPend(t,x);
+    }catch(e){}
+  }
+  return t;
 }
 /* ── ② クラウドURL取り込み（Google Drive／Docs／OneDrive・公開リンク前提） ── */
 async function pageTextRaw(u){
@@ -2611,7 +2649,7 @@ function odShareId(url){
   const b=btoa(unescape(encodeURIComponent(url))).replace(/=+$/,"").replace(/\+/g,"-").replace(/\//g,"_");
   return "u!"+b;
 }
-function bytesToFile(u8,base){
+function bytesToFile(u8,base,extHint){
   const sig=String.fromCharCode.apply(null,u8.subarray(0,Math.min(4,u8.length)));
   if(sig.indexOf("%PDF")===0) return new File([u8],base+".pdf",{type:"application/pdf"});
   if(sig.indexOf("PK")===0){
@@ -2626,14 +2664,88 @@ function bytesToFile(u8,base){
   const head=String.fromCharCode.apply(null,u8.subarray(0,Math.min(200,u8.length))).toLowerCase();
   if(head.includes("<!doctype")||head.includes("<html")) return null;
   try{ new TextDecoder("utf-8",{fatal:true}).decode(u8); return new File([u8],base+".txt",{type:"text/plain"}); }
-  catch(e){ return null; }
+  catch(e){}
+  /* UTF-8で読めないが、元ファイル名の拡張子が既知ならそれを信じる（Shift-JISのCSV等） */
+  if(extHint&&/^(csv|txt|xlsx|xlsm|docx|pptx|pdf)$/.test(extHint))
+    return new File([u8],base+"."+extHint,{type:"application/octet-stream"});
+  return null;
 }
-async function cloudFetch(url){
+async function gdriveFolderList(folderId){
+  /* 公開フォルダの一覧：embeddedfolderview（サーバーレンダリングHTML）を読取中継で取得 */
+  let raw="";
+  const src="https://drive.google.com/embeddedfolderview?id="+folderId+"#list";
+  try{ const r=await fetch(src,{signal:AbortSignal.timeout(12000)}); if(r.ok) raw=await r.text(); }catch(e){}
+  if((!raw||raw.length<200)&&typeof fetchPageText==="function"){
+    try{ raw=await pageTextRaw(src); }catch(e){}
+  }
+  raw=String(raw||"");
+  const out=[],seen=new Set();
+  const push=(gname,kind,id,gtype)=>{ if(!id||seen.has(id)) return; seen.add(id);
+    out.push({gname:String(gname||"").trim()||("ファイル_"+id.slice(0,6)),kind,id,gtype}); };
+  let m;
+  const re1=/\[([^\]\n]{1,100})\]\(https:\/\/drive\.google\.com\/file\/d\/([\w-]{10,})/g;
+  while((m=re1.exec(raw))) push(m[1],"file",m[2]);
+  const re2=/href="https:\/\/drive\.google\.com\/file\/d\/([\w-]{10,})[^"]*"[^>]*>\s*(?:<[^>]+>\s*)*([^<>\n]{1,100})</g;
+  while((m=re2.exec(raw))) push(m[2],"file",m[1]);
+  const re3=/\[([^\]\n]{1,100})\]\(https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]{10,})/g;
+  while((m=re3.exec(raw))) push(m[1],"gdoc",m[3],m[2]);
+  const re4=/href="https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]{10,})[^"]*"[^>]*>\s*(?:<[^>]+>\s*)*([^<>\n]{1,100})</g;
+  while((m=re4.exec(raw))) push(m[3],"gdoc",m[2],m[1]);
+  if(!out.length){ const re5=/file\/d\/([\w-]{16,})/g; while((m=re5.exec(raw))) push("","file",m[1]); }
+  return out;
+}
+async function gdriveEntry(e){
+  const to=ms=>({signal:AbortSignal.timeout(ms)});
+  if(e.kind==="gdoc"){
+    const exp=e.gtype==="spreadsheets"
+      ?`https://docs.google.com/spreadsheets/d/${e.id}/export?format=csv`
+      :`https://docs.google.com/${e.gtype}/d/${e.id}/export?format=txt`;
+    let text="";
+    try{ const r=await fetch(exp,to(15000)); if(r.ok) text=await r.text(); }catch(err){}
+    if(!text){ try{ text=await pageTextRaw(exp); }catch(err){} }
+    if(text&&text.length>20&&!/accounts\.google\.com/.test(text.slice(0,400)))
+      return {name:e.gname+(e.gtype==="spreadsheets"?".csv":".txt"),text:text.slice(0,20000),
+        via:e.gtype==="spreadsheets"?"Googleスプレッドシート":"Googleドキュメント"};
+    return {name:e.gname,skip:"取得不可（共有設定を確認）"};
+  }
+  const ext=FEXT(e.gname);
+  if(/^(png|jpe?g|webp)$/.test(ext)){
+    try{
+      const wu="https://images.weserv.nl/?url="+encodeURIComponent("drive.google.com/uc?export=download&id="+e.id)+"&w=1200&output=jpg";
+      const r=await fetch(wu,to(25000));
+      if(r.ok){ const u8=new Uint8Array(await r.arrayBuffer()); if(u8.length>200) return {name:e.gname,u8}; }
+    }catch(err){}
+    return {name:e.gname,skip:"画像を取得できませんでした"};
+  }
+  try{
+    const r=await fetch("https://drive.google.com/uc?export=download&id="+e.id,to(15000));
+    if(r.ok){ const u8=new Uint8Array(await r.arrayBuffer());
+      const f=bytesToFile(u8,e.gname.replace(/\.[^.]+$/,"")||("file_"+e.id.slice(0,6)),ext);
+      if(f) return {name:f.name,u8}; }
+  }catch(err){}
+  try{
+    const t=await pageTextRaw("https://drive.google.com/file/d/"+e.id+"/view");
+    if(t&&t.length>150&&!/accounts\.google\.com/.test(t.slice(0,400)))
+      return {name:e.gname||("ファイル_"+e.id.slice(0,6)),text:t.slice(0,12000),via:"プレビュー本文"};
+  }catch(err){}
+  return {name:e.gname,skip:"取得不可"};
+}
+async function cloudFetch(url,opts){
   url=String(url||"").trim();
   if(!/^https?:\/\//.test(url)) throw new Error("URLを貼り付けてください（https://…で始まる共有リンク）");
   const to=ms=>({signal:AbortSignal.timeout(ms)});
-  if(/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//.test(url))
-    throw new Error("Googleドライブの【フォルダ】は、共有仕様上ブラウザから直接読めません。フォルダを右クリック→「ダウンロード」（自動でZipになります）→そのZipをアップロードしてください。Zipなら中の資料をまとめて読み込めます");
+  const fm=url.match(/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)/);
+  if(fm){
+    const list=await gdriveFolderList(fm[1]);
+    if(!list.length)
+      throw new Error("フォルダの中身を一覧できませんでした。共有を「リンクを知っている全員」に変更してから再度お試しください。それでも読めない場合は、フォルダを右クリック→「ダウンロード」（自動でZipになります）→そのZipをアップロードしてください");
+    const entries=[];
+    for(const e of list.slice(0,15)){
+      if(opts&&opts.prog){ try{ opts.prog("取得中: "+e.gname+"（"+(entries.length+1)+"/"+Math.min(15,list.length)+"）"); }catch(err){} }
+      entries.push(await gdriveEntry(e));
+    }
+    return {entries,label:"Google Driveフォルダ（"+list.length+"件）"};
+  }
   const gm=url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
   if(gm){
     const exp=gm[1]==="spreadsheets"
@@ -2661,8 +2773,32 @@ async function cloudFetch(url){
     throw new Error("このGoogleドライブのファイルはブラウザから直接取得できませんでした（Googleの共有仕様）。ファイルをダウンロードしてアップロードするか、複数ある場合はZipにまとめてどうぞ");
   }
   if(/1drv\.ms|onedrive\.live\.com|sharepoint\.com/.test(url)){
+    const api="https://api.onedrive.com/v1.0/shares/"+odShareId(url);
+    /* フォルダ共有なら children で一覧→中の全ファイルを取得して統合 */
     try{
-      const r=await fetch("https://api.onedrive.com/v1.0/shares/"+odShareId(url)+"/root/content",to(25000));
+      const rl=await fetch(api+"/root/children?$top=30",to(20000));
+      if(rl.ok){
+        const jl=await rl.json();
+        if(jl&&Array.isArray(jl.value)&&jl.value.length){
+          const entries=[]; let idx=0;
+          for(const ch of jl.value.slice(0,15)){
+            idx++;
+            if(ch.folder){ entries.push({name:ch.name+"/",skip:"サブフォルダ（1階層のみ対応）"}); continue; }
+            if((ch.size||0)>15e6){ entries.push({name:ch.name,skip:"15MB超"}); continue; }
+            if(opts&&opts.prog){ try{ opts.prog("取得中: "+ch.name+"（"+idx+"/"+Math.min(15,jl.value.length)+"）"); }catch(err){} }
+            let u8=null;
+            const dl=ch["@content.downloadUrl"]||ch["@microsoft.graph.downloadUrl"];
+            if(dl){ try{ const r2=await fetch(dl,to(30000)); if(r2.ok) u8=new Uint8Array(await r2.arrayBuffer()); }catch(err){} }
+            if(!u8&&ch.id){ try{ const r2=await fetch(api+"/items/"+ch.id+"/content",to(30000)); if(r2.ok) u8=new Uint8Array(await r2.arrayBuffer()); }catch(err){} }
+            entries.push(u8?{name:ch.name,u8}:{name:ch.name,skip:"取得不可"});
+          }
+          if(entries.some(x=>x.u8||x.text)) return {entries,label:"OneDriveフォルダ（"+jl.value.length+"件）"};
+          throw new Error("OneDriveフォルダの中のファイルを取得できませんでした。共有を「リンクを知っている全員（表示可能）」にするか、フォルダをダウンロード（Zipになります）してアップロードしてください");
+        }
+      }
+    }catch(e){ if(e&&/OneDriveフォルダ/.test(String(e.message))) throw e; }
+    try{
+      const r=await fetch(api+"/root/content",to(25000));
       if(r.ok){ const f=bytesToFile(new Uint8Array(await r.arrayBuffer()),"OneDrive資料"); if(f) return {file:f}; }
     }catch(e){}
     if(typeof fetchPageText==="function"){
@@ -2688,20 +2824,8 @@ async function textToTenant(text,name){
 async function fileToTenant(file){
   const ext=FEXT(file.name);
   if(ext==="zip"){
-    const z=await zipCorpus(file);
-    if(!z.files.length&&!z.pdfAtt)
-      throw new Error("Zipの中に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／テキスト）");
-    const t=tenantFromTextGrids(z.corpus,z.grids,file.name,Math.max(1,z.files.length));
-    t.srcDocs=z.files; t.srcCorpus=z.corpus.slice(0,30000);
-    if(z.skipped.length) t.srcSkipped=z.skipped.slice(0,10);
-    if(typeof ppReady==="function"&&ppReady()){
-      try{
-        const o={text:z.corpus.slice(0,18000),filename:file.name+"（Zip内 "+z.files.length+"ファイル統合）"};
-        if(z.pdfAtt) o.att=z.pdfAtt;
-        const x=await llmXtract(o); t.aiRead=1; xPend(t,x);
-      }catch(e){}
-    }
-    return t;
+    const fs=await unzipAll(await file.arrayBuffer());
+    return entriesToTenant(Object.keys(fs).map(n=>({name:n,u8:fs[n]})),file.name+"（Zip内）");
   }
   if(/^(xlsx|xlsm|csv|txt)$/.test(ext)) return await buildTenant(file);
   if(ext==="docx"||ext==="pptx"){
@@ -6240,9 +6364,9 @@ function vUp(p){
       </div>
       <p class="lbl" style="margin-top:12px">☁ Google Drive／OneDrive のURLから取り込む</p>
       <div class="rw" style="margin-top:4px">
-        <input class="sel" id="cldu" placeholder="共有リンクを貼り付け（「リンクを知っている全員」の設定で）" style="flex:1;min-width:0">
+        <input class="sel" id="cldu" placeholder="ファイルまたはフォルダの共有リンク（「リンクを知っている全員」の設定で）" style="flex:1;min-width:0">
         <button class="btn g" id="cldgo" style="flex:none">取り込む</button></div>
-      <p class="nn" style="margin:4px 0 0;font-size:10px">Googleドキュメント／スプレッドシート／スライドのURLはそのまま読めます。Driveのフォルダは「右クリック→ダウンロード」でZip化してアップロードしてください。</p>
+      <p class="nn" style="margin:4px 0 0;font-size:10px"><b>フォルダのURLもOK</b>：中のExcel・Word・PDF・画像などを最大15件まで自動で読み込み、1つの商品資料一式に統合します（画像はAIが内容を読取り）。Googleドキュメント／スプレッドシート／スライドのURLもそのまま読めます。</p>
       <div id="cldst"></div>
       <div id="prg" hidden style="margin-top:12px"></div>
       <div id="pick" hidden style="margin-top:12px"></div>
@@ -6417,8 +6541,17 @@ function wireUp(){
     const st=$("#cldst");
     if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">☁ 読み取り中…（リンクの種類により数十秒かかることがあります）</p>`;
     try{
-      const r2=await cloudFetch(u);
+      const prog=m2=>{ if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">☁ ${esc(m2)}</p>`; };
+      const r2=await cloudFetch(u,{prog});
       if(r2.file){ if(st) st.innerHTML=""; cin.value=""; await take(r2.file); }
+      else if(r2.entries){
+        prog("フォルダ内の資料を統合しています…");
+        const t=await entriesToTenant(r2.entries,r2.label,prog);
+        const okN=(t.srcDocs||[]).length;
+        if(st) st.innerHTML=""; cin.value="";
+        runParseReal(t,{name:r2.label+"・"+okN+"ファイル読込",kb:Math.max(1,Math.round((t.srcCorpus||"").length/1024)),sheets:okN},
+          new File([t.srcCorpus||""],r2.label+".txt",{type:"text/plain"}));
+      }
       else{
         const info={name:r2.name,kb:Math.max(1,Math.round(r2.text.length/1024)),sheets:1};
         const t=await textToTenant(r2.text,r2.name);
