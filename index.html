@@ -71,9 +71,17 @@ body.easy .tm{border-bottom-color:var(--or);background:var(--or-soft);border-rad
   width:max-content;max-width:270px;background:var(--ink);color:var(--canvas);font-size:11px;line-height:1.65;
   font-weight:400;padding:7px 10px;border-radius:var(--r2);box-shadow:var(--pop);white-space:normal}
 
+/* ── 右パネル開閉（②） ── */
+body.norail #well .stk,body.norail #well .railr{display:none!important}
+body.norail #well .g2:has(.stk),body.norail #well .g2:has(.railr){grid-template-columns:minmax(0,1fr)!important}
+/* ── 説明文の折りたたみ（③ 貿易初心者向けに情報量を圧縮。クリックで全文） ── */
+.nnc:not(.open){display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.nnc:not(.open)::before{content:"▸ ";color:var(--or);font-weight:800}
+.nnc.open{cursor:pointer}
+.nnc.open::before{content:"▾ ";color:var(--or);font-weight:800}
 /* ── shell ── */
 .app{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100vh}
-body.narrow .app{grid-template-columns:0 minmax(0,1fr)}
+body.narrow .app{grid-template-columns:minmax(0,1fr)}   /* sideが消えたらmainを全幅1列に（0px列への繰り上がり防止） */
 body.narrow .side{display:none}
 .side{background:var(--chrome);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;
   overflow-y:auto;display:flex;flex-direction:column}
@@ -392,6 +400,7 @@ body.locked .pg-ft{display:none}
       <select class="sel" id="psw" title="商材を切り替えます" aria-label="商材を切り替える" hidden></select>
       <button class="ib" id="pfind" hidden title="会社・商品を検索して切り替え" aria-label="会社・商品を検索">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+      <button class="tgl" id="rail" aria-pressed="true" title="右側の補助パネル（手順・サンプル等）の表示／非表示">◫ 右パネル</button>
       <button class="tgl" id="easy" aria-pressed="false" title="貿易用語にやさしい説明を表示します">
         <span class="sw"></span>やさしい説明</button>
       <button class="tgl hm" id="mob" aria-pressed="false"><span class="sw"></span>スマホ表示</button>
@@ -6758,7 +6767,7 @@ function vUp(p){
       <div id="prg" hidden style="margin-top:12px"></div>
       <div id="pick" hidden style="margin-top:12px"></div>
     </div>
-    <div class="c">
+    <div class="c railr">
       <h3>サンプルで試す</h3>
       <p class="nn"><b>デモ商材（2年分のデータ入り）</b>：商談記録・受注・出荷まで貯まった「完成形」を見られます。</p>
       <div style="margin-top:11px;display:flex;flex-direction:column;gap:9px">
@@ -8963,6 +8972,26 @@ function render(){
     <b>デザイン</b>　本番の貿易クラウド（digitrad.trade/boueki）の実装値に合わせています。白のトップバー48px、選択中メニューは #FFF4E6、プライマリは #F8951D・角丸5px、罫線 rgba(70,86,109,.15)、書体 Lato。`;
   updateGuide();
   updateBell();
+  refineText();
+}
+/* ③ 表示の洗練：長い説明文（.nn/.cando）と環境注記（#ft）を1行に折りたたみ、クリックで全文。
+   文言・機能は一切変えない（初心者がまず全体を見渡せるようにするための表示圧縮） */
+function refineText(){
+  const clamp=(el,always)=>{
+    if(!el||el._nnc) return;
+    if(el.querySelector&&el.querySelector("button,input,select,textarea,label")) return;
+    const len=(el.textContent||"").trim().length;
+    const lim=always?0:(el.classList.contains("cando")?70:95);
+    if(len<=lim) return;
+    el._nnc=1; el.classList.add("nnc");
+    el.title="クリックで全文を表示";
+    el.addEventListener("click",e=>{
+      if(e.target.closest("a,button,input,select,textarea,label")) return;
+      el.classList.toggle("open");
+    });
+  };
+  document.querySelectorAll("#well .nn,#well .cando").forEach(el=>clamp(el,false));
+  clamp(document.querySelector("#ft"),true);
 }
 /* ═════════ はじめてでも迷わないガイドバー ═════════ */
 function guideState(){
@@ -9025,6 +9054,18 @@ const __sideEl=document.querySelector(".side");
 if(__sideEl) __sideEl.addEventListener("click",e=>{
   if(e.target.closest(".nb")&&SMQ.matches) document.body.classList.remove("snav"); });
 if(SMQ.addEventListener) SMQ.addEventListener("change",()=>{ if(!SMQ.matches) document.body.classList.remove("snav"); });
+(function(){
+  let off=false; try{ off=localStorage.getItem("bc20_norail")==="1"; }catch(e){}
+  if(off) document.body.classList.add("norail");
+  const b=$("#rail"); if(!b) return;
+  b.setAttribute("aria-pressed",String(!off));
+  b.addEventListener("click",()=>{
+    const hidden=document.body.classList.toggle("norail");
+    try{ localStorage.setItem("bc20_norail",hidden?"1":"0"); }catch(e){}
+    b.setAttribute("aria-pressed",String(!hidden));
+    toast(hidden?"右側の補助パネルを隠しました（◫でいつでも戻せます）":"右側の補助パネルを表示しました");
+  });
+})();
 $("#easy").addEventListener("click",e=>{const on=document.body.classList.toggle("easy");
   e.currentTarget.setAttribute("aria-pressed",String(on));
   toast(on?"貿易用語にやさしい説明を表示します":"やさしい説明を隠しました");});
