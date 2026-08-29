@@ -6642,7 +6642,7 @@ function buildNav(){
       ${lock?'title="商品情報を登録すると使えるようになります"':""}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
         stroke-linecap="round" stroke-linejoin="round">${lock?'<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>':p.ic}</svg>
-      <span>${p.nm}</span><span class="lyn">${p.ly}</span></button>`; });
+      <span>${p.nm}</span></button>`; });
   $("#nav").innerHTML=h;
   document.querySelectorAll(".nb:not(:disabled)").forEach(b=>b.addEventListener("click",()=>go(b.dataset.p)));
   $("#sft").innerHTML=PID
