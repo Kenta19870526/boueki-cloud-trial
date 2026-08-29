@@ -288,6 +288,7 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 .pin{position:absolute;transform:translate(-50%,-50%)}
 .pin i{display:block;width:8px;height:8px;border-radius:50%;background:var(--bl);box-shadow:0 0 0 3px color-mix(in srgb,var(--bl) 20%,transparent)}
 .pin.o i{background:var(--or);box-shadow:0 0 0 3px color-mix(in srgb,var(--or) 24%,transparent)}
+.pin.g i{background:var(--good);box-shadow:0 0 0 3px color-mix(in srgb,var(--good) 24%,transparent)}
 .pin span{position:absolute;left:12px;top:-6px;font-size:9.5px;font-weight:700;white-space:nowrap;color:var(--ink-2)}
 
 .dw{position:fixed;inset:0;z-index:60;display:none}
@@ -6469,6 +6470,23 @@ const WORLD_SVG=`<svg viewBox="0 0 360 180" preserveAspectRatio="none" aria-hidd
   <path d="M294,112 302,107 310,102 317,102 322,101 327,106 330,112 333,118 330,127 324,128 318,126 312,122 304,123 296,124 293,117 Z"/>
   <path d="M347,133 352,130 354,126 351,132 Z"/>
  </g></svg>`;
+/* ═══ 拠点・メンバーの編集ストア（未編集なら既定のBASES/STAFFを使用） ═══ */
+let NET=null;
+function netLoad(){
+  if(NET) return NET;
+  try{ const j=JSON.parse(localStorage.getItem("bc20_net_v1"));
+    if(j&&j.v===1&&Array.isArray(j.bases)){ NET=j; return NET; } }catch(e){}
+  NET=null; return null;
+}
+function netSnap(){
+  /* 初回編集時に既定をコピーして以後はストアを正とする */
+  if(netLoad()) return NET;
+  NET={v:1,bases:JSON.parse(JSON.stringify(BASES)),staff:JSON.parse(JSON.stringify(STAFF))};
+  netSave(); return NET;
+}
+function netSave(){ try{ localStorage.setItem("bc20_net_v1",JSON.stringify(NET)); }catch(e){} }
+function basesAll(){ const n=netLoad(); return n?n.bases:BASES; }
+function staffAll(){ const n=netLoad(); return n?n.staff:STAFF; }
 /* 各拠点のSTANDAGEメンバー（トライアル用の見本プロフィール・架空） */
 const STAFF={
  "香港":[{n:"陳 美玲（Chan Mei-ling）",r:"拠点長",lg:"広東語・英語・日本語",yr:"商社12年",sp:"食品・日用品の小売/量販チャネル開拓",dl:184},
@@ -7206,10 +7224,14 @@ function vDash(p){
     <div class="c"><h3>どの国で手応えがあるか</h3>
       <p class="nn">現地に自社の担当がいる国は<span style="color:var(--or);font-weight:700">オレンジ</span>です。</p>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
-        ${D.byc.map(([c,v],i)=>`<div style="display:grid;grid-template-columns:92px 1fr 24px;gap:8px;align-items:center;font-size:11.5px">
+        ${D.byc.length?D.byc.map(([c,v],i)=>`<div style="display:grid;grid-template-columns:92px 1fr 24px;gap:8px;align-items:center;font-size:11.5px">
           <span>${c}</span><span style="height:9px;border-radius:3px;width:${Math.max(6,v/mb*100)}%;
             background:${i<3?"var(--or)":"var(--bl)"}"></span>
-          <span class="n" style="text-align:right;color:var(--ink-3)">${v}</span></div>`).join("")}
+          <span class="n" style="text-align:right;color:var(--ink-3)">${v}</span></div>`).join("")
+        :`<div style="padding:16px 12px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">
+          まだ商談記録がありません。<br>商談を記録すると、<b>実際に反応があった国</b>がここに並びます。
+          <div class="rw" style="justify-content:center;margin-top:9px">
+            <button class="btn g" onclick="go('deal')">＋ 商談を記録する</button></div></div>`}
       </div>
       <p class="nn" style="margin-top:9px">商談記録の件数です。<b>実際に反応があった国だけ</b>が並ぶので、思い込みで市場を選ばずに済みます。</p></div>
   </div>
@@ -8250,15 +8272,23 @@ function vDB(p){
       <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。<br>
       <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。
       <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。</p></div>
-    <div class="c"><h3>現地のSTANDAGEネットワーク</h3>
+    <div class="c"><div class="rw" style="justify-content:space-between;align-items:center;gap:6px">
+        <h3>現地のSTANDAGEネットワーク</h3>
+        <button class="btn g" style="padding:4px 10px;font-size:11px;flex:none" onclick="openNetMgr()">✎ 拠点を管理</button></div>
       <p class="nn">2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。ピンを押すかプルダウンで<b>拠点メンバーのプロフィール</b>が見られます。</p>
-      <div class="mapw" style="height:212px;margin-top:10px;position:relative;overflow:hidden;border-radius:var(--r2);
-        border:1px solid var(--line);background:linear-gradient(180deg,var(--bl-soft) 0%,var(--surface-2) 100%)">
+      <div class="mapw" id="mapw" style="height:262px;margin-top:10px;position:relative;overflow:hidden;border-radius:var(--r2);
+        border:1px solid var(--line);background:linear-gradient(180deg,var(--bl-soft) 0%,var(--surface-2) 100%);touch-action:none;cursor:grab">
+        <div id="mapin" style="position:absolute;inset:0;transform-origin:0 0">
         ${WORLD_SVG}
-        ${BASES.map(b=>`<div class="pin ${b.o?"o":""}" data-base="${b.c}" style="left:${b.x}%;top:${b.y}%;cursor:pointer"><i></i><span>${b.c}</span></div>`).join("")}</div>
-      <p class="nn" style="margin-top:6px"><span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定。それ以外は2028〜29年度に順次開設。</p>
+        ${basesAll().map(b=>`<div class="pin ${b.o===2?"g":b.o?"o":""}" data-base="${esc(b.c)}" style="left:${b.x}%;top:${b.y}%;cursor:pointer"><i></i><span>${esc(b.c)}</span></div>`).join("")}</div>
+        <div class="rw" style="position:absolute;right:7px;top:7px;gap:4px;z-index:5">
+          <button class="btn g" data-mz="in" style="padding:2px 10px;font-size:14px;font-weight:800" title="拡大">＋</button>
+          <button class="btn g" data-mz="out" style="padding:2px 10px;font-size:14px;font-weight:800" title="縮小">−</button>
+          <button class="btn g" data-mz="reset" style="padding:2px 9px;font-size:11px" title="全体表示に戻す">⟳</button></div>
+      </div>
+      <p class="nn" style="margin-top:6px">＋−ボタンかマウスホイールで拡大・ドラッグで移動。<span style="color:var(--good);font-weight:700">緑</span>＝開設済み／<span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定／青＝2028〜29年度に順次開設。</p>
       <div class="rw" style="margin-top:8px">
-        <select class="sel" id="bsel">${Object.keys(STAFF).map(k=>`<option>${k}</option>`).join("")}</select>
+        <select class="sel" id="bsel">${Object.keys(staffAll()).map(k=>`<option>${esc(k)}</option>`).join("")}</select>
         <button class="btn" id="breq">この拠点に依頼する</button></div>
       <p class="nn" style="margin-top:5px">※拠点への依頼（引き合い開拓・商談代行）は<b>別途費用</b>（稼働費・成果報酬）が発生します。費用をかけずに始めるなら、左の一覧から<b>「直接連絡」</b>をどうぞ。</p>
       <div id="staffbox" style="margin-top:9px"></div>
@@ -8267,6 +8297,182 @@ function vDB(p){
         海外拠点の開拓営業・国際展示会・既存バイヤーからの紹介・貿易クラウド経由の引き合いの4経路で、
         <b>毎週リストに追加</b>されます。追加のたびに、貴社カテゴリに合う相手はこの画面に反映されます。</div></div>
   </div>`;
+}
+/* ══ 地図のズーム/パン（状態は表示中ずっと維持） ══ */
+let MAPZ={s:1,x:0,y:0};
+function mapApply(){
+  const m=$("#mapin"); if(!m) return;
+  MAPZ.s=Math.min(6,Math.max(1,MAPZ.s));
+  const w=$("#mapw"); const r=w?w.getBoundingClientRect():{width:1,height:1};
+  const maxX=r.width*(MAPZ.s-1), maxY=r.height*(MAPZ.s-1);
+  MAPZ.x=Math.min(0,Math.max(-maxX,MAPZ.x));
+  MAPZ.y=Math.min(0,Math.max(-maxY,MAPZ.y));
+  m.style.transform=`translate(${MAPZ.x}px,${MAPZ.y}px) scale(${MAPZ.s})`;
+  /* ピンとラベルはズームに合わせて等倍を維持（間隔だけ広がる） */
+  m.querySelectorAll(".pin").forEach(p=>{ p.style.transform=`translate(-50%,-50%) scale(${1/MAPZ.s})`; });
+}
+function mapZoom(f,cx,cy){
+  const w=$("#mapw"); if(!w) return;
+  const r=w.getBoundingClientRect();
+  cx=cx===undefined?r.width/2:cx; cy=cy===undefined?r.height/2:cy;
+  const s0=MAPZ.s, s1=Math.min(6,Math.max(1,s0*f));
+  /* カーソル位置を保ったままズーム */
+  MAPZ.x=cx-(cx-MAPZ.x)*(s1/s0);
+  MAPZ.y=cy-(cy-MAPZ.y)*(s1/s0);
+  MAPZ.s=s1; mapApply();
+}
+function mapBind(){
+  const w=$("#mapw"); if(!w||w._mz) return; w._mz=1;
+  mapApply();
+  document.querySelectorAll("[data-mz]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    if(b.dataset.mz==="in") mapZoom(1.6);
+    else if(b.dataset.mz==="out") mapZoom(1/1.6);
+    else { MAPZ={s:1,x:0,y:0}; mapApply(); }
+  });
+  w.addEventListener("wheel",e=>{ e.preventDefault();
+    const r=w.getBoundingClientRect();
+    mapZoom(e.deltaY<0?1.35:1/1.35,e.clientX-r.left,e.clientY-r.top); },{passive:false});
+  let drag=false,sx=0,sy=0,bx=0,by=0;
+  const mv=e=>{ if(!drag) return;
+    if(Math.abs(e.clientX-sx)+Math.abs(e.clientY-sy)>4) window.__mapDragged=true;
+    MAPZ.x=bx+(e.clientX-sx); MAPZ.y=by+(e.clientY-sy); mapApply(); };
+  const end=()=>{ if(!drag) return; drag=false; w.style.cursor="grab";
+    window.removeEventListener("pointermove",mv); window.removeEventListener("pointerup",end);
+    setTimeout(()=>{ window.__mapDragged=false; },120); };
+  w.addEventListener("pointerdown",e=>{
+    if(e.target.closest("[data-mz]")) return;
+    if(window.__mapPick) return;   /* 位置設定モード中はドラッグしない */
+    drag=true; sx=e.clientX; sy=e.clientY; bx=MAPZ.x; by=MAPZ.y;
+    window.__mapDragged=false; w.style.cursor="grabbing";
+    window.addEventListener("pointermove",mv); window.addEventListener("pointerup",end);
+  });
+  /* 位置設定モード：クリックで座標を取得（ズームは自動リセット済み） */
+  w.addEventListener("click",e=>{
+    if(!window.__mapPick||window.__mapDragged) return;
+    const r=w.getBoundingClientRect();
+    const x=Math.round((e.clientX-r.left)/r.width*1000)/10;
+    const y=Math.round((e.clientY-r.top)/r.height*1000)/10;
+    const cb=window.__mapPick; window.__mapPick=null;
+    cb(x,y);
+  });
+}
+/* ══ 拠点・メンバーの管理（追加・編集・削除） ══ */
+function openNetMgr(){
+  const n=netSnap();
+  openDW(`<h3>✎ 拠点を管理</h3>
+    <p class="nn" style="margin-top:4px">現地拠点と拠点メンバー（営業マン）を追加・編集・削除できます。変更は地図とプルダウンに即反映されます（この端末に保存）。</p>
+    <div style="margin-top:9px;max-height:52vh;overflow-y:auto">
+      ${n.bases.map((b,i)=>{
+        const mem=(n.staff[b.c]||[]);
+        return `<div class="rw" style="justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px">
+          <span style="min-width:0"><b style="font-size:12px">${esc(b.c)}</b>
+            <span class="p ${b.o===2?"hi":b.o?"or":"lo"}" style="font-size:9px">${b.o===2?"開設済み":b.o?"2027年度予定":"2028〜29年度"}</span><br>
+            <span style="font-size:10px;color:var(--ink-3)">メンバー ${mem.length}名・位置 x${b.x}% / y${b.y}%</span></span>
+          <span class="rw" style="gap:4px;flex:none">
+            <button class="btn g" style="padding:3px 9px;font-size:10.5px" onclick="openBaseEdit(${i})">✎ 編集</button>
+            <button class="btn g" style="padding:3px 9px;font-size:10.5px" onclick="netDelBase(${i})">🗑</button></span></div>`;}).join("")}
+    </div>
+    <div class="rw" style="margin-top:10px">
+      <button class="btn" onclick="openBaseEdit(-1)">＋ 拠点を追加</button>
+      <button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+}
+function netDelBase(i){
+  const n=netSnap(); const b=n.bases[i]; if(!b) return;
+  delete n.staff[b.c];
+  n.bases.splice(i,1);
+  netSave(); render(); openNetMgr();
+  toast("拠点を削除しました："+b.c);
+}
+function openBaseEdit(i){
+  const n=netSnap();
+  const b=i>=0?n.bases[i]:{c:"",x:50,y:40,o:0};
+  const mem=i>=0?(n.staff[b.c]||[]):[];
+  openDW(`<h3>${i>=0?"✎ 拠点を編集":"＋ 拠点を追加"}</h3>
+    <p class="lbl" style="margin-top:9px">拠点名（国・都市）</p>
+    <input class="sel" id="nbC" value="${esc(b.c)}" placeholder="例：メキシコ" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:8px">状態</p>
+    <select class="sel" id="nbO" style="width:100%;box-sizing:border-box">
+      <option value="2" ${b.o===2?"selected":""}>開設済み（緑）</option>
+      <option value="1" ${b.o===1?"selected":""}>2027年度に開設予定（オレンジ）</option>
+      <option value="0" ${!b.o?"selected":""}>2028〜29年度に順次開設（青）</option></select>
+    <p class="lbl" style="margin-top:8px">地図上の位置</p>
+    <div class="rw" style="gap:6px">
+      <input class="sel" id="nbX" type="number" step="0.1" value="${b.x}" title="横位置％" style="width:90px">
+      <input class="sel" id="nbY" type="number" step="0.1" value="${b.y}" title="縦位置％" style="width:90px">
+      <button class="btn g" id="nbPick" style="flex:none">🗺 地図をクリックして設定</button></div>
+    ${i>=0?`
+    <p class="lbl" style="margin-top:12px">拠点メンバー（${mem.length}名）</p>
+    ${mem.map((m,k)=>`<div class="rw" style="justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;margin-top:5px">
+      <span style="min-width:0;font-size:11.5px"><b>${esc(m.n)}</b> <span class="p or" style="font-size:9px">${esc(m.r)}</span><br>
+        <span style="font-size:10px;color:var(--ink-3)">${esc(m.sp)}・実績${m.dl}件</span></span>
+      <span class="rw" style="gap:4px;flex:none">
+        <button class="btn g" style="padding:3px 8px;font-size:10.5px" onclick="openStaffEdit(${i},${k})">✎</button>
+        <button class="btn g" style="padding:3px 8px;font-size:10.5px" onclick="netDelStaff(${i},${k})">🗑</button></span></div>`).join("")}
+    <div class="rw" style="margin-top:7px"><button class="btn g" onclick="openStaffEdit(${i},-1)">＋ メンバーを追加</button></div>`:""}
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="nbGo">${i>=0?"保存":"追加する"}</button>
+      <button class="btn g" onclick="openNetMgr()">← 一覧へ戻る</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#nbPick").onclick=()=>{
+    if(cur!=="db"){ toast("バイヤーDB・拠点の画面で地図が表示されている状態でご利用ください"); return; }
+    closeDW();
+    MAPZ={s:1,x:0,y:0}; mapApply();
+    toast("地図上の設置したい場所をクリックしてください");
+    window.__mapPick=(x,y)=>{
+      if(i>=0){ n.bases[i].x=x; n.bases[i].y=y; netSave(); render(); openBaseEdit(i); }
+      else { openBaseEdit(-1); setTimeout(()=>{ const ex=$("#nbX"),ey=$("#nbY"); if(ex) ex.value=x; if(ey) ey.value=y; },80); }
+      toast(`位置を設定しました（x${x}% / y${y}%）`);
+    };
+  };
+  $("#nbGo").onclick=()=>{
+    const c=($("#nbC").value||"").trim();
+    if(!c){ toast("拠点名を入力してください"); return; }
+    const o=+$("#nbO").value, x=+$("#nbX").value||50, y=+$("#nbY").value||40;
+    if(i>=0){
+      const old=n.bases[i].c;
+      if(c!==old){ if(n.staff[old]){ n.staff[c]=n.staff[old]; delete n.staff[old]; } }
+      n.bases[i]={c,x,y,o};
+    } else {
+      if(n.bases.some(b2=>b2.c===c)){ toast("同名の拠点があります"); return; }
+      n.bases.push({c,x,y,o}); n.staff[c]=n.staff[c]||[];
+    }
+    netSave(); render(); openNetMgr();
+    toast(i>=0?"拠点を更新しました":"拠点を追加しました："+c);
+  };
+}
+function netDelStaff(i,k){
+  const n=netSnap(); const b=n.bases[i]; if(!b) return;
+  const m=(n.staff[b.c]||[])[k]; if(!m) return;
+  n.staff[b.c].splice(k,1);
+  netSave(); render(); openBaseEdit(i);
+  toast("メンバーを削除しました："+m.n);
+}
+function openStaffEdit(i,k){
+  const n=netSnap(); const b=n.bases[i]; if(!b) return;
+  n.staff[b.c]=n.staff[b.c]||[];
+  const m=k>=0?n.staff[b.c][k]:{n:"",r:"FS（現地商談）",lg:"",yr:"",sp:"",dl:0};
+  openDW(`<h3>${k>=0?"✎ メンバーを編集":"＋ メンバーを追加"} <span class="p lo">${esc(b.c)}拠点</span></h3>
+    ${[["氏名","nsN",m.n,"例：山田 太郎（Taro Yamada）"],["役割","nsR",m.r,"例：拠点長／FS（現地商談）"],
+       ["言語","nsL",m.lg,"例：英語・中国語・日本語"],["経験","nsY",m.yr,"例：商社10年"],
+       ["専門・得意分野","nsS",m.sp,"例：食品の量販チャネル開拓"]].map(([l,id,v,ph2])=>
+      `<p class="lbl" style="margin-top:8px">${l}</p><input class="sel" id="${id}" value="${esc(v)}" placeholder="${esc(ph2)}" style="width:100%;box-sizing:border-box">`).join("")}
+    <p class="lbl" style="margin-top:8px">貿易クラウド対応実績（件）</p>
+    <input class="sel" id="nsD" type="number" min="0" value="${m.dl||0}" style="width:120px">
+    <div class="rw" style="margin-top:12px">
+      <button class="btn" id="nsGo">${k>=0?"保存":"追加する"}</button>
+      <button class="btn g" onclick="openBaseEdit(${i})">← 拠点へ戻る</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#nsGo").onclick=()=>{
+    const v={n:($("#nsN").value||"").trim(),r:($("#nsR").value||"").trim()||"FS（現地商談）",
+      lg:($("#nsL").value||"").trim(),yr:($("#nsY").value||"").trim(),
+      sp:($("#nsS").value||"").trim(),dl:+$("#nsD").value||0};
+    if(!v.n){ toast("氏名を入力してください"); return; }
+    if(k>=0) n.staff[b.c][k]=v; else n.staff[b.c].push(v);
+    netSave(); render(); openBaseEdit(i);
+    toast(k>=0?"メンバーを更新しました":"メンバーを追加しました："+v.n);
+  };
 }
 function outreachList(){
   return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))
@@ -8318,8 +8524,8 @@ function rDB(){
 /* 拠点メンバーのプロフィール */
 function rStaff(){
   const box=$("#staffbox"); if(!box) return;
-  const k=$("#bsel")?.value||Object.keys(STAFF)[0];
-  const mem=STAFF[k]||[];
+  const k=$("#bsel")?.value||Object.keys(staffAll())[0];
+  const mem=staffAll()[k]||[];
   box.innerHTML=mem.length?`<div style="display:flex;flex-direction:column;gap:7px">
     ${mem.map(m=>`<div style="display:flex;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
       <span style="width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
@@ -8961,8 +9167,10 @@ function render(){
     const bs=$("#bsel"); if(bs) bs.addEventListener("change",rStaff);
     const br=$("#breq"); if(br) br.onclick=()=>toast("依頼を送信しました（"+($("#bsel")?.value||"")+"拠点）。現地担当が48時間以内に着手します ※別途費用");
     document.querySelectorAll("[data-base]").forEach(p=>p.addEventListener("click",()=>{
-      const bs2=$("#bsel"); if(bs2&&STAFF[p.dataset.base]){ bs2.value=p.dataset.base; rStaff(); }
-      else if(bs2){ rStaff(); toast(p.dataset.base+"拠点は開設準備中です"); }}));}
+      if(window.__mapDragged) return;   /* ドラッグ直後の誤クリック防止 */
+      const bs2=$("#bsel"); if(bs2&&staffAll()[p.dataset.base]){ bs2.value=p.dataset.base; rStaff(); }
+      else if(bs2){ rStaff(); toast(p.dataset.base+"拠点は開設準備中です"); }}));
+    mapBind();}
   $("#ft").innerHTML=(D&&D.src==="upload"
     ?`<b>この環境について</b>　${esc(D.co)}の商品情報は、アップロードされた <b>${esc(D.file)}</b> をブラウザ内で解析した実データです（外部には送信していません）。関税率・必要書類は規制データベースからの概算で、正式な分類はHSコードの事前教示で確定します。商談記録・受注・運送会社の見積は、まだ実績がないため<b>想定シナリオ</b>として表示しています。<br>`
     :D&&D.src==="sample2"
