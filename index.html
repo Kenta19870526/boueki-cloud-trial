@@ -10598,6 +10598,11 @@ function todayRefresh(){
   .catch(e=>{ window.__tdAuto=0; toast("調査に失敗しました："+String(e&&e.message).slice(0,50));
     if(typeof cur!=="undefined"&&cur==="today") render(); });
 }
+function todayItems(){
+  const ai=todayAIRec();
+  if(ai&&ai.items&&ai.items.length) return ai.items;
+  return ((typeof D!=="undefined"&&D&&D.today)||[]).map(x=>({t:x[0],d:x[1],pr:(x[2]==="crit"||x[2]==="or")?"高":"中",src:"データ"}));
+}
 function vToday(p){
   const ai=todayAIRec(), online=(typeof ppReady==="function"&&ppReady());
   const stale=!ai||ai.date!==TODAYS;
@@ -10607,8 +10612,7 @@ function vToday(p){
     todayGen(false).then(r2=>{ window.__tdAuto=0; if(r2&&typeof cur!=="undefined"&&cur==="today") render(); })
       .catch(()=>{ window.__tdAuto=0; if(typeof cur!=="undefined"&&cur==="today") render(); });
   }
-  const base=((D&&D.today)||[]).map(x=>({t:x[0],d:x[1],pr:(x[2]==="crit"||x[2]==="or")?"高":"中",src:"データ"}));
-  const items=(ai&&ai.items&&ai.items.length)?ai.items:base;
+  const items=todayItems();
   const prC={高:"crit",中:"or",低:"bl"};
   return ph(p,`<b>この画面でできること：</b>いま表示中の商品（<b>上の切替メニューと連動</b>）について、AI商社マンが<b>毎日</b>、貿易クラウドの最新データ（商談・受注・タスク・出荷）と<b>Web検索によるこの会社の海外展開・最新動向の調査</b>をかけ直し、貿易取引の成功に向けた「今日やること」を提案します。`)+`
   <div class="c" style="margin-bottom:11px">
@@ -10622,7 +10626,8 @@ function vToday(p){
     ${!online?`<p class="nn" style="margin-top:8px">⚠ AIエンジン未接続のため、<b>登録データからの基本提案のみ</b>を表示しています。管理者が管理コンソールでAIを接続すると、Web検索を含むDaily調査が有効になります。</p>`:""}
   </div>
   ${items.length?`<div style="display:grid;gap:9px;margin-bottom:11px">
-    ${items.map((x,i)=>`<div class="c" style="padding:12px 14px;border-left:4px solid var(--${prC[x.pr]||"or"})">
+    ${items.map((x,i)=>`<div class="c ddc" role="button" onclick="todayRun(${i})" title="クリックすると、このタスクをAI商社マンと一緒に実行できます"
+      style="padding:12px 14px;border-left:4px solid var(--${prC[x.pr]||"or"})">
       <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div class="rw" style="gap:8px;align-items:center;min-width:0">
           <span style="width:20px;height:20px;border-radius:50%;background:var(--${prC[x.pr]||"or"});color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;flex:0 0 auto">${i+1}</span>
@@ -10630,12 +10635,177 @@ function vToday(p){
         <span class="rw" style="gap:5px;flex:0 0 auto">
           <span class="p ${x.pr==="高"?"no":x.pr==="低"?"lo":"or"}" style="font-size:9px">優先度${esc(x.pr)}</span>
           <span class="p lo" style="font-size:9px">根拠：${esc(x.src||"データ")}</span></span></div>
-      <p style="font-size:11px;color:var(--ink-2);margin:6px 0 0 28px;line-height:1.75">${AT(x.d)}</p></div>`).join("")}
+      <p style="font-size:11px;color:var(--ink-2);margin:6px 0 0 28px;line-height:1.75">${AT(x.d)}</p>
+      <span class="ddhint">🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸</span></div>`).join("")}
   </div>`:`<div class="c" style="margin-bottom:11px;text-align:center;padding:20px"><p class="nn">この商品の「今日やること」はまだありません。${online?"上の「🔄 いま再調査する」からAI調査を実行できます。":"商品情報を充実させると基本提案が表示されます。"}</p></div>`}
   ${ai&&ai.web?`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)">
     <h3 style="font-size:12px">🌐 Web調査メモ（${esc(ai.date)}・${esc((D&&D.co)||"")}の海外展開・最新動向）</h3>
     <p style="font-size:11px;line-height:1.8;margin-top:5px">${esc(ai.web)}</p></div>`:""}
   <p class="nn">提案は<b>日付が変わって最初にこのページを開いたとき</b>に自動で作り直されます。上の商品切替メニューで商品を替えると、その商品の「今日やること」に切り替わります。</p>`;
+}
+
+/* ═══════════ 今日やること：タスク実行ドロワー ═══════════
+   カードをクリック → 右パネルでAI商社マンと一緒にそのタスクを実行。
+   チャット・ファイル/フォルダー（複数）添付・クラウド/WebのURL取込に対応。
+   添付資料は「取り込んだ情報一覧」にも登録され、以後のAI回答の根拠になる。 */
+let TDRUN=null;   /* {i,task,log:[{w,h}],corpus,att} 実行中タスクの状態（セッション内） */
+
+function todayRun(i){
+  const items=todayItems(); const x=items[i];
+  if(!x){ toast("タスクが見つかりません"); return; }
+  const online=(typeof ppReady==="function"&&ppReady());
+  TDRUN={i,task:x,log:[],corpus:"",att:null};
+  openDW(`<div class="dwhead"><h3>🤖 タスクを実行：${esc(x.t)}</h3></div>
+    <div class="dwbody">
+      <div style="padding:8px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:10.5px;line-height:1.7">
+        <b>📌 ${esc(x.t)}</b>（優先度${esc(x.pr)}・根拠：${esc(x.src||"データ")}）<br>
+        <span style="color:var(--ink-2)">${esc(x.d)}</span></div>
+      <div class="chat" id="tdchat" style="flex:1;min-height:0;max-height:none;margin-top:9px"></div>
+    </div>
+    <div class="dwfoot">
+      <div id="tddrop" style="border:1.5px dashed var(--line);border-radius:var(--r2);padding:7px 10px;font-size:10.5px;color:var(--ink-3);
+        display:flex;gap:8px;align-items:center;flex-wrap:wrap;cursor:pointer;margin-bottom:7px">
+        <span>📎 資料をここにドラッグ＆ドロップ／クリックで選択（複数OK・Zipも可）</span>
+        <input type="file" id="tdfile" hidden multiple>
+        <span id="tdatt" style="color:var(--good);font-weight:700"></span></div>
+      <div class="rw" style="gap:6px;margin-bottom:7px">
+        <input class="sel" id="tdurl" placeholder="🔗 Google Drive／OneDrive／WebページのURLから資料を追加" style="flex:1;min-width:0;font-size:11px">
+        <button class="btn g" id="tdurlgo" style="flex:none">取込</button></div>
+      <div class="composer">
+        <textarea class="sel" id="tdq" rows="2" placeholder="回答・質問を入力（Enterで送信・Shift+Enterで改行）"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:60px;max-height:160px;overflow-y:auto;line-height:1.6"></textarea>
+        <div class="rw" style="justify-content:space-between;padding:5px 8px;border-top:1px solid var(--line-2)">
+          <span class="nn" style="margin:0">${online?"AI商社マンが登録データ＋添付資料を根拠に伴走します":"⚠ AI未接続：内蔵エンジンで応答（添付は取込のみ・解析は接続後）"}</span>
+          <button class="btn" id="tdgo">送信</button></div></div>
+    </div>`);
+  const pn=$("#pn"); pn.classList.add("dwr");
+  if(typeof dwChrome==="function") dwChrome();
+  const c=$("#tdchat");
+  const say=(w,h)=>{ TDRUN.log.push({w,h}); const bb=pushTo(c,w,h); if(w==="a"&&typeof addCopy==="function") addCopy(bb); c.scrollTop=1e6; return bb; };
+  /* ── キックオフ：AIがこのタスクの進め方と必要情報を提示 ── */
+  if(online){
+    const bb=pushTo(c,"a",'<span class="car"></span>');
+    todayRunAsk(`タスク「${x.t}」を今から一緒に実行します。背景：${x.d}。
+最初に何をすればよいか、具体的な手順と、私から提供が必要な情報・資料（ファイル）を箇条書きで示してください。`,true)
+      .then(h=>{ bb.innerHTML=h; TDRUN.log.push({w:"a",h}); if(typeof addCopy==="function") addCopy(bb); c.scrollTop=1e6; })
+      .catch(e=>{ bb.innerHTML="開始ガイドを取得できませんでした："+esc(String(e&&e.message).slice(0,70))+"<br>そのまま下の入力から進められます。"; });
+  }else{
+    say("a",`このタスクを進めましょう。<br><b>${esc(x.d)}</b><br>
+      下の入力欄で回答や質問を送るか、関係する資料（見積書・仕様書・証明書など）を添付してください。
+      <span class="nn">※AIエンジン接続時は、資料の中身まで読んだ具体的な伴走ができます。</span>`);
+  }
+  /* ── 送信 ── */
+  const tq=$("#tdq");
+  const grow=()=>{ tq.style.height="auto"; tq.style.height=Math.min(160,Math.max(60,tq.scrollHeight))+"px"; };
+  tq.addEventListener("input",grow);
+  const send=async v=>{
+    v=String(v||"").trim(); if(!v) return;
+    say("u",esc(v));
+    const bb=pushTo(c,"a",'<span class="car"></span>'); c.scrollTop=1e6;
+    try{
+      let h;
+      if(typeof ppReady==="function"&&ppReady()){ h=await todayRunAsk(v,false); }
+      else { const r=await Promise.resolve(brain(v)); h=T(r.a)+`<div class="ci">${T(r.c)}</div>`; }
+      bb.innerHTML=h; TDRUN.log.push({w:"a",h});
+      if(typeof addCopy==="function") addCopy(bb);
+    }catch(e){ bb.innerHTML="うまく処理できませんでした："+esc(String(e&&e.message).slice(0,80)); }
+    c.scrollTop=1e6;
+  };
+  $("#tdgo").onclick=()=>{ const v=tq.value; tq.value=""; grow(); send(v); };
+  tq.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); const v=tq.value; tq.value=""; grow(); send(v); } };
+  /* ── ファイル添付（複数・D&D） ── */
+  const dz=$("#tddrop"), fin=$("#tdfile");
+  dz.addEventListener("click",e=>{ if(e.target!==fin) fin.click(); });
+  ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{ e.preventDefault(); dz.style.borderColor="var(--or)"; }));
+  ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{ e.preventDefault(); dz.style.borderColor="var(--line)"; }));
+  dz.addEventListener("drop",e=>todayRunFiles([...e.dataTransfer.files]));
+  fin.onchange=e=>{ todayRunFiles([...e.target.files]); e.target.value=""; };
+  /* ── URL取込 ── */
+  $("#tdurlgo").onclick=async()=>{
+    const u=($("#tdurl").value||"").trim(); if(!u){ $("#tdurl").focus(); return; }
+    $("#tdurl").value="";
+    say("u","🔗 "+esc(u.slice(0,70))+(u.length>70?"…":""));
+    const bb=pushTo(c,"a",'<span class="car"></span>');
+    try{
+      const r=await cloudFetch(u,{});
+      let entries=[];
+      if(r.file){ entries=[{name:r.file.name,u8:new Uint8Array(await r.file.arrayBuffer())}]; }
+      else if(r.entries) entries=r.entries;
+      else if(r.text) entries=[{name:(r.name||"Web資料")+".txt",text:r.text}];
+      const h=await todayRunIngest(entries,r.label||r.name||"URL資料");
+      bb.innerHTML=h; TDRUN.log.push({w:"a",h}); c.scrollTop=1e6;
+    }catch(e){ bb.innerHTML="URLを読み取れませんでした："+esc(String(e&&e.message).slice(0,110)); }
+  };
+  grow(); tq.focus();
+}
+
+/* ファイル群 → コーパス化＋sources登録＋チャット報告 */
+async function todayRunFiles(files){
+  if(!files||!files.length) return;
+  const c=$("#tdchat"); if(!c) return;
+  const names=files.map(f=>f.name).join("・");
+  const push2=(w,h)=>{ TDRUN.log.push({w,h}); const bb=pushTo(c,w,h); c.scrollTop=1e6; return bb; };
+  push2("u","📎 "+esc(names.slice(0,90)));
+  const bb=pushTo(c,"a",'<span class="car"></span>');
+  try{
+    const entries=[];
+    for(const f of files.slice(0,10)) entries.push({name:f.name,u8:new Uint8Array(await f.arrayBuffer())});
+    const h=await todayRunIngest(entries,names);
+    bb.innerHTML=h; TDRUN.log.push({w:"a",h}); c.scrollTop=1e6;
+  }catch(e){ bb.innerHTML="資料を読み込めませんでした："+esc(String(e&&e.message).slice(0,90)); }
+}
+async function todayRunIngest(entries,label){
+  const z=await entriesCorpus(entries);
+  const okFiles=(z.files||[]).filter(f=>f.chars>0);
+  TDRUN.corpus=((TDRUN.corpus||"")+"\n\n"+(z.corpus||"")).slice(-24000);
+  if(z.att) TDRUN.att=z.att;
+  /* 取り込んだ情報一覧（sources）にも登録＝以後のAI回答全体の根拠になる */
+  let reg=0;
+  if(typeof TEN!=="undefined"&&TEN){
+    TEN.sources=TEN.sources||[];
+    (z.files||[]).forEach(f=>{ if(f.chars>0){
+      TEN.sources.push({id:"td"+Date.now().toString(36)+Math.floor(Math.random()*1e4),name:f.name,
+        kind:f.kind||"file",chars:f.chars,txt:(f.txt||"").slice(0,6000),on:1,added:TODAYS}); reg++; } });
+    if(typeof saveTen==="function") saveTen();
+  }
+  const at=$("#tdatt"); if(at) at.textContent="✓ 添付 "+((TDRUN._n=(TDRUN._n||0)+okFiles.length))+"件";
+  const skipped=(z.skipped||[]).length;
+  let h=`✅ <b>${okFiles.length}件</b>の資料を読み込みました（${esc(okFiles.map(f=>f.name).slice(0,4).join("・")).slice(0,120)}${okFiles.length>4?" ほか":""}）${reg?`。<b>取り込んだ情報一覧にも登録済み</b>`:""}${skipped?`。読めなかったファイル ${skipped}件`:""}。`;
+  if(typeof ppReady==="function"&&ppReady()){
+    try{
+      const sum=await todayRunAsk(`いま添付した資料（${label}）の内容を確認し、このタスクにどう使えるか・次の一歩を短く教えてください。`,false);
+      h+=`<div style="margin-top:7px">${sum}</div>`;
+    }catch(e){ h+=`<div class="ci">資料の解析に失敗しました：${esc(String(e&&e.message).slice(0,60))}</div>`; }
+  }else{
+    h+=`<div class="ci">AIエンジン接続時に、中身を読んだ具体的なアドバイスができます（資料は保存済み）。</div>`;
+  }
+  return h;
+}
+
+/* タスク文脈つきのAI呼び出し（会話履歴・添付コーパス・登録データを同梱） */
+async function todayRunAsk(v,isKick){
+  const x=TDRUN.task;
+  let ctx=""; try{ ctx=ppContext(); }catch(e){}
+  const hist=TDRUN.log.slice(-8).map(m=>(m.w==="u"?"担当者: ":"AI商社マン: ")+String(m.h).replace(/<[^>]+>/g," ").slice(0,400)).join("\n");
+  const r=await llmAsk(
+`=== 実行中のタスク ===
+「${x.t}」（優先度${x.pr}）
+背景: ${x.d}
+=== 商品・会社の登録データ ===
+${String(ctx).slice(0,9000)}
+${TDRUN.corpus?`=== このタスクで担当者が添付した資料 ===\n${TDRUN.corpus.slice(0,9000)}\n`:""}
+=== これまでの会話 ===
+${hist||"（開始直後）"}
+=== 担当者の入力 ===
+${v}`,1200,{noWeb:1,timeout:90000,att:TDRUN.att||undefined,
+    sys:`あなたはAI商社マン（総合商社20年）。担当者と一緒に、上記タスクを今日完了させる。
+・具体的で実行可能な次の一歩を示す（貿易初心者にもわかる言葉で）
+・必要な情報・資料は1〜2個ずつ求める（一度に大量に求めない）
+・もらった回答・資料は内容を踏まえて次に進める
+・登録データ・添付資料に無いことは創作せず「要確認」と正直に言う
+・回答は簡潔に（見出しや箇条書き可・8行以内目安）`});
+  return (typeof mdU==="function"?mdU(esc(r.txt)):esc(r.txt).replace(/\n/g,"<br>"))+
+    `<div class="ci">タスク「${esc(x.t)}」の実行支援${TDRUN._n?`・添付${TDRUN._n}件を参照`:""}</div>`;
 }
 
 /* ═══════════ ③ AI商社マンのWeb検索 ═══════════
