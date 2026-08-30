@@ -3812,9 +3812,10 @@ const NSR='xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relati
 const NSP='xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"';
 function themeXml(){
   const f=(nm,c)=>`<a:${nm}><a:srgbClr val="${c}"/></a:${nm}>`;
+  const P=(typeof dkPal==="function")?dkPal():{ac:"F8951D",acd:"0064BF",dk:"0F2749",tn:"F6F7F9"};
   return pxml(`<a:theme ${NSA} name="BC"><a:themeElements>
-<a:clrScheme name="BC">${f("dk1","1A1A1A")}${f("lt1","FFFFFF")}${f("dk2","0F2749")}${f("lt2","F6F7F9")}${f("accent1","F8951D")}${f("accent2","0064BF")}${f("accent3","2E7D32")}${f("accent4","B26B00")}${f("accent5","46566D")}${f("accent6","8A97A6")}${f("hlink","0064BF")}${f("folHlink","B26B00")}</a:clrScheme>
-<a:fontScheme name="BC"><a:majorFont><a:latin typeface="Arial"/><a:ea typeface="Yu Gothic UI"/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Arial"/><a:ea typeface="Yu Gothic UI"/><a:cs typeface=""/></a:minorFont></a:fontScheme>
+<a:clrScheme name="BC">${f("dk1","1A1A1A")}${f("lt1","FFFFFF")}${f("dk2",P.dk)}${f("lt2",P.tn)}${f("accent1",P.ac)}${f("accent2",P.acd)}${f("accent3","2E7D32")}${f("accent4",P.ac)}${f("accent5","46566D")}${f("accent6","8A97A6")}${f("hlink",P.acd)}${f("folHlink",P.acd)}</a:clrScheme>
+<a:fontScheme name="BC"><a:majorFont><a:latin typeface="${typeof DKFONT!=="undefined"?DKFONT:"Arial"}"/><a:ea typeface="Yu Gothic UI"/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="${typeof DKFONT!=="undefined"?DKFONT:"Arial"}"/><a:ea typeface="Yu Gothic UI"/><a:cs typeface=""/></a:minorFont></a:fontScheme>
 <a:fmtScheme name="BC"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst>
 <a:lnStyleLst><a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst>
 <a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>
@@ -3841,10 +3842,10 @@ ${o.line?`<a:ln w="${EMU(o.lw||1)}"><a:solidFill><a:srgbClr val="${o.line}"/></a
 function shpText(x,y,w,h,paras,o){
   o=o||{};
   const ps=paras.map(p=>{
-    const runs=(p.runs||[{t:p.t,b:p.b,c:p.c,sz:p.sz,i:p.i}]).map(r=>
-      `<a:r><a:rPr lang="en-US" sz="${Math.round((r.sz||p.sz||14)*100)}" b="${r.b||p.b?1:0}" i="${r.i?1:0}" dirty="0">
+    const runs=(p.runs||[{t:p.t,b:p.b,c:p.c,sz:p.sz,i:p.i,spc:p.spc}]).map(r=>
+      `<a:r><a:rPr lang="en-US" sz="${Math.round((r.sz||p.sz||14)*100)}" b="${r.b||p.b?1:0}" i="${r.i?1:0}"${(r.spc||p.spc)?` spc="${Math.round((r.spc||p.spc)*100)}"`:""} dirty="0">
 <a:solidFill><a:srgbClr val="${r.c||p.c||"1A1A1A"}"/></a:solidFill>
-<a:latin typeface="${o.font||"Arial"}"/><a:ea typeface="${o.ea||"Yu Gothic UI"}"/></a:rPr><a:t>${XE(r.t)}</a:t></a:r>`).join("");
+<a:latin typeface="${o.font||(typeof DKFONT!=="undefined"?DKFONT:"Arial")}"/><a:ea typeface="${o.ea||"Yu Gothic UI"}"/></a:rPr><a:t>${XE(r.t)}</a:t></a:r>`).join("");
     return `<a:p><a:pPr algn="${p.al||o.al||"l"}">${p.spcB?`<a:spcBef><a:spcPts val="${Math.round(p.spcB*100)}"/></a:spcBef>`:""}</a:pPr>${runs}</a:p>`;
   }).join("");
   return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="t${_SPID}"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>
@@ -3884,6 +3885,98 @@ function phOr(x,y,w,h,slot,label,ea){
 function logoOr(x,y,w,h){ return DK_LOGO>=0?shpImg(x,y,w,h,DK_LOGO):""; }
 function dkMeta(){ return (typeof TEN!=="undefined"&&TEN&&TEN.deckMeta)?TEN.deckMeta:{}; }
 const OR="F8951D",NV="0F2749",BL="0064BF",INK="1A1A1A",SUB="46566D",LGT="F6F7F9";
+const DKFONT="Segoe UI";   /* 全言語共通の欧文（未搭載環境ではPowerPointが近いサンセリフに置換） */
+
+/* ═══ ブランドカラー：ロゴ・商品写真から自動抽出し、資料全体の配色に反映 ═══ */
+function hx2rgb(h){ h=String(h||"").replace("#",""); return [parseInt(h.slice(0,2),16)||0,parseInt(h.slice(2,4),16)||0,parseInt(h.slice(4,6),16)||0]; }
+function rgb2hx(r,g,b){ return [r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join("").toUpperCase(); }
+function rgb2hsl(r,g,b){ r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b); let h=0,s=0,l=(mx+mn)/2;
+  if(mx!==mn){ const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    h=mx===r?((g-b)/d+(g<b?6:0)):mx===g?((b-r)/d+2):((r-g)/d+4); h/=6; }
+  return [h,s,l]; }
+function hsl2rgb(h,s,l){
+  if(!s){ const v=l*255; return [v,v,v]; }
+  const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  const f=t=>{ t=(t%1+1)%1; if(t<1/6) return p+(q-p)*6*t; if(t<1/2) return q; if(t<2/3) return p+(q-p)*(2/3-t)*6; return p; };
+  return [f(h+1/3)*255,f(h)*255,f(h-1/3)*255]; }
+function hslHex(h,s,l){ const [r,g,b]=hsl2rgb(h,s,l); return rgb2hx(r,g,b); }
+function dkBrandGet(){ return (typeof TEN!=="undefined"&&TEN&&TEN.deckBrand&&/^[0-9A-Fa-f]{6}$/.test(TEN.deckBrand.c||""))?TEN.deckBrand:null; }
+/* 抽出：白・黒・無彩色を除き、色相12分割ビンで最頻クラスタの代表色 */
+function dkColorFromImg(o){
+  return new Promise(res=>{
+    if(!o||!o.b64) return res(null);
+    const im=new Image();
+    im.onload=()=>{ try{
+      const cv=document.createElement("canvas"), s=Math.min(1,80/Math.max(im.width,im.height));
+      cv.width=Math.max(1,Math.round(im.width*s)); cv.height=Math.max(1,Math.round(im.height*s));
+      const cx=cv.getContext("2d"); cx.drawImage(im,0,0,cv.width,cv.height);
+      const d=cx.getImageData(0,0,cv.width,cv.height).data, bins={};
+      for(let i=0;i<d.length;i+=4){
+        if(d[i+3]<200) continue;
+        const [h,s2,l]=rgb2hsl(d[i],d[i+1],d[i+2]);
+        if(s2<0.22||l>0.9||l<0.13) continue;             /* 白背景・黒文字・グレーを除外 */
+        const k=Math.floor(h*12);
+        (bins[k]=bins[k]||{n:0,h:0,s:0,l:0}); const b=bins[k];
+        b.n++; b.h+=h; b.s+=s2; b.l+=l;
+      }
+      const top=Object.values(bins).sort((a,b)=>b.n-a.n)[0];
+      if(!top||top.n<12) return res(null);               /* 有彩色がほぼ無い（モノクロロゴ等） */
+      res({h:top.h/top.n,s:top.s/top.n,l:top.l/top.n,n:top.n});
+    }catch(e){ res(null); } };
+    im.onerror=()=>res(null);
+    im.src="data:"+(o.mime||"image/jpeg")+";base64,"+o.b64;
+  });
+}
+async function dkBrandExtract(force){
+  if(typeof TEN==="undefined"||!TEN) return null;
+  const cur=dkBrandGet();
+  if(cur&&cur.src==="manual"&&!force) return cur;        /* 手動指定を勝手に上書きしない */
+  const A=dkAssets();
+  const cands=[A.logo].concat((A.ph||[]).slice(0,3)).filter(Boolean);
+  let best=null;
+  for(const o of cands){ const c=await dkColorFromImg(o); if(c&&(!best||c.n>best.n)) best=c; }
+  if(!best) return cur;
+  const hex=hslHex(best.h,Math.min(0.85,Math.max(0.35,best.s)),Math.min(0.58,Math.max(0.34,best.l)));
+  TEN.deckBrand={c:hex,src:"auto"};
+  if(typeof saveTen==="function") saveTen();
+  return TEN.deckBrand;
+}
+/* パレット導出：AC=アクセント／ACD=濃アクセント（小見出し）／DK=深色パネル／TN=薄トーン／MD=中間淡色 */
+function dkPal(){
+  const b=dkBrandGet();
+  if(!b) return {ac:OR,acd:BL,dk:NV,tn:LGT,md:"C9D2DE",has:false};
+  const [r,g2,b2]=hx2rgb(b.c); const [h,s,l]=rgb2hsl(r,g2,b2);
+  return {
+    ac:b.c,
+    acd:hslHex(h,Math.min(0.8,s),Math.max(0.24,l*0.62)),
+    dk:hslHex(h,Math.min(0.62,s*0.9),0.15),
+    tn:hslHex(h,Math.min(0.45,s*0.7),0.958),
+    md:hslHex(h,Math.min(0.5,s*0.75),0.74),
+    has:true};
+}
+/* 画像が変わったら（アップロード・公式サイト・Web採用のどの経路でも）ブランド色を再抽出 */
+let __dkBsig="";
+function dkBrandAuto(){
+  if(typeof TEN==="undefined"||!TEN) return;
+  const A=dkAssets();
+  const sig=(A.logo&&A.logo.b64?A.logo.b64.slice(0,24):"")+"|"+
+    ((A.ph||[]).filter(o=>o&&o.b64).map(o=>o.b64.slice(0,12)).join(","));
+  if(!sig.replace("|","")) return;
+  if(sig===__dkBsig) return; __dkBsig=sig;
+  dkBrandExtract(false).then(b=>{ if(b&&b.src==="auto"&&typeof render==="function") render(); }).catch(()=>{});
+}
+/* 画像をボックス全面に敷く（cover・中央クロップ） */
+function shpImgCover(x,y,w,h,mi){
+  const m=DK_MEDIA[mi]; if(!m) return "";
+  if(!(m.w&&m.h)) return shpImg(x,y,w,h,mi);
+  const br=w/h, ir=m.w/m.h; let l=0,t=0,r=0,btm=0;
+  if(ir>br){ const cut=Math.round((1-br/ir)/2*100000); l=r=cut; }
+  else { const cut=Math.round((1-ir/br)/2*100000); t=btm=cut; }
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${++_SPID}" name="cov${_SPID}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+<p:blipFill><a:blip r:embed="rImg${mi}"/><a:srcRect l="${l}" t="${t}" r="${r}" b="${btm}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+<p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+}
 const DK_NPH=10, PH_IDX=Array.from({length:DK_NPH},(_,i)=>i);  /* 商品写真は最大10枚 */
 
 /* ═══ ① 画像・ロゴ（アップロード＋Web自動取得）を実際にPPTXへ埋め込む ═══ */
@@ -3920,8 +4013,8 @@ function dkSetAssetFile(kind,file,slot){
   const rd=new FileReader();
   rd.onload=()=>imgNorm(rd.result,a=>{
     const A=dkEnsureAssets();
-    if(kind==="logo") A.logo={b64:a.b64,mime:a.mime,src:"upload"};
-    else { A.ph=A.ph||[]; A.ph[slot]={b64:a.b64,mime:a.mime,src:"upload",cap:file.name}; }
+    if(kind==="logo") A.logo={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:"upload"};
+    else { A.ph=A.ph||[]; A.ph[slot]={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:"upload",cap:file.name}; }
     if(typeof saveTen==="function") saveTen();
     if(typeof logU==="function") logU("upload","営業資料用画像:"+(kind==="logo"?"ロゴ":"写真"+(slot+1)));
     render(); toast(kind==="logo"?"ロゴを設定しました":"商品写真を設定しました");
@@ -4413,12 +4506,16 @@ ${JSON.stringify(src)}`,3200,{noWeb:1,timeout:120000,
 /* ── スライド組み立て（約10枚・AHYOL調のビジュアル構成） ── */
 function deckSlides(lang,T){
   const L=DECK_L[lang], ea=L.ea, S=[];
+  /* ブランドパレット：ロゴ・写真から抽出した各社の色で全ページを配色（未抽出時は従来色） */
+  const P=dkPal();
+  const OR=P.ac, NV=P.dk, BL=P.acd, LGT=P.tn, MD=P.md;
   const DM=dkMeta(); let PGN=0; const foot=()=>footer(++PGN);
   const sick=v=>typeof valSick==="function"&&valSick(String(v||""));
   const RICH=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{};
   const strengths=(T.strengths&&T.strengths.length?T.strengths
     :(D.strengths||[]).filter(x=>!sick(x[0])).slice(0,5));
-  const eyebrow=(t)=>shpRect(48,44,44,4,OR)+shpText(48,54,600,22,[{t,sz:12,b:1,c:BL}],{ea});
+  const eyebrow=(t)=>shpRect(48,47,26,3.5,OR)+
+    shpText(84,40,720,20,[{t:String(t||"").toUpperCase(),sz:11,b:1,c:BL,spc:1.8}],{ea});
   const footer=(n)=>shpText(48,512,500,16,[{t:`${D.coEn||D.co||""}  |  ${L.conf}`,sz:8,c:"8A97A6"}],{ea})+
     shpText(880,512,32,16,[{t:String(n),sz:9,c:"8A97A6",al:"r"}],{ea});
   const cleanEn=v=>v&&!/[ぁ-ヶ一-龠]/.test(v)?v:"";
@@ -4429,18 +4526,53 @@ function deckSlides(lang,T){
     const m=s.match(/^[^（(ぁ-ヶ一-龠]+/);
     return (m?m[0].trim():L.tbc)+" *";
   };
-  /* 1) 表紙 */
+  /* ページ構成を先に確定（目次と本文で同じ判定を使う） */
+  const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
+  const dim1=(T.dims&&T.dims[1])||((D.dimRows&&D.dimRows[1])?(Array.isArray(D.dimRows[1])?D.dimRows[1].filter(Boolean).join(" / "):String(D.dimRows[1])):"");
+  const hasUsage=!!((DM.usage&&DM.usage.length)||(RICH.usage&&RICH.usage.length));
+  const galIdx=PH_IDX.filter(i=>DK_PH[i]!==undefined&&DK_PH[i]>=0).slice(2,8);
+  const tg=Object.entries(D.regs||{}).slice(0,6);
+  const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
+  const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
+  const hasPrice=!!(pr.length||D.moq||D.lead||D.term||D.pay);
+  const hasLogi=!!(D.moq||D.lead||D.pol||dim0);
+  const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
+  const hasComp=!!((D.cert&&D.cert!=="なし")||docs.length);
+  const TOC_T={en:"CONTENTS",zhCN:"目录",zhTW:"目錄",es:"ÍNDICE",ko:"목차"}[lang]||"CONTENTS";
+  const tocItems=[[L.about],[L.lineup]]
+    .concat(strengths.length?[[L.str]]:[])
+    .concat([[L.spec]])
+    .concat(hasUsage?[[L.usage]]:[])
+    .concat(galIdx.length?[[L.gallery||"PRODUCT GALLERY"]]:[])
+    .concat(tg.length?[[L.market]]:[])
+    .concat(hasPrice?[[L.price]]:[])
+    .concat(hasLogi?[[L.logi]]:[])
+    .concat(hasComp?[[L.comp]]:[])
+    .concat([[L.contact]]);
+  const coverPh=(DK_PH[0]!==undefined&&DK_PH[0]>=0);
+  /* 1) 表紙：ブランド深色の全面＋右半分に商品写真（各社の世界観で開く） */
   S.push(
-    shpRect(0,0,960,540,"FFFFFF")+
-    shpRect(0,0,12,540,OR)+
-    shpText(60,64,540,20,[{t:L.deck,sz:13,b:1,c:BL}],{ea})+
-    shpText(60,150,540,150,[{t:T.item||D.item||"",sz:40,b:1,c:INK}],{ea})+
-    (cleanEn(D.itemEn)&&lang!=="en"?shpText(60,268,540,24,[{t:D.itemEn,sz:14,c:SUB}],{ea}):"")+
-    shpText(60,300,540,22,[{t:(T.cat||D.cat||"")+"　|　"+L.made,sz:12,b:1,c:OR}],{ea})+
-    (T.catch2?shpText(60,332,540,40,[{t:"“ "+T.catch2+" ”",sz:13,i:1,c:SUB}],{ea}):"")+
-    shpText(60,420,540,60,[{t:D.coEn||D.co||"",sz:16,b:1,c:NV},{t:(T.origin||D.city||"")+"  ·  "+TODAYS,sz:10,c:SUB,spcB:4}],{ea})+
-    phOr(640,110,272,330,0,L.photo,ea)+
-    logoOr(652,40,260,54)+
+    shpRect(0,0,960,540,NV)+
+    (coverPh?shpImgCover(520,0,440,540,DK_PH[0])+shpRect(520,0,7,540,OR):shpRect(0,506,960,34,OR,{alpha:88000}))+
+    shpText(60,66,430,20,[{t:String(L.deck||"").toUpperCase(),sz:10.5,b:1,c:OR,spc:2.2}],{ea})+
+    shpText(60,140,430,170,[{t:T.item||D.item||"",sz:38,b:1,c:"FFFFFF"}],{ea})+
+    (cleanEn(D.itemEn)&&lang!=="en"?shpText(60,262,430,22,[{t:D.itemEn,sz:13,c:MD}],{ea}):"")+
+    shpText(60,292,430,20,[{t:(T.cat||D.cat||"")+"   |   "+L.made,sz:11,b:1,c:OR,spc:0.6}],{ea})+
+    (T.catch2?shpText(60,326,430,54,[{t:"“ "+T.catch2+" ”",sz:14,i:1,c:"FFFFFF"}],{ea}):"")+
+    (DK_LOGO>=0?shpRect(60,432,170,52,"FFFFFF",{round:6000})+logoOr(70,438,150,40):"")+
+    shpText(DK_LOGO>=0?248:60,438,300,52,[{t:D.coEn||D.co||"",sz:14,b:1,c:"FFFFFF"},
+      {t:(T.origin||D.city||"")+"  ·  "+TODAYS,sz:9.5,c:MD,spcB:3}],{ea}));
+  /* 1b) 目次（Monroe構成：全体の流れを最初に示す） */
+  S.push(
+    eyebrow(TOC_T)+
+    tocItems.map(([tt],i)=>{
+      const x=48+(i%2)*452, y=104+Math.floor(i/2)*66;
+      return shpText(x,y,44,34,[{t:("0"+(i+2)).slice(-2),sz:19,b:1,c:OR}],{ea})+
+        shpText(x+56,y+3,340,30,[{t:String(tt||""),sz:12.5,b:1,c:INK}],{ea})+
+        shpRect(x,y+40,396,1,"D8DEE7");
+    }).join("")+
+    shpRect(760,430,152,62,LGT,{round:6000})+
+    (DK_LOGO>=0?logoOr(772,442,128,38):shpText(772,448,128,26,[{t:D.coEn||D.co||"",sz:9,b:1,c:BL,al:"ctr"}],{ea}))+
     foot());
   /* 2) 会社・ブランド */
   S.push(
@@ -4459,7 +4591,7 @@ function deckSlides(lang,T){
     shpRect(560,96,352,340,NV,{round:5000})+
     shpText(588,122,296,300,[{t:L.whyjp,sz:12,b:1,c:OR}]
       .concat(strengths.slice(0,3).map((s,i)=>({t:"✓  "+(s[0]||""),sz:12,b:1,c:"FFFFFF",spcB:i?8:12})))
-      .concat([(T.cert||D.cert)?{t:(L.cert+" :  "+(T.cert||D.cert)),sz:9.5,c:"9FD5A9",spcB:14}:{t:"",sz:9,spcB:2}]),{ea})+
+      .concat([(T.cert||D.cert)?{t:(L.cert+" :  "+(T.cert||D.cert)),sz:9.5,c:MD,spcB:14}:{t:"",sz:9,spcB:2}]),{ea})+
     foot());
   /* 3) 商品ラインアップ */
   const lu=(T.lineup&&T.lineup.length?T.lineup:deckLineup()).slice(0,3);
@@ -4483,17 +4615,15 @@ function deckSlides(lang,T){
       const w=big?860:422, h=big?130:104;
       const num=String(s[0]||"").match(/[\d.]+[%℃μgkm]*|\d+/);
       return shpRect(x,y,w,h,big?NV:LGT,{round:5000})+
-        shpText(x+18,y+14,42,40,[{t:("0"+(i+1)).slice(-2),sz:big?26:18,b:1,c:big?OR:"C9D2DE"}],{ea})+
+        shpText(x+18,y+14,42,40,[{t:("0"+(i+1)).slice(-2),sz:big?26:18,b:1,c:big?OR:MD}],{ea})+
         (big&&num?shpText(x+w-190,y+18,170,90,[{t:num[0],sz:48,b:1,c:OR,al:"r"}],{ea}):"")+
         shpText(x+72,y+16,(big?w-280:w-90),h-30,
           [{t:s[0]||"",sz:big?17:12.5,b:1,c:big?"FFFFFF":INK},
-           {t:s[1]||"",sz:big?11:9.5,c:big?"C9D2DE":SUB,spcB:3}],{ea});
+           {t:s[1]||"",sz:big?11:9.5,c:big?MD:SUB,spcB:3}],{ea});
     }).join("")+
     foot());
   /* 5) スペック＋写真 */
   const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]]));
-  const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
-  const dim1=(T.dims&&T.dims[1])||((D.dimRows&&D.dimRows[1])?(Array.isArray(D.dimRows[1])?D.dimRows[1].filter(Boolean).join(" / "):String(D.dimRows[1])):"");
   S.push(
     eyebrow(L.spec)+
     specs.slice(0,6).map((r,i)=>{
@@ -4509,7 +4639,7 @@ function deckSlides(lang,T){
       {t:dim1,sz:9.5,c:SUB,spcB:2}],{ea})+
     foot());
   /* 使い方（仕上げヒアリング入力 or 公式サイト由来） */
-  if((DM.usage&&DM.usage.length)||(RICH.usage&&RICH.usage.length)){
+  if(hasUsage){
     const us=(T.usage&&T.usage.length?T.usage:(DM.usage&&DM.usage.length?DM.usage:RICH.usage)).slice(0,4);
     S.push(
       eyebrow(L.usage)+
@@ -4517,13 +4647,12 @@ function deckSlides(lang,T){
       us.map((u,i)=>{
         const x=48+(i%2)*438, y=130+Math.floor(i/2)*150;
         return shpRect(x,y,422,132,i===0?NV:LGT,{round:6000})+
-          shpText(x+18,y+16,64,44,[{t:("0"+(i+1)).slice(-2),sz:26,b:1,c:i===0?OR:"C9D2DE"}],{ea})+
+          shpText(x+18,y+16,64,44,[{t:("0"+(i+1)).slice(-2),sz:26,b:1,c:i===0?OR:MD}],{ea})+
           shpText(x+84,y+20,318,100,[{t:String(u),sz:12,b:i===0?1:0,c:i===0?"FFFFFF":INK}],{ea});
       }).join("")+
       foot());
   }
-  /* 製品ギャラリー（4枚目以降の写真があるときだけ） */
-  const galIdx=PH_IDX.filter(i=>DK_PH[i]!==undefined&&DK_PH[i]>=0).slice(3,9);
+  /* 製品ギャラリー（3枚目以降の写真があるときだけ） */
   if(galIdx.length){
     S.push(
       eyebrow(L.gallery||"PRODUCT GALLERY")+
@@ -4535,7 +4664,6 @@ function deckSlides(lang,T){
       foot());
   }
   /* 6) ターゲット市場と関税 ※進出国が未登録ならスキップ */
-  const tg=Object.entries(D.regs||{}).slice(0,6);
   if(tg.length) S.push(
     eyebrow(L.market)+
     shpText(48,86,860,56,[{t:T.tagline||T.item||D.item||"",sz:22,b:1,c:INK}],{ea})+
@@ -4549,9 +4677,7 @@ function deckSlides(lang,T){
     shpText(48,478,860,16,[{t:"*  "+L.dutyNote,sz:8.5,c:"8A97A6"}],{ea})+
     foot());
   /* 7) 価格と取引条件 ※価格も条件も未登録ならスキップ */
-  const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
-  const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
-  if(pr.length||D.moq||D.lead||D.term||D.pay) S.push(
+  if(hasPrice) S.push(
     eyebrow(L.price)+
     shpRect(48,96,540,36,NV)+
     pc.map((c,i)=>shpText(60+i*130,104,124,22,[{t:String(c),sz:10,b:1,c:"FFFFFF"}],{ea})).join("")+
@@ -4570,7 +4696,7 @@ function deckSlides(lang,T){
     foot());
   /* 8) 物流・リードタイム ※納期・港・MOQ・梱包が全て未登録ならスキップ */
   const FL=L.flow||["Inquiry","Order","Production","Shipping","Delivery"];
-  if(D.moq||D.lead||D.pol||dim0) S.push(
+  if(hasLogi) S.push(
     eyebrow(L.logi)+
     FL.map((f,i)=>{
       const x=48+i*176;
@@ -4591,11 +4717,10 @@ function deckSlides(lang,T){
       {t:(D.ctn?String(T.ctn||D.ctn):""),sz:9.5,c:SUB,spcB:4}],{ea})+
     shpRect(632,316,280,120,NV,{round:5000})+
     shpText(652,334,240,90,[{t:L.supply,sz:11,b:1,c:"FFFFFF"},
-      {t:(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:9.5,c:"C9D2DE",spcB:6}],{ea})+
+      {t:(T.origin||D.city||"Japan")+"  ·  "+L.made,sz:9.5,c:MD,spcB:6}],{ea})+
     foot());
   /* 9) 認証・輸出書類 ※認証・書類とも無ければスキップ */
-  const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
-  if((D.cert&&D.cert!=="なし")||docs.length) S.push(
+  if(hasComp) S.push(
     eyebrow(L.comp)+
     shpText(48,96,420,20,[{t:L.cert,sz:11,b:1,c:INK}],{ea})+
     shpRect(48,122,420,74,LGT,{round:5000})+
@@ -4620,12 +4745,12 @@ function deckSlides(lang,T){
     shpText(96,110,500,220,[
       {t:L.contact,sz:13,b:1,c:OR},
       {t:D.coEn||D.co||"",sz:24,b:1,c:"FFFFFF",spcB:10},
-      {t:(D.co&&D.coEn&&D.co!==D.coEn)?D.co:"",sz:10.5,c:"C9D2DE",spcB:3},
-      {t:(T.origin||D.city||"")+"  ·  "+L.made,sz:10.5,c:"C9D2DE",spcB:6},
+      {t:(D.co&&D.coEn&&D.co!==D.coEn)?D.co:"",sz:10.5,c:MD,spcB:3},
+      {t:(T.origin||D.city||"")+"  ·  "+L.made,sz:10.5,c:MD,spcB:6},
       {t:L.cta,sz:11,c:"FFFFFF",spcB:14},
       {t:DM.person?String(DM.person):"",sz:11.5,b:1,c:"FFFFFF",spcB:12},
-      {t:[DM.mail?("✉ "+DM.mail):"",DM.tel?("☎ "+DM.tel):""].filter(Boolean).join("    "),sz:10,c:"C9D2DE",spcB:3},
-      {t:DM.web?String(DM.web):"",sz:10,c:"C9D2DE",spcB:3},
+      {t:[DM.mail?("✉ "+DM.mail):"",DM.tel?("☎ "+DM.tel):""].filter(Boolean).join("    "),sz:10,c:MD,spcB:3},
+      {t:DM.web?String(DM.web):"",sz:10,c:MD,spcB:3},
       {t:(T.addr||DM.addr||""),sz:9,c:"8A97A6",spcB:5}],{ea})+
     shpText(96,392,500,40,[{t:L.poweredBy,sz:8.5,c:"8A97A6"}],{ea})+
     (DK_LOGO>=0?shpRect(430,120,150,64,"FFFFFF",{round:4000})+logoOr(438,128,134,48):"")+
@@ -4641,6 +4766,7 @@ function buildPptx(lang,T){
   _SPID=1;
   dkCollectMedia();
   const slides=deckSlides(lang,T);
+  window.__dkN=slides.length;
   const files=[];
   files.push(["[Content_Types].xml",pxml(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -4686,6 +4812,7 @@ async function deckMake(lang){
     if(!D||!(D.item||D.file)){ toast("先に商品情報を登録してください"); return; }
     const online=(typeof ppReady==="function"&&ppReady());
     say(`⏳ 商品情報を収集しています…`);
+    try{ await dkBrandExtract(false); }catch(e){}   /* ブランドカラー未抽出なら画像から抽出してから組む */
     let T;
     try{
       if(online) say(`⏳ ${DECK_L[lang].flag} ${DECK_L[lang].name} に翻訳しています…（AIエンジン使用・10〜40秒）`);
@@ -4700,7 +4827,7 @@ async function deckMake(lang){
     a.href=URL.createObjectURL(blob); a.download=nm;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    say(`✅ <b>${esc(nm)}</b> をダウンロードしました（10枚組・${Math.round(blob.size/1024)}KB）${T._machine?"":"<br>⚠ AIエンジン未接続のため、見出しのみ各言語・商品の値は登録データのままです。接続すると全文が翻訳されます。"}<br>
+    say(`✅ <b>${esc(nm)}</b> をダウンロードしました（${window.__dkN||10}枚組・${Math.round(blob.size/1024)}KB・ブランドカラー ${dkBrandGet()?"#"+dkBrandGet().c:"標準"}）${T._machine?"":"<br>⚠ AIエンジン未接続のため、見出しのみ各言語・商品の値は登録データのままです。接続すると全文が翻訳されます。"}<br>
       <span style="font-size:10px;color:var(--ink-3)">Googleスライドにする場合：Googleドライブにアップロード → 右クリック →「アプリで開く」→ Googleスライド。claude.aiのプレビュー上ではダウンロードが動かないため、配布HTML／公開URLでお使いください。</span>`);
     if(typeof logU==="function") logU("ai","営業資料生成:"+lang);
   }catch(e){
@@ -4749,6 +4876,13 @@ function deckAssetCard(){
       <button class="btn" id="dkenrich" style="background:var(--bl);border-color:var(--bl)">⚡ 公式サイトで資料を強化（コピー・特徴・画像を自動取込）</button>
       <span class="nn" style="margin:0">キャッチコピー・ブランド紹介・特徴・ラインアップ・使い方・画像を、サイトからまとめて取り込みます。</span></div>
     <div id="dkenst" style="margin-top:7px"></div>
+    ${(()=>{const b=dkBrandGet();
+      return `<div class="rw" style="margin-top:9px;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="lbl" style="margin:0">🎨 ブランドカラー</span>
+      <input type="color" id="dkbc" value="#${b?b.c:"F8951D"}" style="width:42px;height:28px;border:1px solid var(--line);border-radius:6px;padding:1px;background:var(--surface);cursor:pointer">
+      <span class="nn" style="margin:0">${b?`${b.src==="manual"?"手動指定":"ロゴ・写真から自動抽出"}（#${b.c}）。<b>表紙・見出し・パネルなど資料全体の配色</b>に使われます。`
+        :"未設定＝標準配色。<b>ロゴか写真を設定すると自動で抽出</b>します（ここで手動指定もできます）。"}</span>
+      <button class="btn g" id="dkbcauto" style="padding:3px 9px;font-size:10px">画像から再抽出</button></div>`;})()}
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
       ${slot("logo")}${PH_IDX.map(i=>slot("ph",i)).join("")}
     </div>
@@ -4855,7 +4989,7 @@ ${siteTxt?`=== 公式サイト抜粋（${siteUrl}） ===\n${siteTxt}`:"（公式
 function vDeck(p){
   const online=(typeof ppReady==="function"&&ppReady());
   const n=(D.strengths||[]).length, pr=(D.priceRows||[]).length, cr=(D.compRows||[]).length, rg=Object.keys(D.regs||{}).length;
-  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトの<b>10枚組</b>・PPTX形式。",
+  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・目次・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトの<b>最大12枚</b>・PPTX形式。<b>配色はロゴ・写真から抽出した貴社ブランドカラー</b>で組まれます。",
     `<button class="btn g" onclick="go('item')">元データを確認する</button>
      ${typeof openHealth==="function"?`<button class="btn g" onclick="openHealth()">🧹 データを点検</button>`:""}`)+`
   ${typeof healthBanner==="function"?healthBanner():""}`+
@@ -4911,6 +5045,19 @@ function deckBind(){
     deckSiteImgs(u);
   };
   const wz=$("#dkwiz"); if(wz) wz.onclick=()=>deckWizard();
+  const bc=$("#dkbc"); if(bc) bc.addEventListener("change",()=>{
+    const v=bc.value.replace("#","").toUpperCase();
+    if(/^[0-9A-F]{6}$/.test(v)&&typeof TEN!=="undefined"&&TEN){
+      TEN.deckBrand={c:v,src:"manual"};
+      if(typeof saveTen==="function") saveTen();
+      render(); toast("ブランドカラーを設定しました（#"+v+"）");
+    }});
+  const ba=$("#dkbcauto"); if(ba) ba.onclick=()=>{
+    dkBrandExtract(true).then(b=>{ render();
+      toast(b&&b.src==="auto"?"画像から抽出しました：#"+b.c
+        :"有彩色が見つかりませんでした（モノクロのロゴ等）。カラーピッカーで手動指定できます"); });
+  };
+  dkBrandAuto();
 }
 
 /* ═══════════ ① AI商社マン：自由入力に答える（ページ内エンジン） ═══════════
