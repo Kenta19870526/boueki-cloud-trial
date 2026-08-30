@@ -9123,6 +9123,14 @@ function dwSetW(px){
 function dwToggleMax(){ dwSetW(dwIsWide()?0:Math.min(920,Math.round(innerWidth*0.72))); }
 function dwChrome(){
   const pn=$("#pn"); if(!pn) return;
+  /* ⛶拡大／⇤標準ボタン：どのドロワーにも統一で付ける（AIに質問と同じ操作感） */
+  if(!pn.querySelector("#dwmax")){
+    const mb=document.createElement("button");
+    mb.className="btn g dwmaxb"; mb.id="dwmax"; mb.title="パネルを拡大／標準幅に戻す（左端をドラッグでも調整できます）";
+    mb.style.cssText="position:absolute;top:10px;right:44px;padding:4px 11px;font-size:11px;z-index:5";
+    mb.onclick=dwToggleMax;
+    pn.prepend(mb);
+  }
   if(!pn.querySelector(".dwgrip")){
     const g=document.createElement("div"); g.className="dwgrip"; g.title="ドラッグで幅を調整";
     pn.prepend(g);
