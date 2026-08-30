@@ -2840,11 +2840,11 @@ async function entriesCorpus(entries,prog){
   }
   entries=expanded;
   const files=[],skipped=[],grids=[]; let corpus="",pdfAtt=null,imgAtt=null,imgN=0;
-  const PER=6000, MAX=60000;
+  const PER=6000, MAX=90000;
   for(const ent of entries){
     const name=ent.name||"file", base=name.split("/").pop(), ext=FEXT(base);
     if(ent.skip){ skipped.push(name+"（"+ent.skip+"）"); continue; }
-    if(files.length>=20||corpus.length>MAX){ skipped.push(name); continue; }
+    if(files.length>=40||corpus.length>MAX){ skipped.push(name+"（読み取り上限：一度に読めるのは40ファイル・重要ファイルから優先して読んでいます）"); continue; }
     if(prog){ try{ prog("読み取り中: "+base); }catch(e){} }
     try{
       if(ent.text!==undefined&&ent.text!==null&&!ent.u8){
@@ -2874,7 +2874,9 @@ async function entriesCorpus(entries,prog){
         if(!pdfAtt&&u8.length<8e6&&typeof provCanFile==="function"&&provCanFile("pdf")&&typeof ppReady==="function"&&ppReady()){
           pdfAtt={mime:"application/pdf",b64:u8b64(u8),name:base};
           files.push({name,kind:"PDF（AI読取）",chars:0});
-        } else skipped.push(name);
+        } else if(pdfAtt) skipped.push(name+"（PDFのAI読取は1回の取込につき1件まで。このファイルだけを個別に添付すれば読めます）");
+        else if(u8.length>=8e6) skipped.push(name+"（8MB超のPDF）");
+        else skipped.push(name+"（PDFはAIエンジン接続時に読み取れます）");
       } else if(/^(png|jpe?g|webp)$/.test(ext)){
         imgN++;
         corpus+=`\n（画像ファイル: ${name}）\n`;
@@ -10936,13 +10938,27 @@ function vToday(p){
    カードをクリック → 右パネルでAI商社マンと一緒にそのタスクを実行。
    チャット・ファイル/フォルダー（複数）添付・クラウド/WebのURL取込に対応。
    添付資料は「取り込んだ情報一覧」にも登録され、以後のAI回答の根拠になる。 */
-let TDRUN=null;   /* {i,task,log:[{w,h}],corpus,att} 実行中タスクの状態（セッション内） */
+let TDRUN=null;   /* {i,task,log:[{w,h}],corpus,att} 実行中タスクの状態 */
+/* ── タスクごとの会話・添付コーパスを保存（パネルを閉じても消えない） ── */
+function tdKey(x){ return ((typeof D!=="undefined"&&D&&D.item)||"")+"｜"+String(x&&x.t||""); }
+function tdRuns(){ const s=todayStore(); s.todayRuns=s.todayRuns||{}; return s.todayRuns; }
+function tdSave(){
+  if(!TDRUN||!TDRUN.task) return;
+  try{
+    const runs=tdRuns();
+    runs[tdKey(TDRUN.task)]={log:TDRUN.log.slice(-40).map(m=>({w:m.w,h:String(m.h||"").slice(0,5000)})),
+      corpus:(TDRUN.corpus||"").slice(-24000), n:TDRUN._n||0, at:TODAYS};
+    const ks=Object.keys(runs); while(ks.length>8){ delete runs[ks.shift()]; }
+    if(typeof TEN!=="undefined"&&TEN&&typeof saveTen==="function") saveTen();
+  }catch(e){}
+}
 
 function todayRun(i){
   const items=todayItems(); const x=items[i];
   if(!x){ toast("タスクが見つかりません"); return; }
   const online=(typeof ppReady==="function"&&ppReady());
-  TDRUN={i,task:x,log:[],corpus:"",att:null};
+  const saved=tdRuns()[tdKey(x)];
+  TDRUN={i,task:x,log:[],corpus:(saved&&saved.corpus)||"",att:null,_n:(saved&&saved.n)||0};
   openDW(`<div class="dwhead"><h3>🤖 タスクを実行：${esc(x.t)}</h3></div>
     <div class="dwbody">
       <div style="padding:8px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:10.5px;line-height:1.7">
@@ -10969,13 +10985,21 @@ function todayRun(i){
   const pn=$("#pn"); pn.classList.add("dwr");
   if(typeof dwChrome==="function") dwChrome();
   const c=$("#tdchat");
-  const say=(w,h)=>{ TDRUN.log.push({w,h}); const bb=pushTo(c,w,h); if(w==="a"&&typeof addCopy==="function") addCopy(bb); c.scrollTop=1e6; return bb; };
-  /* ── キックオフ：AIがこのタスクの進め方と必要情報を提示 ── */
-  if(online){
+  const say=(w,h)=>{ TDRUN.log.push({w,h}); tdSave(); const bb=pushTo(c,w,h); if(w==="a"&&typeof addCopy==="function") addCopy(bb); c.scrollTop=1e6; return bb; };
+  const at0=$("#tdatt"); if(at0&&TDRUN._n) at0.textContent="✓ 添付 "+TDRUN._n+"件";
+  if(saved&&saved.log&&saved.log.length){
+    /* ── 前回の続きを復元（会話は自動保存） ── */
+    const rb=pushTo(c,"a",`🕘 <b>前回の続きから再開しました</b>（${esc(saved.at||"")}保存・会話は自動保存されます）${TDRUN._n?`。添付済み資料 ${TDRUN._n}件の内容も引き継いでいます`:""}。`);
+    saved.log.forEach(m=>{ const bb=pushTo(c,m.w,m.h); if(m.w==="a"&&typeof addCopy==="function") addCopy(bb); });
+    TDRUN.log=saved.log.slice();
+    c.scrollTop=1e6;
+  }
+  /* ── キックオフ：AIがこのタスクの進め方と必要情報を提示（初回のみ） ── */
+  else if(online){
     const bb=pushTo(c,"a",'<span class="car"></span>');
     todayRunAsk(`タスク「${x.t}」を今から一緒に実行します。背景：${x.d}。
 最初に何をすればよいか、具体的な手順と、私から提供が必要な情報・資料（ファイル）を箇条書きで示してください。`,true)
-      .then(h=>{ bb.innerHTML=h; TDRUN.log.push({w:"a",h}); if(typeof addCopy==="function") addCopy(bb); c.scrollTop=1e6; })
+      .then(h=>{ bb.innerHTML=h; TDRUN.log.push({w:"a",h}); tdSave(); tdSave(); if(typeof addCopy==="function") addCopy(bb); c.scrollTop=1e6; })
       .catch(e=>{ bb.innerHTML="開始ガイドを取得できませんでした："+esc(String(e&&e.message).slice(0,70))+"<br>そのまま下の入力から進められます。"; });
   }else{
     say("a",`このタスクを進めましょう。<br><b>${esc(x.d)}</b><br>
@@ -10994,7 +11018,7 @@ function todayRun(i){
       let h;
       if(typeof ppReady==="function"&&ppReady()){ h=await todayRunAsk(v,false); }
       else { const r=await Promise.resolve(brain(v)); h=T(r.a)+`<div class="ci">${T(r.c)}</div>`; }
-      bb.innerHTML=h; TDRUN.log.push({w:"a",h});
+      bb.innerHTML=h; TDRUN.log.push({w:"a",h}); tdSave();
       if(typeof addCopy==="function") addCopy(bb);
     }catch(e){ bb.innerHTML="うまく処理できませんでした："+esc(String(e&&e.message).slice(0,80)); }
     c.scrollTop=1e6;
@@ -11021,7 +11045,7 @@ function todayRun(i){
       else if(r.entries) entries=r.entries;
       else if(r.text) entries=[{name:(r.name||"Web資料")+".txt",text:r.text}];
       const h=await todayRunIngest(entries,r.label||r.name||"URL資料");
-      bb.innerHTML=h; TDRUN.log.push({w:"a",h}); c.scrollTop=1e6;
+      bb.innerHTML=h; TDRUN.log.push({w:"a",h}); tdSave(); c.scrollTop=1e6;
     }catch(e){ bb.innerHTML="URLを読み取れませんでした："+esc(String(e&&e.message).slice(0,110)); }
   };
   grow(); tq.focus();
@@ -11032,18 +11056,18 @@ async function todayRunFiles(files){
   if(!files||!files.length) return;
   const c=$("#tdchat"); if(!c) return;
   const names=files.map(f=>f.name).join("・");
-  const push2=(w,h)=>{ TDRUN.log.push({w,h}); const bb=pushTo(c,w,h); c.scrollTop=1e6; return bb; };
+  const push2=(w,h)=>{ TDRUN.log.push({w,h}); tdSave(); const bb=pushTo(c,w,h); c.scrollTop=1e6; return bb; };
   push2("u","📎 "+esc(names.slice(0,90)));
   const bb=pushTo(c,"a",'<span class="car"></span>');
   try{
     const entries=[];
     for(const f of files.slice(0,10)){
       if(FEXT(f.name)==="zip"&&typeof zipEntriesSorted==="function"){
-        (await zipEntriesSorted(f)).slice(0,20).forEach(e2=>entries.push(e2));   /* Zipは中身を展開して統合 */
+        (await zipEntriesSorted(f)).forEach(e2=>entries.push(e2));   /* Zipは中身を全展開して統合（読取上限は内訳で正直表示） */
       } else entries.push({name:f.name,u8:new Uint8Array(await f.arrayBuffer())});
     }
     const h=await todayRunIngest(entries,names);
-    bb.innerHTML=h; TDRUN.log.push({w:"a",h}); c.scrollTop=1e6;
+    bb.innerHTML=h; TDRUN.log.push({w:"a",h}); tdSave(); c.scrollTop=1e6;
   }catch(e){ bb.innerHTML="資料を読み込めませんでした："+esc(String(e&&e.message).slice(0,90)); }
 }
 async function todayRunIngest(entries,label){
@@ -11060,9 +11084,12 @@ async function todayRunIngest(entries,label){
         kind:f.kind||"file",chars:f.chars,txt:(f.txt||"").slice(0,6000),on:1,added:TODAYS}); reg++; } });
     if(typeof saveTen==="function") saveTen();
   }
-  const at=$("#tdatt"); if(at) at.textContent="✓ 添付 "+((TDRUN._n=(TDRUN._n||0)+okFiles.length))+"件";
+  const at=$("#tdatt"); if(at) at.textContent="✓ 添付 "+((TDRUN._n=(TDRUN._n||0)+okFiles.length))+"件"; tdSave();
   const skipped=(z.skipped||[]).length;
-  let h=`✅ <b>${okFiles.length}件</b>の資料を読み込みました（${esc(okFiles.map(f=>f.name).slice(0,4).join("・")).slice(0,120)}${okFiles.length>4?" ほか":""}）${reg?`。<b>取り込んだ情報一覧にも登録済み</b>`:""}${skipped?`。読めなかったファイル ${skipped}件`:""}。`;
+  const aiRead=(z.files||[]).filter(f=>!f.chars&&/AI読取/.test(f.kind||"")).length;
+  const nmPart=[esc(okFiles.map(f=>String(f.name).split("/").pop()).slice(0,4).join("・")).slice(0,120)+(okFiles.length>4?" ほか":""),
+    aiRead?`PDF・画像${aiRead}件はAIが読取`:""].filter(Boolean).join("／");
+  let h=`✅ <b>${okFiles.length+aiRead}件</b>の資料を読み込みました（${nmPart}）${reg?`。<b>取り込んだ情報一覧にも登録済み</b>`:""}${skipped?`。<br>読めなかったファイル <b>${skipped}件</b>（例：${esc(String((z.skipped||[])[0]||"").split("/").pop()).slice(0,90)}）`:""}。`;
   if(typeof ppReady==="function"&&ppReady()){
     try{
       const sum=await todayRunAsk(`いま添付した資料（${label}）の内容を確認し、このタスクにどう使えるか・次の一歩を短く教えてください。`,false);
