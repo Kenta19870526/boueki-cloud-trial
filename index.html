@@ -5015,9 +5015,14 @@ async function deckWizard(){
       <div>${F("wzMoq","🔴 MOQ（最小ロット・必須※取引条件とどちらか）","例：500",TEN.moq)}</div>
       <div>${F("wzTerm","🔴 取引条件","例：FOB 横浜",TEN.term)}</div></div>`:"",
     need("market")?F("wzTargets","🔴 ターゲット国（必須・「・」区切り）","例：香港・台湾・アメリカ",(TEN.targets||[]).join("・")):"",
-    (need("logo")||need("phq"))?`<div style="margin-top:9px;padding:8px 11px;border:1px solid var(--warn);border-radius:var(--r2);background:var(--warn-soft);font-size:11px;line-height:1.7">
-      🔴 <b>${[need("logo")?"ロゴ":"",need("phq")?"納品品質の商品写真":""].filter(Boolean).join("・")}</b>は画像のため、このフォームでは設定できません。<br>
-      保存後、下の<b>「🖼 ロゴ・商品写真」欄</b>からアップロードするか、<b>🏠公式サイトから画像を取得</b>してください。</div>`:""
+    (need("logo")||need("phq"))?`<div style="margin-top:9px;padding:9px 11px;border:1px solid var(--warn);border-radius:var(--r2);background:var(--warn-soft);font-size:11px;line-height:1.8">
+      🔴 <b>${[need("logo")?"会社・ブランドロゴ":"",need("phq")?"納品品質の商品写真":""].filter(Boolean).join("・")}（必須）</b>——このフォーム内で設定できます：
+      <div class="rw" style="gap:7px;flex-wrap:wrap;margin-top:6px">
+        ${need("logo")?`<label class="btn g" style="padding:4px 10px;font-size:10.5px;cursor:pointer">🏷 ロゴをアップロード<input type="file" id="wzLogoF" hidden accept="image/*"></label>`:""}
+        ${need("phq")?`<label class="btn g" style="padding:4px 10px;font-size:10.5px;cursor:pointer">📷 商品写真をアップロード（複数OK）<input type="file" id="wzPhF" hidden accept="image/*" multiple></label>`:""}
+        ${typeof ppReady==="function"&&ppReady()?`<button class="btn g" id="wzSiteImg" style="padding:4px 10px;font-size:10.5px">🏠 公式サイトから自動取得</button>`:""}</div>
+      <div id="wzImgSt" style="margin-top:5px;font-weight:700"></div>
+      <span style="color:var(--ink-3)">※高解像度（短辺420px以上）・画像内に日本語の説明文が無い写真が「納品品質」と判定されます。</span></div>`:""
   ].filter(Boolean).join("");
   openDW(`<h3>🤖 AI商社マンと営業資料を仕上げる</h3>
     <p class="nn" style="margin-top:4px">スタイリッシュで納品レベルの資料を作成するために、必要な情報を伺います。<b>分かるところだけでOK</b>（あとで追記できます）。日本語で入力すると、生成時に各言語へ翻訳されます。</p>
@@ -5042,10 +5047,43 @@ async function deckWizard(){
       <div>${F("wzMail","メール","例：sales@example.co.jp",DM.mail)}</div>
     </div>
     ${F("wzTel","電話","例：+81 70-0000-0000",DM.tel)}
-    <div class="rw" style="margin-top:12px">
-      <button class="btn" id="wzSave">保存して資料に反映</button>
-      <button class="btn g" onclick="closeDW()">あとで</button></div>`);
+    <div class="rw" style="position:sticky;bottom:-15px;margin:12px -4px -4px;padding:10px 4px;background:var(--surface);border-top:1px solid var(--line);z-index:6">
+      <button class="btn" type="button" id="wzSave">保存して資料に反映</button>
+      <button class="btn g" type="button" id="wzLater">あとで</button></div>`);
   if(typeof dwChrome==="function") dwChrome();   /* ⛶拡大／ドラッグ幅調整（他パネルと統一） */
+  $("#wzLater").onclick=()=>closeDW();
+  /* ── 画像（ロゴ・写真）をウィザード内で設定 ── */
+  const wzImgSt=m=>{ const e=$("#wzImgSt"); if(e) e.innerHTML=m; };
+  const wzWaitImg=(chk,label)=>{ let n=0; wzImgSt('<span class="spin"></span> '+label+"を読み込んでいます…");
+    const tm=setInterval(()=>{ n++;
+      if(chk()){ clearInterval(tm);
+        const left=deckMissReq().filter(c=>c.k==="logo"||c.k==="phq").map(c=>c.n);
+        wzImgSt("✅ "+label+"を設定しました"+(left.length?`（画像の必須はあと：${left.join("・")}）`:"——画像の必須がすべて揃いました🎉「保存して資料に反映」で確定してください"));
+      } else if(n>14){ clearInterval(tm); wzImgSt("⚠ 読み込みを確認できませんでした。下の🖼欄からもお試しください"); }
+    },500); };
+  const lf=$("#wzLogoF");
+  if(lf) lf.onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    const had=(dkAssets().logo&&dkAssets().logo.b64)||"";
+    dkSetAssetFile("logo",f);
+    wzWaitImg(()=>{const o=dkAssets().logo; return o&&o.b64&&o.b64!==had;},"ロゴ"); };
+  const pf2=$("#wzPhF");
+  if(pf2) pf2.onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; if(!fs.length) return;
+    const A2=dkEnsureAssets(); const n0=(A2.ph||[]).filter(o=>o&&o.b64).length;
+    fs.slice(0,5).forEach((f,k)=>{ const slot=PH_IDX.find(i=>!A2.ph[i]); if(slot!==undefined) dkSetAssetFile("ph",f,slot); });
+    wzWaitImg(()=>((dkAssets().ph||[]).filter(o=>o&&o.b64).length>n0),"商品写真"); };
+  const si=$("#wzSiteImg");
+  if(si) si.onclick=()=>{
+    const u=(($("#wzWeb")&&$("#wzWeb").value)||dkMeta().web||"").trim();
+    if(!u){ wzImgSt("⚠ 先に上の「ウェブサイト」欄に公式サイトURLを入力してください"); const w=$("#wzWeb"); if(w) w.focus(); return; }
+    if(typeof TEN!=="undefined"&&TEN){ TEN.deckMeta=TEN.deckMeta||{}; TEN.deckMeta.web=u; }
+    wzImgSt('<span class="spin"></span> 公式サイトから画像を取得しています…（AI検査つき・10〜60秒）');
+    const n0=((dkAssets().ph||[]).filter(o=>o&&o.b64).length)+((dkAssets().logo&&dkAssets().logo.b64)?1:0);
+    Promise.resolve(deckSiteImgs(u)).then(()=>{
+      const n1=((dkAssets().ph||[]).filter(o=>o&&o.b64).length)+((dkAssets().logo&&dkAssets().logo.b64)?1:0);
+      const left=deckMissReq().filter(c=>c.k==="logo"||c.k==="phq").map(c=>c.n);
+      wzImgSt(n1>n0?("✅ 公式サイトから画像を設定しました"+(left.length?`（画像の必須はあと：${left.join("・")}）`:"——画像の必須がすべて揃いました🎉")):"候補画像を背面のカードに表示しています。採用すると反映されます（見つからない場合は正直にその旨が出ます）");
+    }).catch(e2=>wzImgSt("⚠ 取得できませんでした："+esc(String(e2&&e2.message).slice(0,60))));
+  };
   const wai=$("#dkwai");
   if(wai) wai.onclick=async()=>{
     wai.disabled=true; const stx=$("#dkwaist");
