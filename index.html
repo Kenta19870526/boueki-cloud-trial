@@ -3255,23 +3255,50 @@ async function fillAttach(f){
   if(!f||!TEN) return;
   fillSay("u","📎 "+esc(f.name));
   const ext=FEXT(f.name);
-  /* Zip：中の資料（Excel/CSV/Word/PowerPoint/PDF/画像/テキスト）をまとめて統合してから通常経路へ */
+  /* Zip：中の資料をまとめて統合。決定論の読み取りに加え、接続AIがテキスト全体＋代表PDF/画像から抽出する */
   if(ext==="zip"){
     fillSay("ai","Zipの中身をまとめて読み取っています…（複数ファイルを1つの資料一式として統合します）");
     render();
     try{
-      const z=await zipCorpus(f);
-      const ok=(z.files||[]).filter(x=>x.chars>0);
-      if(!z.corpus||!ok.length)
+      const fs=await unzipAll(await f.arrayBuffer());
+      /* 情報価値の高いファイルを優先して読む（仕様書・成分・価格 → Excel/CSV → Word/PowerPoint → PDF → 画像） */
+      const pri=n=>{ const b=(n.split("/").pop()||"").toLowerCase(); const e2=FEXT(b);
+        let p=/仕様|規格|成分|spec|ingredient|価格|price|会社概要|profile|カタログ|catalog|パンフ/.test(b)?0:2;
+        p+= (e2==="xlsx"||e2==="xlsm")?0:(e2==="csv"||e2==="txt")?0.3:(e2==="docx")?0.5:(e2==="pptx")?1:(e2==="pdf")?3:(/^(png|jpe?g|webp)$/.test(e2))?4:9;
+        return p; };
+      const entries=Object.keys(fs).sort((a,b)=>pri(a)-pri(b)).map(n=>({name:n,u8:fs[n]}));
+      const z=await entriesCorpus(entries);
+      const okF=(z.files||[]).filter(x=>x.chars>0), aiF=(z.files||[]).filter(x=>!x.chars&&/AI読取/.test(x.kind||""));
+      if(!z.corpus&&!z.att)
         throw new Error("Zip内に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）"+
-          ((z.skipped||[]).length?"。スキップ："+(z.skipped||[]).slice(0,3).map(s2=>s2.name).join("・"):""));
-      fillSay("ai",`Zip内の<b>${ok.length}ファイル</b>を統合しました（${esc(ok.slice(0,4).map(x=>x.name).join("・")).slice(0,120)}${ok.length>4?" ほか":""}${(z.skipped||[]).length?`・読めなかったもの${z.skipped.length}件`:""}）。内容を反映します…`);
-      const tf=new File([z.corpus],f.name.replace(/\.zip$/i,"")+"_一式.txt",{type:"text/plain"});
-      return fillAttach(tf);
+          ((z.skipped||[]).length?"。対象外："+(z.skipped||[]).slice(0,3).join("・").slice(0,90):"")+
+          ((z.skipped||[]).some(s2=>/\.pdf|\.png|\.jpe?g/i.test(String(s2)))?"※PDF・画像はAIエンジン接続時に読み取れます（管理コンソールで設定）":""));
+      fillSay("ai",`Zip内の<b>${okF.length+aiF.length}ファイル</b>を読み込みました（${esc(okF.concat(aiF).slice(0,4).map(x=>x.name.split("/").pop()).join("・")).slice(0,130)}${okF.length+aiF.length>4?" ほか":""}${aiF.length?`／PDF・画像${aiF.length}件はAIが読取`:""}${(z.skipped||[]).length?`／対象外${z.skipped.length}件`:""}）。内容を反映します…`);
+      render();
+      /* ① 決定論（表・ラベルの直読み） */
+      let ch=[];
+      if(z.corpus){ const t2=tenantFromTextGrids(z.corpus,z.grids,f.name,Math.max(1,okF.length)); ch=mergeTen(TEN,t2); }
+      /* ② 接続AIによる本抽出：統合テキスト＋代表PDF/画像（仕様書・成分表を優先） */
+      if(typeof ppReady==="function"&&ppReady()){
+        try{
+          const x=await llmXtract({text:(z.corpus||"").slice(0,15000),att:z.att||undefined,filename:f.name});
+          ch=[...new Set(ch.concat(mergeTen(TEN,x)))];
+        }catch(e){}
+      }
+      syncTenant(); if(typeof saveTen==="function") saveTen();
+      const s=scoreOf(TEN);
+      fillSay("ai",ch.length
+        ?`<b>${esc(f.name)}</b> から <b>${ch.length}項目</b>を取り込みました：${ch.map(esc).join("・")}<br>充足度 <b>${s.pct}%</b> になりました。${s.missing.length?"残りを続けて伺います。":""}`
+        :((typeof ppReady==="function"&&ppReady())
+          ?`読み取りましたが、未登録の項目（会社名・価格・規格など）に該当する記載を特定できませんでした。会議メモ中心のZipでは項目が少ないことがあります。<b>製品仕様書・価格表のファイルを直接添付</b>いただくと確実です。`
+          :`テキストからは未登録項目を特定できませんでした。${aiF.length?`<b>PDF・画像${aiF.length}件の読み取りにはAIエンジンの接続が必要</b>です（管理コンソールで設定）。`:""}`));
+      if(typeof logU==="function") logU("upload","ヒアリング中にZip追加:"+f.name);
+      if(FILL.cur&&has(TEN[FILL.cur.k])) fillNext(); else render();
     }catch(e){
-      fillSay("ai","Zipを読み取れませんでした："+esc(String(e&&e.message)).slice(0,120));
-      render(); return;
+      fillSay("ai","Zipを読み取れませんでした："+esc(String(e&&e.message)).slice(0,140));
+      render();
     }
+    return;
   }
   const canAI=llmCanFile(ext), office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
   if(!office&&!canAI){
@@ -3284,7 +3311,14 @@ async function fillAttach(f){
   render();
   try{
     let ch=[];
-    if(/^(xlsx|xlsm|csv|txt)$/.test(ext)){ const t2=await buildTenant(f); ch=mergeTen(TEN,t2); }
+    if(/^(xlsx|xlsm|csv|txt)$/.test(ext)){
+      const t2=await buildTenant(f); ch=mergeTen(TEN,t2);
+      /* ラベル直読みで拾えなかったCSV/テキストは、接続AIが本文から抽出（会議メモ・自由文の資料対策） */
+      if(!ch.length&&/^(csv|txt)$/.test(ext)&&typeof ppReady==="function"&&ppReady()){
+        try{ const x=await llmXtract({text:String(await f.text()).slice(0,15000),filename:f.name});
+          ch=mergeTen(TEN,x); }catch(e){}
+      }
+    }
     else if(ext==="docx"||ext==="pptx"){
       const ex=ext==="docx"?await extractDocx(f):await extractPptx(f);
       const t2=tenantFromTextGrids(ex.text,ex.grids,f.name,ex.pages);
