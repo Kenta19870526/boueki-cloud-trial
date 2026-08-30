@@ -2875,9 +2875,18 @@ async function entriesCorpus(entries,prog){
   }
   return {corpus:corpus.trim(),grids,files,pdfAtt,imgAtt,att:pdfAtt||imgAtt,skipped,imgN};
 }
+/* Zip→読み取りエントリ列（情報価値の高い順：仕様書・成分・価格 → Excel/CSV → Word/PPT → PDF → 画像）。
+   ヒアリング📎・チャット添付・タスク実行など全ての添付経路で共用する */
+async function zipEntriesSorted(f){
+  const fs=await unzipAll(await f.arrayBuffer());
+  const pri=n=>{ const b=(n.split("/").pop()||"").toLowerCase(); const e2=FEXT(b);
+    let p=/仕様|規格|成分|spec|ingredient|価格|price|会社概要|profile|カタログ|catalog|パンフ/.test(b)?0:2;
+    p+=(e2==="xlsx"||e2==="xlsm")?0:(e2==="csv"||e2==="txt")?0.3:(e2==="docx")?0.5:(e2==="pptx")?1:(e2==="pdf")?3:(/^(png|jpe?g|webp)$/.test(e2))?4:9;
+    return p; };
+  return Object.keys(fs).sort((a,b)=>pri(a)-pri(b)).map(n=>({name:n,u8:fs[n]}));
+}
 async function zipCorpus(file){
-  const fs=await unzipAll(await file.arrayBuffer());
-  return entriesCorpus(Object.keys(fs).map(n=>({name:n,u8:fs[n]})));
+  return entriesCorpus(await zipEntriesSorted(file));
 }
 /* 資料一式（Zip・クラウドフォルダ）→ 1商品のテナントに統合 */
 async function entriesToTenant(entries,label,prog){
@@ -3260,14 +3269,7 @@ async function fillAttach(f){
     fillSay("ai","Zipの中身をまとめて読み取っています…（複数ファイルを1つの資料一式として統合します）");
     render();
     try{
-      const fs=await unzipAll(await f.arrayBuffer());
-      /* 情報価値の高いファイルを優先して読む（仕様書・成分・価格 → Excel/CSV → Word/PowerPoint → PDF → 画像） */
-      const pri=n=>{ const b=(n.split("/").pop()||"").toLowerCase(); const e2=FEXT(b);
-        let p=/仕様|規格|成分|spec|ingredient|価格|price|会社概要|profile|カタログ|catalog|パンフ/.test(b)?0:2;
-        p+= (e2==="xlsx"||e2==="xlsm")?0:(e2==="csv"||e2==="txt")?0.3:(e2==="docx")?0.5:(e2==="pptx")?1:(e2==="pdf")?3:(/^(png|jpe?g|webp)$/.test(e2))?4:9;
-        return p; };
-      const entries=Object.keys(fs).sort((a,b)=>pri(a)-pri(b)).map(n=>({name:n,u8:fs[n]}));
-      const z=await entriesCorpus(entries);
+      const z=await entriesCorpus(await zipEntriesSorted(f));
       const okF=(z.files||[]).filter(x=>x.chars>0), aiF=(z.files||[]).filter(x=>!x.chars&&/AI読取/.test(x.kind||""));
       if(!z.corpus&&!z.att)
         throw new Error("Zip内に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）"+
@@ -6045,6 +6047,37 @@ function sendMsg(){
         const ext=FEXT(attF.name);
         const office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
         const online=(typeof ppReady==="function"&&ppReady());
+        /* Zip：中の資料一式を統合して解析（仕様書・成分・価格を優先読取。PDF/画像は接続AIが読取） */
+        if(ext==="zip"){
+          const z=await entriesCorpus(await zipEntriesSorted(attF));
+          const okF=(z.files||[]).filter(x=>x.chars>0), aiF=(z.files||[]).filter(x=>!x.chars&&/AI読取/.test(x.kind||""));
+          if(!z.corpus&&!z.att){
+            put(`Zip内に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）${
+              (z.skipped||[]).some(s2=>/\.pdf|\.png|\.jpe?g/i.test(String(s2)))?"※PDF・画像はAIエンジン接続時に読み取れます（管理コンソールで設定）":""}`,"");
+            return;
+          }
+          if(!online){
+            const t2=tenantFromTextGrids(z.corpus||"",z.grids,attF.name,Math.max(1,okF.length));
+            MSGX={x:t2,file:attF.name};
+            put(`<b>${esc(attF.name)}</b>（Zip・テキスト${okF.length}ファイル統合）を解析しました。読み取れた項目：<b>${esc(xSummary(t2))}</b><br>
+              「<b>商品情報に追加して</b>」と送っていただければ、未登録の項目に反映します。${(aiF.length||(z.skipped||[]).length)?`<br><span style="font-size:10px;color:var(--ink-3)">PDF・画像の解析はAIエンジン接続時に有効です。</span>`:""}`,
+              "エンジン：内蔵（ローカル解析）");
+            return;
+          }
+          const q2=(v||`このZip資料一式（${okF.length+aiF.length}ファイル）の要点を、貿易実務の観点で教えてください。`)+
+            `\n\n※回答の最後に、資料から読み取れた商品情報を\`\`\`json\`\`\`で出力してください。スキーマ:{"co":"","coEn":"","item":"","itemEn":"","sku":"","hs":"","origin":"","cert":"","shelf":"","term":"","pay":"","pol":"","lead":"","moq":"","ctn":"","cat":"","targets":[],"strengths":[["",""]],"priceCols":[],"priceRows":[],"dimCols":[],"dimRows":[],"compCols":[],"compRows":[],"compTitle":""}（読み取れた項目のみ。無ければ空のJSON {}）`;
+          const rr2=await llmAsk(q2+"\n\n=== 資料一式の内容（Zip統合） ===\n"+(z.corpus||"（テキストなし・添付のPDF/画像を読取）").slice(0,11000),
+            2000,{att:z.att||undefined,noWeb:1,timeout:120000});
+          let body2=rr2.txt, x2=null;
+          const jm2=body2.match(/```json([\s\S]*?)```/);
+          if(jm2){ try{ x2=JSON.parse(jm2[1].trim()); }catch(e){} body2=body2.replace(jm2[0],"").trim(); }
+          if(x2&&Object.keys(x2).length){ MSGX={x:x2,file:attF.name}; }
+          put(fmt(body2)+(MSGX&&MSGX.file===attF.name
+              ?`<div style="margin-top:8px;padding:7px 10px;border-radius:var(--r2);background:var(--or-soft);font-size:11px">📎 商品情報として読み取れる項目があります。「<b>商品情報に追加して</b>」と送ると、未登録の項目に反映します。</div>`:""),
+            `エンジン：${esc(llmLabel())}（実AI・Zip内${okF.length+aiF.length}ファイル解析${aiF.length?"・PDF/画像読取":""}）`);
+          if(typeof logU==="function") logU("ai","添付解析(Zip):"+attF.name);
+          return;
+        }
         if(office&&!online){
           /* オフライン：ローカル解析のみ */
           let t2;
@@ -10976,7 +11009,11 @@ async function todayRunFiles(files){
   const bb=pushTo(c,"a",'<span class="car"></span>');
   try{
     const entries=[];
-    for(const f of files.slice(0,10)) entries.push({name:f.name,u8:new Uint8Array(await f.arrayBuffer())});
+    for(const f of files.slice(0,10)){
+      if(FEXT(f.name)==="zip"&&typeof zipEntriesSorted==="function"){
+        (await zipEntriesSorted(f)).slice(0,20).forEach(e2=>entries.push(e2));   /* Zipは中身を展開して統合 */
+      } else entries.push({name:f.name,u8:new Uint8Array(await f.arrayBuffer())});
+    }
     const h=await todayRunIngest(entries,names);
     bb.innerHTML=h; TDRUN.log.push({w:"a",h}); c.scrollTop=1e6;
   }catch(e){ bb.innerHTML="資料を読み込めませんでした："+esc(String(e&&e.message).slice(0,90)); }
