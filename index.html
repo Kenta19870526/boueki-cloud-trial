@@ -4913,7 +4913,7 @@ function deckCheck(){
   return [
     {k:"itemEn",req:1,n:"英文商品名",ok:en(D.itemEn),how:"「商品情報を登録」で英文商品名を入力（AI提案あり）"},
     {k:"coEn",req:1,n:"英文社名",ok:en(D.coEn),how:"「商品情報を登録」で英文社名を入力（AI提案あり）"},
-    {k:"catch",req:1,n:"キャッチコピー・タグライン",ok:!!(RICH.catch||RICH.tagline||D.tagline),how:"⚡公式サイトで資料を強化（自動取込）／AI商社マンと仕上げる"},
+    {k:"catch",req:1,n:"キャッチコピー・タグライン",ok:!!(RICH.catch||RICH.tagline||(D.tagline&&D.tagline!=="アップロードした資料から作成")),how:"⚡公式サイトで資料を強化（自動取込）／AI商社マンと埋める で入力"},
     {k:"strengths",req:1,n:"商品の強み（3件以上）",ok:stN>=3,how:`現在${stN}件。「商品情報を登録」→強み、または⚡公式サイトで資料を強化`},
     {k:"spec",req:1,n:"規格・成分 or 梱包寸法",ok:!!((D.compRows&&D.compRows.length)||(D.dimRows&&D.dimRows.length)),how:"「商品情報を登録」に成分表・寸法表をアップロード"},
     {k:"price",req:1,n:"価格表 or 取引条件（MOQ等）",ok:!!((D.priceRows&&D.priceRows.length)||D.moq||D.term),how:"「商品情報を登録」に価格表を追加"},
@@ -4997,9 +4997,33 @@ async function deckWizard(){
   const DM=TEN.deckMeta=TEN.deckMeta||{};
   const F=(id,label,ph2,val)=>`<p class="lbl" style="margin-top:9px">${label}</p>
     <input class="sel" id="${id}" value="${esc(val||"")}" placeholder="${esc(ph2)}" style="width:100%;box-sizing:border-box">`;
+  /* 不足している必須項目（納品レベルチェック連動）をこのフォームで直接埋められるようにする */
+  const missK=deckCheck().filter(c=>c.req&&!c.ok).map(c=>c.k);
+  const need=k=>missK.includes(k);
+  const RICH0=(TEN.deckRich=TEN.deckRich||{});
+  const missForm=[
+    need("itemEn")?F("wzItemEn","🔴 英文商品名（必須）","例：Organic Matcha Powder 100g",TEN.itemEn):"",
+    need("coEn")?F("wzCoEn","🔴 英文社名（必須）","例：MIDORI SEICHA Co., Ltd.",TEN.coEn):"",
+    need("catch")?F("wzCatch","🔴 キャッチコピー・タグライン（必須）","例：はずむミライ、変わるわたし",RICH0.catch||RICH0.tagline||""):"",
+    need("strengths")?`<p class="lbl" style="margin-top:9px">🔴 商品の強み（必須・1行に1件「見出し｜補足」・合計3件以上に）</p>
+      <textarea class="sel" id="wzStr" style="width:100%;min-height:64px;box-sizing:border-box;resize:vertical"
+        placeholder="例：\n10年連続シェアNo.1｜国内販売実績\n5つの無添加｜低刺激処方">${esc((TEN.strengths||[]).map(s=>(s[0]||"")+(s[1]?"｜"+s[1]:"")).join("\n"))}</textarea>`:"",
+    need("spec")?`<p class="lbl" style="margin-top:9px">🔴 規格・成分（必須・1行に1項目「項目：内容」）</p>
+      <textarea class="sel" id="wzSpec" style="width:100%;min-height:56px;box-sizing:border-box;resize:vertical"
+        placeholder="例：\n容量：210mL\n原材料：水・BG・グリセリン">${esc((TEN.compRows||[]).map(r=>(r[0]||"")+"："+(r[1]||"")).join("\n"))}</textarea>`:"",
+    need("price")?`<div class="g2" style="gap:8px">
+      <div>${F("wzMoq","🔴 MOQ（最小ロット・必須※取引条件とどちらか）","例：500",TEN.moq)}</div>
+      <div>${F("wzTerm","🔴 取引条件","例：FOB 横浜",TEN.term)}</div></div>`:"",
+    need("market")?F("wzTargets","🔴 ターゲット国（必須・「・」区切り）","例：香港・台湾・アメリカ",(TEN.targets||[]).join("・")):"",
+    (need("logo")||need("phq"))?`<div style="margin-top:9px;padding:8px 11px;border:1px solid var(--warn);border-radius:var(--r2);background:var(--warn-soft);font-size:11px;line-height:1.7">
+      🔴 <b>${[need("logo")?"ロゴ":"",need("phq")?"納品品質の商品写真":""].filter(Boolean).join("・")}</b>は画像のため、このフォームでは設定できません。<br>
+      保存後、下の<b>「🖼 ロゴ・商品写真」欄</b>からアップロードするか、<b>🏠公式サイトから画像を取得</b>してください。</div>`:""
+  ].filter(Boolean).join("");
   openDW(`<h3>🤖 AI商社マンと営業資料を仕上げる</h3>
-    <p class="nn" style="margin-top:4px">Monroe Beauty様の資料と同じ構成（会社概要・ミッション・使い方・コンタクト）に必要な情報を伺います。<b>分かるところだけでOK</b>（あとで追記できます）。日本語で入力すると、生成時に各言語へ翻訳されます。</p>
+    <p class="nn" style="margin-top:4px">スタイリッシュで納品レベルの資料を作成するために、必要な情報を伺います。<b>分かるところだけでOK</b>（あとで追記できます）。日本語で入力すると、生成時に各言語へ翻訳されます。</p>
+    ${missK.length?`<p class="nn" style="margin-top:5px"><b>🔴印は生成ロック解除に必要な残り${missK.length}項目</b>です（保存すると納品レベルチェックに即反映されます）。</p>`:""}
     ${typeof ppReady==="function"&&ppReady()?`<div class="rw" style="margin-top:8px"><button class="btn" id="dkwai">🤖 公式サイト・Webも確認して、全項目の案をAIが作成</button></div><div class="nn" id="dkwaist"></div>`:""}
+    ${missForm}
     <div class="g2" style="gap:8px">
       <div>${F("wzEst","設立","例：2021年10月",DM.est)}</div>
       <div>${F("wzCeo","代表者","例：三谷 智恵",DM.ceo)}</div>
@@ -5021,6 +5045,7 @@ async function deckWizard(){
     <div class="rw" style="margin-top:12px">
       <button class="btn" id="wzSave">保存して資料に反映</button>
       <button class="btn g" onclick="closeDW()">あとで</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();   /* ⛶拡大／ドラッグ幅調整（他パネルと統一） */
   const wai=$("#dkwai");
   if(wai) wai.onclick=async()=>{
     wai.disabled=true; const stx=$("#dkwaist");
@@ -5069,10 +5094,37 @@ ${siteTxt?`=== 公式サイト抜粋（${siteUrl}） ===\n${siteTxt}`:"（公式
     Object.assign(DM,{est:v("wzEst"),ceo:v("wzCeo"),web:v("wzWeb"),addr:v("wzAddr"),biz:v("wzBiz"),
       mission:v("wzMission"),person:v("wzPerson"),mail:v("wzMail"),tel:v("wzTel"),
       usage:($("#wzUsage").value||"").split(/\n/).map(x=>x.trim()).filter(Boolean).slice(0,4)});
+    /* 不足必須項目（表示していた欄のみ）をテナント本体へ反映 → 納品レベルチェックに即時反映 */
+    const sickChk=s2=>typeof valSick==="function"&&valSick(s2);
+    if($("#wzItemEn")&&v("wzItemEn")&&!/[ぁ-ヶ一-龠]/.test(v("wzItemEn"))) TEN.itemEn=v("wzItemEn");
+    if($("#wzCoEn")&&v("wzCoEn")&&!/[ぁ-ヶ一-龠]/.test(v("wzCoEn"))) TEN.coEn=v("wzCoEn");
+    if($("#wzCatch")&&v("wzCatch")&&!sickChk(v("wzCatch"))){ TEN.deckRich=TEN.deckRich||{}; TEN.deckRich.catch=v("wzCatch"); }
+    if($("#wzStr")){
+      const rows=($("#wzStr").value||"").split(/\n/).map(x=>x.trim()).filter(Boolean)
+        .map(l=>{ const p2=l.split(/[｜|]/); return [p2[0].trim(),(p2[1]||"").trim()]; })
+        .filter(r2=>r2[0]&&!sickChk(r2[0])).slice(0,6);
+      if(rows.length) TEN.strengths=rows;
+    }
+    if($("#wzSpec")){
+      const rows=($("#wzSpec").value||"").split(/\n/).map(x=>x.trim()).filter(Boolean)
+        .map(l=>{ const p2=l.split(/[：:]/); return [p2[0].trim(),(p2.slice(1).join(":")||"").trim(),""]; })
+        .filter(r2=>r2[0]).slice(0,10);
+      if(rows.length){ TEN.compRows=rows; TEN.compCols=TEN.compCols&&TEN.compCols.length?TEN.compCols:["項目","内容","備考"]; }
+    }
+    if($("#wzMoq")&&v("wzMoq")) TEN.moq=v("wzMoq");
+    if($("#wzTerm")&&v("wzTerm")) TEN.term=v("wzTerm");
+    if($("#wzTargets")){
+      const ts=v("wzTargets").split(/[・,、\/／\s]+/).map(x=>typeof cnorm==="function"?cnorm(x.trim()):x.trim()).filter(Boolean);
+      if(ts.length) TEN.targets=[...new Set(ts)];
+    }
+    if(typeof syncTenant==="function") syncTenant();   /* D再生成（regs等）→チェックがDを見るため必須 */
     if(typeof saveTen==="function") saveTen();
     if(typeof logU==="function") logU("fill","営業資料の仕上げヒアリング入力");
     closeDW(); render();
-    toast("保存しました。次の生成から資料に反映されます");
+    const cks2=deckCheck(), left=cks2.filter(c=>c.req&&!c.ok);
+    toast(left.length
+      ?`保存しました（納品レベル ${cks2.filter(c=>c.ok).length}/${cks2.length}）。必須はあと${left.length}件：${left.map(c=>c.n).join("・").slice(0,40)}`
+      :`保存しました。納品レベルの材料が揃い、生成ボタンが解放されました 🎉`);
   };
 }
 
