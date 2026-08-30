@@ -9932,6 +9932,7 @@ function llmExtraNext(){
   render();
 }
 function llmExtraSkip(){
+  if(FILL._xbz) return;
   fillSay("u","分からない");
   fillSay("ai","承知しました。この点はSTANDAGEの担当からあらためて確認します。");
   FILL.xi=(FILL.xi||0)+1;
@@ -9948,16 +9949,96 @@ function llmExtraFinish(){
   if(typeof saveTen==="function") saveTen();
   render();
 }
+/* 追加ヒアリング入力も基本ヒアリング同様にAIが意図判定する。
+   answer=記録して次へ／question=専門家として回答し、いまの確認質問は据え置き／
+   edit=登録項目の修正／skip=わからない。判定不能時は質問らしき入力を無断で記録しない。 */
+async function llmExtraTriage(cu,val){
+  let ctx=""; try{ ctx=ppContext(); }catch(e){}
+  const qs=FILL.xq||[];
+  const r=await llmAsk(
+`=== 商品データ・資料（回答の根拠） ===
+${ctx}
+
+=== いまAIが確認している質問（AI追加ヒアリング ${(FILL.xi||0)+1}/${qs.length}） ===
+${cu.qPlain}
+
+=== 担当者の入力 ===
+「${val}」`,1200,{noWeb:1,timeout:45000,
+    sys:`あなたは貿易クラウドのヒアリングAI（総合商社20年の貿易プロ）。AI追加ヒアリングの確認質問に対する担当者の入力の意図を判定し、JSONのみ返す:
+{"kind":"answer|question|edit|skip",
+ "value":"kind=answerのとき記録する回答（原文の情報を保ち、余計な語だけ除く）",
+ "reply":"kind=questionのとき、貿易実務の専門家としての回答。商品データ・資料を根拠に具体的に5文以内。根拠が無い点は「要確認」と正直に書き、推測を断定しない",
+ "note":"kind=questionのとき、入力に含まれる担当者の希望・事実（例：香港側での現地ラベル貼付を希望）を40字以内で。無ければ空",
+ "field":"kind=editのとき修正対象キー（co|coEn|item|itemEn|cat|sku|hs|moq|lead|ctn|cert|origin|term|pay|pol|shelf|targets|strengths）",
+ "fieldValue":"kind=editのとき設定する値"}
+判定基準：確認質問への情報提供→answer／担当者からの質問・相談（「〜は問題ない？」「〜できる？」等）→question／登録項目の修正依頼→edit／わからない旨→skip。
+質問と情報が混在する入力はquestionとし、noteに情報を残す。迷ったらquestion（登録事故を避ける）。`});
+  let t=r.txt.replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  if(a<0||b<=a) throw new Error("triage形式不正");
+  const j=JSON.parse(t.slice(a,b+1));
+  if(!/^(answer|question|edit|skip)$/.test(j.kind||"")) throw new Error("kind不正");
+  return j;
+}
+function llmExtraRecord(q,a){
+  TEN.extraQA=(TEN.extraQA||[]).concat([{q,a}]);
+  if(typeof saveTen==="function") saveTen();
+}
+function llmExtraTake(val){
+  const cu=FILL.cur, qs=FILL.xq||[];
+  const pos=`AI追加ヒアリング ${(FILL.xi||0)+1}/${qs.length}`;
+  fillSay("ai","<i>確認しています…</i>"); render();
+  const clean=()=>{ FILL.log=FILL.log.filter(m=>!/確認しています…/.test(String(m.html))); };
+  const commit=v2=>{
+    llmExtraRecord(cu.qPlain,v2);
+    fillSay("ai",`ありがとうございます。記録しました。この内容はAI商社マンの回答の根拠に使われます。`);
+    FILL.xi=(FILL.xi||0)+1;
+    llmExtraNext();
+  };
+  llmExtraTriage(cu,val).then(j=>{
+    clean(); FILL._xbz=0;
+    if(j.kind==="question"){
+      const rep=String(j.reply||"").trim(), note=String(j.note||"").trim();
+      if(note) llmExtraRecord("担当者の意向・補足",note);
+      fillSay("ai",`${rep?esc(rep).replace(/\n/g,"<br>"):"（回答を用意できませんでした。もう一度お送りください）"}
+        ${note?`<div class="ci">📝 ご意向として記録しました：${esc(note)}（AI商社マンの回答の根拠に使われます）</div>`:""}
+        <div class="ci">引き続き <b>${pos}</b>「${esc(cu.qPlain)}」もお聞かせください。「不明」でも構いません。</div>`,{ask:cu});
+      render(); return;
+    }
+    if(j.kind==="edit"&&j.field&&typeof NEEDKEYS_NM!=="undefined"&&NEEDKEYS_NM[j.field]&&j.fieldValue){
+      applyAnswer(TEN,j.field,String(j.fieldValue));
+      if(typeof syncTenant==="function") syncTenant();
+      if(typeof saveTen==="function") saveTen();
+      fillSay("ai",`承知しました。<b>${NEEDKEYS_NM[j.field]}</b>を「<b>${esc(String(j.fieldValue))}</b>」に変更しました。
+        <div class="ci">引き続き <b>${pos}</b>「${esc(cu.qPlain)}」もお聞かせください。</div>`,{ask:cu});
+      render(); return;
+    }
+    if(j.kind==="skip"){
+      fillSay("ai","承知しました。この点はSTANDAGEの担当からあらためて確認します。");
+      FILL.xi=(FILL.xi||0)+1;
+      llmExtraNext(); return;
+    }
+    commit(String(j.value||"").trim()||val);
+  }).catch(e=>{
+    clean(); FILL._xbz=0;
+    /* 判定に失敗：質問・修正依頼らしき入力を回答として無断記録しない */
+    if(QUESTION_RE.test(val)||EDIT_RE.test(val)){
+      fillSay("ai",`（AIエンジンに接続できず、いまご質問への回答を用意できませんでした：${esc(String(e.message)).slice(0,40)}）<br>
+        この内容はまだ記録していません。お手数ですが<b>もう一度お送りください</b>。<br>
+        <div class="ci">${pos}「${esc(cu.qPlain)}」への回答は「不明」でも構いません。</div>`,{ask:cu});
+      render(); return;
+    }
+    commit(val);
+  });
+}
 const __fillAnsB4x=fillAnswer;
 fillAnswer=function(v){
   if(FILL.cur&&FILL.cur.x){
     const val=String(v).trim(); if(!val) return;
+    if(FILL._xbz) return;
+    FILL._xbz=1;
     fillSay("u",esc(val));
-    TEN.extraQA=(TEN.extraQA||[]).concat([{q:FILL.cur.qPlain,a:val}]);
-    fillSay("ai",`ありがとうございます。記録しました。この内容はAI商社マンの回答の根拠に使われます。`);
-    FILL.xi=(FILL.xi||0)+1;
-    if(typeof saveTen==="function") saveTen();
-    llmExtraNext();
+    llmExtraTake(val);
     return;
   }
   return __fillAnsB4x(v);
