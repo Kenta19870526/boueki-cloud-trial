@@ -6786,7 +6786,7 @@ function vUp(p){
     const act=cos.find(x=>x.co===actCo)||cos[0];
     const prodChip=i=>{const t=TENS[i],s=scoreOf(t);
       return `<button class="smp" data-tsw="${i}"
-        style="position:relative;padding:8px 26px 8px 11px;max-width:250px;flex:0 1 auto;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+        style="position:relative;padding:8px 26px 8px 11px;max-width:250px;flex:0 0 auto;gap:2px;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
         <span data-tedit="${i}" title="商品名・会社名を編集" role="button"
           style="position:absolute;top:4px;right:5px;font-size:11px;padding:2px 5px;border-radius:5px;color:var(--ink-3);border:1px solid transparent">✎</span>
         <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,22))}</b>
@@ -6801,14 +6801,12 @@ function vUp(p){
           <input class="sel" id="pfq" placeholder="🔍 会社名・商品名で検索" autocomplete="off"
             style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px"></div></div>
       <div id="pfnorm">
-        ${cos.length>1?`<div class="rw" style="gap:6px;flex-wrap:wrap;margin-top:9px">
-          ${cos.map(g2=>`<button class="smp" data-tsw="${g2.idxs[0]}"
-            style="padding:5px 11px;font-size:11px;${g2.co===actCo?"border-color:var(--or);background:var(--or-soft);font-weight:700":""}">🏢 ${esc(g2.co)} <span style="color:var(--ink-3)">${g2.idxs.length}</span></button>`).join("")}
-        </div>`:`<p class="lbl" style="margin-top:9px">🏢 ${esc(actCo)}</p>`}
-        <div class="rw" style="margin-top:7px;gap:7px;flex-wrap:wrap">
+        <div class="rw" style="margin-top:8px;gap:7px;flex-wrap:wrap;align-items:center">
+          <span class="lbl" style="margin:0;white-space:nowrap">🏢 ${esc(actCo)}</span>
           ${act.idxs.map(prodChip).join("")}
-          ${tenCanAdd(actCo)?`<span class="nn" style="align-self:center">新しい資料は<b>別の商品として追加</b>（この会社 あと${PROD_PER_CO-act.idxs.length}件）</span>`
+          ${tenCanAdd(actCo)?`<span class="nn" style="align-self:center">新しい資料は<b>別の商品として追加</b>（あと${PROD_PER_CO-act.idxs.length}件）</span>`
             :`<span class="p no" style="align-self:center">この会社は上限（${PROD_PER_CO}件）</span>`}
+          ${cos.length>1?`<span class="nn" style="align-self:center;color:var(--ink-3)">他${cos.length-1}社は上部の切替メニュー／🔍検索で</span>`:""}
         </div></div>
       <div id="pfx" hidden style="margin-top:9px"></div>
       </div>`;
