@@ -6810,6 +6810,8 @@ const STAFF={
 const PAGES=[
  {id:"up",ly:"—",nm:"商品情報を登録",grp:"はじめに",free:1,nw:1,
   ic:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 9l5-5 5 5"/><path d="M12 4v12"/>'},
+ {id:"today",ly:"⑤",nm:"今日やること",grp:"毎日つかう",nw:1,
+  ic:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>'},
  {id:"dash",ly:"③",nm:"ダッシュボード",grp:"成果を見る",
   ic:'<path d="M3 13h6V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h6v-4H3z"/>'},
  {id:"item",ly:"①",nm:"商品情報",grp:"データを貯める",nw:1,
@@ -9447,6 +9449,7 @@ function render(){
   well.innerHTML=({up:vUp,dash:vDash,item:vItem,deal:vDeal,task:vTask,ai:vAI,ship:vShip,
     ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp),
     legal:(typeof vLegal==="function"?vLegal:vUp),
+    today:(typeof vToday==="function"?vToday:vDash),
     srcs:(typeof vSrcs==="function"?vSrcs:vUp)})[cur](p);
   if(cur==="deck"&&typeof deckBind==="function") deckBind();
   if(cur==="legal"&&typeof legalBind==="function") legalBind();
@@ -10008,18 +10011,10 @@ function vDash(p){
   return ph(p,"<b>この画面でわかること：</b>いま海外でどこまで進んでいるか。上の集計範囲で<b>全社→部署→会社→カテゴリ→商品</b>と掘り下げられ、数字をクリックすると内訳（どの会社・どの受注か）まで見られます。<b>📊 AI分析</b>に頼むと、転換率・相関などお好みの切り口で集計し、グラフ・Excel・PPTXレポート・共有リンクまで作れます。",
     `<button class="btn" onclick="openDashAI()">📊 AI分析（集計・レポート・共有）</button><button class="btn g" onclick="openReport()">今月のレポート</button><button class="btn g" onclick="go('ship')">出荷を進める</button>`)+
   dashBar()+
-  (todays.length?`<div class="c" style="margin-bottom:11px;border-color:var(--or);background:var(--or-soft)">
-    <div class="rw" style="justify-content:space-between;align-items:flex-start">
-      <div><h3 style="color:var(--or-deep)">今日やること　${todays.length}件${single?"":`（${esc(dashScopeName())}）`}</h3>
-        <p class="nn" style="color:var(--ink-2)">はじめての方は、上から順に対応すれば大丈夫です。</p></div>
-      <button class="btn" onclick="go('ship')">出荷の手続きを始める</button></div>
-    <div class="g3" style="margin-top:11px">
-      ${todays.map((x,i)=>`<div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px">
-          <div class="rw" style="gap:7px"><span style="width:18px;height:18px;border-radius:50%;background:var(--${x.c||"bl"});color:#fff;
-            font-size:10px;font-weight:700;display:grid;place-items:center">${i+1}</span>
-            <b style="font-size:12px">${AT(x.t)}</b></div>
-          <p style="font-size:11px;color:var(--ink-2);margin-top:5px">${AT(x.d)}</p></div>`).join("")}
-    </div></div>`:"")+`
+  `<div class="c ddc" style="margin-bottom:11px;padding:9px 13px" onclick="go('today')" title="今日やること（専用ページ）を開く">
+    <div class="rw" style="justify-content:space-between;align-items:center">
+      <span style="font-size:11.5px">📌 <b>今日やること</b>は専用ページに移りました — AI商社マンが<b>毎日</b>、最新データとWeb検索で商品別に提案します。</span>
+      <span class="ddhint" style="margin:0">開く ▸</span></div></div>`+`
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px;margin-bottom:11px">
     <div class="c ddc" onclick="dashDrill('fb')" title="クリックで内訳（商談記録の一覧・編集）">
@@ -10537,6 +10532,103 @@ async function dashShareBoot(){
   $("#rgPass").focus();
 }
 setTimeout(()=>{ try{ dashShareBoot(); }catch(e){} },60);
+
+/* ═══════════ 今日やること（専用ページ）：表示中の商品と連動し、AI商社マンが
+   貿易クラウドの全データ＋Web検索でDailyに調査して提案する ═══════════ */
+function todayStore(){ return (typeof TEN!=="undefined"&&TEN)?TEN:(typeof D!=="undefined"&&D?D:{}); }
+function todayAIRec(){ const s=todayStore(); return (s.todayAI&&s.todayAI.item===(D&&D.item))?s.todayAI:null; }
+async function todayGen(force){
+  if(!(typeof ppReady==="function"&&ppReady())) return null;
+  const curRec=todayAIRec();
+  if(!force&&curRec&&curRec.date===TODAYS) return curRec;
+  if(window.__tdBusy) return null;
+  window.__tdBusy=1;
+  try{
+    let ctx=""; try{ ctx=ppContext(); }catch(e){}
+    const ts=(typeof taskStats==="function")?taskStats():null;
+    const shipInfo=(typeof D!=="undefined"&&D&&D.ship&&D.ship.no)
+      ?`進行中の出荷案件: ${D.ship.no}（${D.ship.country}・${D.ship.buyer}・ステップ${(typeof shipStep!=="undefined"?shipStep+1:1)}/7）`
+      :"進行中の出荷案件なし";
+    const r=await llmAsk(`今日の日付: ${TODAYS}
+=== この商品・会社の登録データ（貿易クラウド） ===
+${String(ctx).slice(0,15000)}
+=== タスク状況 ===
+${ts?`残${ts.total-ts.done-ts.cancel}件／${ts.total}件（期限切れ${ts.overdue}・開始遅れ${ts.late}・1週間以内が期限${ts.soon}）`:"タスクデータなし"}
+=== 出荷状況 ===
+${shipInfo}
+=== 依頼 ===
+「${(D&&D.co)||""}」の「${(D&&D.item)||""}」（${(D&&D.cat)||""}）について、この会社の海外展開・最新の取組をWeb検索でも確認した上で、貿易取引の成功に向けて【今日やるべきこと】を提案してください。`,
+      1400,{forceWeb:1,timeout:120000,
+      sys:`あなたはAI商社マン（総合商社20年の貿易プロ）。担当者の「今日やること」を提案する。
+提供データとWeb検索の結果【のみ】を根拠に、JSONだけ返す:
+{"items":[{"t":"やること（22字以内・動詞で終える）","d":"なぜ今日それか＋最初の一歩（70字以内。データやWebの根拠に触れる）","pr":"高|中|低","src":"データ|Web|データ+Web"}]（優先度順に3〜6件）,
+ "web":"Web検索で確認できた、この会社・商品・カテゴリの海外展開に関わる最新動向（2文以内・情報源のサイト名も。確認できなければ『Webでは確認できませんでした』と正直に書く）"}
+一般論は禁止。この商品・この会社・今日の状況（商談・受注・タスク・出荷のデータ）に固有の提案だけ。データ・Webに無いことは創作しない。`});
+    let t=r.txt.replace(/```json|```/g,"").trim();
+    const a=t.indexOf("{"),b=t.lastIndexOf("}");
+    if(a<0||b<=a) throw new Error("提案の形式が不正でした");
+    const j=JSON.parse(t.slice(a,b+1));
+    const items=(Array.isArray(j.items)?j.items:[]).map(x=>({t:String(x&&x.t||"").slice(0,44),
+      d:String(x&&x.d||"").slice(0,150),pr:/^(高|中|低)$/.test(x&&x.pr)?x.pr:"中",
+      src:String(x&&x.src||"データ").slice(0,10)})).filter(x=>x.t).slice(0,6);
+    if(!items.length) throw new Error("提案が空でした");
+    const rec={date:TODAYS,at:new Date().toTimeString().slice(0,5),item:(D&&D.item)||"",
+      items,web:String(j.web||"").slice(0,260),eng:(typeof llmLabel==="function"?llmLabel():"AI")};
+    const s=todayStore(); s.todayAI=rec;
+    if(typeof TEN!=="undefined"&&TEN&&typeof saveTen==="function") saveTen();
+    if(typeof logU==="function") logU("ai","今日やること Daily調査");
+    return rec;
+  } finally { window.__tdBusy=0; }
+}
+function todayRefresh(){
+  if(window.__tdBusy){ toast("いま調査中です…（10〜60秒）"); return; }
+  toast("AI商社マンが再調査を開始しました");
+  window.__tdAuto=1; render();
+  todayGen(true).then(r2=>{ window.__tdAuto=0;
+    if(r2) toast("「今日やること」を更新しました");
+    if(typeof cur!=="undefined"&&cur==="today") render(); })
+  .catch(e=>{ window.__tdAuto=0; toast("調査に失敗しました："+String(e&&e.message).slice(0,50));
+    if(typeof cur!=="undefined"&&cur==="today") render(); });
+}
+function vToday(p){
+  const ai=todayAIRec(), online=(typeof ppReady==="function"&&ppReady());
+  const stale=!ai||ai.date!==TODAYS;
+  /* Daily：今日ぶんが無ければ、ページを開いた時点で自動調査（接続時のみ） */
+  if(online&&stale&&!window.__tdBusy&&!window.__tdAuto){
+    window.__tdAuto=1;
+    todayGen(false).then(r2=>{ window.__tdAuto=0; if(r2&&typeof cur!=="undefined"&&cur==="today") render(); })
+      .catch(()=>{ window.__tdAuto=0; if(typeof cur!=="undefined"&&cur==="today") render(); });
+  }
+  const base=((D&&D.today)||[]).map(x=>({t:x[0],d:x[1],pr:(x[2]==="crit"||x[2]==="or")?"高":"中",src:"データ"}));
+  const items=(ai&&ai.items&&ai.items.length)?ai.items:base;
+  const prC={高:"crit",中:"or",低:"bl"};
+  return ph(p,`<b>この画面でできること：</b>いま表示中の商品（<b>上の切替メニューと連動</b>）について、AI商社マンが<b>毎日</b>、貿易クラウドの最新データ（商談・受注・タスク・出荷）と<b>Web検索によるこの会社の海外展開・最新動向の調査</b>をかけ直し、貿易取引の成功に向けた「今日やること」を提案します。`)+`
+  <div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:flex-start">
+      <div><h3>📌 ${esc((D&&D.item)||"—")}｜今日やること</h3>
+        <p class="nn" style="margin-top:3px">🏢 ${esc((D&&D.co)||"")}／${esc((D&&D.cat)||"")}　·　${ai?`最終調査 <b>${esc(ai.date)} ${esc(ai.at||"")}</b>（${esc(ai.eng||"AI")}・データ全体＋Web検索・毎日自動更新）`:"本日のAI調査はまだありません"}</p></div>
+      <div class="rw" style="gap:6px">
+        ${online?`<button class="btn" onclick="todayRefresh()">🔄 いま再調査する</button>`:""}
+        <button class="btn g" onclick="go('ship')">出荷を進める</button></div></div>
+    ${(online&&(window.__tdAuto||window.__tdBusy))?`<p class="nn" style="margin-top:8px"><span class="spin"></span> AI商社マンが本日ぶんを調査しています…（登録データ全体＋Web検索・10〜60秒。終わると自動で反映されます）</p>`:""}
+    ${!online?`<p class="nn" style="margin-top:8px">⚠ AIエンジン未接続のため、<b>登録データからの基本提案のみ</b>を表示しています。管理者が管理コンソールでAIを接続すると、Web検索を含むDaily調査が有効になります。</p>`:""}
+  </div>
+  ${items.length?`<div style="display:grid;gap:9px;margin-bottom:11px">
+    ${items.map((x,i)=>`<div class="c" style="padding:12px 14px;border-left:4px solid var(--${prC[x.pr]||"or"})">
+      <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <div class="rw" style="gap:8px;align-items:center;min-width:0">
+          <span style="width:20px;height:20px;border-radius:50%;background:var(--${prC[x.pr]||"or"});color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;flex:0 0 auto">${i+1}</span>
+          <b style="font-size:12.5px">${AT(x.t)}</b></div>
+        <span class="rw" style="gap:5px;flex:0 0 auto">
+          <span class="p ${x.pr==="高"?"no":x.pr==="低"?"lo":"or"}" style="font-size:9px">優先度${esc(x.pr)}</span>
+          <span class="p lo" style="font-size:9px">根拠：${esc(x.src||"データ")}</span></span></div>
+      <p style="font-size:11px;color:var(--ink-2);margin:6px 0 0 28px;line-height:1.75">${AT(x.d)}</p></div>`).join("")}
+  </div>`:`<div class="c" style="margin-bottom:11px;text-align:center;padding:20px"><p class="nn">この商品の「今日やること」はまだありません。${online?"上の「🔄 いま再調査する」からAI調査を実行できます。":"商品情報を充実させると基本提案が表示されます。"}</p></div>`}
+  ${ai&&ai.web?`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)">
+    <h3 style="font-size:12px">🌐 Web調査メモ（${esc(ai.date)}・${esc((D&&D.co)||"")}の海外展開・最新動向）</h3>
+    <p style="font-size:11px;line-height:1.8;margin-top:5px">${esc(ai.web)}</p></div>`:""}
+  <p class="nn">提案は<b>日付が変わって最初にこのページを開いたとき</b>に自動で作り直されます。上の商品切替メニューで商品を替えると、その商品の「今日やること」に切り替わります。</p>`;
+}
 
 /* ═══════════ ③ AI商社マンのWeb検索 ═══════════
    ONのとき、まず本物のWebをライブ検索する（為替レートAPI・Wikipedia検索）。
