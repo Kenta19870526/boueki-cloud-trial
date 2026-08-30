@@ -2826,6 +2826,19 @@ function u8b64(b){ let s=""; const CH=8192;
   return btoa(s); }
 async function entriesCorpus(entries,prog){
   /* entries: [{name, u8?|text?, via?, skip?}] → 資料一式の統合コーパス */
+  /* フォルダやZipの中に、さらにZipが入っているケース：1階層だけ展開して中身も読む */
+  const expanded=[];
+  for(const ent of entries||[]){
+    if(ent&&!ent.skip&&ent.u8&&FEXT((ent.name||"").split("/").pop())==="zip"){
+      try{
+        const fs2=await unzipAll(ent.u8.slice(0).buffer);
+        const kids=Object.keys(fs2).sort((a,b)=>(typeof entPri==="function"?entPri(a)-entPri(b):0));
+        if(kids.length) kids.forEach(n=>expanded.push({name:(ent.name||"zip")+"/"+n,u8:fs2[n]}));
+        else expanded.push({name:ent.name,skip:"Zipが空でした"});
+      }catch(e){ expanded.push({name:ent.name,skip:"Zip展開失敗"}); }
+    } else expanded.push(ent);
+  }
+  entries=expanded;
   const files=[],skipped=[],grids=[]; let corpus="",pdfAtt=null,imgAtt=null,imgN=0;
   const PER=6000, MAX=60000;
   for(const ent of entries){
@@ -2875,15 +2888,17 @@ async function entriesCorpus(entries,prog){
   }
   return {corpus:corpus.trim(),grids,files,pdfAtt,imgAtt,att:pdfAtt||imgAtt,skipped,imgN};
 }
-/* Zip→読み取りエントリ列（情報価値の高い順：仕様書・成分・価格 → Excel/CSV → Word/PPT → PDF → 画像）。
-   ヒアリング📎・チャット添付・タスク実行など全ての添付経路で共用する */
+/* 読み取り優先度（仕様書・成分・価格 → Excel/CSV → Word/PPT → PDF → 画像）。Zip・フォルダ共通 */
+function entPri(n){
+  const b=(String(n).split("/").pop()||"").toLowerCase(); const e2=FEXT(b);
+  let p=/仕様|規格|成分|spec|ingredient|価格|price|会社概要|profile|カタログ|catalog|パンフ/.test(b)?0:4;
+  p+=(e2==="xlsx"||e2==="xlsm")?0:(e2==="csv"||e2==="txt")?0.3:(e2==="docx")?0.5:(e2==="pptx")?1:(e2==="pdf")?3:(/^(png|jpe?g|webp)$/.test(e2))?3.5:9;
+  return p;
+}
+/* Zip→読み取りエントリ列（情報価値の高い順）。ヒアリング📎・チャット添付・タスク実行など全経路で共用 */
 async function zipEntriesSorted(f){
   const fs=await unzipAll(await f.arrayBuffer());
-  const pri=n=>{ const b=(n.split("/").pop()||"").toLowerCase(); const e2=FEXT(b);
-    let p=/仕様|規格|成分|spec|ingredient|価格|price|会社概要|profile|カタログ|catalog|パンフ/.test(b)?0:2;
-    p+=(e2==="xlsx"||e2==="xlsm")?0:(e2==="csv"||e2==="txt")?0.3:(e2==="docx")?0.5:(e2==="pptx")?1:(e2==="pdf")?3:(/^(png|jpe?g|webp)$/.test(e2))?4:9;
-    return p; };
-  return Object.keys(fs).sort((a,b)=>pri(a)-pri(b)).map(n=>({name:n,u8:fs[n]}));
+  return Object.keys(fs).sort((a,b)=>entPri(a)-entPri(b)).map(n=>({name:n,u8:fs[n]}));
 }
 async function zipCorpus(file){
   return entriesCorpus(await zipEntriesSorted(file));
@@ -2977,6 +2992,9 @@ async function gdriveFolderList(folderId){
   while((m=re3.exec(raw))) push(m[1],"gdoc",m[3],m[2]);
   const re4=/href="https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]{10,})[^"]*"[^>]*>\s*(?:<[^>]+>\s*)*([^<>\n]{1,100})</g;
   while((m=re4.exec(raw))) push(m[3],"gdoc",m[2],m[1]);
+  /* サブフォルダのリンクも検出（読み取りは1階層のみ→スキップとして正直に伝えるため） */
+  const re6=/drive\.google\.com\/(?:embeddedfolderview\?id=|drive\/(?:u\/\d+\/)?folders\/)([\w-]{10,})/g;
+  while((m=re6.exec(raw))){ const fid=m[1]; if(fid!==folderId) push("サブフォルダ","folder",fid); }
   if(!out.length){ const re5=/file\/d\/([\w-]{16,})/g; while((m=re5.exec(raw))) push("","file",m[1]); }
   return out;
 }
@@ -3028,15 +3046,22 @@ async function cloudFetch(url,opts){
   const to=ms=>({signal:AbortSignal.timeout(ms)});
   const fm=url.match(/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([\w-]+)/);
   if(fm){
-    const list=await gdriveFolderList(fm[1]);
-    if(!list.length)
+    const listAll=await gdriveFolderList(fm[1]);
+    if(!listAll.length)
       throw new Error("フォルダの中身を一覧できませんでした。共有を「リンクを知っている全員」に変更してから再度お試しください。それでも読めない場合は、フォルダを右クリック→「ダウンロード」（自動でZipになります）→そのZipをアップロードしてください");
+    const subs=listAll.filter(e=>e.kind==="folder");
+    /* 情報価値の高いファイル（仕様書・成分・価格→Excel→…）を優先して上限15件に収める */
+    const list=listAll.filter(e=>e.kind!=="folder")
+      .sort((a,b)=>(typeof entPri==="function"?entPri(a.gname)-entPri(b.gname):0));
     const entries=[];
     for(const e of list.slice(0,15)){
       if(opts&&opts.prog){ try{ opts.prog("取得中: "+e.gname+"（"+(entries.length+1)+"/"+Math.min(15,list.length)+"）"); }catch(err){} }
       entries.push(await gdriveEntry(e));
     }
-    return {entries,label:"Google Driveフォルダ（"+list.length+"件）"};
+    /* 読めなかったぶんは黙って落とさず、スキップとして各画面の内訳表示に載せる */
+    list.slice(15).forEach(e=>entries.push({name:e.gname,skip:"フォルダ読み取り上限（15件）を超過。分割するかZipでアップロードを"}));
+    subs.forEach(()=>entries.push({name:"サブフォルダ",skip:"1階層のみ対応（サブフォルダのURLを個別に取り込むか、フォルダごとZipでアップロードを"}));
+    return {entries,label:"Google Driveフォルダ（ファイル"+list.length+"件"+(subs.length?"・サブフォルダ"+subs.length:"")+"）"};
   }
   const gm=url.match(/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/);
   if(gm){
@@ -3259,47 +3284,47 @@ function pendApply(mode){
     :"<b>必要な情報はすべて揃いました。</b>"}`);
   fillNext();
 }
+/* ── 資料一式（Zip・クラウドフォルダ）をヒアリングへ統合取込：決定論＋接続AIの本抽出 ── */
+async function fillIngestEntries(entries,label,srcKind){
+  const z=await entriesCorpus(entries);
+  const okF=(z.files||[]).filter(x=>x.chars>0), aiF=(z.files||[]).filter(x=>!x.chars&&/AI読取/.test(x.kind||""));
+  if(!z.corpus&&!z.att)
+    throw new Error((srcKind||"資料一式")+"の中に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）"+
+      ((z.skipped||[]).length?"。対象外："+(z.skipped||[]).slice(0,3).join("・").slice(0,110):"")+
+      ((z.skipped||[]).some(s2=>/\.pdf|\.png|\.jpe?g/i.test(String(s2)))?"※PDF・画像はAIエンジン接続時に読み取れます（管理コンソールで設定）":""));
+  fillSay("ai",`${esc(srcKind||"資料一式")}内の<b>${okF.length+aiF.length}ファイル</b>を読み込みました（${esc(okF.concat(aiF).slice(0,4).map(x=>String(x.name).split("/").pop()).join("・")).slice(0,130)}${okF.length+aiF.length>4?" ほか":""}${aiF.length?`／PDF・画像${aiF.length}件はAIが読取`:""}${(z.skipped||[]).length?`／対象外${z.skipped.length}件`:""}）。内容を反映します…`);
+  render();
+  /* ① 決定論（表・ラベルの直読み） */
+  let ch=[];
+  if(z.corpus){ const t2=tenantFromTextGrids(z.corpus,z.grids,label,Math.max(1,okF.length)); ch=mergeTen(TEN,t2); }
+  /* ② 接続AIによる本抽出：統合テキスト＋代表PDF/画像（仕様書・成分表を優先） */
+  if(typeof ppReady==="function"&&ppReady()){
+    try{
+      const x=await llmXtract({text:(z.corpus||"").slice(0,15000),att:z.att||undefined,filename:label});
+      ch=[...new Set(ch.concat(mergeTen(TEN,x)))];
+    }catch(e){}
+  }
+  syncTenant(); if(typeof saveTen==="function") saveTen();
+  const s=scoreOf(TEN);
+  fillSay("ai",ch.length
+    ?`<b>${esc(label)}</b> から <b>${ch.length}項目</b>を取り込みました：${ch.map(esc).join("・")}<br>充足度 <b>${s.pct}%</b> になりました。${s.missing.length?"残りを続けて伺います。":""}`
+    :((typeof ppReady==="function"&&ppReady())
+      ?`読み取りましたが、未登録の項目（会社名・価格・規格など）に該当する記載を特定できませんでした。会議メモ中心の資料では項目が少ないことがあります。<b>製品仕様書・価格表のファイルを直接添付</b>いただくと確実です。`
+      :`テキストからは未登録項目を特定できませんでした。${aiF.length||((z.skipped||[]).some(s2=>/\.pdf|\.png|\.jpe?g/i.test(String(s2))))?`<b>PDF・画像の読み取りにはAIエンジンの接続が必要</b>です（管理コンソールで設定）。`:""}`));
+  if(typeof logU==="function") logU("upload","ヒアリング中に一式取込:"+label);
+  if(FILL.cur&&has(TEN[FILL.cur.k])) fillNext(); else render();
+}
 /* ── 充足度ヒアリング中の📎添付（不足分だけ一緒に埋める） ── */
 async function fillAttach(f){
   if(!f||!TEN) return;
   fillSay("u","📎 "+esc(f.name));
   const ext=FEXT(f.name);
-  /* Zip：中の資料をまとめて統合。決定論の読み取りに加え、接続AIがテキスト全体＋代表PDF/画像から抽出する */
+  /* Zip：中の資料をまとめて統合（フォルダURL取込と共通の fillIngestEntries へ） */
   if(ext==="zip"){
     fillSay("ai","Zipの中身をまとめて読み取っています…（複数ファイルを1つの資料一式として統合します）");
     render();
-    try{
-      const z=await entriesCorpus(await zipEntriesSorted(f));
-      const okF=(z.files||[]).filter(x=>x.chars>0), aiF=(z.files||[]).filter(x=>!x.chars&&/AI読取/.test(x.kind||""));
-      if(!z.corpus&&!z.att)
-        throw new Error("Zip内に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）"+
-          ((z.skipped||[]).length?"。対象外："+(z.skipped||[]).slice(0,3).join("・").slice(0,90):"")+
-          ((z.skipped||[]).some(s2=>/\.pdf|\.png|\.jpe?g/i.test(String(s2)))?"※PDF・画像はAIエンジン接続時に読み取れます（管理コンソールで設定）":""));
-      fillSay("ai",`Zip内の<b>${okF.length+aiF.length}ファイル</b>を読み込みました（${esc(okF.concat(aiF).slice(0,4).map(x=>x.name.split("/").pop()).join("・")).slice(0,130)}${okF.length+aiF.length>4?" ほか":""}${aiF.length?`／PDF・画像${aiF.length}件はAIが読取`:""}${(z.skipped||[]).length?`／対象外${z.skipped.length}件`:""}）。内容を反映します…`);
-      render();
-      /* ① 決定論（表・ラベルの直読み） */
-      let ch=[];
-      if(z.corpus){ const t2=tenantFromTextGrids(z.corpus,z.grids,f.name,Math.max(1,okF.length)); ch=mergeTen(TEN,t2); }
-      /* ② 接続AIによる本抽出：統合テキスト＋代表PDF/画像（仕様書・成分表を優先） */
-      if(typeof ppReady==="function"&&ppReady()){
-        try{
-          const x=await llmXtract({text:(z.corpus||"").slice(0,15000),att:z.att||undefined,filename:f.name});
-          ch=[...new Set(ch.concat(mergeTen(TEN,x)))];
-        }catch(e){}
-      }
-      syncTenant(); if(typeof saveTen==="function") saveTen();
-      const s=scoreOf(TEN);
-      fillSay("ai",ch.length
-        ?`<b>${esc(f.name)}</b> から <b>${ch.length}項目</b>を取り込みました：${ch.map(esc).join("・")}<br>充足度 <b>${s.pct}%</b> になりました。${s.missing.length?"残りを続けて伺います。":""}`
-        :((typeof ppReady==="function"&&ppReady())
-          ?`読み取りましたが、未登録の項目（会社名・価格・規格など）に該当する記載を特定できませんでした。会議メモ中心のZipでは項目が少ないことがあります。<b>製品仕様書・価格表のファイルを直接添付</b>いただくと確実です。`
-          :`テキストからは未登録項目を特定できませんでした。${aiF.length?`<b>PDF・画像${aiF.length}件の読み取りにはAIエンジンの接続が必要</b>です（管理コンソールで設定）。`:""}`));
-      if(typeof logU==="function") logU("upload","ヒアリング中にZip追加:"+f.name);
-      if(FILL.cur&&has(TEN[FILL.cur.k])) fillNext(); else render();
-    }catch(e){
-      fillSay("ai","Zipを読み取れませんでした："+esc(String(e&&e.message)).slice(0,140));
-      render();
-    }
+    try{ await fillIngestEntries(await zipEntriesSorted(f),f.name,"Zip"); }
+    catch(e){ fillSay("ai","Zipを読み取れませんでした："+esc(String(e&&e.message)).slice(0,140)); render(); }
     return;
   }
   const canAI=llmCanFile(ext), office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
@@ -3803,12 +3828,15 @@ async function fillUrlIngest(u){
   render();
   try{
     const r=await cloudFetch(u,{});
+    if(r.entries){
+      /* フォルダ：Zipと同じ「決定論＋AI本抽出」経路へ（PDF/画像も代表をAIが読取・内訳を正直表示） */
+      await fillIngestEntries(r.entries,r.label||"クラウドフォルダ","フォルダ");
+      return;
+    }
     let f=null;
-    if(r.file) f=r.file;
-    else if(r.entries){
-      const z=await entriesCorpus(r.entries);
-      if(!z.corpus) throw new Error("フォルダ内に読み取れる資料がありませんでした");
-      f=new File([z.corpus],(r.label||"クラウド資料")+".txt",{type:"text/plain"});
+    if(r.file){
+      if(FEXT(r.file.name)==="zip"){ await fillIngestEntries(await zipEntriesSorted(r.file),r.file.name,"Zip"); return; }
+      f=r.file;
     }
     else if(r.text) f=new File([r.text],String(r.name||"クラウド資料").replace(/[\\/:*?"<>|]/g,"_")+".txt",{type:"text/plain"});
     if(!f) throw new Error("読み取れる内容がありませんでした");
