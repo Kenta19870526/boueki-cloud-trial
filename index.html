@@ -3841,6 +3841,9 @@ ${o.line?`<a:ln w="${EMU(o.lw||1)}"><a:solidFill><a:srgbClr val="${o.line}"/></a
 }
 function shpText(x,y,w,h,paras,o){
   o=o||{};
+  /* 中身のない段落（値未登録の空文字run）はテキストごと出さない＝資料に「空欄」を作らない */
+  paras=(paras||[]).filter(p=>p&&((p.runs&&p.runs.length)||String(p.t==null?"":p.t).trim()!==""));
+  if(!paras.length) return "";
   const ps=paras.map(p=>{
     const runs=(p.runs||[{t:p.t,b:p.b,c:p.c,sz:p.sz,i:p.i,spc:p.spc}]).map(r=>
       `<a:r><a:rPr lang="en-US" sz="${Math.round((r.sz||p.sz||14)*100)}" b="${r.b||p.b?1:0}" i="${r.i?1:0}"${(r.spc||p.spc)?` spc="${Math.round((r.spc||p.spc)*100)}"`:""} dirty="0">
@@ -3858,17 +3861,21 @@ function shpPhoto(x,y,w,h,label,ea){
     shpText(x,y+h/2-16,w,32,[{t:"📷",sz:22,al:"ctr"},{t:label,sz:10,c:"8A97A6",al:"ctr"}],{ea});
 }
 /* 実画像の埋め込み（アスペクト比を保ってボックス内に収める） */
-let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[];
+let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[], DK_GOOD=[];
 function dkCollectMedia(){
   DK_MEDIA=[]; const A=dkAssets();
   const put=o=>{ if(!o||!o.b64) return -1;
     DK_MEDIA.push({u8:b64u8(o.b64),ext:o.mime==="image/png"?"png":"jpeg",w:o.w||0,h:o.h||0});
     return DK_MEDIA.length-1; };
   DK_LOGO=put(A.logo);
-  /* 表紙から良い写真を使うため、公式サイト・アップロード由来を先頭に並べ替え */
+  /* 表紙から良い写真を使うため、納品品質（高解像度・日本語文字なし）→出所の順で並べ替え */
   const phs=PH_IDX.map(i=>A.ph&&A.ph[i]).filter(Boolean)
-    .sort((x,y)=>{const pr=o=>o.src==="site"?0:o.src==="upload"?1:2; return pr(x)-pr(y);});
+    .sort((x,y)=>{
+      const g=o=>dkPhGood(o)?0:1;
+      if(g(x)!==g(y)) return g(x)-g(y);
+      const pr=o=>o.src==="site"?0:o.src==="upload"?1:2; return pr(x)-pr(y);});
   DK_PH=PH_IDX.map(i=>put(phs[i]));
+  DK_GOOD=PH_IDX.map(i=>!!(phs[i]&&dkPhGood(phs[i])));
 }
 function shpImg(x,y,w,h,mi){
   const m=DK_MEDIA[mi]; if(!m) return "";
@@ -4549,7 +4556,8 @@ function deckSlides(lang,T){
     .concat(hasLogi?[[L.logi]]:[])
     .concat(hasComp?[[L.comp]]:[])
     .concat([[L.contact]]);
-  const coverPh=(DK_PH[0]!==undefined&&DK_PH[0]>=0);
+  /* 表紙のフルブリードは「納品品質」写真のみ（低解像度バナーの引き伸ばしで不鮮明にしない） */
+  const coverPh=(DK_PH[0]!==undefined&&DK_PH[0]>=0&&DK_GOOD[0]);
   /* 1) 表紙：ブランド深色の全面＋右半分に商品写真（各社の世界観で開く） */
   S.push(
     shpRect(0,0,960,540,NV)+
@@ -4623,8 +4631,10 @@ function deckSlides(lang,T){
     }).join("")+
     foot());
   /* 5) スペック＋写真 */
-  const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]]));
-  S.push(
+  const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]]))
+    .filter(r=>r&&String(r[0]||"").trim());
+  /* 規格・寸法のどちらも無ければページごとスキップ（空欄ページを出さない） */
+  if(specs.length||dim0) S.push(
     eyebrow(L.spec)+
     specs.slice(0,6).map((r,i)=>{
       const y=96+i*56;
@@ -4632,11 +4642,11 @@ function deckSlides(lang,T){
         shpText(64,y+8,180,32,[{t:String(r[0]||""),sz:10.5,b:1,c:BL}],{ea})+
         shpText(250,y+8,290,36,[{t:String(r[1]||""),sz:10.5,c:INK}],{ea});
     }).join("")+
+    (specs.length?"":shpText(48,96,500,30,[{t:T.item||D.item||"",sz:16,b:1,c:INK}],{ea}))+
     phOr(596,96,316,240,((DK_PH[1]!==undefined&&DK_PH[1]>=0)?1:0),L.photo,ea)+
-    shpRect(596,352,316,84,LGT,{round:5000})+
-    shpText(612,364,284,64,[{t:L.dims,sz:9.5,b:1,c:BL},
-      {t:dim0,sz:9.5,c:SUB,spcB:3},
-      {t:dim1,sz:9.5,c:SUB,spcB:2}],{ea})+
+    (dim0?shpRect(596,352,316,84,LGT,{round:5000})+
+      shpText(612,364,284,64,[{t:L.dims,sz:9.5,b:1,c:BL},
+        {t:dim0,sz:9.5,c:SUB,spcB:3}].concat(dim1?[{t:dim1,sz:9.5,c:SUB,spcB:2}]:[]),{ea}):"")+
     foot());
   /* 使い方（仕上げヒアリング入力 or 公式サイト由来） */
   if(hasUsage){
@@ -4687,10 +4697,11 @@ function deckSlides(lang,T){
         row.slice(0,4).map((v,ci)=>shpText(60+ci*130,y+9,124,22,[{t:String(v||""),sz:10,b:ci>0,c:ci>0?OR:INK}],{ea})).join("");
     }).join("")+
     [[L.moq,T.moq||D.moq],[L.lead,T.lead||D.lead],[L.term,((T.term||D.term||"")+" "+(T.pol||D.pol||"")).trim()],[L.pay,T.pay||D.pay]]
+      .filter(([k,v])=>String(v||"").trim())   /* 未登録の条件は「—」で埋めず表示しない */
       .map(([k,v],i)=>{
         const x=620+(i%2)*150, y=96+Math.floor(i/2)*104;
         return shpRect(x,y,142,92,LGT,{round:6000})+
-          shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v||"—"),sz:11.5,b:1,c:INK,spcB:4}],{ea});
+          shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v),sz:11.5,b:1,c:INK,spcB:4}],{ea});
       }).join("")+
     shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
     foot());
@@ -4810,6 +4821,16 @@ async function deckMake(lang){
   const st=$("#dkst"); const say=m=>{ if(st) st.innerHTML=m; };
   try{
     if(!D||!(D.item||D.file)){ toast("先に商品情報を登録してください"); return; }
+    /* 納品レベルゲート：必須が欠けたまま中途半端な資料を出さない */
+    if(typeof TEN!=="undefined"&&TEN){
+      const mr=deckMissReq();
+      if(mr.length){
+        say(`🔒 <b>納品レベルに必要な情報が、あと${mr.length}項目足りないため生成できません：</b>${mr.map(c=>esc(c.n)).join("・")}<br>
+          <span style="font-size:10.5px">上の「納品レベルチェック」の案内どおりに埋めるか、<b>🤖 AI商社マンと埋める</b>から一緒に仕上げてください。</span>`);
+        toast("納品レベルまで残り"+mr.length+"項目です（生成はロック中）");
+        return;
+      }
+    }
     const online=(typeof ppReady==="function"&&ppReady());
     say(`⏳ 商品情報を収集しています…`);
     try{ await dkBrandExtract(false); }catch(e){}   /* ブランドカラー未抽出なら画像から抽出してから組む */
@@ -4835,15 +4856,66 @@ async function deckMake(lang){
   }
 }
 /* ── 完成度チェック＆伴走ヒアリング ── */
+/* ── 画像の納品品質判定 ──
+   ローカル：解像度（短辺420px以上）とアスペクト比。AI接続時：日本語文字入りバナー・低画質・無関係を検査して o._dq に保存 */
+function dkImgLocalQ(o){
+  if(!o||!o.b64) return {has:false};
+  const w=o.w||0,h=o.h||0, r=w&&h?w/h:1;
+  return {has:true,big:Math.min(w,h)>=420,ratioOk:r>=0.35&&r<=2.8,w,h};
+}
+function dkPhGood(o){
+  const q=dkImgLocalQ(o);
+  if(!q.has) return false;
+  if(!q.big||!q.ratioOk) return false;
+  if(o._dq&&(o._dq.jp||o._dq.low||o._dq.ok===false)) return false;
+  return true;
+}
+let __dkAudit=0;
+async function dkImgAudit(){
+  if(__dkAudit) return; if(!(typeof ppReady==="function"&&ppReady())) return;
+  const A=dkAssets(); const targets=(A.ph||[]).filter(o=>o&&o.b64&&!o._dq).slice(0,10);
+  if(!targets.length) return;
+  __dkAudit=1;
+  try{
+    for(const o of targets){
+      try{
+        const r=await llmAsk(
+`添付画像を、海外バイヤー向け英語営業資料の「商品写真」として使えるか判定してください。
+NG基準：①画像の中に日本語の説明文・キャッチコピーが入っている（海外資料に不適）②ぼやけ・低解像度・引き伸ばしで不鮮明 ③商品と無関係。
+JSONのみ：{"ok":true|false,"jp":日本語文字が目立つならtrue,"low":不鮮明ならtrue,"reason":"20字以内"}`,260,
+          {noWeb:1,timeout:45000,att:{mime:o.mime,b64:o.b64,name:"ph.jpg"}});
+        const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
+        o._dq={ok:!!j.ok,jp:!!j.jp,low:!!j.low,reason:String(j.reason||"").slice(0,40),at:TODAYS};
+      }catch(e){ break; }  /* 接続不調時は残りを未検査のまま（正直に未検査表示） */
+    }
+    if(typeof saveTen==="function") saveTen();
+    if(typeof render==="function") render();
+  } finally { __dkAudit=0; }
+}
 function deckCheck(){
   const A=dkAssets(), DM=dkMeta();
+  const RICH=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{};
+  const sick=v=>typeof valSick==="function"&&valSick(String(v||""));
+  const en=v=>!!(v&&String(v).trim()&&!/[ぁ-ヶ一-龠]/.test(String(v)));
+  const stN=(D.strengths||[]).filter(x=>x&&x[0]&&!sick(x[0])).length;
+  const goodPh=(A.ph||[]).filter(dkPhGood).length;
+  const anyPh=(A.ph||[]).some(x=>x&&x.b64);
+  /* req:1 ＝ 納品レベルの必須項目（揃うまで生成をブロック） */
   return [
-    {k:"logo",n:"会社・ブランドロゴ",ok:!!(A.logo&&A.logo.b64),how:"下の「ロゴ・商品写真」から画像をアップロード"},
-    {k:"ph",n:"商品写真（1枚以上）",ok:!!(A.ph&&A.ph.some(x=>x&&x.b64)),how:"アップロード または 🌐Webから自動取得"},
+    {k:"itemEn",req:1,n:"英文商品名",ok:en(D.itemEn),how:"「商品情報を登録」で英文商品名を入力（AI提案あり）"},
+    {k:"coEn",req:1,n:"英文社名",ok:en(D.coEn),how:"「商品情報を登録」で英文社名を入力（AI提案あり）"},
+    {k:"catch",req:1,n:"キャッチコピー・タグライン",ok:!!(RICH.catch||RICH.tagline||D.tagline),how:"⚡公式サイトで資料を強化（自動取込）／AI商社マンと仕上げる"},
+    {k:"strengths",req:1,n:"商品の強み（3件以上）",ok:stN>=3,how:`現在${stN}件。「商品情報を登録」→強み、または⚡公式サイトで資料を強化`},
+    {k:"spec",req:1,n:"規格・成分 or 梱包寸法",ok:!!((D.compRows&&D.compRows.length)||(D.dimRows&&D.dimRows.length)),how:"「商品情報を登録」に成分表・寸法表をアップロード"},
+    {k:"price",req:1,n:"価格表 or 取引条件（MOQ等）",ok:!!((D.priceRows&&D.priceRows.length)||D.moq||D.term),how:"「商品情報を登録」に価格表を追加"},
+    {k:"market",req:1,n:"ターゲット国（1か国以上）",ok:!!Object.keys(D.regs||{}).length,how:"「商品情報を登録」で進出希望国を登録"},
+    {k:"logo",req:1,n:"会社・ブランドロゴ",ok:!!(A.logo&&A.logo.b64),how:"下の「ロゴ・商品写真」から設定（公式サイトから自動取得も可）"},
+    {k:"phq",req:1,n:"納品品質の商品写真（1枚以上）",ok:goodPh>=1,
+      how:anyPh?"現在の写真は低解像度または日本語文字入りです。公式サイトの大きな商品単体写真、またはお手元の写真をアップロード":"アップロード または 🏠公式サイトから取得"},
+    {k:"contact",req:1,n:"連絡先（担当者・メール等）",ok:!!(DM.person||DM.mail||DM.tel),how:"AI商社マンと仕上げる で入力"},
+    {k:"mission",n:"ミッション・ブランドコンセプト",ok:!!(DM.mission||RICH.mission||RICH.brandStory),how:"AI商社マンと仕上げる（AI提案あり）"},
     {k:"profile",n:"会社プロフィール（設立・代表など）",ok:!!(DM.est||DM.ceo||DM.addr),how:"AI商社マンと仕上げる で入力"},
-    {k:"mission",n:"ミッション・ブランドコンセプト",ok:!!DM.mission,how:"AI商社マンと仕上げる（AI提案あり）"},
-    {k:"usage",n:"使い方（ステップ）",ok:!!(DM.usage&&DM.usage.length),how:"AI商社マンと仕上げる（AI提案あり）"},
-    {k:"contact",n:"連絡先（担当者・メール等）",ok:!!(DM.person||DM.mail||DM.tel),how:"AI商社マンと仕上げる で入力"},
+    {k:"usage",n:"使い方（ステップ）",ok:!!(DM.usage&&DM.usage.length)||!!(RICH.usage&&RICH.usage.length),how:"AI商社マンと仕上げる（AI提案あり）"},
   ];
 }
 function deckAssetCard(){
@@ -4858,6 +4930,11 @@ function deckAssetCard(){
         ${o&&o.b64?`<img src="data:${o.mime};base64,${o.b64}" style="max-width:100%;max-height:100%;object-fit:contain">`:`<span style="font-size:20px;color:var(--ink-3)">${kind==="logo"?"🏷":"📷"}</span>`}
       </div>
       ${o&&o.src==="web"?`<p style="font-size:8.5px;color:var(--ink-3);margin:3px 0 0;line-height:1.3">🌐 ${esc(String(o.cap||"").slice(0,22))}</p>`:""}
+      ${(()=>{ if(kind==="logo"||!o||!o.b64) return "";
+        if(dkPhGood(o)) return `<p style="font-size:8.5px;color:var(--good);margin:3px 0 0">✓ 納品品質</p>`;
+        const q=dkImgLocalQ(o), why=o._dq&&(o._dq.jp?"日本語文字入り":o._dq.low?"不鮮明":o._dq.ok===false?(o._dq.reason||"不適"):"")||(!q.big?"解像度不足":!q.ratioOk?"バナー形状":"");
+        return why?`<p style="font-size:8.5px;color:var(--warn);margin:3px 0 0;line-height:1.3">⚠ ${esc(why)}<br>表紙・品質判定から除外</p>`
+          :`<p style="font-size:8.5px;color:var(--ink-3);margin:3px 0 0">（AI接続で品質検査）</p>`;})()}
       <div class="rw" style="gap:4px;margin-top:6px">
         <label class="btn g" style="padding:3px 8px;font-size:10px;cursor:pointer">${o?"変更":"選ぶ"}<input type="file" hidden accept="image/*" data-dkup="${key}"></label>
         ${o?`<button class="btn g" style="padding:3px 8px;font-size:10px" data-dkdel="${key}">削除</button>`:""}
@@ -4890,16 +4967,21 @@ function deckAssetCard(){
     <p class="nn" style="margin-top:4px">🌐Web検索は<b>商品名・社名で正確に照合</b>し、<b>候補を提示→お客様が確認して採用</b>する方式です（勝手に挿入しません）。採用時は接続中のAIが画像を検査し、<b>誤った画像はブロック</b>。見つからない場合は正直に「見つかりませんでした」と表示します（出典：Wikimedia Commons／Openverse）。</p>
   </div>`;
 }
+function deckMissReq(){ return deckCheck().filter(c=>c.req&&!c.ok); }
 function deckReadyCard(){
-  const cks=deckCheck(), miss=cks.filter(c=>!c.ok);
-  return `<div class="c" style="margin-bottom:11px;${miss.length?"":"border-color:var(--good)"}">
+  const cks=deckCheck(), miss=cks.filter(c=>!c.ok), missReq=cks.filter(c=>c.req&&!c.ok);
+  return `<div class="c" style="margin-bottom:11px;${missReq.length?"border-color:var(--warn)":"border-color:var(--good)"}">
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
-      <div><h3>✅ 完成版チェック <span class="p ${miss.length?"or":"hi"}">${cks.length-miss.length}/${cks.length}</span></h3>
-        <p class="nn">${miss.length?`Monroe Beauty様クラスの「完成版」まであと<b>${miss.length}項目</b>。Webと登録データで足りない分は、AI商社マンがヒアリングして一緒に仕上げます。`:"<b>完成版の材料が揃いました。</b>下の言語ボタンから生成してください。"}</p></div>
-      ${miss.length?`<button class="btn" id="dkwiz">🤖 AI商社マンと仕上げる（残り${miss.filter(c=>!/logo|ph/.test(c.k)).length||miss.length}件）</button>`:""}</div>
+      <div><h3>${missReq.length?"🔒 納品レベルチェック":"✅ 納品レベルチェック"} <span class="p ${missReq.length?"or":"hi"}">${cks.length-miss.length}/${cks.length}</span></h3>
+        <p class="nn">${missReq.length
+          ?`<b>納品可能なレベルに必要な情報が、あと${missReq.length}項目足りません。</b>揃うまで生成ボタンはロックされます（中途半端な資料を出さないため）。AI商社マンが一緒に埋めます。`
+          :"<b>納品レベルの材料が揃いました。</b>下の言語ボタンから生成してください。"+(miss.length?`（推奨あと${miss.length}項目で更に充実します）`:"")}</p></div>
+      <button class="btn${missReq.length?"":" g"}" id="dkwiz">🤖 AI商社マンと埋める${missReq.length?`（必須 残り${missReq.length}件）`:""}</button></div>
     <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap">
-      ${cks.map(c=>`<span class="p ${c.ok?"hi":"lo"}" title="${esc(c.how)}">${c.ok?"✓":"○"} ${esc(c.n)}</span>`).join("")}
-    </div></div>`;
+      ${cks.map(c=>`<span class="p ${c.ok?"hi":(c.req?"or":"lo")}" title="${esc(c.how)}">${c.ok?"✓":(c.req?"⚠":"○")} ${esc(c.n)}${c.req&&!c.ok?"（必須）":""}</span>`).join("")}
+    </div>
+    ${missReq.length?`<div style="margin-top:9px;padding:9px 11px;border-radius:var(--r2);background:var(--warn-soft);font-size:11px;line-height:1.8">
+      ${missReq.map(c=>`<b>${esc(c.n)}</b>：${esc(c.how)}`).join("<br>")}</div>`:""}</div>`;
 }
 async function deckWizard(){
   if(!(typeof TEN!=="undefined"&&TEN)){ toast("先に商品情報を登録してください"); return; }
@@ -4989,7 +5071,7 @@ ${siteTxt?`=== 公式サイト抜粋（${siteUrl}） ===\n${siteTxt}`:"（公式
 function vDeck(p){
   const online=(typeof ppReady==="function"&&ppReady());
   const n=(D.strengths||[]).length, pr=(D.priceRows||[]).length, cr=(D.compRows||[]).length, rg=Object.keys(D.regs||{}).length;
-  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・目次・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトの<b>最大12枚</b>・PPTX形式。<b>配色はロゴ・写真から抽出した貴社ブランドカラー</b>で組まれます。",
+  return ph(p,"<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・目次・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトを<b>情報が揃ったぶんだけ</b>組みます（枚数は内容次第・空欄ページは作りません）。<b>配色はロゴ・写真から抽出した貴社ブランドカラー</b>。<b>納品レベルの情報が揃うまで生成はロック</b>され、不足はAI商社マンが一緒に埋めます。",
     `<button class="btn g" onclick="go('item')">元データを確認する</button>
      ${typeof openHealth==="function"?`<button class="btn g" onclick="openHealth()">🧹 データを点検</button>`:""}`)+`
   ${typeof healthBanner==="function"?healthBanner():""}`+
@@ -4999,14 +5081,18 @@ function vDeck(p){
       <div><h3>資料に入る内容（${esc(D.item||"—")}）</h3>
         <p class="nn">強み${n}件・価格表${pr}行・${esc(D.compTitle||"規格")}${cr}項目・規制${rg}か国ぶんを自動レイアウトします。写真枠はプレースホルダー（PowerPoint上で貴社の製品写真に差し替え）です。</p></div>
       <span class="p ${online?"hi":"lo"}">${online?"AI翻訳：有効（"+esc(llmLabel())+"）":"AI翻訳：未接続（見出しのみ各言語）"}</span></div>
+    ${(()=>{const mr=(typeof TEN!=="undefined"&&TEN)?deckMissReq():[];
+      return mr.length?`<div style="margin-top:10px;padding:9px 12px;border:1px solid var(--warn);border-radius:var(--r2);background:var(--warn-soft);font-size:11.5px">
+        🔒 <b>生成はロック中：</b>納品レベルまで残り<b>${mr.length}項目</b>（${mr.map(c=>esc(c.n)).join("・")}）。上の「納品レベルチェック」から埋めると解放されます。</div>`:"";})()}
     <div class="g3" style="margin-top:10px;gap:8px">
-      ${Object.entries(DECK_L).map(([k,l])=>`
-        <button class="smp" data-deck="${k}" style="padding:12px 13px">
+      ${(()=>{const locked=(typeof TEN!=="undefined"&&TEN)&&deckMissReq().length>0;
+        return Object.entries(DECK_L).map(([k,l])=>`
+        <button class="smp" data-deck="${k}" ${locked?'disabled':''} style="padding:12px 13px;${locked?"opacity:.45;cursor:not-allowed":""}">
           <div class="rw" style="justify-content:space-between">
             <b style="font-size:13px">${l.flag} ${l.name}</b>
-            <span class="p or" style="font-size:9px">PPTX</span></div>
+            <span class="p ${locked?"no":"or"}" style="font-size:9px">${locked?"🔒":"PPTX"}</span></div>
           <span style="display:block;font-size:10px;color:var(--ink-3);margin-top:4px">${l.deck}</span>
-        </button>`).join("")}
+        </button>`).join("");})()}
     </div>
     <p id="dkst" class="nn" style="margin-top:10px"></p>
   </div>
@@ -5045,6 +5131,7 @@ function deckBind(){
     deckSiteImgs(u);
   };
   const wz=$("#dkwiz"); if(wz) wz.onclick=()=>deckWizard();
+  dkImgAudit();   /* 接続時：未検査の写真を営業資料適性（日本語文字・不鮮明）でAI検査 */
   const bc=$("#dkbc"); if(bc) bc.addEventListener("change",()=>{
     const v=bc.value.replace("#","").toUpperCase();
     if(/^[0-9A-F]{6}$/.test(v)&&typeof TEN!=="undefined"&&TEN){
