@@ -9289,8 +9289,9 @@ let tT=null;
 function toast(m){
   let e=$("#tst");
   if(!e){e=document.createElement("div");e.id="tst";
+    /* pointer-events:none 必須——opacity:0で隠れている間も要素は残るため、無いと画面下部中央のクリックを吸い続ける */
     e.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;background:var(--ink);"+
-      "color:var(--canvas);font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:var(--r2);box-shadow:var(--pop);opacity:0;transition:opacity .15s;max-width:88vw;text-align:center";
+      "color:var(--canvas);font-size:12.5px;font-weight:700;padding:9px 16px;border-radius:var(--r2);box-shadow:var(--pop);opacity:0;transition:opacity .15s;max-width:88vw;text-align:center;pointer-events:none";
     document.body.appendChild(e);}
   e.textContent=m;e.style.opacity="1";clearTimeout(tT);tT=setTimeout(()=>e.style.opacity="0",2200);
 }
