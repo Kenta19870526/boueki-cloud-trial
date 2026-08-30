@@ -3255,6 +3255,24 @@ async function fillAttach(f){
   if(!f||!TEN) return;
   fillSay("u","📎 "+esc(f.name));
   const ext=FEXT(f.name);
+  /* Zip：中の資料（Excel/CSV/Word/PowerPoint/PDF/画像/テキスト）をまとめて統合してから通常経路へ */
+  if(ext==="zip"){
+    fillSay("ai","Zipの中身をまとめて読み取っています…（複数ファイルを1つの資料一式として統合します）");
+    render();
+    try{
+      const z=await zipCorpus(f);
+      const ok=(z.files||[]).filter(x=>x.chars>0);
+      if(!z.corpus||!ok.length)
+        throw new Error("Zip内に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）"+
+          ((z.skipped||[]).length?"。スキップ："+(z.skipped||[]).slice(0,3).map(s2=>s2.name).join("・"):""));
+      fillSay("ai",`Zip内の<b>${ok.length}ファイル</b>を統合しました（${esc(ok.slice(0,4).map(x=>x.name).join("・")).slice(0,120)}${ok.length>4?" ほか":""}${(z.skipped||[]).length?`・読めなかったもの${z.skipped.length}件`:""}）。内容を反映します…`);
+      const tf=new File([z.corpus],f.name.replace(/\.zip$/i,"")+"_一式.txt",{type:"text/plain"});
+      return fillAttach(tf);
+    }catch(e){
+      fillSay("ai","Zipを読み取れませんでした："+esc(String(e&&e.message)).slice(0,120));
+      render(); return;
+    }
+  }
   const canAI=llmCanFile(ext), office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
   if(!office&&!canAI){
     fillSay("ai",/^(pdf|png|jpg|jpeg)$/.test(ext)
