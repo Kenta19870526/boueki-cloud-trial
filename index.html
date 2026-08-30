@@ -1816,11 +1816,25 @@ function fillAnswer(v){
 
 /* ═══════════ 解析結果 → 全画面へ反映するテナント層 ═══════════ */
 let TEN=null;   // いま表示中の商品情報（アップロード or サンプル）
-let TENS=[], TIDX=0;   // 登録済み商品のスロット（最大10件）
-const TEN_MAX=10;
+let TENS=[], TIDX=0;   // 登録済み商品のスロット（サプライヤー最大10社 × 各社最大10商品）
+const CO_MAX=10, PROD_PER_CO=10, TEN_MAX=CO_MAX*PROD_PER_CO;
+function tenCoOf(t){ return (String(t&&t.co||"").trim())||"（会社名 未登録）"; }
+function tenCos(){ const m=[]; TENS.forEach((t,i)=>{const c=tenCoOf(t);
+  let e=m.find(x=>x.co===c); if(!e){e={co:c,idxs:[]};m.push(e);} e.idxs.push(i);}); return m; }
+/* 追加可否：会社coに新しい商品を1件足せるか（coが新規会社なら会社枠も見る） */
+function tenCanAdd(co){
+  co=(String(co||"").trim())||"（会社名 未登録）";
+  const cos=tenCos(), e=cos.find(x=>x.co===co);
+  if(e) return e.idxs.length<PROD_PER_CO;
+  return cos.length<CO_MAX;
+}
 function pushTen(t){
-  if(TENS.length>=TEN_MAX){
-    if(typeof toast==="function") toast(`商品は最大${TEN_MAX}件までです。現在の商品を置き換えました（不要な商品は削除できます）`);
+  const co=tenCoOf(t), cos=tenCos(), e=cos.find(x=>x.co===co);
+  if(e&&e.idxs.length>=PROD_PER_CO){
+    if(typeof toast==="function") toast(`「${co}」の商品は最大${PROD_PER_CO}件までです。現在の商品を置き換えました（不要な商品は削除できます）`);
+    TENS[TIDX]=t;
+  } else if(!e&&cos.length>=CO_MAX){
+    if(typeof toast==="function") toast(`サプライヤー（会社）は最大${CO_MAX}社までです。現在の商品を置き換えました（不要な会社の商品は削除できます）`);
     TENS[TIDX]=t;
   } else { TENS.push(t); TIDX=TENS.length-1; }
   TEN=t;
@@ -2180,16 +2194,24 @@ function syncTenant(){
 }
 
 /* ═══════════ バイヤーネットワーク（週次で増える・名称/連絡先は契約後に開示） ═══════════
-   件数と国別分布は貿易クラウド本番DBの集計値（2026-08時点 7,060名・83か国）に基づく。
-   個社が特定できる名称・連絡先はトライアルでは伏せ、決定論的な生成器で見本を表示する。 */
-const BN_BASE=7060, BN_EPOCH=new Date("2026-08-03T00:00:00");  /* 月曜起点 */
-const BN_CTY=[["UAE",754],["香港",602],["シンガポール",511],["アメリカ",498],["エジプト",223],
- ["台湾",178],["フランス",174],["マレーシア",150],["インド",136],["イギリス",127],["タイ",121],
- ["インドネシア",112],["韓国",108],["中国",101],["ベトナム",96],["ドイツ",95],["オーストラリア",93],
- ["カナダ",85],["サウジアラビア",78],["ケニア",64],["タンザニア",52],["モンゴル",38]];
+   総数・国別分布・週次追加数は、貿易クラウド本番DB（/buyers 全件APIを集計）の【実数】。基準日 2026-08-30。
+   個社が特定できる名称・連絡先はトライアルでは伏せ、決定論的な生成器で見本を表示する。
+   基準日以降の未来週の増加のみ、それまでの実績レンジに基づく見込み値。 */
+const BN_ASOF="2026-08-30", BN_ASOF_FMT="8/30";
+const BN_COUNTRIES=117, BN_COMPANIES=7168;   /* 実数：国数（国未設定215名は別枠）・取引先企業数 */
+const BN_BASE=6745, BN_EPOCH=new Date("2026-06-29T00:00:00");  /* 月曜起点。6/29週＝移行時点までの累計 */
+const BN_WEEKLY={"2026-07-06":94,"2026-07-13":116,"2026-07-20":85,"2026-07-27":66,
+ "2026-08-03":91,"2026-08-10":42,"2026-08-17":71,"2026-08-24":69};  /* 実測（createdAt週次集計） */
+const BN_CTY=[["UAE",1157],["アメリカ",770],["香港",710],["シンガポール",703],["エジプト",258],
+ ["フランス",247],["インドネシア",243],["日本",233],["台湾",233],["マレーシア",211],["タイ",199],
+ ["インド",187],["イギリス",171],["オーストラリア",159],["ナイジェリア",144],["ベトナム",135],
+ ["サウジアラビア",125],["ドイツ",120],["韓国",108],["中国",104],["カナダ",86],["タンザニア",73],
+ ["ケニア",55],["フィリピン",49],["イタリア",44],["オランダ",41]];
+const BN_CTY_REST={countries:91,buyers:599,noCty:215};  /* 上記26か国以外＋国未設定 */
 const BN_CC={UAE:"AE",香港:"HK",シンガポール:"SG",アメリカ:"US",エジプト:"EG",台湾:"TW",フランス:"FR",
  マレーシア:"MY",インド:"IN",イギリス:"UK",タイ:"TH",インドネシア:"ID",韓国:"KR",中国:"CN",ベトナム:"VN",
- ドイツ:"DE",オーストラリア:"AU",カナダ:"CA",サウジアラビア:"SA",ケニア:"KE",タンザニア:"TZ",モンゴル:"MN"};
+ ドイツ:"DE",オーストラリア:"AU",カナダ:"CA",サウジアラビア:"SA",ケニア:"KE",タンザニア:"TZ",
+ 日本:"JP",ナイジェリア:"NG",フィリピン:"PH",イタリア:"IT",オランダ:"NL",モンゴル:"MN"};
 const BN_CATS=[["food","食品",.30],["cosme","美容・健康",.10],["daily","日用雑貨",.12],["parts","工業部品",.13],
  ["apparel","アパレル",.08],["liquor","酒類",.06],["car","中古車・車両",.06],["medical","医療・衛生",.06],["other","その他",.09]];
 const BN_BIZ={car:["中古車ディーラー","車両輸入商","フリート運行会社","カーオークション運営"],
@@ -2212,7 +2234,13 @@ function bnRnd(seed){ let a=(seed*2654435761)>>>0;
 function bnPick(r,arr){ return arr[Math.floor(r()*arr.length)]; }
 function bnWeek(now){ return Math.max(0,Math.floor(((now||new Date())-BN_EPOCH)/(7*864e5))); }
 function bnFmtD(d){ return (d.getMonth()+1)+"/"+d.getDate()+"（"+"日月火水木金土"[d.getDay()]+"）"; }
-function bnAdds(w){ const r=bnRnd(9100+w); return 14+Math.floor(r()*22); }  /* 週14〜35名 */
+function bnMonISO(w){ const d=new Date(BN_EPOCH.getTime()+w*7*864e5);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function bnAdds(w){
+  if(w<=0) return 0;                       /* w0＝移行前の累計（BN_BASEに含む） */
+  const real=BN_WEEKLY[bnMonISO(w)];
+  if(real!=null) return real;              /* 基準日までの週＝本番DBの実測値 */
+  const r=bnRnd(9100+w); return 40+Math.floor(r()*80); }  /* 未来週＝実績レンジ（42〜116名）の見込み */
 function bnTotal(now){ let t=BN_BASE; const W=bnWeek(now); for(let w=0;w<=W;w++) t+=bnAdds(w); return t; }
 function bnGen(i){
   const r=bnRnd(i+77);
@@ -2267,13 +2295,14 @@ function bnQuery(f){
 }
 function bnStats(now){
   const W=bnWeek(now);
-  const weeks=[]; for(let w=Math.max(0,W-7);w<=W;w++) weeks.push(bnAdds(w));
+  const weeks=[]; for(let w=Math.max(1,W-7);w<=W;w++) weeks.push(bnAdds(w));
   const catKey=(typeof D!=="undefined"&&D&&(D.catKey||D.key))||"";
   const map={food:"food",cosme:"cosme",parts:"parts",daily:"daily",car:"car",liquor:"liquor",
     apparel:"apparel",medical:"medical"};
   const ck=map[catKey]||"";
   const share=ck?(BN_CATS.find(c=>c[0]===ck)||[0,0,0])[2]:0;
-  return {total:bnTotal(now),thisWeek:bnAdds(W),weeks,countries:83,
+  return {total:bnTotal(now),thisWeek:bnAdds(W),weeks,countries:BN_COUNTRIES,
+    companies:BN_COMPANIES,asof:BN_ASOF,asofFmt:BN_ASOF_FMT,
     lastSync:bnFmtD(new Date(BN_EPOCH.getTime()+W*7*864e5)),
     nextSync:bnFmtD(new Date(BN_EPOCH.getTime()+(W+1)*7*864e5)),
     catKey:ck,catNm:ck?(BN_CATS.find(c=>c[0]===ck)||["","）"])[1]:"",
@@ -2297,9 +2326,10 @@ function bnCtxDb(){
   try{
     const s=bnStats();
     return `## バイヤーDB・拠点（社内データベース・週次更新・AIから照会可）
-登録バイヤー総数: ${s.total.toLocaleString()}名／83か国／今週の新規追加 +${s.thisWeek}名${s.catNm?`／自社カテゴリ（${s.catNm}）該当 約${s.catCount.toLocaleString()}名`:""}
-更新サイクル: 貿易クラウド本番（Ver.1）の新規登録を毎週月曜にまとめて反映（前回反映 ${s.lastSync}／次回 ${s.nextSync}）。月曜以外の日に総数が変わらないのは正常で、バグではない。総数の推移を聞かれたらこのサイクルを説明する。
-国別の登録数（基準値・毎週増加中）: ${BN_CTY.map(([c,n])=>c+" "+n+"名").join("、")}、ほか61か国
+登録バイヤー総数: ${s.total.toLocaleString()}名／${s.countries}か国（別枠で国未設定${BN_CTY_REST.noCty}名）／取引先企業 ${s.companies.toLocaleString()}社／今週の新規追加 +${s.thisWeek}名${s.catNm?`／自社カテゴリ（${s.catNm}）該当 約${s.catCount.toLocaleString()}名`:""}
+データの出所: 総数・国別分布・週次追加数は貿易クラウド本番DB（Ver.1）の全件API集計による【実数】（基準日 ${s.asof}）。カテゴリ別の内訳のみ推定シェアによる目安。
+更新サイクル: 本番DBの新規登録を毎週月曜にまとめて反映（前回反映 ${s.lastSync}／次回 ${s.nextSync}）。月曜以外の日に総数が変わらないのは正常で、バグではない。基準日より後の未来週の増加数は、直近8週の実績レンジに基づく見込み値。
+国別の登録数（実数・毎週増加中）: ${BN_CTY.map(([c,n])=>c+" "+n+"名").join("、")}、ほか${BN_CTY_REST.countries}か国 ${BN_CTY_REST.buyers}名・国未設定 ${BN_CTY_REST.noCty}名
 ※名称・連絡先は正式契約後に開示。ID・業種・取扱カテゴリ・脈あり度・実績件数までは開示してよい。
 ※「登録がない」と答えてはいけない。上記が社内DBの実数（基準登録数）。国別の見本が質問に添付されていればそれを根拠に使う。
 ※画面の「相手を探す」一覧に出るのは基準登録数のうち業種・国まで開示できる「匿名見本」の一部。件数の差を聞かれたら「一覧＝見本、基準登録数＝実数」と説明する。`;
@@ -2344,13 +2374,13 @@ function bnAsk(q){
     const rows=bnSampleMix(c,20);
     const myCat=(typeof D!=="undefined"&&D&&D.catKey)||"";
     const myNm=myCat?(BN_CATS.find(x=>x[0]===myCat)||["",""])[1]:"";
-    a=`<b>${esc(c)}のバイヤー：基準登録数 ${bnCtyBase(c)}名</b>（全カテゴリ合計・毎週増加中・世界83か国 計${st.total.toLocaleString()}名）。<br>
+    a=`<b>${esc(c)}のバイヤー：基準登録数 ${bnCtyBase(c)}名</b>（全カテゴリ合計・毎週増加中・世界${st.countries}か国 計${st.total.toLocaleString()}名＝本番DB実数）。<br>
 カテゴリ別の目安：${esc(bnCatBreak(c))}。<br>
 実績順の上位${rows.length}件（見本${myNm?"・"+esc(myNm)+"を優先":""}）はこちらです。名称・連絡先は<b>正式契約後に開示</b>されます。`+tbl(rows)+
 `<p class="nn" style="margin-top:6px">※「相手を探す」の一覧に出るのは、基準登録数のうち<b>業種・国まで開示できる匿名見本</b>です（一覧の件数＝見本数、基準登録数＝実数）。</p>
 絞り込みは「バイヤーDB・拠点」の<b>相手を探す</b>（国・カテゴリ・脈あり度）、コンタクトは各行の<b>直接連絡</b>から。気になるIDがあれば、このまま「${esc(c)}のID ×××に何を提案すべき？」と聞いてください。`;
   }else{
-    a=`社内バイヤーDBの現在の登録は<b>${st.total.toLocaleString()}名／83か国</b>（今週 +${st.thisWeek}名）${st.catNm?`。うち自社カテゴリ（${esc(st.catNm)}）該当は<b>約${st.catCount.toLocaleString()}名</b>`:""}。<br>
+    a=`社内バイヤーDBの現在の登録は<b>${st.total.toLocaleString()}名／${st.countries}か国</b>（本番DB実数・今週 +${st.thisWeek}名）${st.catNm?`。うち自社カテゴリ（${esc(st.catNm)}）該当は<b>約${st.catCount.toLocaleString()}名</b>`:""}。<br>
 登録の多い国：${BN_CTY.slice(0,8).map(([cc,n])=>`${esc(cc)} ${n}名`).join("、")} ほか。<br>
 国名を入れて聞くと（例：「ドイツのバイヤーをリストアップして」）、その国の見本一覧をお出しします。`;
   }
@@ -3070,10 +3100,28 @@ async function cloudFetch(url,opts){
     }
     throw new Error("このOneDrive共有リンクは読み取れませんでした。共有を「リンクを知っている全員（表示可能）」にするか、ファイル／フォルダをダウンロード（フォルダはZipになります）してアップロードしてください");
   }
+  /* ── 一般のWebページ・ファイル直リンク ── */
+  let host=""; try{ host=new URL(url).hostname.replace(/^www\./,""); }catch(e){}
+  /* ① 直リンクのPDF・Excel・画像など：バイトを直接取得（CORS許可サイトのみ成功） */
+  try{
+    const r=await fetch(url,to(20000));
+    if(r.ok){
+      const u8=new Uint8Array(await r.arrayBuffer());
+      const base=decodeURIComponent((url.split("/").pop()||"").split("?")[0]).slice(0,60)||host||"Web資料";
+      const f=bytesToFile(u8,base);
+      if(f&&!/\.html?$|\.txt$/i.test(f.name)) return {file:f};
+    }
+  }catch(e){}
+  /* ② ページ本文を読取中継で抽出（商品ページ・会社HP・カタログPDFのURLなど） */
   if(typeof fetchPageText==="function"){
-    try{ const t2=await pageTextRaw(url); if(t2&&t2.length>200&&!webShellJunk(t2)) return {text:t2.slice(0,60000),name:"Webページ（URL取込）"}; }catch(e){}
+    try{
+      const t2=await pageTextRaw(url);
+      if(t2&&relayEmptyPdf(t2))
+        throw new Error("このPDFは文字情報を持たない【画像PDF】のため、URL経由では本文を取り出せませんでした。ファイルをダウンロードしてアップロードしていただければ、接続中のAIが画像として読み取ります");
+      if(t2&&t2.length>200&&!webShellJunk(t2)) return {text:t2.slice(0,60000),name:"Webページ（"+(host||"URL取込")+"）"};
+    }catch(e){ if(/画像PDF/.test(String(e&&e.message))) throw e; }
   }
-  throw new Error("このURLは読み取れませんでした。Google Drive／OneDriveの共有リンク、またはファイルのアップロードをご利用ください");
+  throw new Error("このURLは読み取れませんでした。Google Drive／OneDriveの共有リンク・Webページ（公開されているもの）・またはファイルのアップロードをご利用ください");
 }
 /* URLから取れたテキストをテナント化（Zipと同じ統合フロー） */
 async function textToTenant(text,name){
@@ -3174,7 +3222,9 @@ function pendApply(mode){
   if(mode==="all"&&P.prods.length>1){
     const added=[];
     P.prods.slice(1).forEach(p=>{
-      if(TENS.length>=TEN_MAX) return;
+      /* 同一資料の別商品＝同じ会社の枠（1社10商品）で判定 */
+      const co2=(p.x&&p.x.co)||TEN.co;
+      if(typeof tenCanAdd==="function"?!tenCanAdd(co2):TENS.length>=TEN_MAX) return;
       const t2=blankTenant(TEN.file,{sheets:TEN.nSheets}); delete t2.unparsed;
       t2.aiRead=1; mergeTen(t2,p.x);
       TENS.push(t2); added.push(p.name);
@@ -5770,7 +5820,7 @@ function fillRender(){
         style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:190px;overflow-y:auto;line-height:1.6"></textarea>
       <div class="rw" style="gap:6px;padding:6px 8px;border-top:1px solid var(--line-2);justify-content:flex-end">
         <label class="btn g" style="padding:6px 11px;cursor:pointer" title="関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像/Zip。この欄へのドラッグ＆ドロップでも可）">📎 資料を追加<input type="file" id="fatt2" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.csv"}"></label>
-        <button class="btn g" type="button" id="furl" style="padding:6px 11px;margin-right:auto" title="Google Drive／OneDrive／Googleドキュメント等の共有URLから資料を追加（チャット欄にURLを貼るだけでもOK）">🔗 URLから</button>
+        <button class="btn g" type="button" id="furl" style="padding:6px 11px;margin-right:auto" title="Google Drive／OneDrive／Googleドキュメント／Webページ（商品ページ・会社HP等）のURLから資料を追加（チャット欄にURLを貼るだけでもOK）">🔗 URLから</button>
         <button class="btn" id="fsend">送信</button>
         ${cu.k==="_pend"?"":`<button class="btn g" id="fskip">わからない（あとで）</button>`}</div></div>`;
   const fans=$("#fans");
@@ -6732,29 +6782,35 @@ function vUp(p){
   if(FILL.on) return vFill(p);
   let plist="";
   if(TENS.length){
-    const __byCo={};
-    TENS.forEach((t,i)=>{ const co=(String(t.co||"").trim())||"（会社名 未登録）"; (__byCo[co]=__byCo[co]||[]).push(i); });
+    const cos=tenCos(), actCo=tenCoOf(TENS[TIDX]||TENS[0]);
+    const act=cos.find(x=>x.co===actCo)||cos[0];
+    const prodChip=i=>{const t=TENS[i],s=scoreOf(t);
+      return `<button class="smp" data-tsw="${i}"
+        style="position:relative;padding:8px 26px 8px 11px;max-width:250px;flex:0 1 auto;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+        <span data-tedit="${i}" title="商品名・会社名を編集" role="button"
+          style="position:absolute;top:4px;right:5px;font-size:11px;padding:2px 5px;border-radius:5px;color:var(--ink-3);border:1px solid transparent">✎</span>
+        <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,22))}</b>
+        <span style="display:block;font-size:9.5px;color:var(--ink-3)">充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
+      </button>`;};
     plist=`<div class="c" style="margin-bottom:11px">
       <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
-        <h3>登録済みの商品 <span class="n" style="color:var(--ink-3);font-weight:400">${TENS.length}/${TEN_MAX}</span></h3>
+        <h3>登録済みの商品</h3>
         <div class="rw" style="gap:6px;flex-wrap:wrap">
+          <span class="p lo" style="align-self:center">サプライヤー ${cos.length}/${CO_MAX}社</span>
+          <span class="p lo" style="align-self:center">この会社の商品 ${act.idxs.length}/${PROD_PER_CO}件</span>
           <input class="sel" id="pfq" placeholder="🔍 会社名・商品名で検索" autocomplete="off"
-            style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px">
-          ${TENS.length<TEN_MAX?`<span class="nn" style="align-self:center">新しい資料は<b>別の商品として追加</b></span>`
-            :`<span class="p no" style="align-self:center">上限（${TEN_MAX}件）</span>`}</div></div>
-      ${Object.entries(__byCo).map(([co,idxs])=>`
-      <div data-pfg style="margin-top:9px">
-        <p class="lbl" data-pft="${esc(co.toLowerCase())}">🏢 ${esc(co)} <span style="color:var(--ink-3);font-weight:400">（商品 ${idxs.length}件）</span></p>
-        <div class="rw" style="margin-top:5px;gap:7px;flex-wrap:wrap">
-          ${idxs.map(i=>{const t=TENS[i],s=scoreOf(t);
-            return `<button class="smp" data-tsw="${i}" data-pf="${esc((co+" "+(t.item||t.file||"")+" "+(t.cat||"")).toLowerCase())}"
-              style="position:relative;padding:8px 26px 8px 11px;max-width:230px;flex:0 1 auto;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
-              <span data-tedit="${i}" title="商品名・会社名を編集" role="button"
-                style="position:absolute;top:4px;right:5px;font-size:11px;padding:2px 5px;border-radius:5px;color:var(--ink-3);border:1px solid transparent">✎</span>
-              <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,18))}</b>
-              <span style="display:block;font-size:9.5px;color:var(--ink-3)">${esc(t.cat||"未分類")}・充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
-            </button>`;}).join("")}
-        </div></div>`).join("")}
+            style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px"></div></div>
+      <div id="pfnorm">
+        ${cos.length>1?`<div class="rw" style="gap:6px;flex-wrap:wrap;margin-top:9px">
+          ${cos.map(g2=>`<button class="smp" data-tsw="${g2.idxs[0]}"
+            style="padding:5px 11px;font-size:11px;${g2.co===actCo?"border-color:var(--or);background:var(--or-soft);font-weight:700":""}">🏢 ${esc(g2.co)} <span style="color:var(--ink-3)">${g2.idxs.length}</span></button>`).join("")}
+        </div>`:`<p class="lbl" style="margin-top:9px">🏢 ${esc(actCo)}</p>`}
+        <div class="rw" style="margin-top:7px;gap:7px;flex-wrap:wrap">
+          ${act.idxs.map(prodChip).join("")}
+          ${tenCanAdd(actCo)?`<span class="nn" style="align-self:center">新しい資料は<b>別の商品として追加</b>（この会社 あと${PROD_PER_CO-act.idxs.length}件）</span>`
+            :`<span class="p no" style="align-self:center">この会社は上限（${PROD_PER_CO}件）</span>`}
+        </div></div>
+      <div id="pfx" hidden style="margin-top:9px"></div>
       </div>`;
   }
   let resume="";
@@ -6786,11 +6842,11 @@ function vUp(p){
         <p>またはクリックしてファイルを選択</p>
         <p style="color:var(--ink-3);margin-top:7px;font-size:10.5px">複数ファイルは<b>Zipにまとめて</b>どうぞ。中身を全部読み込みます</p>
       </div>
-      <p class="lbl" style="margin-top:12px">☁ Google Drive／OneDrive のURLから取り込む</p>
+      <p class="lbl" style="margin-top:12px">☁ Google Drive／OneDrive／WebページのURLから取り込む</p>
       <div class="rw" style="margin-top:4px">
-        <input class="sel" id="cldu" placeholder="ファイルまたはフォルダの共有リンク（「リンクを知っている全員」の設定で）" style="flex:1;min-width:0">
+        <input class="sel" id="cldu" placeholder="共有リンク（「リンクを知っている全員」）または商品ページ・会社HPなどのWeb URL" style="flex:1;min-width:0">
         <button class="btn g" id="cldgo" style="flex:none">取り込む</button></div>
-      <p class="nn" style="margin:4px 0 0;font-size:10px"><b>フォルダのURLもOK</b>：中のExcel・Word・PDF・画像などを最大15件まで自動で読み込み、1つの商品資料一式に統合します（画像はAIが内容を読取り）。Googleドキュメント／スプレッドシート／スライドのURLもそのまま読めます。</p>
+      <p class="nn" style="margin:4px 0 0;font-size:10px"><b>フォルダのURLもOK</b>：中のExcel・Word・PDF・画像などを最大15件まで自動で読み込み、1つの商品資料一式に統合します（画像はAIが内容を読取り）。Googleドキュメント／スプレッドシート／スライドのURLもそのまま読めます。<b>一般のWebページ（自社サイトの商品ページ・ECの商品ページ・カタログPDFの直リンクなど）も本文を読み取って取り込めます。</b></p>
       <div id="cldst"></div>
       <div id="prg" hidden style="margin-top:12px"></div>
       <div id="pick" hidden style="margin-top:12px"></div>
@@ -6994,11 +7050,24 @@ function wireUp(){
   const pfq=$("#pfq");
   if(pfq) pfq.addEventListener("input",()=>{
     const q=(pfq.value||"").trim().toLowerCase();
-    document.querySelectorAll("[data-pf]").forEach(b=>{ b.style.display=(!q||b.dataset.pf.includes(q))?"":"none"; });
-    document.querySelectorAll("[data-pfg]").forEach(g2=>{
-      const any=[...g2.querySelectorAll("[data-pf]")].some(b=>b.style.display!=="none");
-      g2.style.display=any?"":"none";
+    const nor=$("#pfnorm"), fx=$("#pfx");
+    if(!nor||!fx) return;
+    if(!q){ nor.hidden=false; fx.hidden=true; fx.innerHTML=""; return; }
+    /* 全サプライヤー横断で検索し、ヒットを 会社｜商品 で一覧（クリックで切替） */
+    const hits=[];
+    TENS.forEach((t,i)=>{
+      const hay=(tenCoOf(t)+" "+(t.item||t.file||"")+" "+(t.cat||"")).toLowerCase();
+      if(hay.includes(q)) hits.push(i);
     });
+    nor.hidden=true; fx.hidden=false;
+    fx.innerHTML=hits.length?`<div class="rw" style="gap:7px;flex-wrap:wrap">
+      ${hits.map(i=>{const t=TENS[i],s=scoreOf(t);
+        return `<button class="smp" data-tsw="${i}" style="padding:8px 11px;max-width:280px;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+          <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,24))}</b>
+          <span style="display:block;font-size:9.5px;color:var(--ink-3)">🏢 ${esc(tenCoOf(t))}・充足度${s.pct}%</span>
+        </button>`;}).join("")}</div>`
+      :`<p class="nn">「${esc(pfq.value)}」に一致する会社・商品はありません。</p>`;
+    fx.querySelectorAll("[data-tsw]").forEach(b=>b.addEventListener("click",()=>switchTen(+b.dataset.tsw)));
   });
   document.querySelectorAll("[data-smp]").forEach(b=>b.addEventListener("click",()=>{
     const x=PRODUCTS[b.dataset.smp];
@@ -8243,7 +8312,7 @@ function vDB(p){
   const news=bnNew().slice(0,10);
   return ph(p,`<b>この画面でできること：</b>STANDAGEが世界${st.countries}か国で積み上げた<b>バイヤーネットワーク（現在 ${st.total.toLocaleString()}名）</b>から、条件に合う相手を探せます。ネットワークは<b>毎週増え続け</b>、気になる相手には現地の担当へその場で依頼を出せます。`)+`
   <div class="g4" style="margin-bottom:11px">${[
-    ["登録バイヤー総数",st.total.toLocaleString(),"名",`世界${st.countries}か国／取引先企業 6,933社`],
+    ["登録バイヤー総数",st.total.toLocaleString(),"名",`世界${st.countries}か国／取引先企業 ${st.companies.toLocaleString()}社<br>本番DBの実数（基準日 ${st.asofFmt}）`],
     ["今週の新規追加","+"+st.thisWeek,"名","毎週月曜にまとめて反映／前回 "+st.lastSync+"・次回 "+st.nextSync],
     [st.catNm?esc(st.catNm)+"のバイヤー":"貴社カテゴリのバイヤー",st.catCount?st.catCount.toLocaleString():"—","名",
       st.catNm?"貴社の商材カテゴリを取扱う相手":"商材カテゴリを登録すると表示されます"],
@@ -8503,7 +8572,7 @@ function rDB(){
         `${f.cat?`（${esc(f.cty)}全体 ${bnCtyBase(f.cty)}名）`:""}・毎週増加中／うち<b>匿名見本 ${rows.length}件</b>を表示${f.lv?"（脈あり度で絞り込み中）":""}。`+
         `名称・連絡先は正式契約後に開示されます。`;
     }else{
-      cnt.innerHTML=`世界83か国 <b>${bnStats().total.toLocaleString()}名</b>から、実績順の匿名見本 ${rows.length}件を表示中。国とカテゴリで絞り込めます。`;
+      cnt.innerHTML=`世界${bnStats().countries}か国 <b>${bnStats().total.toLocaleString()}名</b>（本番DB実数）から、実績順の匿名見本 ${rows.length}件を表示中。国とカテゴリで絞り込めます。`;
     }
   }
   const myR=(typeof mybRows==="function")?mybRows(f):"";
@@ -9187,7 +9256,7 @@ function render(){
     :D&&D.src==="sample2"
     ?`<b>業種サンプルについて</b>　${esc(D.co)}は架空の企業です。<b>導入1日目の状態</b>（商談・受注のデータがまだ貯まっていない状態）を再現しています。ダッシュボードの数字は、ここから貴社の実データで積み上がっていきます。<br>`
     :`<b>デモ環境について</b>　${PID&&D.ship?esc(D.co)+"、"+esc(D.ship.buyer)+"をはじめとする":""}企業名・商談内容・価格・運送会社名・商品スペックは、すべてデモ用の架空データです。実在の顧客情報・実在の物流会社は含まれていません。<br>`)+`
-    バイヤーDBの件数（取引先6,933社・バイヤー${typeof bnTotal==="function"?bnTotal().toLocaleString():"7,060"}名・83か国）と海外14拠点の配置は、貿易クラウド本番APIで稼働中325プロジェクトを全件集計した実データに基づいています。一覧のバイヤー個社は<b>名称・連絡先を伏せた見本表示</b>です。<br>
+    バイヤーDBの件数（取引先${typeof BN_COMPANIES!=="undefined"?BN_COMPANIES.toLocaleString():"7,168"}社・バイヤー${typeof bnTotal==="function"?bnTotal().toLocaleString():"7,379"}名・${typeof BN_COUNTRIES!=="undefined"?BN_COUNTRIES:117}か国）と週次の追加数は、貿易クラウド本番DBの全件API集計による<b>実数</b>（基準日 2026-08-30）です。海外14拠点の配置も本番の稼働プロジェクト集計に基づきます。一覧のバイヤー個社は<b>名称・連絡先を伏せた見本表示</b>です。<br>
     <b>デザイン</b>　本番の貿易クラウド（digitrad.trade/boueki）の実装値に合わせています。白のトップバー48px、選択中メニューは #FFF4E6、プライマリは #F8951D・角丸5px、罫線 rgba(70,86,109,.15)、書体 Lato。`;
   updateGuide();
   updateBell();
@@ -9292,6 +9361,519 @@ $("#mob").addEventListener("click",e=>{const on=document.body.classList.toggle("
   e.currentTarget.setAttribute("aria-pressed",String(on));});
 
 /* 起動は logic_auth.js の authBoot() が行う */
+
+/* ═══════════ ダッシュボード v14：階層スコープ（全社→グループ→会社→カテゴリ→商品）＋
+   期間集計＋累計受注金額（JPY/USD）＋ドリルダウン編集 ═══════════
+   logic.js の vDash を置き換える（このファイルは logic.js より後に読み込むこと） */
+
+/* ── 参照為替レート（三菱UFJ銀行公表相場のTTM。オンライン時は当日値を自動取得） ── */
+const RATE_REF={d:"2026-08-28",v:159.40,src:"三菱UFJ銀行公表相場（三菱UFJリサーチ&コンサルティング掲載）TTM"};
+function dashRate(){
+  try{ const c=JSON.parse(localStorage.getItem("bc20_ttm_v1")||"null");
+    if(c&&c.v>80&&c.v<400&&c.at===new Date().toISOString().slice(0,10)) return {v:c.v,d:c.d,live:1};
+  }catch(e){}
+  return {v:RATE_REF.v,d:RATE_REF.d,live:0};
+}
+function dashRateFresh(){
+  if(window.__ttmTried) return; window.__ttmTried=1;
+  if(typeof fetchPageText!=="function"||typeof pageTextRaw!=="function") return;
+  if(dashRate().live) return;
+  pageTextRaw("https://www.murc-kawasesouba.jp/fx/index.php").then(t=>{
+    const m=String(t||"").match(/US ?Dollar[\s\S]{0,120}?USD[\s\S]{0,60}?(\d{2,3}\.\d{1,2})\s+(\d{2,3}\.\d{1,2})/);
+    if(!m) return;
+    const ttm=Math.round((parseFloat(m[1])+parseFloat(m[2]))/2*100)/100;
+    if(!(ttm>80&&ttm<400)) return;
+    const dm=String(t).match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s*現在/);
+    const d=dm?`${dm[1]}-${String(dm[2]).padStart(2,"0")}-${String(dm[3]).padStart(2,"0")}`:new Date().toISOString().slice(0,10);
+    try{ localStorage.setItem("bc20_ttm_v1",JSON.stringify({v:ttm,d,at:new Date().toISOString().slice(0,10)})); }catch(e){}
+    if(typeof render==="function"&&typeof page!=="undefined"&&page==="dash") render();
+  }).catch(()=>{});
+}
+
+/* ── スコープ状態 ── */
+let DASH={grp:"",co:"",cat:"",pr:"",from:"",to:"",
+  cur:(function(){try{return localStorage.getItem("bc20_dashcur")||"JPY"}catch(e){return "JPY"}})()};
+function dashSet(k,v){
+  DASH[k]=v||"";
+  if(k==="grp"){ DASH.co=""; DASH.cat=""; DASH.pr=""; }
+  if(k==="co"){ DASH.cat=""; DASH.pr=""; }
+  if(k==="cat"){ DASH.pr=""; }
+  if(k==="cur"){ try{ localStorage.setItem("bc20_dashcur",DASH.cur); }catch(e){} }
+  render();
+}
+function dashClearRange(){ DASH.from=""; DASH.to=""; render(); }
+
+/* ── 部門・部署グループ（会社の集合。総合商社の部署単位集計用） ── */
+function dashDepts(){ try{ return JSON.parse(localStorage.getItem("bc20_dept_v1")||"[]"); }catch(e){ return []; } }
+function dashDeptSave(a){ try{ localStorage.setItem("bc20_dept_v1",JSON.stringify(a)); }catch(e){} }
+
+/* ── 集計単位（登録商品ごと）。TENS登録があればそれを、無ければデモ3商材を使う ── */
+let __DU=null,__DUsig="";
+function dashUnits(){
+  let sig="";
+  if(typeof TENS!=="undefined"&&TENS.length)
+    sig="T:"+TIDX+":"+TENS.map(t=>(t.co||"")+"|"+(t.item||"")+"|"+(t.cat||"")).join(";");
+  else sig="K:"+(typeof PID!=="undefined"?PID:"");
+  if(__DU&&__DUsig===sig) return __DU;
+  const out=[];
+  if(typeof TENS!=="undefined"&&TENS.length){
+    TENS.forEach((t,i)=>{
+      let d;
+      if(t.src==="sample"&&typeof PRODUCTS!=="undefined"&&PRODUCTS[t.catKey]) d=PRODUCTS[t.catKey];
+      else if(i===TIDX&&typeof D!=="undefined"&&D&&D.key==="custom") d=D;
+      else d=tenantToD(t);
+      out.push({ref:"t:"+i,i,co:tenCoOf(t),cat:t.cat||"未分類",item:t.item||t.file||"（商品名 未登録）",D:d,act:i===TIDX});
+    });
+  } else if(typeof PRODUCTS!=="undefined"){
+    ["food","cosme","parts"].forEach(k=>{ const d=PRODUCTS[k]; if(!d) return;
+      out.push({ref:"k:"+k,i:-1,co:d.co,cat:d.cat,item:d.item,D:d,act:(typeof PID!=="undefined"&&PID===k)});
+    });
+  } else if(typeof D!=="undefined"&&D){ out.push({ref:"cur",i:-1,co:D.co,cat:D.cat,item:D.item,D,act:true}); }
+  __DU=out; __DUsig=sig; return out;
+}
+function dashUnitByRef(ref){ return dashUnits().find(u=>u.ref===ref)||null; }
+function dashScopeUnits(){
+  let u=dashUnits();
+  if(DASH.grp){ const g=dashDepts().find(x=>String(x.id)===String(DASH.grp)); if(g) u=u.filter(x=>g.cos.includes(x.co)); }
+  if(DASH.co) u=u.filter(x=>x.co===DASH.co);
+  if(DASH.cat) u=u.filter(x=>x.cat===DASH.cat);
+  if(DASH.pr) u=u.filter(x=>x.ref===DASH.pr);
+  return u;
+}
+function dashScopeName(){
+  if(DASH.pr){ const u=dashUnitByRef(DASH.pr); return u?u.item:"商品"; }
+  if(DASH.cat) return (DASH.co?DASH.co+"・":"")+DASH.cat;
+  if(DASH.co) return DASH.co;
+  if(DASH.grp){ const g=dashDepts().find(x=>String(x.id)===String(DASH.grp)); return g?g.name:"グループ"; }
+  return "全社";
+}
+
+/* ── 日付・金額パーサ ── */
+function dashDate(s){
+  s=String(s||"").trim(); if(!s) return "";
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return m[0];
+  m=s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if(m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+  m=s.match(/^(\d{1,2})月(\d{1,2})日/);
+  if(m) return `2026-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  return "";
+}
+function amtParse(s){
+  s=String(s||"").trim();
+  const mul=t=>t==="M"?1e6:t==="K"?1e3:t==="万"?1e4:t==="億"?1e8:1;
+  let m=s.match(/(?:US\$|USD\s?\$?)\s?([\d,]+(?:\.\d+)?)\s*([MK万億])?/i)||(/^\$/.test(s)?s.match(/\$\s?([\d,]+(?:\.\d+)?)\s*([MK万億])?/):null);
+  if(m) return {cur:"USD",v:(parseFloat(m[1].replace(/,/g,""))||0)*mul(m[2]||"")};
+  m=s.match(/[¥￥]\s?([\d,]+(?:\.\d+)?)\s*([MK万億])?/);
+  if(m) return {cur:"JPY",v:(parseFloat(m[1].replace(/,/g,""))||0)*mul(m[2]||"")};
+  m=s.match(/([\d,]+(?:\.\d+)?)/); return m?{cur:"",v:parseFloat(m[1].replace(/,/g,""))||0}:{cur:"",v:0};
+}
+function docRateOf(S){
+  const ex=(S&&S.docRows&&S.docRows.ex)||[];
+  for(const r of ex){ const line=(r||[]).join(" ");
+    if(/レート|exchange\s*rate/i.test(line)){ const m=line.match(/(\d{2,3}(?:\.\d{1,2})?)/); if(m){ const v=parseFloat(m[1]); if(v>80&&v<400) return v; } } }
+  return null;
+}
+function fmtJPY(n){ return "¥"+Math.round(n).toLocaleString(); }
+function fmtUSD(n){ return "US$"+(Math.round(n*100)/100).toLocaleString(undefined,{maximumFractionDigits:n>=1000?0:2}); }
+
+/* ── 受注（＝Invoice書類の金額と同一ソース：D.ship / 出荷案件） ── */
+function dashOrders(us){
+  const out=[],seen={};
+  const push=(S,u,src)=>{
+    if(!S||!S.no||seen[S.no]) return; seen[S.no]=1;
+    const a=amtParse(S.total), dr=docRateOf(S);
+    const etd=(S.sched||[]).find(r=>/出港|出発|ETD/.test(String(r[1]||"")));
+    out.push({no:S.no,buyer:S.buyer||"—",cty:S.country||"—",item:u.item,co:u.co,qty:S.qty||"—",
+      unit:S.unitPrice||"—",total:S.total||"—",a,docRate:dr,
+      dISO:dashDate(S.want)||dashDate(etd&&etd[0])||"",ref:u.ref,src});
+  };
+  us.forEach(u=>{ const k=u.D&&u.D.kpi; if(u.D&&u.D.ship&&k&&k.won) push(u.D.ship,u,"base"); });
+  if(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS.length){
+    const au=us.find(x=>x.act);
+    if(au) SHIPS.forEach(cs=>{ if(cs&&cs.ship) push(cs.ship,au,"case"); });
+  }
+  return out;
+}
+function dashMoney(orders){
+  const r=dashRate(); let jpy=0,usd=0,mixed=0;
+  orders.forEach(o=>{ const rt=o.docRate||r.v;
+    if(o.a.cur==="USD"){ usd+=o.a.v; jpy+=o.a.v*rt; }
+    else if(o.a.cur==="JPY"){ jpy+=o.a.v; usd+=o.a.v/rt; }
+    else if(o.a.v){ mixed++; }
+    if(o.docRate) o._rSrc="書類記載レート "+o.docRate; });
+  return {jpy,usd,mixed,rate:r};
+}
+
+/* ── 集計（期間指定時は日付を持つデータ＝商談記録・受注ベース） ── */
+function dashAgg(us){
+  const per=!!(DASH.from||DASH.to);
+  const ok=d=>{ if(!per) return true; if(!d) return false;
+    return (!DASH.from||d>=DASH.from)&&(!DASH.to||d<=DASH.to); };
+  const fb=[];
+  us.forEach(u=>(u.D.fb||[]).forEach((r,fi)=>{ if(ok(dashDate(r.d))) fb.push({...r,_ref:u.ref,_fi:fi,_item:u.item,_co:u.co}); }));
+  let orders=dashOrders(us).filter(o=>!per||ok(o.dISO));
+  const K={fbDone:0,fbGoal:0,buyers:0,hot:0,countries:0,quotes:0,quoteAmt:0,weighted:0,won:0};
+  us.forEach(u=>{ const k=u.D.kpi||{}; K.fbGoal+=(k.fbGoal||42); });
+  if(per){
+    K.fbDone=fb.length;
+    K.buyers=new Set(fb.map(r=>r.b)).size;
+    K.hot=fb.filter(r=>r.react==="高").length;
+    K.countries=new Set(fb.map(r=>r.c)).size;
+    K.quotes=fb.filter(r=>r.price&&r.price!=="—").length;
+    K.won=orders.length;
+  }else{
+    us.forEach(u=>{ const k=u.D.kpi||{};
+      K.fbDone+=k.fbDone||0; K.buyers+=k.buyers||0; K.hot+=k.hot||0;
+      K.countries=Math.max(K.countries,k.countries||0);
+      K.quotes+=k.quotes||0; K.quoteAmt+=amtParse(k.quoteAmt).v||0; K.weighted+=amtParse(k.weighted).v||0;
+      K.won+=k.won||0; });
+  }
+  /* 国別 */
+  let byc;
+  if(per){ const m={}; fb.forEach(r=>{ if(r.c) m[r.c]=(m[r.c]||0)+1; }); byc=Object.entries(m).sort((a,b)=>b[1]-a[1]); }
+  else { const m={}; us.forEach(u=>(u.D.byc||[]).forEach(([c,v])=>{ m[c]=(m[c]||0)+v; })); byc=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,10); }
+  /* 失注理由 */
+  let lost;
+  if(per){ const m={}; fb.filter(r=>r.st==="失注").forEach(r=>{ const w=r.why||"理由未記録"; m[w]=(m[w]||0)+1; }); lost=Object.entries(m).sort((a,b)=>b[1]-a[1]); }
+  else { const m={}; us.forEach(u=>(u.D.lost||[]).forEach(([w,v])=>{ m[w]=(m[w]||0)+v; })); lost=Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,8); }
+  /* ファネル */
+  let funnel,funnelNote="";
+  if(per){
+    funnel=[["反応を記録",fb.length],["見積を提示",fb.filter(r=>r.price&&r.price!=="—").length],
+      ["サンプル発送",fb.filter(r=>r.st==="サンプル発送").length],["初回受注",orders.length]];
+    funnelNote="期間指定中は<b>日付を持つ商談記録・受注</b>だけで集計しています（接触数・商談実施数は日付を持たないため対象外）。";
+  }else{
+    const base=(us[0]&&us[0].D.funnel)||[];
+    funnel=base.map((row,i)=>[row[0],us.reduce((a,u)=>a+(((u.D.funnel||[])[i]||[])[1]||0),0)]);
+  }
+  return {us,per,fb,orders,K,byc,lost,funnel,funnelNote,money:dashMoney(orders)};
+}
+
+/* ── スコープバー ── */
+function dashBar(){
+  const all=dashUnits(), depts=dashDepts();
+  if(all.length<=1&&!depts.length) return "";
+  const cos=[...new Set(all.map(u=>u.co))];
+  const scoped=(DASH.grp?all.filter(u=>{const g=depts.find(x=>String(x.id)===String(DASH.grp));return g?g.cos.includes(u.co):true;}):all);
+  const cos2=[...new Set(scoped.map(u=>u.co))];
+  const cats=[...new Set(scoped.filter(u=>!DASH.co||u.co===DASH.co).map(u=>u.cat))];
+  const prods=scoped.filter(u=>(!DASH.co||u.co===DASH.co)&&(!DASH.cat||u.cat===DASH.cat));
+  const skipCo=cos.length<=1;   /* 製造業など1社のみ→会社階層をスキップ */
+  const sel=(id,lbl,opts,val,key)=>`<label style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink-3)">${lbl}
+    <select class="sel" style="min-height:30px;padding:4px 8px;font-size:11.5px;max-width:190px" onchange="dashSet('${key}',this.value)">
+      <option value="">${id}</option>${opts.map(o=>`<option value="${esc(String(o[0]))}"${String(val)===String(o[0])?" selected":""}>${esc(o[1])}</option>`).join("")}</select></label>`;
+  return `<div class="c" style="margin-bottom:11px;padding:10px 13px">
+    <div class="rw" style="gap:9px;flex-wrap:wrap;align-items:center">
+      <b style="font-size:12px">📊 集計範囲：${esc(dashScopeName())}</b>
+      ${depts.length?sel("全部署","部署・部門",depts.map(g2=>[g2.id,g2.name]),DASH.grp,"grp"):""}
+      ${skipCo?"":sel("全社","会社",cos2.map(c=>[c,c]),DASH.co,"co")}
+      ${sel("全カテゴリ","カテゴリ",cats.map(c=>[c,c]),DASH.cat,"cat")}
+      ${sel("全商品","商品",prods.map(u=>[u.ref,u.item+"（"+u.co+"）"]),DASH.pr,"pr")}
+      <span style="border-left:1px solid var(--line);height:22px"></span>
+      <label style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--ink-3)">期間
+        <input type="date" class="sel" style="min-height:30px;padding:3px 6px;font-size:11px" value="${esc(DASH.from)}" onchange="dashSet('from',this.value)">〜
+        <input type="date" class="sel" style="min-height:30px;padding:3px 6px;font-size:11px" value="${esc(DASH.to)}" onchange="dashSet('to',this.value)"></label>
+      ${(DASH.from||DASH.to)?`<button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="dashClearRange()">期間クリア</button>`:""}
+      <button class="btn g" style="padding:4px 9px;font-size:10.5px;margin-left:auto" onclick="openDashGroups()">⚙ 部署・部門グループ</button>
+    </div>
+    ${(DASH.grp||DASH.co||DASH.cat||DASH.pr)?`<p class="nn" style="margin-top:6px">全社 ${DASH.grp?"› "+esc(dashDepts().find(x=>String(x.id)===String(DASH.grp))?.name||""):""} ${DASH.co?"› "+esc(DASH.co):""} ${DASH.cat?"› "+esc(DASH.cat):""} ${DASH.pr?"› "+esc((dashUnitByRef(DASH.pr)||{}).item||""):""}　<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="DASH.grp='';DASH.co='';DASH.cat='';DASH.pr='';render()">全社に戻す</button></p>`:""}
+  </div>`;
+}
+
+/* ── 部署・部門グループ管理 ── */
+function openDashGroups(){
+  const cos=[...new Set(dashUnits().map(u=>u.co))], gs=dashDepts();
+  openDW(`<h3>⚙ 部署・部門グループ</h3>
+    <p class="nn" style="margin-top:4px">会社（サプライヤー）をグループにまとめると、<b>部署単位・部門単位のダッシュボード集計</b>ができます（例：食品部＝みどり製茶＋みなと酒造）。グループはこのブラウザに保存されます。</p>
+    <div id="dgList" style="margin-top:9px">${gs.length?gs.map(g2=>`
+      <div class="c" style="padding:9px 11px;margin-bottom:7px">
+        <div class="rw" style="justify-content:space-between"><b style="font-size:12px">${esc(g2.name)}</b>
+          <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="dashDelGroup('${esc(String(g2.id))}')">削除</button></div>
+        <p class="nn" style="margin-top:3px">${g2.cos.length?g2.cos.map(esc).join("・"):"（会社未割当）"}</p></div>`).join("")
+      :`<p class="nn">まだグループがありません。</p>`}</div>
+    <p class="lbl" style="margin-top:11px">新しいグループを作る</p>
+    <input class="sel" id="dgName" placeholder="例：食品部／第一営業部／海外事業部" style="width:100%;box-sizing:border-box;margin-top:4px">
+    <div style="margin-top:7px;display:grid;grid-template-columns:1fr 1fr;gap:4px">
+      ${cos.map((c,i)=>`<label style="display:flex;gap:6px;align-items:center;font-size:11.5px"><input type="checkbox" class="dgCo" value="${esc(c)}">${esc(c)}</label>`).join("")}</div>
+    <div class="rw" style="margin-top:11px"><button class="btn" onclick="dashAddGroup()">グループを作成</button>
+      <button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+}
+function dashAddGroup(){
+  const nm=($("#dgName")&&$("#dgName").value||"").trim();
+  const cos=[...document.querySelectorAll(".dgCo:checked")].map(x=>x.value);
+  if(!nm){ toast("グループ名を入力してください"); return; }
+  if(!cos.length){ toast("会社を1社以上選んでください"); return; }
+  const gs=dashDepts(); gs.push({id:Date.now().toString(36),name:nm,cos});
+  dashDeptSave(gs); toast("グループ「"+nm+"」を作成しました"); openDashGroups(); render();
+}
+function dashDelGroup(id){
+  dashDeptSave(dashDepts().filter(g2=>String(g2.id)!==String(id)));
+  if(String(DASH.grp)===String(id)) DASH.grp="";
+  openDashGroups(); render();
+}
+
+/* ── ドリルダウン（クリックで内訳を見る・編集する） ── */
+function dashDrill(kind,arg){
+  const A=dashAgg(dashScopeUnits());
+  const per=A.per?`<span class="p lo">期間 ${esc(DASH.from||"…")}〜${esc(DASH.to||"…")}</span>`:"";
+  const editNote=`<p class="nn" style="margin-top:7px">✎ から内容を編集できます。サンプルデータへの編集はこのブラウザの表示に反映されます（実データ登録後は保存されます）。</p>`;
+  const fbTable=rows=>rows.length?`<div class="tw" style="margin-top:8px;max-height:340px"><table><thead>
+      <tr><th>日付</th><th>バイヤー</th><th>国</th><th>商品</th><th>状態</th><th>反応</th><th></th></tr></thead><tbody>
+      ${rows.map(r=>`<tr><td class="n" style="font-size:10.5px">${esc(r.d||"—")}</td>
+        <td><b style="font-size:11px">${esc(r.b)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${esc(r.ch||"")}</span></td>
+        <td style="font-size:11px">${esc(r.c||"—")}</td><td style="font-size:10.5px">${esc(r._item||r.item||"")}</td>
+        <td>${r.st==="受注"?'<span class="p hi">受注</span>':r.st==="失注"?'<span class="p no">失注</span>':'<span class="p lo">'+esc(r.st||"—")+"</span>"}</td>
+        <td>${esc(r.react||"—")}</td>
+        <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashFbEdit('${esc(r._ref)}',${r._fi})">✎</button></td></tr>`).join("")}
+      </tbody></table></div>`
+    :`<p class="nn" style="margin-top:8px">該当する記録がありません${A.per?"（期間指定を確認してください）":""}。</p>`;
+  if(kind==="fb"){
+    openDW(`<h3>💬 バイヤーの声（商談記録） ${per}</h3>
+      <p class="nn" style="margin-top:4px">集計範囲：${esc(dashScopeName())}／${A.fb.length}件</p>${fbTable(A.fb)}${editNote}`);
+  }else if(kind==="buyers"){
+    const m={}; A.fb.forEach(r=>{ (m[r.b]=m[r.b]||{b:r.b,c:r.c,ch:r.ch,n:0,hot:0,rows:[]}); m[r.b].n++; if(r.react==="高") m[r.b].hot++; m[r.b].rows.push(r); });
+    const list=Object.values(m).sort((a,b)=>b.n-a.n);
+    openDW(`<h3>🤝 やりとりが続いている相手 ${per}</h3>
+      <p class="nn" style="margin-top:4px">集計範囲：${esc(dashScopeName())}／商談記録に登場する相手 ${list.length}社（KPIカードの「${A.K.buyers}社」は接触ログ全体の集計値）</p>
+      ${list.length?`<div class="tw" style="margin-top:8px;max-height:340px"><table><thead>
+        <tr><th>バイヤー</th><th>国</th><th>記録</th><th>手応え</th><th></th></tr></thead><tbody>
+        ${list.map(x=>`<tr><td><b style="font-size:11px">${esc(x.b)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${esc(x.ch||"")}</span></td>
+          <td style="font-size:11px">${esc(x.c||"—")}</td><td class="n">${x.n}件</td>
+          <td>${x.hot?'<span class="p hi">高×'+x.hot+"</span>":"—"}</td>
+          <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashFbEdit('${esc(x.rows[0]._ref)}',${x.rows[0]._fi})">✎</button></td></tr>`).join("")}
+        </tbody></table></div>`:`<p class="nn" style="margin-top:8px">商談記録がまだありません。</p>`}${editNote}`);
+  }else if(kind==="byc"){
+    const rows=A.fb.filter(r=>r.c===arg);
+    openDW(`<h3>🌏 ${esc(arg)} の商談記録 ${per}</h3>
+      <p class="nn" style="margin-top:4px">集計範囲：${esc(dashScopeName())}</p>${fbTable(rows)}${editNote}`);
+  }else if(kind==="funnel"){
+    const st=String(arg||"");
+    let rows=A.fb, note="";
+    if(/受注/.test(st)){ dashDrill("orders"); return; }
+    else if(/サンプル/.test(st)) rows=A.fb.filter(r=>r.st==="サンプル発送");
+    else if(/見積/.test(st)) rows=A.fb.filter(r=>r.price&&r.price!=="—");
+    else if(/反応|記録/.test(st)) rows=A.fb;
+    else note=`<p class="nn" style="margin-top:8px">「${esc(st)}」の件数は現行版の活動ログ由来の集計値で、この版では<b>件数のみ</b>を保持しています（個社リストは商談記録のある段階から見られます）。</p>`;
+    openDW(`<h3>📈 ${esc(st)} ${per}</h3><p class="nn" style="margin-top:4px">集計範囲：${esc(dashScopeName())}</p>${note||fbTable(rows)}${note?"":editNote}`);
+  }else if(kind==="orders"){
+    const r=A.money.rate;
+    openDW(`<h3>💰 受注金額の内訳 ${per}</h3>
+      <p class="nn" style="margin-top:4px">集計範囲：${esc(dashScopeName())}／${A.orders.length}件。金額は<b>貿易実務・書類のInvoice（PI/CI）と同一ソース</b>です。</p>
+      ${A.orders.length?`<div class="tw" style="margin-top:8px;max-height:340px"><table><thead>
+        <tr><th>受注No</th><th>バイヤー／国</th><th>商品</th><th>数量</th><th>単価</th><th>Invoice金額</th><th>出荷予定</th><th></th></tr></thead><tbody>
+        ${A.orders.map(o=>{const rt=o.docRate||r.v;
+          const j=o.a.cur==="USD"?o.a.v*rt:o.a.v, u2=o.a.cur==="USD"?o.a.v:(o.a.v/rt);
+          return `<tr><td class="n" style="font-size:10.5px">${esc(o.no)}</td>
+          <td><b style="font-size:11px">${esc(o.buyer)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${esc(o.cty)}</span></td>
+          <td style="font-size:10.5px">${esc(o.item)}</td><td style="font-size:10.5px">${esc(o.qty)}</td>
+          <td class="n" style="font-size:10.5px">${esc(o.unit)}</td>
+          <td class="n"><b>${esc(o.total)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">≒${DASH.cur==="JPY"?fmtJPY(j):fmtUSD(u2)}${o.docRate?"（書類レート"+o.docRate+"）":""}</span></td>
+          <td class="n" style="font-size:10.5px">${esc(o.dISO||"—")}</td>
+          <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashOrdEdit('${esc(o.no)}')">✎</button></td></tr>`;}).join("")}
+        </tbody></table></div>
+        <p class="nn" style="margin-top:7px">換算：${o2rateNote()}</p>`
+      :`<p class="nn" style="margin-top:8px">受注（Invoice発行済みの案件）はまだありません。</p>`}${editNote}`);
+  }
+  if(typeof dwChrome==="function") dwChrome();
+}
+function o2rateNote(){
+  const r=dashRate();
+  return `書類にレート記載がある受注はそのレート、無い受注は<b>三菱UFJリサーチ&コンサルティング掲載のTTM ${r.v.toFixed(2)}円/US$（${esc(r.d)}${r.live?"・本日取得":"・参照レート"}）</b>で換算しています。`;
+}
+
+/* ── 商談記録の編集 ── */
+function dashFbEdit(ref,fi){
+  const u=dashUnitByRef(ref); if(!u||!u.D.fb||!u.D.fb[fi]){ toast("記録が見つかりません"); return; }
+  const r=u.D.fb[fi];
+  openDW(`<h3>✎ 商談記録を編集</h3>
+    <p class="nn" style="margin-top:4px"><b>${esc(r.b)}</b>（${esc(r.c||"—")}）／${esc(r.d||"")}／${esc(u.item)}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px">
+      <label style="font-size:10.5px;color:var(--ink-3)">状態
+        <select class="sel" id="dfSt" style="width:100%;margin-top:2px">${["商談中","見積提示","サンプル発送","受注","失注"].map(s=>`<option${r.st===s?" selected":""}>${s}</option>`).join("")}</select></label>
+      <label style="font-size:10.5px;color:var(--ink-3)">手応え
+        <select class="sel" id="dfRe" style="width:100%;margin-top:2px">${["高","中","低"].map(s=>`<option${r.react===s?" selected":""}>${s}</option>`).join("")}</select></label>
+    </div>
+    <p class="lbl" style="margin-top:8px">提示価格</p>
+    <input class="sel" id="dfPr" value="${esc(r.price||"")}" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:8px">失注理由（失注の場合）</p>
+    <input class="sel" id="dfWhy" value="${esc(r.why||"")}" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:8px">メモ</p>
+    <textarea class="sel" id="dfNote" rows="3" style="width:100%;box-sizing:border-box">${esc(r.note||"")}</textarea>
+    <div class="rw" style="margin-top:11px"><button class="btn" id="dfGo">保存</button>
+      <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#dfGo").onclick=()=>{
+    r.st=$("#dfSt").value; r.react=$("#dfRe").value;
+    r.price=($("#dfPr").value||"").trim(); r.why=($("#dfWhy").value||"").trim(); r.note=($("#dfNote").value||"").trim();
+    if(u.i>=0&&typeof saveTen==="function") saveTen();
+    closeDW(); toast("商談記録を更新しました"); render();
+  };
+}
+
+/* ── 受注の編集（Invoice金額と連動） ── */
+function dashOrdEdit(no){
+  const us=dashScopeUnits();
+  let S=null,u=null;
+  us.forEach(x=>{ if(x.D&&x.D.ship&&x.D.ship.no===no){ S=x.D.ship; u=x; } });
+  if(!S&&typeof SHIPS!=="undefined"&&SHIPS) SHIPS.forEach(cs=>{ if(cs&&cs.ship&&cs.ship.no===no){ S=cs.ship; u=us.find(x=>x.act)||us[0]; } });
+  if(!S){ toast("受注が見つかりません"); return; }
+  openDW(`<h3>✎ 受注内容を編集（${esc(no)}）</h3>
+    <p class="nn" style="margin-top:4px">ここで直すと、ダッシュボードの累計受注金額と<b>Invoice（PI/CI）の明細</b>に反映されます。</p>
+    <p class="lbl" style="margin-top:9px">バイヤー</p><input class="sel" id="doB" value="${esc(S.buyer||"")}" style="width:100%;box-sizing:border-box">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+      <label style="font-size:10.5px;color:var(--ink-3)">数量<input class="sel" id="doQ" value="${esc(S.qty||"")}" style="width:100%;margin-top:2px"></label>
+      <label style="font-size:10.5px;color:var(--ink-3)">単価<input class="sel" id="doU" value="${esc(S.unitPrice||"")}" style="width:100%;margin-top:2px"></label>
+    </div>
+    <p class="lbl" style="margin-top:8px">Invoice合計（例：US$7,250.00／¥1,171,500）</p>
+    <input class="sel" id="doT" value="${esc(S.total||"")}" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:8px">出荷予定日（例：2026年9月10日）</p>
+    <input class="sel" id="doW" value="${esc(S.want||"")}" style="width:100%;box-sizing:border-box">
+    <div class="rw" style="margin-top:11px"><button class="btn" id="doGo">保存</button>
+      <button class="btn g" onclick="closeDW()">キャンセル</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#doGo").onclick=()=>{
+    S.buyer=($("#doB").value||"").trim()||S.buyer;
+    S.qty=($("#doQ").value||"").trim()||S.qty;
+    S.unitPrice=($("#doU").value||"").trim()||S.unitPrice;
+    S.total=($("#doT").value||"").trim()||S.total;
+    S.want=($("#doW").value||"").trim()||S.want;
+    if(S.docRows&&S.docRows.pi&&S.docRows.pi[0]){
+      const qn=String(S.qty).match(/[\d,]+/);
+      S.docRows.pi[0]=[S.docRows.pi[0][0],qn?qn[0]:S.docRows.pi[0][1],S.unitPrice,S.total];
+    }
+    if(u&&u.i>=0&&typeof saveTen==="function") saveTen();
+    closeDW(); toast("受注内容を更新しました（Invoiceにも反映）"); render();
+  };
+}
+
+/* ═══════════ vDash 本体（logic.js 版を置き換え） ═══════════ */
+function vDash(p){
+  dashRateFresh();
+  const us=dashScopeUnits(), A=dashAgg(us), K=A.K;
+  const single=us.length===1?us[0]:null;
+  const F=A.funnel, mx=Math.max(1,(F[0]&&F[0][1])||1);
+  const mb=Math.max(1,...A.byc.map(x=>x[1]),1), ml=Math.max(1,...A.lost.map(x=>x[1]),1);
+  const money=A.money, r=money.rate;
+  const moneyMain=DASH.cur==="JPY"?fmtJPY(money.jpy):fmtUSD(money.usd);
+  const moneySub=DASH.cur==="JPY"?fmtUSD(money.usd):fmtJPY(money.jpy);
+  /* 今日やること・30日予定・AIひとこと：単一商品はそのまま、複数は商品名を付けて統合 */
+  const todays=single?(single.D.today||[]).map(t=>({t:t[0],d:t[1],c:t[2]}))
+    :[].concat(...us.map(u=>(u.D.today||[]).map(t=>({t:"【"+u.item.slice(0,10)+"】"+t[0],d:t[1],c:t[2]})))).slice(0,3);
+  const plans=single?(single.D.plan30||[])
+    :[].concat(...us.map(u=>(u.D.plan30||[]).map(row=>[row[0],"【"+u.item.slice(0,10)+"】"+row[1],row[2],row[3]]))).slice(0,6);
+  const dnote=single?(single.D.dashNote||""):(us.find(u=>u.D.dashNote)||{D:{}}).D.dashNote||"";
+  const S2=taskStats();
+  return ph(p,"<b>この画面でわかること：</b>いま海外でどこまで進んでいるか。上の集計範囲で<b>全社→部署→会社→カテゴリ→商品</b>と掘り下げられ、数字をクリックすると内訳（どの会社・どの受注か）まで見られます。",
+    `<button class="btn g" onclick="openReport()">今月のレポート</button><button class="btn" onclick="go('ship')">出荷を進める</button>`)+
+  dashBar()+
+  (todays.length?`<div class="c" style="margin-bottom:11px;border-color:var(--or);background:var(--or-soft)">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3 style="color:var(--or-deep)">今日やること　${todays.length}件${single?"":`（${esc(dashScopeName())}）`}</h3>
+        <p class="nn" style="color:var(--ink-2)">はじめての方は、上から順に対応すれば大丈夫です。</p></div>
+      <button class="btn" onclick="go('ship')">出荷の手続きを始める</button></div>
+    <div class="g3" style="margin-top:11px">
+      ${todays.map((x,i)=>`<div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px">
+          <div class="rw" style="gap:7px"><span style="width:18px;height:18px;border-radius:50%;background:var(--${x.c||"bl"});color:#fff;
+            font-size:10px;font-weight:700;display:grid;place-items:center">${i+1}</span>
+            <b style="font-size:12px">${AT(x.t)}</b></div>
+          <p style="font-size:11px;color:var(--ink-2);margin-top:5px">${AT(x.d)}</p></div>`).join("")}
+    </div></div>`:"")+`
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px;margin-bottom:11px">
+    <div class="c" style="cursor:pointer" onclick="dashDrill('fb')" title="クリックで内訳（商談記録の一覧・編集）">
+      <p class="lbl">バイヤーの声を集めた数</p><div class="kv n">${K.fbDone}<small>${A.per?"件":"/ "+K.fbGoal+"件"}</small></div>
+      ${A.per?`<div class="kd">期間内の商談記録</div>`:`<div class="mt"><i style="width:${Math.min(100,Math.round(K.fbDone/Math.max(1,K.fbGoal)*100))}%"></i></div>
+      <div class="kd">${us.length>1?`目標42件×${us.length}商材に対し`:"2年間で42件以上というお約束に対し"} ${Math.round(K.fbDone/Math.max(1,K.fbGoal)*100)}%</div>`}</div>
+    <div class="c" style="cursor:pointer" onclick="dashDrill('buyers')" title="クリックで内訳（相手の一覧・編集）">
+      <p class="lbl">やりとりが続いている相手</p><div class="kv n">${K.buyers}<small>社</small></div>
+      <div class="kd">うち手応えのある相手 <b class="n">${K.hot}${A.per?"件":"社"}</b>／${K.countries}か国</div></div>
+    <div class="c" style="cursor:pointer" onclick="dashDrill('funnel','見積を提示')" title="クリックで内訳">
+      <p class="lbl">見積を出している案件</p><div class="kv n">${K.quotes}<small>件</small></div>
+      <div class="kd">${A.per?"期間内に価格提示のある商談":`合計 <span class="n">¥${(K.quoteAmt/1e6).toFixed(1)}M</span>（確度加味 <span class="n">¥${(K.weighted/1e6).toFixed(1)}M</span>）`}</div></div>
+    <div class="c" style="cursor:pointer" onclick="dashDrill('orders')" title="クリックで内訳（受注一覧・編集）">
+      <p class="lbl">${A.per?"期間内の受注":"初めての受注"}</p><div class="kv n" style="color:var(--good)">${K.won}<small>件</small></div>
+      <div class="kd">${esc(single&&single.D.kpi&&single.D.kpi.wonNote||A.orders.map(o=>o.cty).filter((v,i,a)=>a.indexOf(v)===i).slice(0,3).join("・")||"これからです")}</div></div>
+    <div class="c" style="cursor:pointer;border-color:var(--good)" onclick="dashDrill('orders')" title="クリックで内訳（どのBuyerから・どの商品を・いくらで）">
+      <p class="lbl">累計受注金額
+        <span style="float:right;display:inline-flex;gap:2px">
+          <button class="btn ${DASH.cur==="JPY"?"":"g"}" style="padding:1px 7px;font-size:9.5px" onclick="event.stopPropagation();dashSet('cur','JPY')">¥</button>
+          <button class="btn ${DASH.cur==="USD"?"":"g"}" style="padding:1px 7px;font-size:9.5px" onclick="event.stopPropagation();dashSet('cur','USD')">$</button></span></p>
+      <div class="kv n" style="color:var(--good);font-size:21px">${moneyMain}</div>
+      <div class="kd">≒${moneySub}／Invoice書類と同一ソース<br><span style="font-size:9px">参照レート ${r.v.toFixed(2)}円/US$（MUFG RC TTM・${esc(r.d)}${r.live?"":"・参照値"}）</span></div></div>
+  </div>
+
+  <div class="g2" style="margin-bottom:11px">
+    <div class="c"><h3>どこまで進んだか</h3>
+      <p class="nn">左から右へ、相手に接触してから受注に至るまでの流れです。<b>各段の数字をクリック</b>すると該当する相手が見られます。</p>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+        ${F.map((f,i)=>`<div style="display:grid;grid-template-columns:92px minmax(0,1fr) 46px;gap:9px;align-items:center;font-size:11.5px">
+          <span>${f[0]}</span>
+          <span role="button" onclick="dashDrill('funnel','${esc(f[0])}')" style="cursor:pointer;height:23px;border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;
+            font-size:10.5px;font-weight:700;width:${Math.max(9,f[1]/mx*100)}%;
+            background:${i>=F.length-2?"var(--good)":i>=2?"var(--or)":"var(--bl)"}">${f[1]}</span>
+          <span style="text-align:right;color:var(--ink-3);font-size:10.5px">${i&&F[i-1][1]?Math.round(f[1]/F[i-1][1]*100)+"%":"—"}</span>
+        </div>`).join("")}
+      </div>
+      ${A.funnelNote?`<p class="nn" style="margin-top:9px">${A.funnelNote}</p>`
+        :(F[1]&&F[1][1]?`<p class="nn" style="margin-top:9px">商談したうち反応を記録できたのは${Math.round((F[2]&&F[2][1]||0)/F[1][1]*100)}%。<b>ここを上げるほど、2年後に残る財産が増えます。</b></p>`
+        :`<p class="nn" style="margin-top:9px">STANDAGEの担当がバイヤーへの接触を始めると、ここが左から順に動き出します。</p>`)}</div>
+    <div class="c"><h3>どの国で手応えがあるか</h3>
+      <p class="nn">${A.per?"期間内の商談記録の国別件数です。":"商談記録の件数です。"}<b>国名をクリック</b>すると、その国の相手が見られます。</p>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
+        ${A.byc.length?A.byc.map(([c,v],i)=>`<div role="button" onclick="dashDrill('byc','${esc(c)}')" style="cursor:pointer;display:grid;grid-template-columns:92px 1fr 24px;gap:8px;align-items:center;font-size:11.5px">
+          <span>${esc(c)}</span><span style="height:9px;border-radius:3px;width:${Math.max(6,v/mb*100)}%;
+            background:${i<3?"var(--or)":"var(--bl)"}"></span>
+          <span class="n" style="text-align:right;color:var(--ink-3)">${v}</span></div>`).join("")
+        :`<div style="padding:16px 12px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">
+          まだ商談記録がありません。<br>商談を記録すると、<b>実際に反応があった国</b>がここに並びます。
+          <div class="rw" style="justify-content:center;margin-top:9px">
+            <button class="btn g" onclick="go('deal')">＋ 商談を記録する</button></div></div>`}
+      </div></div>
+  </div>
+
+  <div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><h3>いま何が動いているか <span class="nt">現行版から統合</span></h3>
+        <p class="nn">現行の貿易クラウドの「進捗」を、この版でも標準機能として持っています。${(DASH.co||DASH.pr||DASH.grp||DASH.cat)?"<b>タスクは全社共通の集計です。</b>":""}</p></div>
+      <button class="btn g" onclick="go('task')">タスクを開く</button></div>
+    <div class="rw" style="margin-top:11px;gap:18px;align-items:center">
+      ${donut(S2.rate)}
+      <div style="flex:1;min-width:190px">
+        <p class="lbl">残タスク数</p><div class="kv n">${S2.total-S2.done-S2.cancel}<small>件 / ${S2.total}件</small></div>
+        <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;font-size:11px">
+          ${[["未着手",S2.todo,"ink-3"],["対応中",S2.doing,"bl"],["中止",S2.cancel,"crit"],["完了",S2.done,"good"]]
+            .map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;gap:6px">
+              <span><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--${c});margin-right:5px"></span>${l}</span>
+              <span class="n" style="color:var(--ink-3)">${v}件</span></div>`).join("")}</div></div>
+      <div style="flex:1;min-width:190px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${[["期限切れ",S2.overdue,S2.overdue?"crit":"ink-3"],["開始が遅れている",S2.late,S2.late?"or":"ink-3"],
+           ["1週間以内が期限",S2.soon,S2.soon?"warn":"ink-3"],["作業期間中",S2.active,"ink-3"]]
+          .map(([l,v,c])=>`<div style="padding:8px 10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
+            <p class="lbl" style="font-size:9.5px">${l}</p>
+            <div class="n" style="font-size:19px;font-weight:300;color:var(--${c})">${v}<span style="font-size:10px">件</span></div></div>`).join("")}
+      </div></div></div>
+
+  <div class="g2">
+    <div class="c"><h3>断られた理由 <span class="nt">この版で新規</span></h3>
+      <p class="nn">以前は記録していませんでした。理由がたまると、次に何を直せばいいかが決まります。</p>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+        ${A.lost.length?A.lost.map(([w,v])=>`<div><div style="display:flex;justify-content:space-between;font-size:11.5px;gap:8px"><span>${AT(w)}</span>
+          <span class="n" style="color:var(--ink-3);white-space:nowrap">${v}件</span></div>
+          <div class="mt" style="margin-top:3px"><i style="width:${v/ml*100}%;background:var(--crit)"></i></div></div>`).join("")
+        :`<p class="nn">記録された失注はありません。</p>`}
+      </div>
+      ${dnote?`<div style="margin-top:11px;padding:10px 12px;border-radius:var(--r2);background:var(--or-soft);font-size:11.5px;line-height:1.7">
+        <b style="color:var(--or-deep)">AIからのひとこと</b><br>${T(dnote)}</div>`:""}</div>
+    <div class="c"><h3>これから30日の予定</h3>
+      <p class="nn">たまったデータからAIが優先順位をつけています。</p>
+      <div class="tl" style="margin-top:10px">
+        ${plans.length?plans.map(([w,t,d,c])=>`<div class="ti ${c||""}"><time>${esc(w)}</time><b>${AT(t)}</b><br>
+          <span style="color:var(--ink-2)">${AT(d)}</span></div>`).join("")
+        :`<p class="nn">予定はまだありません。</p>`}
+      </div></div>
+  </div>`;
+}
 
 /* ═══════════ ③ AI商社マンのWeb検索 ═══════════
    ONのとき、まず本物のWebをライブ検索する（為替レートAPI・Wikipedia検索）。
