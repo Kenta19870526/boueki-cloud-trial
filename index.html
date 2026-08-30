@@ -4027,8 +4027,10 @@ function dkSetAssetFile(kind,file,slot){
   if(!dkEnsureAssets()){ toast("先に商品情報を登録してください"); return; }
   if(!/^image\//.test(file.type)&&!/\.(png|jpe?g|webp|gif)$/i.test(file.name)){ toast("画像ファイル（PNG/JPEG等）をお選びください"); return; }
   const rd=new FileReader();
-  rd.onload=()=>imgNorm(rd.result,a=>{
+  rd.onload=()=>imgNorm(rd.result,async a=>{
     const A=dkEnsureAssets();
+    if(kind!=="logo"&&await dkIsDup(a.b64,a.mime,slot)){
+      toast("同じ写真がすでに登録されているため追加しませんでした（重複は1枚だけ掲載されます）"); return; }
     if(kind==="logo") A.logo={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:"upload"};
     else { A.ph=A.ph||[]; A.ph[slot]={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:"upload",cap:file.name}; }
     if(typeof saveTen==="function") saveTen();
@@ -4080,6 +4082,55 @@ async function dkFetchImg(url,maxPx){
   const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
   const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,w,h); cx.drawImage(bm,0,0,w,h);
   return {b64:cv.toDataURL("image/jpeg",0.82).split(",")[1],mime:"image/jpeg",w,h};
+}
+/* ── 画像の重複検知（8×8平均ハッシュ）：同じ写真を2枚以上載せない ── */
+function dkAHash(b64,mime){ return new Promise(res=>{
+  const im=new Image();
+  im.onload=()=>{ try{
+    const cv=document.createElement("canvas"); cv.width=8; cv.height=8;
+    const cx=cv.getContext("2d"); cx.drawImage(im,0,0,8,8);
+    const d=cx.getImageData(0,0,8,8).data, g=[], c=[];
+    for(let i=0;i<64;i++){ g.push(d[i*4]*0.299+d[i*4+1]*0.587+d[i*4+2]*0.114);
+      c.push(d[i*4]-d[i*4+2]); }                      /* 色差(R-B)：同構図でも色違いを区別 */
+    const avg=g.reduce((a,b)=>a+b,0)/64, avgC=c.reduce((a,b)=>a+b,0)/64;
+    res(g.map(v=>v>avg?"1":"0").join("")+c.map(v=>v>avgC+8?"2":v<avgC-8?"0":"1").join(""));
+  }catch(e){ res(""); } };
+  im.onerror=()=>res("");
+  im.src="data:"+(mime||"image/jpeg")+";base64,"+b64;
+});}
+function dkHamm(a,b){ if(!a||!b||a.length!==b.length) return 999; let n=0;
+  for(let i=0;i<a.length;i++) if(a[i]!==b[i]) n++; return n; }
+/* 同一画像判定：輝度パターンがほぼ一致（≤5/64）かつ 色差の揺れが小さい（≤16/64）
+   ——JPEG再圧縮・サイズ違いは同一扱い、同構図の色違い商品は別物扱い */
+function dkSameImg(a,b){
+  if(!a||!b||a.length!==b.length||a.length<64) return false;
+  let l=0; for(let i=0;i<64;i++) if(a[i]!==b[i]) l++;
+  if(l>5) return false;
+  let c=0; for(let i=64;i<a.length;i++) if(a[i]!==b[i]) c++;
+  return c<=16;
+}
+async function dkHashOf(o){ if(!o||!o.b64) return ""; if(!o._h) o._h=await dkAHash(o.b64,o.mime); return o._h; }
+/* 既存アセット（ロゴ・全写真）と重複していれば true（サイズ違いの同一画像も検知） */
+async function dkIsDup(b64,mime,skipSlot){
+  const h=await dkAHash(b64,mime); if(!h) return false;
+  const A=dkAssets();
+  if(A.logo&&A.logo.b64&&dkSameImg(h,await dkHashOf(A.logo))) return true;
+  const ph=A.ph||[];
+  for(let i=0;i<ph.length;i++){ if(i===skipSlot) continue;
+    const o=ph[i]; if(o&&o.b64&&dkSameImg(h,await dkHashOf(o))) return true; }
+  return false;
+}
+/* 重複してしまった写真を一括整理（先勝ち・ロゴと同一の写真も除去） */
+async function dkDedupePhotos(){
+  const A=dkEnsureAssets(); if(!A) return;
+  const seen=[]; let rm=0;
+  if(A.logo&&A.logo.b64) seen.push(await dkHashOf(A.logo));
+  for(const i of PH_IDX){ const o=A.ph&&A.ph[i]; if(!o||!o.b64) continue;
+    const h=await dkHashOf(o);
+    if(h&&seen.some(s=>dkSameImg(h,s))){ A.ph[i]=null; rm++; } else if(h) seen.push(h); }
+  if(typeof saveTen==="function") saveTen();
+  render();
+  toast(rm?`同じ写真 ${rm}枚を整理しました（各1枚だけ残しています）`:"重複している写真はありませんでした");
 }
 /* 採用直前のAI画像判定（接続時）：誤った画像を絶対に載せないための最終ゲート */
 async function dkVerifyImg(a,role){
@@ -4240,39 +4291,65 @@ async function deckEnrich(){
     say('<span class="spin"></span> 公式サイトを読み込んでいます…');
     const pg=await fetchPageText(url);
     const host=(pg.url.match(/^https?:\/\/([^\/]+)/)||[])[1]||pg.url;
-    const txt=String(pg.raw).replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ")
+    let txt=String(pg.raw).replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ")
       .replace(/<[^>]+>/g," ").replace(/\s+/g," ").slice(0,14000);
-    say('<span class="spin"></span> AIがサイトから営業素材を抽出しています…（10〜40秒）');
+    /* 直接取得の本文が薄い（JS描画・情報が画像内のサイト）→ 読取中継でも取得し、多い方を併合 */
+    if(pg.via==="direct"){
+      try{
+        const r2=await fetch("https://r.jina.ai/"+pg.url);
+        if(r2.ok){ const t2=(await r2.text()).replace(/\s+/g," ").trim();
+          if(t2.length>txt.length*1.15) txt=(txt+" \n=== 追加取得（読取中継） ===\n "+t2).slice(0,15000); }
+      }catch(e){}
+    }
+    /* 成分・規格が「画像の表」に入っているサイト対策：表らしき画像をAIに添付して読み取らせる */
+    const exPre=extractSiteImages(pg.raw,pg.url);
+    let specAtt=null, specAttUrl=exPre.imgs.find(u=>/table|spec|seibun|ingredient|nutrition|成分|規格|栄養/i.test(u))||null;
+    if(specAttUrl){
+      try{ const ta=await dkFetchImg(wsrv(specAttUrl,1100),1100); specAtt={mime:ta.mime,b64:ta.b64,name:"spec.jpg"}; }catch(e){ specAtt=null; }
+    }
+    say('<span class="spin"></span> AIがサイトから営業素材を抽出しています…'+(specAtt?"（規格表の画像も読取中）":"")+'（10〜40秒）');
     const r=await llmAsk(
-'会社「'+D.co+'」・商品「'+D.item+'」の公式サイト本文から、営業資料用の素材をJSONのみで抽出してください：\n'+
+'会社「'+D.co+'」・商品「'+D.item+'」の公式サイト本文'+(specAtt?'と【添付画像（サイト掲載の規格・成分表）】':'')+'から、営業資料用の素材をJSONのみで抽出してください：\n'+
 '{"catch":"キャッチコピー（サイトの文言を活かす・20字以内）","tagline":"商品を一言で（25字以内）",'+
 '"mission":"ブランドの想い1文（40字以内）","brandStory":"ブランド紹介2文（90字以内）",'+
 '"features":[["特徴・成分の見出し（数字があれば残す）","補足20字"]…最大5件],'+
 '"lineup":[{"name":"商品名","desc":"説明20字","size":"容量など"}…最大3件],'+
-'"usage":["使い方ステップ（各25字以内）"…最大4件]}\n'+
-'サイトに書かれていない要素は空にする（創作禁止）。\n=== 公式サイト本文（'+pg.url+'） ===\n'+txt,
-      1600,{noWeb:1,timeout:90000});
+'"usage":["使い方ステップ（各25字以内）"…最大4件],'+
+'"specs":[["規格・成分の項目","値"]…最大8件。本文'+(specAtt?'と添付画像の表':'')+'から。無ければ空配列],'+
+'"priceNote":"価格の記載（例：1,234円(税込)/210mL）があればそのまま。無ければ空"}\n'+
+'サイトに書かれていない要素は空にする（創作禁止）。'+(specAtt?'添付画像の表（成分表・栄養成分・規格など）は読み取ってspecsに反映すること。':'')+'\n=== 公式サイト本文（'+pg.url+'） ===\n'+txt,
+      1900,Object.assign({noWeb:1,timeout:120000},specAtt?{att:specAtt}:{}));
     const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
     const rich={catch:String(j.catch||"").slice(0,40),tagline:String(j.tagline||"").slice(0,50),
       mission:String(j.mission||"").slice(0,80),brandStory:String(j.brandStory||"").slice(0,180),
       features:(Array.isArray(j.features)?j.features:[]).map(f=>[String((f&&f[0])||"").slice(0,40),String((f&&f[1])||"").slice(0,60)]).filter(f=>f[0]).slice(0,5),
       lineup:(Array.isArray(j.lineup)?j.lineup:[]).map(x=>({name:String((x&&x.name)||"").slice(0,40),desc:String((x&&x.desc)||"").slice(0,40),size:String((x&&x.size)||"").slice(0,20)})).filter(x=>x.name).slice(0,3),
       usage:(Array.isArray(j.usage)?j.usage:[]).map(String).filter(Boolean).slice(0,4),
+      specs:(Array.isArray(j.specs)?j.specs:[]).map(s2=>[String((s2&&s2[0])||"").slice(0,30),String((s2&&s2[1])||"").slice(0,60)]).filter(s2=>s2[0]&&s2[1]).slice(0,8),
+      priceNote:String(j.priceNote||"").slice(0,60),
       srcUrl:pg.url,host};
     TEN.deckRich=rich;
     if(rich.mission&&!TEN.deckMeta.mission) TEN.deckMeta.mission=rich.mission;
     if(rich.usage.length&&!(TEN.deckMeta.usage&&TEN.deckMeta.usage.length)) TEN.deckMeta.usage=rich.usage.slice();
+    /* 規格・成分が未登録なら、サイト（画像の表含む）から抽出したspecsで補完 */
+    if(rich.specs.length&&!(TEN.compRows&&TEN.compRows.length)){
+      TEN.compRows=rich.specs.map(s2=>[s2[0],s2[1],""]);
+      TEN.compCols=(TEN.compCols&&TEN.compCols.length)?TEN.compCols:["項目","内容","備考"];
+      TEN.compTitle=TEN.compTitle||"規格・成分";
+    }
+    if(rich.priceNote&&!TEN.deckMeta.priceNote) TEN.deckMeta.priceNote=rich.priceNote;
     if(typeof saveTen==="function") saveTen();
     /* 画像の自動設定：空き or Web検索由来スロットのみ。公式サイト画像をAI検査のうえ差し込む */
     say('<span class="spin"></span> 公式サイトの画像を検査して設定しています…');
-    const ex=extractSiteImages(pg.raw,pg.url);
-    let setPh=0, setLogo=false, checked=0;
+    const ex=exPre;
+    let setPh=0, setLogo=false, checked=0, dupSkip=0;
     const slots=PH_IDX.filter(i=>!A.ph[i]||A.ph[i].src==="web").slice(0,4); /* 自動設定は最大4枚まで（残りは候補から手動採用） */
     for(const u of ex.imgs){
       if(!slots.length||checked>=8) break;
       checked++;
       try{
         const a2=await dkFetchImg(wsrv(u,900),900);
+        if(await dkIsDup(a2.b64,a2.mime)){ dupSkip++; continue; }  /* 同じ写真は1枚だけ（再実行しても増殖しない） */
         const v=await dkVerifyImg(a2,"公式サイト掲載の商品画像");
         if(!v.ok) continue;
         const slot=slots.shift();
@@ -4299,10 +4376,13 @@ async function deckEnrich(){
     const got=[rich.catch?"キャッチコピー":"",rich.brandStory?"ブランド紹介":"",
       rich.features.length?("特徴"+rich.features.length+"件"):"",
       rich.lineup.length?("ラインアップ"+rich.lineup.length+"件"):"",
-      rich.usage.length?("使い方"+rich.usage.length+"手順"):""].filter(Boolean);
+      rich.usage.length?("使い方"+rich.usage.length+"手順"):"",
+      rich.specs.length?("規格・成分"+rich.specs.length+"項目"+(specAtt?"（画像の表から読取）":"")):"",
+      rich.priceNote?("価格表記「"+rich.priceNote+"」"):""].filter(Boolean);
     say('<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.75">'+
       '<b style="color:var(--good)">✓ 公式サイトから取り込みました：</b>'+(got.join("・")||"（テキスト素材なし）")+
       (setPh?('<br>写真'+setPh+'枚を公式サイト画像に設定'+((A.ph||[]).some(x=>x&&x.src==="web")?"":"（Web検索由来の画像は差し替え済み）")):'')+
+      (dupSkip?('<br>同一写真'+dupSkip+'枚は重複のためスキップ（1枚だけ掲載）'):'')+
       (setLogo?'<br>ロゴを公式サイトから設定':'')+
       '<br><span style="font-size:10px;color:var(--ink-3)">次の生成から資料に反映されます。内容は「AI商社マンと仕上げる」でいつでも修正できます。</span></div>');
   }catch(e){
@@ -4349,6 +4429,7 @@ function openDeckPicker(SECS){
       let slotMsg="ロゴ";
       if(c.as==="logo") A.logo=entry;
       else{
+        if(await dkIsDup(entry.b64,entry.mime)){ b.textContent="✗ 登録済みと同じ写真"; toast("同じ写真がすでに登録されています（重複は1枚だけ掲載されます）"); return; }
         A.ph=A.ph||[];
         let slot=PH_IDX.find(i=>!A.ph[i]);                       /* 空きスロット優先 */
         if(slot===undefined) slot=PH_IDX.find(i=>A.ph[i]&&A.ph[i].src==="web"); /* 次にWeb検索由来を差し替え */
@@ -4968,7 +5049,8 @@ function deckAssetCard(){
       <input type="color" id="dkbc" value="#${b?b.c:"F8951D"}" style="width:42px;height:28px;border:1px solid var(--line);border-radius:6px;padding:1px;background:var(--surface);cursor:pointer">
       <span class="nn" style="margin:0">${b?`${b.src==="manual"?"手動指定":"ロゴ・写真から自動抽出"}（#${b.c}）。<b>表紙・見出し・パネルなど資料全体の配色</b>に使われます。`
         :"未設定＝標準配色。<b>ロゴか写真を設定すると自動で抽出</b>します（ここで手動指定もできます）。"}</span>
-      <button class="btn g" id="dkbcauto" style="padding:3px 9px;font-size:10px">画像から再抽出</button></div>`;})()}
+      <button class="btn g" id="dkbcauto" style="padding:3px 9px;font-size:10px">画像から再抽出</button>
+      <button class="btn g" id="dkdedup" style="padding:3px 9px;font-size:10px;margin-left:auto" title="同じ写真が複数スロットにある場合、1枚だけ残して整理します">🧹 重複写真を整理</button></div>`;})()}
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
       ${slot("logo")}${PH_IDX.map(i=>slot("ph",i)).join("")}
     </div>
@@ -5230,6 +5312,8 @@ function deckBind(){
     deckSiteImgs(u);
   };
   const wz=$("#dkwiz"); if(wz) wz.onclick=()=>deckWizard();
+  const dd=$("#dkdedup"); if(dd) dd.onclick=()=>{ dd.disabled=true; dd.textContent="整理中…";
+    dkDedupePhotos().finally(()=>{ dd.disabled=false; dd.textContent="🧹 重複写真を整理"; }); };
   dkImgAudit();   /* 接続時：未検査の写真を営業資料適性（日本語文字・不鮮明）でAI検査 */
   const bc=$("#dkbc"); if(bc) bc.addEventListener("change",()=>{
     const v=bc.value.replace("#","").toUpperCase();
