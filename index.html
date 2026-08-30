@@ -9743,6 +9743,7 @@ function srcsBind(){
 /* ═════════ ルーティング ═════════ */
 function render(){
   const p=PAGES.find(x=>x.id===cur);
+  if(!p){cur="up";return render();}   /* ビルド差分等で存在しないページIDが来ても白画面にしない */
   if(!PID && !p.free){cur="up";return render();}
   well.innerHTML=({up:vUp,dash:vDash,item:vItem,deal:vDeal,task:vTask,ai:vAI,ship:vShip,
     ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp),
@@ -10022,7 +10023,10 @@ function fmtUSD(n){ return "US$"+(Math.round(n*100)/100).toLocaleString(undefine
 function dashOrders(us){
   const out=[],seen={};
   const push=(S,u,src)=>{
-    if(!S||!S.no||seen[S.no]) return; seen[S.no]=1;
+    if(!S||!S.no||seen[S.no]) return;
+    /* 「（想定）」の体験用シナリオ案件は受注実績に数えない（Invoice実績＝実受注のみ） */
+    if(/（想定）/.test(String(S.buyer||""))||/想定シナリオ/.test(String(S.qty||""))) return;
+    seen[S.no]=1;
     const a=amtParse(S.total), dr=docRateOf(S);
     const etd=(S.sched||[]).find(r=>/出港|出発|ETD/.test(String(r[1]||"")));
     out.push({no:S.no,buyer:S.buyer||"—",cty:S.country||"—",item:u.item,co:u.co,qty:S.qty||"—",
