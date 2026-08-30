@@ -79,6 +79,15 @@ body.norail #well .g2:has(.stk),body.norail #well .g2:has(.railr){grid-template-
 .nnc:not(.open)::before{content:"▸ ";color:var(--or);font-weight:800}
 .nnc.open{cursor:pointer}
 .nnc.open::before{content:"▾ ";color:var(--or);font-weight:800}
+/* ── ダッシュボード：クリックできることが一目でわかる装飾 ── */
+.ddc{cursor:pointer;position:relative;transition:border-color .12s,box-shadow .12s,transform .12s}
+.ddc:hover{border-color:var(--bl);box-shadow:var(--sh-2);transform:translateY(-1px)}
+.ddhint{display:block;text-align:right;font-size:9px;color:var(--bl);margin-top:6px;font-weight:700;opacity:.8}
+.ddc:hover .ddhint{opacity:1;text-decoration:underline}
+.ddr{cursor:pointer;border-radius:6px;padding:3px 6px;margin:0 -6px;transition:background .1s}
+.ddr:hover{background:var(--bl-soft)}
+.ddr .ddar{color:var(--ink-3);font-weight:700}
+.ddr:hover .ddar{color:var(--bl)}
 /* ── shell ── */
 .app{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100vh}
 body.narrow .app{grid-template-columns:minmax(0,1fr)}   /* sideが消えたらmainを全幅1列に（0px列への繰り上がり防止） */
@@ -9996,8 +10005,8 @@ function vDash(p){
     :[].concat(...us.map(u=>(u.D.plan30||[]).map(row=>[row[0],"【"+u.item.slice(0,10)+"】"+row[1],row[2],row[3]]))).slice(0,6);
   const dnote=single?(single.D.dashNote||""):(us.find(u=>u.D.dashNote)||{D:{}}).D.dashNote||"";
   const S2=taskStats();
-  return ph(p,"<b>この画面でわかること：</b>いま海外でどこまで進んでいるか。上の集計範囲で<b>全社→部署→会社→カテゴリ→商品</b>と掘り下げられ、数字をクリックすると内訳（どの会社・どの受注か）まで見られます。",
-    `<button class="btn g" onclick="openReport()">今月のレポート</button><button class="btn" onclick="go('ship')">出荷を進める</button>`)+
+  return ph(p,"<b>この画面でわかること：</b>いま海外でどこまで進んでいるか。上の集計範囲で<b>全社→部署→会社→カテゴリ→商品</b>と掘り下げられ、数字をクリックすると内訳（どの会社・どの受注か）まで見られます。<b>📊 AI分析</b>に頼むと、転換率・相関などお好みの切り口で集計し、グラフ・Excel・PPTXレポート・共有リンクまで作れます。",
+    `<button class="btn" onclick="openDashAI()">📊 AI分析（集計・レポート・共有）</button><button class="btn g" onclick="openReport()">今月のレポート</button><button class="btn g" onclick="go('ship')">出荷を進める</button>`)+
   dashBar()+
   (todays.length?`<div class="c" style="margin-bottom:11px;border-color:var(--or);background:var(--or-soft)">
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
@@ -10013,38 +10022,44 @@ function vDash(p){
     </div></div>`:"")+`
 
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:9px;margin-bottom:11px">
-    <div class="c" style="cursor:pointer" onclick="dashDrill('fb')" title="クリックで内訳（商談記録の一覧・編集）">
+    <div class="c ddc" onclick="dashDrill('fb')" title="クリックで内訳（商談記録の一覧・編集）">
       <p class="lbl">バイヤーの声を集めた数</p><div class="kv n">${K.fbDone}<small>${A.per?"件":"/ "+K.fbGoal+"件"}</small></div>
       ${A.per?`<div class="kd">期間内の商談記録</div>`:`<div class="mt"><i style="width:${Math.min(100,Math.round(K.fbDone/Math.max(1,K.fbGoal)*100))}%"></i></div>
-      <div class="kd">${us.length>1?`目標42件×${us.length}商材に対し`:"2年間で42件以上というお約束に対し"} ${Math.round(K.fbDone/Math.max(1,K.fbGoal)*100)}%</div>`}</div>
-    <div class="c" style="cursor:pointer" onclick="dashDrill('buyers')" title="クリックで内訳（相手の一覧・編集）">
+      <div class="kd">${us.length>1?`目標42件×${us.length}商材に対し`:"2年間で42件以上というお約束に対し"} ${Math.round(K.fbDone/Math.max(1,K.fbGoal)*100)}%</div>`}
+      <span class="ddhint">🔍 クリックで内訳・編集 ▸</span></div>
+    <div class="c ddc" onclick="dashDrill('buyers')" title="クリックで内訳（相手の一覧・編集）">
       <p class="lbl">やりとりが続いている相手</p><div class="kv n">${K.buyers}<small>社</small></div>
-      <div class="kd">うち手応えのある相手 <b class="n">${K.hot}${A.per?"件":"社"}</b>／${K.countries}か国</div></div>
-    <div class="c" style="cursor:pointer" onclick="dashDrill('funnel','見積を提示')" title="クリックで内訳">
+      <div class="kd">うち手応えのある相手 <b class="n">${K.hot}${A.per?"件":"社"}</b>／${K.countries}か国</div>
+      <span class="ddhint">🔍 クリックで相手一覧 ▸</span></div>
+    <div class="c ddc" onclick="dashDrill('funnel','見積を提示')" title="クリックで内訳">
       <p class="lbl">見積を出している案件</p><div class="kv n">${K.quotes}<small>件</small></div>
-      <div class="kd">${A.per?"期間内に価格提示のある商談":`合計 <span class="n">¥${(K.quoteAmt/1e6).toFixed(1)}M</span>（確度加味 <span class="n">¥${(K.weighted/1e6).toFixed(1)}M</span>）`}</div></div>
-    <div class="c" style="cursor:pointer" onclick="dashDrill('orders')" title="クリックで内訳（受注一覧・編集）">
+      <div class="kd">${A.per?"期間内に価格提示のある商談":`合計 <span class="n">¥${(K.quoteAmt/1e6).toFixed(1)}M</span>（確度加味 <span class="n">¥${(K.weighted/1e6).toFixed(1)}M</span>）`}</div>
+      <span class="ddhint">🔍 クリックで案件一覧 ▸</span></div>
+    <div class="c ddc" onclick="dashDrill('orders')" title="クリックで内訳（受注一覧・編集）">
       <p class="lbl">${A.per?"期間内の受注":"初めての受注"}</p><div class="kv n" style="color:var(--good)">${K.won}<small>件</small></div>
-      <div class="kd">${esc(single&&single.D.kpi&&single.D.kpi.wonNote||A.orders.map(o=>o.cty).filter((v,i,a)=>a.indexOf(v)===i).slice(0,3).join("・")||"これからです")}</div></div>
-    <div class="c" style="cursor:pointer;border-color:var(--good)" onclick="dashDrill('orders')" title="クリックで内訳（どのBuyerから・どの商品を・いくらで）">
+      <div class="kd">${esc(single&&single.D.kpi&&single.D.kpi.wonNote||A.orders.map(o=>o.cty).filter((v,i,a)=>a.indexOf(v)===i).slice(0,3).join("・")||"これからです")}</div>
+      <span class="ddhint">🔍 クリックで受注内訳 ▸</span></div>
+    <div class="c ddc" style="border-color:var(--good)" onclick="dashDrill('orders')" title="クリックで内訳（どのBuyerから・どの商品を・いくらで）">
       <p class="lbl">累計受注金額
         <span style="float:right;display:inline-flex;gap:2px">
           <button class="btn ${DASH.cur==="JPY"?"":"g"}" style="padding:1px 7px;font-size:9.5px" onclick="event.stopPropagation();dashSet('cur','JPY')">¥</button>
           <button class="btn ${DASH.cur==="USD"?"":"g"}" style="padding:1px 7px;font-size:9.5px" onclick="event.stopPropagation();dashSet('cur','USD')">$</button></span></p>
       <div class="kv n" style="color:var(--good);font-size:21px">${moneyMain}</div>
-      <div class="kd">≒${moneySub}／Invoice書類と同一ソース<br><span style="font-size:9px">参照レート ${r.v.toFixed(2)}円/US$（MUFG RC TTM・${esc(r.d)}${r.live?"":"・参照値"}）</span></div></div>
+      <div class="kd">≒${moneySub}／Invoice書類と同一ソース<br><span style="font-size:9px">参照レート ${r.v.toFixed(2)}円/US$（MUFG RC TTM・${esc(r.d)}${r.live?"":"・参照値"}）</span></div>
+      <span class="ddhint">🔍 クリックで金額の内訳 ▸</span></div>
   </div>
 
   <div class="g2" style="margin-bottom:11px">
     <div class="c"><h3>どこまで進んだか</h3>
       <p class="nn">左から右へ、相手に接触してから受注に至るまでの流れです。<b>各段の数字をクリック</b>すると該当する相手が見られます。</p>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
-        ${F.map((f,i)=>`<div style="display:grid;grid-template-columns:92px minmax(0,1fr) 46px;gap:9px;align-items:center;font-size:11.5px">
+        ${F.map((f,i)=>`<div class="ddr" role="button" onclick="dashDrill('funnel','${esc(f[0])}')" title="クリックで「${esc(f[0])}」の相手一覧"
+          style="display:grid;grid-template-columns:92px minmax(0,1fr) 62px;gap:9px;align-items:center;font-size:11.5px">
           <span>${f[0]}</span>
-          <span role="button" onclick="dashDrill('funnel','${esc(f[0])}')" style="cursor:pointer;height:23px;border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;
+          <span style="height:23px;border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;
             font-size:10.5px;font-weight:700;width:${Math.max(9,f[1]/mx*100)}%;
             background:${i>=F.length-2?"var(--good)":i>=2?"var(--or)":"var(--bl)"}">${f[1]}</span>
-          <span style="text-align:right;color:var(--ink-3);font-size:10.5px">${i&&F[i-1][1]?Math.round(f[1]/F[i-1][1]*100)+"%":"—"}</span>
+          <span style="text-align:right;color:var(--ink-3);font-size:10.5px">${i&&F[i-1][1]?Math.round(f[1]/F[i-1][1]*100)+"%":"—"} <span class="ddar">›</span></span>
         </div>`).join("")}
       </div>
       ${A.funnelNote?`<p class="nn" style="margin-top:9px">${A.funnelNote}</p>`
@@ -10053,10 +10068,11 @@ function vDash(p){
     <div class="c"><h3>どの国で手応えがあるか</h3>
       <p class="nn">${A.per?"期間内の商談記録の国別件数です。":"商談記録の件数です。"}<b>国名をクリック</b>すると、その国の相手が見られます。</p>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
-        ${A.byc.length?A.byc.map(([c,v],i)=>`<div role="button" onclick="dashDrill('byc','${esc(c)}')" style="cursor:pointer;display:grid;grid-template-columns:92px 1fr 24px;gap:8px;align-items:center;font-size:11.5px">
+        ${A.byc.length?A.byc.map(([c,v],i)=>`<div class="ddr" role="button" onclick="dashDrill('byc','${esc(c)}')" title="クリックで${esc(c)}の相手一覧"
+          style="display:grid;grid-template-columns:92px 1fr 40px;gap:8px;align-items:center;font-size:11.5px">
           <span>${esc(c)}</span><span style="height:9px;border-radius:3px;width:${Math.max(6,v/mb*100)}%;
             background:${i<3?"var(--or)":"var(--bl)"}"></span>
-          <span class="n" style="text-align:right;color:var(--ink-3)">${v}</span></div>`).join("")
+          <span class="n" style="text-align:right;color:var(--ink-3)">${v} <span class="ddar">›</span></span></div>`).join("")
         :`<div style="padding:16px 12px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">
           まだ商談記録がありません。<br>商談を記録すると、<b>実際に反応があった国</b>がここに並びます。
           <div class="rw" style="justify-content:center;margin-top:9px">
@@ -10106,6 +10122,421 @@ function vDash(p){
       </div></div>
   </div>`;
 }
+
+/* ═══════════ ② ダッシュボードAI分析：チャットで依頼→集計→グラフ・表・Excel/PPTX・共有リンク ═══════════ */
+let DREP=null;   /* 直近の分析結果 {title,insight,chart:{type,title,labels,values},table:{cols,rows}} */
+const DCH_COLORS=["#0064BF","#F8951D","#2E7D32","#B26B00","#46566D","#8A97A6","#7B5EA7","#C43D3B"];
+
+/* ── 分析の元データ（現在のスコープ・期間で切ったもの） ── */
+function dashAIData(){
+  const A=dashAgg(dashScopeUnits());
+  return {
+    scope:dashScopeName(), period:(DASH.from||DASH.to)?`${DASH.from||"…"}〜${DASH.to||"…"}`:"全期間",
+    fb:A.fb.map(r=>({date:r.d||"",buyer:r.b||"",country:r.c||"",channel:r.ch||"",item:r._item||"",
+      status:r.st||"",react:r.react||"",price:r.price||"",owner:r.owner||"",why:r.why||""})),
+    orders:A.orders.map(o=>({no:o.no,buyer:o.buyer,country:o.cty,item:o.item,qty:o.qty,unit:o.unit,total:o.total,ship:o.dISO})),
+    funnel:A.funnel, byc:A.byc, lost:A.lost,
+    kpi:{fbDone:A.K.fbDone,buyers:A.K.buyers,hot:A.K.hot,quotes:A.K.quotes,won:A.K.won,
+      jpy:Math.round(A.money.jpy),usd:Math.round(A.money.usd)}
+  };
+}
+
+/* ── プリセット分析（AI未接続でも決定論で動く） ── */
+function dashRepLocal(kind){
+  const d=dashAIData();
+  const base={scope:d.scope,period:d.period};
+  if(kind==="conv"){
+    const F=d.funnel, rows=F.map((f,i)=>[f[0],String(f[1]),i&&F[i-1][1]?Math.round(f[1]/F[i-1][1]*100)+"%":"—"]);
+    return {...base,title:"ファネル転換率分析",
+      insight:`接触から受注までの転換率です。${F.length>2&&F[1][1]?`商談→反応記録は${Math.round((F[2][1]||0)/F[1][1]*100)}%。`:""}最も落ちる段が改善ポイントです。`,
+      chart:{type:"bar",title:"段階別の件数",labels:F.map(f=>f[0]),values:F.map(f=>f[1])},
+      table:{cols:["段階","件数","前段からの転換率"],rows}};
+  }
+  if(kind==="cty"){
+    return {...base,title:"国別の商談内訳",
+      insight:d.byc.length?`商談記録が最も多いのは${d.byc[0][0]}（${d.byc[0][1]}件）。上位3か国で全体の${Math.round(d.byc.slice(0,3).reduce((a,x)=>a+x[1],0)/Math.max(1,d.byc.reduce((a,x)=>a+x[1],0))*100)}%を占めます。`:"商談記録がまだありません。",
+      chart:{type:"pie",title:"国別 商談記録",labels:d.byc.map(x=>x[0]),values:d.byc.map(x=>x[1])},
+      table:{cols:["国","商談記録"],rows:d.byc.map(x=>[x[0],String(x[1])])}};
+  }
+  if(kind==="month"){
+    const m={}; d.fb.forEach(r=>{ const k=(r.date||"").slice(0,7); if(k) m[k]=(m[k]||0)+1; });
+    const ks=Object.keys(m).sort();
+    return {...base,title:"月次の商談記録推移",
+      insight:ks.length?`${ks[0]}〜${ks[ks.length-1]}の商談記録の推移です。`:"日付つきの商談記録がまだありません。",
+      chart:{type:"line",title:"月別 商談記録数",labels:ks,values:ks.map(k=>m[k])},
+      table:{cols:["月","商談記録"],rows:ks.map(k=>[k,String(m[k])])}};
+  }
+  if(kind==="lost"){
+    return {...base,title:"失注理由の内訳",
+      insight:d.lost.length?`最多の失注理由は「${d.lost[0][0]}」（${d.lost[0][1]}件）。ここを解消すると再挑戦できる相手が最も多く残っています。`:"失注の記録がまだありません。",
+      chart:{type:"pie",title:"失注理由",labels:d.lost.map(x=>x[0]),values:d.lost.map(x=>x[1])},
+      table:{cols:["理由","件数"],rows:d.lost.map(x=>[x[0],String(x[1])])}};
+  }
+  if(kind==="owner"){
+    const m={}; d.fb.forEach(r=>{ const k=r.owner||"（担当未記録）"; (m[k]=m[k]||{n:0,hot:0}); m[k].n++; if(r.react==="高") m[k].hot++; });
+    const es=Object.entries(m).sort((a,b)=>b[1].n-a[1].n);
+    return {...base,title:"担当・拠点別の商談記録",
+      insight:es.length?`商談記録が最も多いのは${es[0][0]}（${es[0][1].n}件）。`:"商談記録がまだありません。",
+      chart:{type:"bar",title:"担当・拠点別 件数",labels:es.map(x=>x[0]),values:es.map(x=>x[1].n)},
+      table:{cols:["担当・拠点","記録","手応え高"],rows:es.map(x=>[x[0],String(x[1].n),String(x[1].hot)])}};
+  }
+  if(kind==="orders"){
+    return {...base,title:"受注サマリー",
+      insight:d.orders.length?`受注${d.orders.length}件・累計 ¥${d.kpi.jpy.toLocaleString()}（US$${d.kpi.usd.toLocaleString()}）。Invoice書類と同一ソースです。`:"受注はまだありません。",
+      chart:{type:"bar",title:"受注金額（US$）",labels:d.orders.map(o=>String(o.buyer).slice(0,12)),values:d.orders.map(o=>amtParse(o.total).v)},
+      table:{cols:["受注No","バイヤー","国","商品","数量","単価","Invoice金額","出荷予定"],
+        rows:d.orders.map(o=>[o.no,o.buyer,o.country,o.item,o.qty,o.unit,o.total,o.ship||"—"])}};
+  }
+  return null;
+}
+
+/* ── 自由入力（AI接続時）：データを渡してJSONで集計させる ── */
+async function dashRepAsk(q){
+  const d=dashAIData();
+  const r=await llmAsk(
+`=== 集計範囲 ===
+スコープ: ${d.scope}／期間: ${d.period}
+=== 商談記録 (${d.fb.length}件) ===
+${JSON.stringify(d.fb).slice(0,9000)}
+=== 受注 (${d.orders.length}件) ===
+${JSON.stringify(d.orders).slice(0,2500)}
+=== ファネル ===
+${JSON.stringify(d.funnel)}
+=== 国別商談 ===
+${JSON.stringify(d.byc)}
+=== 失注理由 ===
+${JSON.stringify(d.lost)}
+=== 分析依頼 ===
+「${q}」`,1600,{noWeb:1,timeout:90000,
+    sys:`あなたは貿易データアナリスト。提供データ【のみ】から依頼の集計・分析を行いJSONだけ返す:
+{"title":"分析タイトル（20字以内）",
+ "insight":"所見。数値はすべて提供データから計算し根拠を示す。データに無い軸を求められたら、その旨を正直に書き代替の切り口を提案（創作禁止）。4文以内",
+ "chart":{"type":"pie|bar|line|none","title":"グラフ題","labels":["…"],"values":[数値…]},
+ "table":{"cols":["…"],"rows":[["…"]…最大15行]}}
+labelsとvaluesは同数。割合はvaluesに%数値。表は依頼に最も合う粒度で。`});
+  let t=r.txt.replace(/```json|```/g,"").trim();
+  const a=t.indexOf("{"),b=t.lastIndexOf("}");
+  if(a<0||b<=a) throw new Error("分析結果の形式が不正でした");
+  const j=JSON.parse(t.slice(a,b+1));
+  const ch=j.chart&&j.chart.type&&j.chart.type!=="none"&&Array.isArray(j.chart.labels)&&Array.isArray(j.chart.values)&&j.chart.labels.length===j.chart.values.length
+    ?{type:String(j.chart.type),title:String(j.chart.title||""),labels:j.chart.labels.map(String).slice(0,12),values:j.chart.values.map(Number).slice(0,12)}:null;
+  const tb=j.table&&Array.isArray(j.table.cols)&&Array.isArray(j.table.rows)
+    ?{cols:j.table.cols.map(String).slice(0,8),rows:j.table.rows.slice(0,15).map(rw=>(rw||[]).map(String).slice(0,8))}:null;
+  return {scope:d.scope,period:d.period,title:String(j.title||"分析結果").slice(0,40),
+    insight:String(j.insight||"").slice(0,400),chart:ch,table:tb};
+}
+
+/* ── グラフSVG（円・棒・折れ線） ── */
+function dashChartSvg(ch,w,h){
+  if(!ch||!ch.labels||!ch.labels.length) return "";
+  w=w||420; h=h||210;
+  const C=DCH_COLORS, esc2=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const legend=ch.labels.map((l,i)=>`<div style="display:flex;gap:5px;align-items:center;font-size:10px">
+    <span style="width:9px;height:9px;border-radius:2px;background:${C[i%C.length]};flex:0 0 auto"></span>
+    <span style="color:var(--ink-2)">${esc(l)} <b class="n">${(+ch.values[i]).toLocaleString()}</b></span></div>`).join("");
+  if(ch.type==="pie"){
+    const tot=ch.values.reduce((a,v)=>a+Math.max(0,+v||0),0)||1;
+    let ang=-90; const cx=h/2,cy=h/2,R=h/2-6;
+    const arcs=ch.values.map((v,i)=>{
+      const a1=ang, a2=ang+(Math.max(0,+v||0)/tot)*360; ang=a2;
+      if(a2-a1>=359.9) return `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${C[i%C.length]}"/>`;
+      const p=(a)=>[cx+R*Math.cos(a*Math.PI/180),cy+R*Math.sin(a*Math.PI/180)];
+      const q1=p(a1),q2=p(a2);
+      return `<path d="M${cx},${cy} L${q1[0].toFixed(1)},${q1[1].toFixed(1)} A${R},${R} 0 ${a2-a1>180?1:0} 1 ${q2[0].toFixed(1)},${q2[1].toFixed(1)} Z" fill="${C[i%C.length]}"/>`;
+    }).join("");
+    return `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <svg viewBox="0 0 ${h} ${h}" style="width:${h}px;height:${h}px;flex:0 0 auto">${arcs}</svg>
+      <div style="display:grid;gap:3px">${legend}</div></div>`;
+  }
+  const mx=Math.max(1,...ch.values.map(v=>+v||0));
+  if(ch.type==="line"){
+    const n=ch.values.length, px=i=>20+(n<2?0:i*(w-40)/(n-1)), py=v=>h-24-((+v||0)/mx)*(h-44);
+    const pts=ch.values.map((v,i)=>`${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(" ");
+    return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px">
+      <polyline points="${pts}" fill="none" stroke="${C[0]}" stroke-width="2.5" stroke-linejoin="round"/>
+      ${ch.values.map((v,i)=>`<circle cx="${px(i)}" cy="${py(v)}" r="3.5" fill="${C[1]}"/>
+        <text x="${px(i)}" y="${py(v)-8}" text-anchor="middle" font-size="9" fill="#46566D">${(+v).toLocaleString()}</text>
+        <text x="${px(i)}" y="${h-8}" text-anchor="middle" font-size="8.5" fill="#8A97A6">${esc2(String(ch.labels[i]).slice(0,8))}</text>`).join("")}</svg>`;
+  }
+  const n=ch.values.length, bw=Math.min(56,(w-30)/n-10);
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;max-width:${w}px">
+    ${ch.values.map((v,i)=>{const bh=((+v||0)/mx)*(h-46), x=18+i*((w-30)/n), y=h-24-bh;
+      return `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(2,bh)}" rx="3" fill="${C[i%C.length]}"/>
+        <text x="${x+bw/2}" y="${y-5}" text-anchor="middle" font-size="9" fill="#46566D">${(+v).toLocaleString()}</text>
+        <text x="${x+bw/2}" y="${h-9}" text-anchor="middle" font-size="8.5" fill="#8A97A6">${esc2(String(ch.labels[i]).slice(0,7))}</text>`;}).join("")}</svg>`;
+}
+
+/* ── 結果の描画＋アクション ── */
+function dashRepHtml(rep){
+  return `<div class="c" style="margin-top:9px;padding:12px 14px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start">
+      <div><b style="font-size:13px">📊 ${esc(rep.title)}</b>
+        <p class="nn" style="margin:2px 0 0">集計範囲：${esc(rep.scope)}／期間：${esc(rep.period)}／作成 ${TODAYS}</p></div></div>
+    <p style="font-size:11.5px;line-height:1.8;margin-top:8px">${esc(rep.insight)}</p>
+    ${rep.chart?`<div style="margin-top:10px">${rep.chart.title?`<p class="lbl">${esc(rep.chart.title)}</p>`:""}${dashChartSvg(rep.chart)}</div>`:""}
+    ${rep.table&&rep.table.rows.length?`<div class="tw" style="margin-top:10px;max-height:260px"><table><thead><tr>
+      ${rep.table.cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>
+      ${rep.table.rows.map(rw=>`<tr>${rw.map((c,i)=>`<td${i?"":' style="font-weight:600"'}>${esc(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`:""}
+    <div class="rw drepact" style="margin-top:11px;gap:6px;flex-wrap:wrap">
+      <button class="btn g" onclick="dashRepXlsx()">⬇ Excel（.xlsx）</button>
+      <button class="btn g" onclick="dashRepPptx()">⬇ PPTXレポート</button>
+      <button class="btn" onclick="dashShareOpen()">🔗 共有リンクを作成（権限設定）</button></div>
+    <div class="nn" id="drepst" style="margin-top:5px"></div></div>`;
+}
+
+/* ── AI分析ドロワー ── */
+function openDashAI(){
+  const online=(typeof ppReady==="function"&&ppReady());
+  openDW(`<h3>📊 AI分析（ダッシュボード）</h3>
+    <p class="nn" style="margin-top:4px">いまの集計範囲（<b>${esc(dashScopeName())}</b>${(DASH.from||DASH.to)?`・期間 ${esc(DASH.from||"…")}〜${esc(DASH.to||"…")}`:""}）のデータを、お好みの切り口で集計します。結果は<b>グラフ・表・Excel・PPTXレポート・共有リンク</b>にできます。</p>
+    <p class="lbl" style="margin-top:9px">ワンクリック分析</p>
+    <div class="rw" style="gap:6px;flex-wrap:wrap;margin-top:4px">
+      ${[["conv","📈 ファネル転換率"],["cty","🌏 国別内訳（円）"],["month","📅 月次推移"],["lost","🚫 失注理由（円）"],["owner","👤 担当・拠点別"],["orders","💰 受注サマリー"]]
+        .map(([k,l])=>`<button class="btn g" style="padding:5px 10px;font-size:11px" onclick="dashRepPreset('${k}')">${l}</button>`).join("")}</div>
+    <p class="lbl" style="margin-top:10px">自由に依頼（AI商社マンが集計）</p>
+    <div class="rw" style="margin-top:4px;gap:6px">
+      <input class="sel" id="daiQ" placeholder="例：接触日と企業の内訳と、商談実施への転換率の相関を分析して" style="flex:1;min-width:0"
+        ${online?"":'disabled title="AIエンジン接続時に利用できます"'}>
+      <button class="btn" id="daiGo" ${online?"":"disabled"}>分析</button></div>
+    ${online?"":`<p class="nn" style="margin-top:4px">⚠ AIエンジン未接続のため自由分析は使えません（上のワンクリック分析は動きます）。管理者が管理コンソールで接続すると有効になります。</p>`}
+    <div id="daiOut">${DREP?dashRepHtml(DREP):""}</div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  const go2=$("#daiGo"), qi=$("#daiQ");
+  if(go2&&qi) go2.onclick=async()=>{
+    const q=(qi.value||"").trim(); if(!q){ qi.focus(); return; }
+    const out=$("#daiOut"); out.innerHTML=`<p class="nn" style="margin-top:9px"><span class="spin"></span> AI商社マンが集計しています…（10〜40秒）</p>`;
+    try{ DREP=await dashRepAsk(q); out.innerHTML=dashRepHtml(DREP); }
+    catch(e){ out.innerHTML=`<p class="nn" style="margin-top:9px;color:var(--crit)">分析できませんでした：${esc(String(e.message)).slice(0,90)}</p>`; }
+  };
+  if(qi) qi.onkeydown=e=>{ if(e.key==="Enter"&&go2&&!go2.disabled) go2.onclick(); };
+}
+function dashRepPreset(k){
+  DREP=dashRepLocal(k);
+  const out=$("#daiOut"); if(out&&DREP) out.innerHTML=dashRepHtml(DREP);
+}
+
+/* ── Excel出力（inline string最小構成のxlsx） ── */
+function dashRepXlsx(){
+  if(!DREP) return;
+  const esx=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const col=i=>{let s="";i++;while(i){s=String.fromCharCode(65+(i-1)%26)+s;i=Math.floor((i-1)/26);}return s;};
+  const rowX=(cells,r)=>`<row r="${r}">${cells.map((c2,i)=>`<c r="${col(i)}${r}" t="inlineStr"><is><t xml:space="preserve">${esx(c2)}</t></is></c>`).join("")}</row>`;
+  const head=[[DREP.title],[`集計範囲: ${DREP.scope} / 期間: ${DREP.period} / 作成: ${TODAYS}`],[DREP.insight],[]];
+  const tb=DREP.table||{cols:[],rows:[]};
+  const chartRows=DREP.chart?[[],["【"+(DREP.chart.title||"グラフデータ")+"】"]].concat(DREP.chart.labels.map((l,i)=>[l,String(DREP.chart.values[i])])):[];
+  const allRows=head.concat(tb.cols.length?[tb.cols]:[]).concat(tb.rows).concat(chartRows);
+  const sheet=pxml(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${
+    allRows.map((r2,i)=>rowX(r2,i+1)).join("")}</sheetData></worksheet>`);
+  const files=[
+    ["[Content_Types].xml",pxml(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`)],
+    ["_rels/.rels",rels([["rId1","officeDocument","xl/workbook.xml"]])],
+    ["xl/workbook.xml",pxml(`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Report" sheetId="1" r:id="rId1"/></sheets></workbook>`)],
+    ["xl/_rels/workbook.xml.rels",rels([["rId1","worksheet","worksheets/sheet1.xml"]])],
+    ["xl/worksheets/sheet1.xml",sheet]];
+  const blob=zipStore(files);
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`${DREP.title.replace(/[\\\/:*?"<>|]/g,"")}_${TODAYS}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  const st=$("#drepst"); if(st) st.textContent="✅ Excelをダウンロードしました";
+  return blob;
+}
+
+/* ── PPTXレポート出力（ブランド配色・表紙＋グラフ＋表） ── */
+function dashRepPptx(){
+  if(!DREP) return;
+  const P=(typeof dkPal==="function")?dkPal():{ac:"F8951D",acd:"0064BF",dk:"0F2749",tn:"F6F7F9",md:"C9D2DE"};
+  _SPID=1;
+  const foot=n=>shpText(48,512,600,16,[{t:`${DREP.scope}  |  ${DREP.period}  |  BOEKI CLOUD ANALYTICS`,sz:8,c:"8A97A6"}])+
+    shpText(880,512,32,16,[{t:String(n),sz:9,c:"8A97A6",al:"r"}]);
+  const S=[];
+  S.push(shpRect(0,0,960,540,P.dk)+
+    shpText(60,150,840,40,[{t:"ANALYTICS REPORT",sz:12,b:1,c:P.ac,spc:2.2}])+
+    shpText(60,200,840,90,[{t:DREP.title,sz:36,b:1,c:"FFFFFF"}])+
+    shpText(60,300,840,60,[{t:`集計範囲：${DREP.scope}　期間：${DREP.period}`,sz:13,c:P.md},
+      {t:"作成 "+TODAYS+"　·　BOEKI CLOUD",sz:10,c:P.md,spcB:5}])+
+    shpRect(0,506,960,34,P.ac,{alpha:88000}));
+  const ch=DREP.chart;
+  if(ch&&ch.labels.length){
+    const cols=[P.ac,P.acd,"2E7D32","B26B00","46566D","8A97A6","7B5EA7","C43D3B"];
+    let chXml="";
+    if(ch.type==="pie"){
+      const tot=ch.values.reduce((a,v)=>a+Math.max(0,+v||0),0)||1; let ang=-90;
+      chXml=ch.values.map((v,i)=>{
+        const a1=ang,a2=ang+(Math.max(0,+v||0)/tot)*360; ang=a2;
+        return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="pie${_SPID}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+<p:spPr><a:xfrm><a:off x="${EMU(90)}" y="${EMU(140)}"/><a:ext cx="${EMU(290)}" cy="${EMU(290)}"/></a:xfrm>
+<a:prstGeom prst="pie"><a:avLst><a:gd name="adj1" fmla="val ${Math.round(a1*60000)}"/><a:gd name="adj2" fmla="val ${Math.round(a2*60000)}"/></a:avLst></a:prstGeom>
+<a:solidFill><a:srgbClr val="${cols[i%cols.length]}"/></a:solidFill><a:ln w="12700"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr/><a:p/></p:txBody></p:sp>`;
+      }).join("")+
+      ch.labels.map((l,i)=>shpText(430,140+i*26,430,22,[{runs:[{t:"■ ",c:cols[i%cols.length],sz:11},
+        {t:`${l}　${(+ch.values[i]).toLocaleString()}`,sz:11,c:"1A1A1A"}]}])).join("");
+    }else{
+      const mx=Math.max(1,...ch.values.map(v=>+v||0)), n=ch.values.length;
+      const bw=Math.min(70,720/n-16);
+      chXml=ch.values.map((v,i)=>{
+        const bh=((+v||0)/mx)*240, x=110+i*(740/n), y=420-bh;
+        return shpRect(x,y,bw,Math.max(3,bh),cols[i%cols.length],{round:2000})+
+          shpText(x-14,y-22,bw+28,18,[{t:(+v).toLocaleString(),sz:10.5,b:1,c:P.acd,al:"ctr"}])+
+          shpText(x-20,428,bw+40,30,[{t:String(ch.labels[i]).slice(0,10),sz:9,c:"46566D",al:"ctr"}]);
+      }).join("")+shpRect(90,421,780,1.6,"C9CDD4");
+    }
+    S.push(shpRect(48,47,26,3.5,P.ac)+
+      shpText(84,40,720,20,[{t:String(ch.title||DREP.title).toUpperCase(),sz:11,b:1,c:P.acd,spc:1.8}])+
+      shpText(48,74,860,44,[{t:DREP.insight.slice(0,150),sz:10.5,c:"46566D"}])+
+      chXml+foot(1));
+  }
+  const tb=DREP.table;
+  if(tb&&tb.rows.length){
+    const cw=Math.min(864/Math.max(1,tb.cols.length),220);
+    S.push(shpRect(48,47,26,3.5,P.ac)+
+      shpText(84,40,720,20,[{t:"DATA TABLE",sz:11,b:1,c:P.acd,spc:1.8}])+
+      shpRect(48,84,cw*tb.cols.length,26,P.dk)+
+      tb.cols.map((c2,i)=>shpText(56+i*cw,89,cw-14,18,[{t:String(c2),sz:9,b:1,c:"FFFFFF"}])).join("")+
+      tb.rows.slice(0,13).map((rw,ri)=>{
+        const y=110+ri*28;
+        return shpRect(48,y,cw*tb.cols.length,28,ri%2?"FFFFFF":P.tn)+
+          rw.map((c2,i)=>shpText(56+i*cw,y+6,cw-14,18,[{t:String(c2).slice(0,30),sz:8.5,c:"1A1A1A"}])).join("");
+      }).join("")+foot(2));
+  }
+  const files=[["[Content_Types].xml",pxml(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>${S.map((_,i)=>`<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join("")}</Types>`)],
+    ["_rels/.rels",rels([["rId1","officeDocument","ppt/presentation.xml"]])],
+    ["ppt/presentation.xml",pxml(`<p:presentation ${NSA} ${NSR} ${NSP}><p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst><p:sldIdLst>${S.map((_,i)=>`<p:sldId id="${256+i}" r:id="rId${i+2}"/>`).join("")}</p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/></p:presentation>`)],
+    ["ppt/_rels/presentation.xml.rels",rels([["rId1","slideMaster","slideMasters/slideMaster1.xml"]].concat(S.map((_,i)=>[`rId${i+2}`,"slide",`slides/slide${i+1}.xml`])))],
+    ["ppt/slideMasters/slideMaster1.xml",masterXml()],
+    ["ppt/slideMasters/_rels/slideMaster1.xml.rels",rels([["rId1","slideLayout","../slideLayouts/slideLayout1.xml"],["rId2","theme","../theme/theme1.xml"]])],
+    ["ppt/slideLayouts/slideLayout1.xml",layoutXml()],
+    ["ppt/slideLayouts/_rels/slideLayout1.xml.rels",rels([["rId1","slideMaster","../slideMasters/slideMaster1.xml"]])],
+    ["ppt/theme/theme1.xml",themeXml()]];
+  S.forEach((tree,i)=>{
+    files.push([`ppt/slides/slide${i+1}.xml`,pxml(`<p:sld ${NSA} ${NSR} ${NSP}><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${tree}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`)]);
+    files.push([`ppt/slides/_rels/slide${i+1}.xml.rels`,rels([["rId1","slideLayout","../slideLayouts/slideLayout1.xml"]])]);
+  });
+  const blob=zipStore(files);
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`${DREP.title.replace(/[\\\/:*?"<>|]/g,"")}_Report_${TODAYS}.pptx`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  const st=$("#drepst"); if(st) st.textContent="✅ PPTXレポートをダウンロードしました（"+S.length+"枚）";
+  return blob;
+}
+
+/* ── 共有リンク（データはURLに内包。パスコードはAES-GCMで実暗号化・有効期限・DL権限） ── */
+function b64u(u8){ let s=""; u8.forEach(b=>s+=String.fromCharCode(b)); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function b64uDec(s){ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="=";
+  const bin=atob(s), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+async function repKey(pass,salt){
+  const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:60000,hash:"SHA-256"},km,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+}
+async function repEnc(pass,txt){
+  const salt=crypto.getRandomValues(new Uint8Array(12)), iv=crypto.getRandomValues(new Uint8Array(12));
+  const k=await repKey(pass,salt);
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,new TextEncoder().encode(txt)));
+  return b64u(salt)+"."+b64u(iv)+"."+b64u(ct);
+}
+async function repDec(pass,packed){
+  const seg=packed.split(".");
+  const k=await repKey(pass,b64uDec(seg[0]));
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64uDec(seg[1])},k,b64uDec(seg[2]));
+  return new TextDecoder().decode(pt);
+}
+function dashShareOpen(){
+  if(!DREP){ toast("先に分析を実行してください"); return; }
+  openDW(`<h3>🔗 共有リンクを作成</h3>
+    <p class="nn" style="margin-top:4px">レポート「<b>${esc(DREP.title)}</b>」を、URLひとつで顧客・社内メンバーに共有できます。<b>データはリンク自体に内包</b>されるため、相手はログイン不要で閲覧できます。</p>
+    <p class="lbl" style="margin-top:10px">🔐 閲覧権限</p>
+    <div style="display:grid;gap:7px;margin-top:4px">
+      <label style="display:flex;gap:7px;align-items:center;font-size:11.5px"><input type="checkbox" id="shPassOn">
+        パスコードを設定（リンクを知っていても、パスコードがないと開けません）</label>
+      <input class="sel" id="shPass" placeholder="パスコード（4文字以上）" disabled style="width:100%;box-sizing:border-box">
+      <label style="display:flex;gap:7px;align-items:center;font-size:11.5px">有効期限
+        <select class="sel" id="shExp" style="min-height:30px;padding:4px 8px">
+          <option value="7">7日間</option><option value="30" selected>30日間</option><option value="0">無期限</option></select></label>
+      <label style="display:flex;gap:7px;align-items:center;font-size:11.5px"><input type="checkbox" id="shDl" checked>
+        閲覧者にExcelダウンロードを許可する</label></div>
+    <div class="rw" style="margin-top:11px"><button class="btn" id="shGo">リンクを発行</button>
+      <button class="btn g" onclick="closeDW()">キャンセル</button></div>
+    <div id="shOut" style="margin-top:9px"></div>
+    <p class="nn" style="margin-top:7px">※パスコードは<b>AES-256で実際に暗号化</b>されます（表示だけの飾りではありません）。リンクは発行時点のデータのスナップショットです（あとから数値が変わっても共有先には反映されません）。</p>`);
+  if(typeof dwChrome==="function") dwChrome();
+  const po=$("#shPassOn"), pi=$("#shPass");
+  if(po) po.onchange=()=>{ pi.disabled=!po.checked; if(po.checked) pi.focus(); };
+  $("#shGo").onclick=async()=>{
+    const usePass=po&&po.checked, pass=(pi&&pi.value||"").trim();
+    if(usePass&&pass.length<4){ toast("パスコードは4文字以上にしてください"); pi.focus(); return; }
+    const expD=parseInt($("#shExp").value,10);
+    const exp=expD?new Date(Date.now()+expD*864e5).toISOString().slice(0,10):null;
+    const payload=JSON.stringify({v:1,rep:DREP,exp,dl:$("#shDl").checked?1:0,
+      by:(typeof D!=="undefined"&&D&&(D.coEn||D.co))||"BOEKI CLOUD",at:TODAYS});
+    let frag;
+    try{ frag=usePass?("e:"+await repEnc(pass,payload)):("p:"+b64u(new TextEncoder().encode(payload))); }
+    catch(e){ toast("暗号化に失敗しました："+String(e.message).slice(0,40)); return; }
+    const url=location.origin+location.pathname+"#rep="+frag;
+    const out=$("#shOut");
+    out.innerHTML=`<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
+      <p class="lbl">✅ 共有リンク（${usePass?"🔐 パスコード付き":"リンクを知っている全員が閲覧可"}・${exp?("期限 "+exp):"無期限"}・Excel DL ${$("#shDl").checked?"可":"不可"}）</p>
+      <textarea class="sel" id="shUrl" readonly rows="3" style="width:100%;box-sizing:border-box;font-size:10px;margin-top:5px">${esc(url)}</textarea>
+      <div class="rw" style="margin-top:6px"><button class="btn g" onclick="const t=document.querySelector('#shUrl');t.select();document.execCommand('copy');toast('コピーしました')">📋 コピー</button>
+        <a class="btn g" href="${esc(url)}" target="_blank" style="text-decoration:none">開いて確認</a></div>
+      ${usePass?`<p class="nn" style="margin-top:5px">パスコードは<b>別の手段（メール・チャット等）で相手に伝えて</b>ください。</p>`:""}</div>`;
+    if(typeof logU==="function") logU("ai","分析レポート共有リンク発行:"+DREP.title);
+  };
+}
+
+/* ── 共有リンクの閲覧ビュー（#rep=… で開かれたとき。ログイン不要のレポート専用画面） ── */
+function dashShareRender(j){
+  const rep=j.rep; if(!rep) return;
+  window.__shRep=rep;
+  const wrap=document.createElement("div");
+  wrap.id="repview";
+  wrap.style.cssText="position:fixed;inset:0;z-index:99999;background:var(--canvas);overflow:auto;padding:26px 18px";
+  const expired=j.exp&&TODAYS>j.exp;
+  let body;
+  if(expired){
+    body=`<div class="c" style="padding:22px;text-align:center"><b>このリンクの有効期限（${esc(j.exp)}）が切れています。</b><p class="nn" style="margin-top:6px">発行者に再発行を依頼してください。</p></div>`;
+  }else{
+    body=dashRepHtml(rep);
+    const act=j.dl
+      ?`<div class="rw" style="margin-top:11px"><button class="btn g" onclick="DREP=window.__shRep;dashRepXlsx()">⬇ Excelでダウンロード</button></div>`
+      :`<div class="nn" style="margin-top:8px">（このレポートは閲覧専用として共有されています）</div>`;
+    body=body.replace(/<div class="rw drepact"[\s\S]*?<\/div>/,act);
+  }
+  wrap.innerHTML=`<div style="max-width:860px;margin:0 auto">
+    <div class="rw" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+      <b style="font-size:15px">🌐 貿易クラウド ｜ 共有レポート</b>
+      <span class="nn" style="margin:0">${esc(j.by||"")}・発行 ${esc(j.at||"")}${j.exp?`・有効期限 ${esc(j.exp)}`:""}</span></div>
+    ${body}
+    <p class="nn" style="text-align:center;margin-top:14px">Powered by 貿易クラウド 2.0 — 商談から出荷までAIが伴走する貿易SaaS</p></div>`;
+  document.body.appendChild(wrap);
+}
+async function dashShareBoot(){
+  const m=(location.hash||"").match(/^#rep=(e:|p:)(.+)$/);
+  if(!m) return;
+  const kind=m[1], data=m[2];
+  if(kind==="p:"){
+    try{ dashShareRender(JSON.parse(new TextDecoder().decode(b64uDec(data)))); }catch(e){}
+    return;
+  }
+  const wrap=document.createElement("div");
+  wrap.id="repgate";
+  wrap.style.cssText="position:fixed;inset:0;z-index:99999;background:var(--canvas);display:grid;place-items:center;padding:20px";
+  wrap.innerHTML=`<div class="c" style="max-width:380px;width:100%;padding:22px">
+    <b style="font-size:14px">🔐 パスコード付き共有レポート</b>
+    <p class="nn" style="margin-top:5px">発行者から受け取ったパスコードを入力してください。</p>
+    <input class="sel" id="rgPass" type="password" placeholder="パスコード" style="width:100%;box-sizing:border-box;margin-top:9px">
+    <button class="btn" id="rgGo" style="margin-top:9px;width:100%">開く</button>
+    <p class="nn" id="rgErr" style="margin-top:6px;color:var(--crit)"></p></div>`;
+  document.body.appendChild(wrap);
+  $("#rgGo").onclick=async()=>{
+    const p=($("#rgPass").value||"").trim(); if(!p) return;
+    try{
+      const j=JSON.parse(await repDec(p,data));
+      wrap.remove(); dashShareRender(j);
+    }catch(e){ $("#rgErr").textContent="パスコードが違います（復号できませんでした）"; }
+  };
+  $("#rgPass").onkeydown=e=>{ if(e.key==="Enter") $("#rgGo").onclick(); };
+  $("#rgPass").focus();
+}
+setTimeout(()=>{ try{ dashShareBoot(); }catch(e){} },60);
 
 /* ═══════════ ③ AI商社マンのWeb検索 ═══════════
    ONのとき、まず本物のWebをライブ検索する（為替レートAPI・Wikipedia検索）。
