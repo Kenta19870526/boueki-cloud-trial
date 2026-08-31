@@ -88,6 +88,7 @@ body.norail #well .g2:has(.stk),body.norail #well .g2:has(.railr){grid-template-
 .ddr:hover{background:var(--bl-soft)}
 .ddr .ddar{color:var(--ink-3);font-weight:700}
 .ddr:hover .ddar{color:var(--bl)}
+.attglow{outline:2.5px dashed var(--or)!important;outline-offset:-3px;background:var(--or-soft)!important;transition:background .12s}
 /* ── shell ── */
 .app{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100vh}
 body.narrow .app{grid-template-columns:minmax(0,1fr)}   /* sideが消えたらmainを全幅1列に（0px列への繰り上がり防止） */
@@ -8641,12 +8642,18 @@ async function askFree(q){
   if(!q||!q.trim()) return;
   if(typing){clearInterval(typing);typing=null;}
   const c=$("#chat"); if(!c) return;
-  pushTo(c,"u",typeof mdU==="function"?mdU(esc(q.trim())):esc(q.trim()));
+  /* チャット欄に添付されたファイル（📎・D&D・貼り付け）はこの質問と一緒に読み、1回で消費する */
+  const _att=(typeof AIATT!=="undefined"&&AIATT)?AIATT:null;
+  pushTo(c,"u",(typeof mdU==="function"?mdU(esc(q.trim())):esc(q.trim()))
+    +(_att?`<br><span style="font-size:10px;opacity:.85">📎 ${esc(_att.name)}</span>`:""));
   const searching=(typeof WEBON!=="undefined"&&WEBON);
   const bb=pushTo(c,"a",(searching?'<span style="color:var(--ink-3);font-size:11.5px">🌐 Webを検索しています… </span>':"")+'<span class="car"></span>');
   c.scrollTop=1e6;
   const _mx=typeof shipModsCtx==="function"?shipModsCtx():"";
-  let r; try{ r=await Promise.resolve(brain(_mx?q.trim()+"\n\n"+_mx:q.trim())); }
+  let q3=_mx?q.trim()+"\n\n"+_mx:q.trim();
+  if(_att&&_att.corpus) q3+=`\n\n=== 添付資料（${_att.name}）の内容 ===\n`+String(_att.corpus).slice(0,12000);
+  if(_att&&typeof aiAttClear==="function") aiAttClear();
+  let r; try{ r=await Promise.resolve(brain(q3,(_att&&_att.att)?{att:_att.att}:undefined)); }
   catch(e){ r={a:"うまく処理できませんでした。もう一度お試しください。",c:"内部エラー"}; }
   typeOut(bb,T(r.a),T(r.c),c);
 }
@@ -10971,20 +10978,18 @@ function todayRun(i){
       <div class="chat" id="tdchat" style="flex:1;min-height:0;max-height:none;margin-top:9px"></div>
     </div>
     <div class="dwfoot">
-      <div id="tddrop" style="border:1.5px dashed var(--line);border-radius:var(--r2);padding:7px 10px;font-size:10.5px;color:var(--ink-3);
-        display:flex;gap:8px;align-items:center;flex-wrap:wrap;cursor:pointer;margin-bottom:7px">
-        <span>📎 資料をここにドラッグ＆ドロップ／クリックで選択（複数OK・Zipも可）</span>
-        <input type="file" id="tdfile" hidden multiple>
-        <span id="tdatt" style="color:var(--good);font-weight:700"></span></div>
       <div class="rw" style="gap:6px;margin-bottom:7px">
         <input class="sel" id="tdurl" placeholder="🔗 Google Drive／OneDrive／WebページのURLから資料を追加" style="flex:1;min-width:0;font-size:11px">
         <button class="btn g" id="tdurlgo" style="flex:none">取込</button></div>
       <div class="composer">
-        <textarea class="sel" id="tdq" rows="2" placeholder="回答・質問を入力（Enterで送信・Shift+Enterで改行）"
+        <textarea class="sel" id="tdq" rows="2" placeholder="回答・質問を入力（Enterで送信・Shift+Enterで改行）／ファイルはこの欄にドラッグ＆ドロップ・スクショは貼り付けでも添付できます"
           style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:60px;max-height:160px;overflow-y:auto;line-height:1.6"></textarea>
         <div class="rw" style="justify-content:space-between;padding:5px 8px;border-top:1px solid var(--line-2)">
-          <span class="nn" style="margin:0">${online?"AI商社マンが登録データ＋添付資料を根拠に伴走します":"⚠ AI未接続：内蔵エンジンで応答（添付は取込のみ・解析は接続後）"}</span>
-          <button class="btn" id="tdgo">送信</button></div></div>
+          <span class="rw" style="gap:7px;margin:0;flex-wrap:nowrap;min-width:0">
+            <label class="btn g" style="padding:4px 10px;cursor:pointer;flex:none" title="ファイルを添付（あらゆる形式・複数OK・Zipも可）。パネルへのドラッグ＆ドロップ、画像の貼り付けでも添付できます">📎 添付<input type="file" id="tdfile" hidden multiple></label>
+            <span id="tdatt" style="color:var(--good);font-weight:700;font-size:10.5px;flex:none"></span>
+            <span class="nn" style="margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${online?"AI商社マンが登録データ＋添付資料を根拠に伴走します":"⚠ AI未接続：内蔵エンジンで応答（添付は取込のみ・解析は接続後）"}</span></span>
+          <button class="btn" id="tdgo" style="flex:none">送信</button></div></div>
     </div>`);
   const pn=$("#pn"); pn.classList.add("dwr");
   if(typeof dwChrome==="function") dwChrome();
@@ -11029,12 +11034,9 @@ function todayRun(i){
   };
   $("#tdgo").onclick=()=>{ const v=tq.value; tq.value=""; grow(); send(v); };
   tq.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); const v=tq.value; tq.value=""; grow(); send(v); } };
-  /* ── ファイル添付（複数・D&D） ── */
-  const dz=$("#tddrop"), fin=$("#tdfile");
-  dz.addEventListener("click",e=>{ if(e.target!==fin) fin.click(); });
-  ["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{ e.preventDefault(); dz.style.borderColor="var(--or)"; }));
-  ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{ e.preventDefault(); dz.style.borderColor="var(--line)"; }));
-  dz.addEventListener("drop",e=>todayRunFiles([...e.dataTransfer.files]));
+  /* ── ファイル添付（📎ボタン。パネル全体へのD&Dと画像貼り付けは logic_attach の共通機構が
+        この #tdfile に流し込む＝取込処理は従来と同一経路） ── */
+  const fin=$("#tdfile");
   fin.onchange=e=>{ todayRunFiles([...e.target.files]); e.target.value=""; };
   /* ── URL取込 ── */
   $("#tdurlgo").onclick=async()=>{
@@ -11667,7 +11669,8 @@ function ppFormat(txt){
   return a.replace(/\n/g,"<br>");
 }
 const __brainB4pplx=brain;
-brain=function(q){
+brain=function(q,opts){
+  /* opts.att：チャット欄に添付された画像・PDF（接続AIに原本ごと読ませる）。従来呼び出しは第2引数なしで不変 */
   /* バイヤーDBの列挙・件数質問はDB直接照会で即答（接続の有無に関わらず正確） */
   if(typeof bnAsk==="function"){ const b=bnAsk(q); if(b) return b; }
   /* 物流費・運賃の質問：登録レートがあればDB直接照会で即答。未登録×未接続は正直回答 */
@@ -11680,7 +11683,7 @@ brain=function(q){
       if(bx) q2=q+"\n\n"+bx;
       const sx=typeof shipRateCtx==="function"?shipRateCtx(q):"";
       if(sx) q2=q2+"\n\n"+sx;
-      const r=await llmAsk(q2);
+      const r=await llmAsk(q2,(opts&&opts.att)?1400:undefined,(opts&&opts.att)?{att:opts.att}:undefined);
       let a=ppFormat(r.txt);
       if(r.cits&&r.cits.length){
         a+=`<div style="margin-top:10px;border:1px solid var(--bl);border-radius:var(--r2);overflow:hidden">
@@ -13614,5 +13617,143 @@ function shipRateAsk(q,online){
     +`<p class="nn" style="margin-top:7px">${esc(d.pod)}のレートが必要な場合：①「出荷を進める」→<b>AI商社マンにまかせる</b>でAI見積を依頼（レーン未登録でも依頼は届きます）②物流会社ユーザーが${esc(d.pod)}レーンをレート表に登録すると、ここで即答できるようになります。</p>`,
     c:"社内・物流レートDB照会（該当レーンなし・正直回答）"};
 }
+
+/* ═══════════ 全AI商社マン共通：チャット欄への「画像コピペ貼り付け」と「パネル全体ドラッグ＆ドロップ」 ═══════════
+   仕組み：document委任で paste / dragover / drop を受け、イベント地点のパネル（ドロワー#dw → カード.c → 本文#well）
+   にある唯一の <input type=file> へ DataTransfer で流し込み、change を発火させる。
+   → 各画面の既存取込ロジック（Zip展開・本文統合・内訳表示・保存）がそのまま動く。新しい解析経路は作らない。
+   ・file inputが複数あるパネル（営業資料ウィザードの画像欄など）は誤爆防止のため対象外（既存ボタンで操作）
+   ・既存のドロップゾーン上では既存ハンドラを優先（defaultPrevented を尊重して二重取込を防ぐ）
+   ・accept属性は尊重し、対象外の形式は理由付きトーストで正直に伝える */
+function attScope(t){
+  if(t&&t.closest){ const s=t.closest("#dw")||t.closest(".c"); if(s) return s; }
+  const dw=document.getElementById("dw");
+  if(dw&&dw.offsetParent) return dw;
+  return document.getElementById("well")||document.body;
+}
+function attInput(scope){
+  if(!scope) return null;
+  /* 閉じたままDOMに残っているドロワー内のinputは候補から外す（誤って裏画面に添付しない） */
+  const ins=[...scope.querySelectorAll('input[type=file]')].filter(i=>{
+    const d=i.closest("#dw"); return !(d&&d!==scope&&!d.offsetParent); });
+  return ins.length===1?ins[0]:null;
+}
+function attOk(inp,f){
+  const a=(inp.getAttribute("accept")||"").trim();
+  if(!a) return true;
+  const nm=(f.name||"").toLowerCase(), tp=(f.type||"").toLowerCase();
+  return a.split(",").some(x=>{ x=x.trim().toLowerCase(); if(!x) return false;
+    if(x.startsWith(".")) return nm.endsWith(x);
+    if(x.endsWith("/*")) return tp.startsWith(x.slice(0,-1));
+    return tp===x; });
+}
+/* クリップボードのスクショは「image.png」等の汎用名 → 分かる名前に付け替える */
+function attRename(f){
+  if(!/^(image|file)\.[a-z0-9]+$/i.test(f.name||"")) return f;
+  const d=new Date(), ext=(f.name.split(".").pop()||"png");
+  const nm=`貼り付け画像_${d.getHours()}${String(d.getMinutes()).padStart(2,"0")}${String(d.getSeconds()).padStart(2,"0")}.${ext}`;
+  try{ return new File([f],nm,{type:f.type}); }catch(e){ return f; }
+}
+function attSend(inp,files){
+  const ok=files.filter(f=>attOk(inp,f)), ng=files.filter(f=>!attOk(inp,f));
+  if(!ok.length){
+    toast(`この欄は ${(inp.getAttribute("accept")||"").split(",").slice(0,6).join(" ")}${(inp.getAttribute("accept")||"").split(",").length>6?" ほか":""} に対応しています（${esc((ng[0]&&ng[0].name)||"このファイル")} は対象外）`);
+    return;
+  }
+  if(ng.length) toast(`${ng.length}件は対応形式でないため除外しました（例：${esc(ng[0].name)}）`);
+  if(!inp.multiple&&ok.length>1) toast("この欄は1回1件のため、最初の1件を添付しました");
+  const dt=new DataTransfer();
+  (inp.multiple?ok:ok.slice(0,1)).forEach(f=>dt.items.add(f));
+  inp.files=dt.files;
+  inp.dispatchEvent(new Event("change",{bubbles:false}));
+}
+/* ── 画像・ファイルの貼り付け（Ctrl+V / ⌘V）── */
+document.addEventListener("paste",e=>{
+  try{
+    const cd=e.clipboardData;
+    if(!cd||!cd.files||!cd.files.length) return;          /* テキスト貼り付けは素通し */
+    const scope=attScope(e.target), inp=attInput(scope);
+    if(!inp){ toast("ここへの貼り付け添付は対応していません。画面内の📎やアップロードボタンをご利用ください"); return; }
+    e.preventDefault();
+    attSend(inp,[...cd.files].map(attRename));
+  }catch(err){}
+});
+/* ── パネル全体へのドラッグ＆ドロップ ── */
+let __attGlow=null;
+function attGlowOff(){ if(__attGlow){ __attGlow.classList.remove("attglow"); __attGlow=null; } }
+document.addEventListener("dragover",e=>{
+  try{
+    if(!e.dataTransfer||![...(e.dataTransfer.types||[])].includes("Files")) return;
+    if(e.defaultPrevented){ attGlowOff(); return; }        /* 既存ドロップゾーン上はそちらの見た目に任せる */
+    const scope=attScope(e.target), inp=attInput(scope);
+    e.preventDefault();                                    /* ブラウザ既定（ファイルを開く）を止める */
+    if(inp){ if(__attGlow!==scope){ attGlowOff(); __attGlow=scope; scope.classList.add("attglow"); }
+      e.dataTransfer.dropEffect="copy"; }
+    else { attGlowOff(); e.dataTransfer.dropEffect="none"; }
+  }catch(err){}
+});
+document.addEventListener("dragleave",e=>{ if(!e.relatedTarget) attGlowOff(); });
+/* ═══ AI商社マン画面（相談チャット）：📎添付を新設 ═══
+   これまでこの画面には添付機能が無かった。📎ボタン／パネルD&D／画像貼り付けのどれでも添付でき、
+   次の質問と一緒にAIが読む（テキスト系は本文抽出して質問に同梱、画像・PDFは接続AIに原本を渡す）。 */
+let AIATT=null;
+function aiAttClear(){ AIATT=null; const b=document.getElementById("aiattb"); if(b) b.innerHTML=""; }
+async function aiAttSet(files){
+  const f=files&&files[0]; if(!f) return;
+  if(files.length>1) toast("この欄は1回1件です。最初の1件を添付しました（複数はZipにまとめてどうぞ）");
+  const ext=FEXT(f.name), c=document.getElementById("chat");
+  const online=(typeof ppReady==="function"&&ppReady());
+  try{
+    if(/^(png|jpg|jpeg|pdf)$/.test(ext)){
+      if(f.size>8*1024*1024){ toast("8MBを超えるため添付できません（画像は縮小・PDFは分割を）"); return; }
+      const b64=await new Promise((res,rej)=>{ const rd=new FileReader();
+        rd.onload=()=>res(String(rd.result).split(",")[1]); rd.onerror=rej; rd.readAsDataURL(f); });
+      AIATT={name:f.name,att:{mime:f.type||(ext==="pdf"?"application/pdf":"image/"+(ext==="jpg"?"jpeg":ext)),b64,name:f.name}};
+      if(c){ pushTo(c,"a",`📎 <b>${esc(f.name)}</b> を添付しました。${online
+        ?"次の質問と一緒に、接続AIが中身を読んで答えます。"
+        :"⚠ 現在AI未接続のため画像・PDFの中身は読めません（管理コンソールでのAI接続後に有効）。質問自体は登録データから回答します。"}`); }
+    } else {
+      const u8=new Uint8Array(await f.arrayBuffer());
+      const r=await entriesCorpus([{name:f.name,u8}]);
+      if(!(r.corpus||"").trim()&&!r.att){
+        if(c) pushTo(c,"a",`📎 ${esc(f.name)}：本文を取り出せませんでした（対応形式：Excel／Word／PowerPoint／PDF／画像／CSV・テキスト・Zip）。`);
+        return; }
+      AIATT={name:f.name,corpus:r.corpus||"",att:r.att||null};
+      if(c){ pushTo(c,"a",`📎 <b>${esc(f.name)}</b> を読み込みました（本文 ${String((r.corpus||"").length.toLocaleString())}字${
+        r.skipped&&r.skipped.length?`・読めなかった${r.skipped.length}件`:""}）。次の質問と一緒にAIが参照します。`); }
+    }
+  }catch(e){ toast("添付を読み込めませんでした："+String(e&&e.message||e).slice(0,60)); return; }
+  const b=document.getElementById("aiattb");
+  if(b){ b.innerHTML=`<span class="p on" style="font-size:9.5px">✓ ${esc(f.name.slice(0,22))}${f.name.length>22?"…":""}</span><button class="btn g" id="aiattx" style="padding:1px 7px;font-size:9.5px" title="添付を外す">×</button>`;
+    const x=document.getElementById("aiattx"); if(x) x.onclick=aiAttClear; }
+  if(c) c.scrollTop=1e6;
+  if(typeof logU==="function") logU("upload","AI相談への添付:"+f.name);
+}
+function aiAttWire(){
+  if(document.getElementById("aiattf")) return;
+  const send=document.getElementById("aisend"); if(!send||!send.parentElement) return;
+  AIATT=null;
+  send.parentElement.insertAdjacentHTML("afterbegin",
+    `<label class="btn g" style="padding:5px 10px;cursor:pointer;margin-right:auto;flex:none" title="ファイルを添付（Excel／Word／PowerPoint／PDF／画像／CSV・テキスト・Zip）。パネルへのドラッグ＆ドロップ、スクショの貼り付けでも添付できます">📎 添付<input type="file" id="aiattf" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".pdf,.png,.jpg"}"></label><span id="aiattb" class="rw" style="gap:4px;flex:none"></span>`);
+  const fi=document.getElementById("aiattf");
+  fi.onchange=e=>{ aiAttSet([...e.target.files]); e.target.value=""; };
+}
+const __renderAttach=render;
+render=function(){
+  __renderAttach();
+  /* ai画面のときだけ📎を注入（#aisendが無い画面では何もしない） */
+  try{ if(typeof cur!=="undefined"&&cur==="ai") aiAttWire(); }catch(e){}
+};
+document.addEventListener("drop",e=>{
+  try{
+    attGlowOff();
+    if(e.defaultPrevented) return;                         /* 既存ゾーンが処理済み（二重取込防止） */
+    if(!e.dataTransfer||!e.dataTransfer.files||!e.dataTransfer.files.length) return;
+    const scope=attScope(e.target), inp=attInput(scope);
+    e.preventDefault();                                    /* textarea等への既定ドロップ（パス文字列挿入）を止める */
+    if(!inp){ toast("ここへのドロップ添付は対応していません。画面内の📎やアップロードボタンをご利用ください"); return; }
+    attSend(inp,[...e.dataTransfer.files]);
+  }catch(err){}
+});
 
 </script>
