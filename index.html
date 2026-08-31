@@ -10927,17 +10927,37 @@ function vToday(p){
     ${!online?`<p class="nn" style="margin-top:8px">⚠ AIエンジン未接続のため、<b>登録データからの基本提案のみ</b>を表示しています。管理者が管理コンソールでAIを接続すると、Web検索を含むDaily調査が有効になります。</p>`:""}
   </div>
   ${items.length?`<div style="display:grid;gap:9px;margin-bottom:11px">
-    ${items.map((x,i)=>`<div class="c ddc" role="button" onclick="todayRun(${i})" title="クリックすると、このタスクをAI商社マンと一緒に実行できます"
+    ${items.map((x,i)=>{
+      const P=(typeof todayProg==="function")?todayProg(x):null;
+      const G=(typeof todayGoOf==="function")?todayGoOf(x):null;
+      const open=(typeof __tdOpen!=="undefined")&&__tdOpen[(typeof tdKey==="function")?tdKey(x):i];
+      const steps=(open&&typeof todayStepsOf==="function")?todayStepsOf(x):null;
+      return `<div class="c ddc" role="button" onclick="todayRun(${i})" title="クリックすると、このタスクをAI商社マンと一緒に実行できます"
       style="padding:12px 14px;border-left:4px solid var(--${prC[x.pr]||"or"})">
       <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div class="rw" style="gap:8px;align-items:center;min-width:0">
           <span style="width:20px;height:20px;border-radius:50%;background:var(--${prC[x.pr]||"or"});color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;flex:0 0 auto">${i+1}</span>
           <b style="font-size:12.5px">${AT(x.t)}</b></div>
         <span class="rw" style="gap:5px;flex:0 0 auto">
+          ${P?`<span class="p ${P.done>=P.total?"hi":"on"}" style="font-size:9px" title="やるべきタスクの進捗。「自動」ステップは登録データからリアルタイム判定">進捗 ${P.done}/${P.total}${P.done>=P.total?" ✅":""}</span>`:""}
           <span class="p ${x.pr==="高"?"no":x.pr==="低"?"lo":"or"}" style="font-size:9px">優先度${esc(x.pr)}</span>
           <span class="p lo" style="font-size:9px">根拠：${esc(x.src||"データ")}</span></span></div>
       <p style="font-size:11px;color:var(--ink-2);margin:6px 0 0 28px;line-height:1.75">${AT(x.d)}</p>
-      <span class="ddhint">🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸</span></div>`).join("")}
+      <div class="rw" style="margin:7px 0 0 28px;gap:6px;flex-wrap:wrap">
+        <button class="btn g" style="font-size:10px;padding:3px 10px" type="button"
+          onclick="event.stopPropagation();tdStepsToggle(${i})">${open?"▾ 閉じる":`▸ やるべきタスク一覧（${P?P.total:"—"}件${P&&P.total>P.done?`・残り${P.total-P.done}`:""}）`}</button>
+        ${G?`<button class="btn g" style="font-size:10px;padding:3px 10px" type="button"
+          onclick="event.stopPropagation();tdGoFeat(${i})">🔗 「${esc(G.nm)}」で進める</button>`:""}</div>
+      ${open&&steps?`<div style="margin:8px 0 0 28px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);padding:3px 10px 7px" onclick="event.stopPropagation()">
+        ${steps.map(sp=>`<div class="rw" style="gap:7px;padding:5px 0;border-bottom:1px dashed var(--line-2);justify-content:space-between;flex-wrap:nowrap">
+          <label class="rw" style="gap:7px;font-size:11px;min-width:0;flex-wrap:nowrap;cursor:${sp.auto?"default":"pointer"}">
+            ${sp.auto?`<span style="flex:none">${sp.ok?"✅":"⬜"}</span>`
+              :`<input type="checkbox" ${sp.ok?"checked":""} onclick="event.stopPropagation()" onchange="tdStepChk(${i},'${sp.id}',this.checked)" style="flex:none;accent-color:var(--or)">`}
+            <span style="min-width:0;${sp.ok?"color:var(--ink-3);text-decoration:line-through":""}">${esc(sp.label)}</span>
+            ${sp.auto?`<span class="p lo" style="font-size:8px;flex:none" title="登録データから自動判定。どの画面で進めても、ここに即反映されます">自動</span>`:""}</label>
+          ${sp.go?`<button class="btn g" style="font-size:9px;padding:2px 8px;flex:none" type="button" onclick="tdStepGo('${sp.go}','${sp.pre||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
+        <p style="font-size:9px;color:var(--ink-3);margin:7px 0 0;line-height:1.6">「自動」＝登録データと連動（AIと埋める・営業資料・出荷など、<b>どの画面で進めてもリアルタイムに✅</b>）。チェックボックスはこの商品に保存されます。</p></div>`:""}
+      <span class="ddhint">🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸</span></div>`;}).join("")}
   </div>`:`<div class="c" style="margin-bottom:11px;text-align:center;padding:20px"><p class="nn">この商品の「今日やること」はまだありません。${online?"上の「🔄 いま再調査する」からAI調査を実行できます。":"商品情報を充実させると基本提案が表示されます。"}</p></div>`}
   ${ai&&ai.web?`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)">
     <h3 style="font-size:12px">🌐 Web調査メモ（${esc(ai.date)}・${esc((D&&D.co)||"")}の海外展開・最新動向）</h3>
@@ -10963,6 +10983,91 @@ function tdSave(){
     if(typeof TEN!=="undefined"&&TEN&&typeof saveTen==="function") saveTen();
   }catch(e){}
 }
+
+/* ═══ タスクごとの「やるべきタスク一覧」（チェックリスト・進捗はデータ連動） ═══
+   ・「自動」ステップ＝登録データ（充足度・HS・成分表・営業資料の納品判定・出荷・実行履歴）から
+     毎回リアルタイムに判定。AIと埋める／営業資料／出荷など、どの画面で進めてもここに即反映される。
+   ・手動ステップ＝チェックボックス。この商品のデータ（todaySteps）に保存され、リロードしても消えない。
+   ・進捗表示（done/total）は上記の実判定だけで数える。創作の「済み」は付けない。 */
+function tdStepSt(){ const s=todayStore(); s.todaySteps=s.todaySteps||{}; return s.todaySteps; }
+function tdStepChkSave(x,id,on){
+  const st=tdStepSt(), k=tdKey(x);
+  st[k]=st[k]||{}; if(on) st[k][id]=1; else delete st[k][id];
+  if(typeof TEN!=="undefined"&&TEN&&typeof saveTen==="function") saveTen();
+}
+function todayStepsOf(x){
+  const T=(x.t||"")+"｜"+(x.d||"");
+  const st=(tdStepSt()[tdKey(x)])||{};
+  const t0=(typeof TEN!=="undefined"&&TEN&&TEN.src)?TEN:(typeof D!=="undefined"?D:null);
+  let sc=null; try{ if(t0&&typeof scoreOf==="function") sc=scoreOf(t0); }catch(e){}
+  let ran=false; try{ const r=tdRuns()[tdKey(x)]; ran=!!(r&&(r.n>0||(r.log&&r.log.length>1))); }catch(e){}
+  const S=[];
+  const add=(id,label,o)=>S.push(Object.assign({id,label,auto:0,ok:!!st[id],go:null,goNm:"",pre:""},o||{}));
+  const M=re=>re.test(T);
+  if(M(/仕様|価格|MOQ|未登録|収集|充足|不足|埋め/)&&sc&&(sc.filled.length+sc.missing.length)){
+    sc.filled.slice(0,13).forEach(f=>add("f_"+f.k,f.n+" を登録する",{auto:1,ok:true,go:"up",goNm:"商品情報を登録"}));
+    sc.missing.slice(0,13).forEach(f=>add("m_"+f.k,f.n+" を登録する",{auto:1,ok:false,go:"up",goNm:"商品情報を登録"}));
+    add("req","不足分を担当者へ依頼する",{go:"msg",goNm:"やりとり"});
+  } else if(M(/規制|HS|INCI|事前教示|認証|証明/)){
+    add("hs","HSコードを確定する",{auto:1,ok:!!(typeof D!=="undefined"&&D&&D.hs),go:"ops",goNm:"貿易実務・書類",pre:"reg"});
+    add("comp",((typeof D!=="undefined"&&D&&D.compTitle)||"成分表・材質表")+" を揃える",{auto:1,ok:((typeof D!=="undefined"&&D&&D.compRows)||[]).length>=5,go:"up",goNm:"商品情報を登録"});
+    add("reg","送り先国の規制を確認する",{go:"ops",goNm:"貿易実務・書類（規制）",pre:"reg"});
+    add("docs","必要書類・証明書をリスト化する",{go:"ops",goNm:"貿易実務・書類"});
+  } else if(M(/提案|候補|バイヤー|英語|外国語|営業資料/)){
+    add("tgt","進出したい国を決める",{auto:1,ok:!!((t0&&t0.targets&&t0.targets.length)||(typeof D!=="undefined"&&D&&Object.keys(D.regs||{}).length)),go:"up",goNm:"商品情報を登録"});
+    let deckOK=false; try{ deckOK=(typeof deckMissReq==="function")&&deckMissReq().length===0; }catch(e){}
+    add("deck","外国語営業資料を納品レベルに仕上げる",{auto:1,ok:deckOK,go:"deck",goNm:"外国語 営業資料"});
+    add("db","バイヤー候補を絞り込む",{go:"db",goNm:"バイヤーDB・拠点"});
+    add("prop","提案メッセージを作成・送信する",{go:"msg",goNm:"やりとり"});
+  } else if(M(/同一性|照合|一致|表記|品番/)){
+    add("item","登録済みの商品情報と突き合わせる",{go:"item",goNm:"商品情報"});
+    add("srcs","取り込んだ資料の記載を確認する",{go:"srcs",goNm:"取り込んだ情報一覧"});
+    add("ask","社内担当へ照会する",{go:"msg",goNm:"やりとり"});
+    add("fix","確認結果を商品情報に反映する",{go:"up",goNm:"商品情報を登録"});
+  } else if(M(/Web|掲載|訴求|サイト|EC/)){
+    add("gr","根拠資料（配合・エビデンス）を取り込む",{go:"up",goNm:"商品情報を登録"});
+    add("desc","商品説明・強みの表現を整理する",{go:"item",goNm:"商品情報"});
+    add("wr","輸出向けの訴求文をAI商社マンと作成する",{});
+  } else if(M(/照会|問い合わせ|運営|依頼|連絡/)){
+    add("draft","照会文をAI商社マンと作成する",{});
+    add("send","やりとりで送信する",{go:"msg",goNm:"やりとり"});
+    add("rec","回答を記録・取り込みする",{go:"srcs",goNm:"取り込んだ情報一覧"});
+  } else if(M(/出荷|見積|輸送|運賃|船積/)){
+    add("ship","出荷ステップを進める",{auto:1,ok:!!(typeof D!=="undefined"&&D&&D.ship&&D.ship.no),go:"ship",goNm:"出荷を進める"});
+    add("fwd","物流会社にAI見積を出す",{go:"ship",goNm:"出荷を進める"});
+    add("doc","必要書類を作成する",{go:"ops",goNm:"貿易実務・書類"});
+  } else {
+    add("plan","現状と論点をAI商社マンと整理する",{});
+    add("act","必要な資料・情報を集めて添付する",{});
+    add("rec2","結果を貿易クラウドに記録する",{go:"srcs",goNm:"取り込んだ情報一覧"});
+  }
+  add("run","AI商社マンとこのタスクを実行する",{auto:1,ok:ran});
+  return S;
+}
+function todayProg(x){ const s=todayStepsOf(x); return {done:s.filter(z=>z.ok).length,total:s.length}; }
+/* タスク→左サイドバーの対応機能（あればジャンプボタンを出す） */
+function todayGoOf(x){
+  const T=(x.t||"")+"｜"+(x.d||"");
+  const map=[[/規制|HS|INCI|事前教示/,"ops","貿易実務・書類","reg"],
+    [/英語|外国語|営業資料/,"deck","外国語 営業資料",""],
+    [/バイヤー|提案|候補/,"db","バイヤーDB・拠点",""],
+    [/仕様|価格|MOQ|収集|未登録|充足/,"up","商品情報を登録",""],
+    [/出荷|見積|輸送|運賃/,"ship","出荷を進める",""],
+    [/照会|問い合わせ|連絡/,"msg","やりとり",""],
+    [/Web|掲載|サイト/,"srcs","取り込んだ情報一覧",""],
+    [/同一性|照合|一致/,"item","商品情報",""]];
+  for(const [re,pg,nm,pre] of map) if(re.test(T)) return {pg,nm,pre};
+  return null;
+}
+/* vTodayカードのハンドラ（インラインonclickから呼ぶ） */
+let __tdOpen={};
+function tdStepsToggle(i){ const x=todayItems()[i]; if(!x) return;
+  const k=tdKey(x); __tdOpen[k]=!__tdOpen[k]; if(typeof render==="function") render(); }
+function tdStepChk(i,id,on){ const x=todayItems()[i]; if(!x) return;
+  tdStepChkSave(x,id,on); if(typeof render==="function") render(); }
+function tdStepGo(pg,pre){ if(pre==="reg"){ try{opsTab="reg";}catch(e){} } go(pg); }
+function tdGoFeat(i){ const x=todayItems()[i]; if(!x) return;
+  const g2=todayGoOf(x); if(!g2) return; tdStepGo(g2.pg,g2.pre); }
 
 function todayRun(i){
   const items=todayItems(); const x=items[i];
@@ -11074,6 +11179,8 @@ async function todayRunFiles(files){
     }
     const h=await todayRunIngest(entries,names);
     bb.innerHTML=h; TDRUN.log.push({w:"a",h}); tdSave(); c.scrollTop=1e6;
+    /* 背後の「今日やること」一覧を再描画（進捗の自動✅をリアルタイム反映。ドロワーは#pn側なので無傷） */
+    if(typeof cur!=="undefined"&&cur==="today"){ try{render();}catch(e2){} }
   }catch(e){ bb.innerHTML="資料を読み込めませんでした："+esc(String(e&&e.message).slice(0,90)); }
 }
 async function todayRunIngest(entries,label){
