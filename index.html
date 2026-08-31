@@ -11615,6 +11615,9 @@ async function llmAsk(q,maxTok,opts){
     if((!cits||!cits.length)&&jr.search_results) cits=jr.search_results.map(x=>x.url).filter(Boolean);
     mdl=jr.model||model;
   }
+  /* コスト記録（管理コンソールのAPIコスト分析用）。トークンはAPI応答の実測usageを最優先 */
+  try{ if(typeof costLog==="function") costLog(prov,mdl,jr,{att:!!att,web:!!(webOK&&P.search&&!att),task:opts.task,
+    qlen:(sys?sys.length:0)+(typeof userQ==="string"?userQ.length:2000),alen:txt.length}); }catch(e){}
   if(!txt.trim()){
     /* 推論モデルが思考でトークンを使い切ると本文が空になる → 上限を3倍にして1回だけ自動再試行 */
     if(!opts._retry2)
@@ -11954,6 +11957,305 @@ function ppBind(){
   });
 }
 
+/* ═══════════ 管理コンソール：APIコスト分析・予算・AI改善提案 ═══════════
+   ・llmAsk の実API呼び出しごとに {ユーザー, エンジン, モデル, トークン数} をこの端末に記録（bc20_cost_v1）
+   ・トークン数はAPI応答の実測値（usage）を最優先。応答に無い場合のみ文字数からの推計（est=1）として正直に区別
+   ・金額は「参考単価×トークン」の概算。単価は編集可。実請求は各社の管理画面が正
+   ・BC-MIDORI-24／BC-KAKO-77 の分は表示サンプルの模擬データ（sd=1）で、実課金は発生していない */
+const CKEY="bc20_cost_v1";
+/* 参考単価（USD/100万トークン・2026年8月時点の各社代表モデル公表値ベース）。webFee=Web検索1回あたりUSD */
+const COST_DEF={perplexity:{i:1,o:1},openai:{i:1.75,o:14},gemini:{i:0.3,o:2.5},anthropic:{i:5,o:25},webFee:0.005};
+let CDB=null;
+const COSTV={per:"30d",from:"",to:"",open:null,ai:""};
+function costLoad(){
+  try{ const j=JSON.parse(localStorage.getItem(CKEY));
+    if(j&&j.v===1&&Array.isArray(j.ev)){ CDB=j; CDB.budget=CDB.budget||{month:null,user:null};
+      CDB.rates=Object.assign({},COST_DEF,CDB.rates||{}); return CDB; } }catch(e){}
+  CDB={v:1,ev:[],budget:{month:null,user:null},rates:Object.assign({},COST_DEF),seeded:0};
+  costSeedDemo(); costSave(); return CDB;
+}
+function costSave(){ try{localStorage.setItem(CKEY,JSON.stringify(CDB));}catch(e){} }
+/* 決定論PRNG（リロードしても同じサンプルにするため。シードは一度だけ生成して保存） */
+function costRnd(seed){ let a=0; for(const c of String(seed)) a=(a*31+c.charCodeAt(0))>>>0;
+  return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a);
+    t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+/* 表示サンプル（みどり製茶ほか）の模擬利用データ。シードアカウントが存在する端末でのみ生成 */
+function costSeedDemo(){
+  if(CDB.seeded) return;
+  CDB.seeded=1;
+  if(typeof ADB==="undefined"||!ADB||!ADB.accounts) return;
+  const mk=(code,n,webN,d0,d1)=>{
+    if(!ADB.accounts.some(a=>a.code===code)) return;
+    const r=costRnd(code), span=Math.max(1,d1-d0);
+    for(let i=0;i<n;i++){
+      const web=i<webN, prov=web?"perplexity":(["gemini","gemini","gemini","anthropic","anthropic","openai"])[Math.floor(r()*6)];
+      const model=(PROV[prov]&&PROV[prov].def)||"";
+      const t=Date.now()-(d0+r()*span)*864e5;
+      const ti=Math.round(4000+r()*12000), to=Math.round(300+r()*1500);
+      CDB.ev.push([Math.round(t),code,prov,model,ti,to,0,web?1:0,web?"🌐質問":"質問",1]);
+    }
+  };
+  mk("BC-MIDORI-24",23,9,1,9);
+  mk("BC-KAKO-77",6,0,8,20);
+  CDB.ev.sort((a,b)=>a[0]-b[0]);
+}
+/* llmAsk から毎回呼ばれる記録フック（実API応答 jr からトークン実測を取得） */
+function costLog(prov,model,jr,x){
+  try{
+    if(!CDB) costLoad();
+    x=x||{};
+    let ti=0,to=0,est=0;
+    const u=jr&&(jr.usage||jr.usageMetadata);
+    if(u){
+      ti=u.input_tokens||u.prompt_tokens||u.promptTokenCount||0;
+      to=u.output_tokens||u.completion_tokens||u.candidatesTokenCount||0;
+    }
+    if(!ti&&!to){ est=1;
+      ti=Math.round((x.qlen||1000)/2.5)+(x.att?1500:0);
+      to=Math.round((x.alen||600)/2.5)||400; }
+    const code=(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.code)||"admin";
+    const tag=x.att?"📄読取":(x.web?"🌐質問":(x.task==="legal"||x.task==="heavy"?"⚖️高精度":"質問"));
+    CDB.ev.push([Date.now(),code,prov,model||"",Math.round(ti),Math.round(to),est,x.web?1:0,tag,0]);
+    if(CDB.ev.length>600) CDB.ev=CDB.ev.slice(-600);
+    costSave();
+  }catch(e){}
+}
+function costFx(){
+  try{ if(typeof dashRate==="function"){ const r=dashRate(); return {v:r.v,live:r.live}; } }catch(e){}
+  return {v:159.40,live:0};
+}
+function costUsdOf(e){
+  const R=CDB.rates, p=R[e[2]]||{i:1,o:5};
+  return (e[4]*p.i+e[5]*p.o)/1e6+(e[7]?(+R.webFee||0):0);
+}
+/* 期間の解決。戻り値 [fromMs, toMs, ラベル] */
+function costRange(){
+  const now=Date.now(), D=864e5, d=new Date();
+  if(COSTV.per==="7d")  return [now-7*D,now,"直近7日"];
+  if(COSTV.per==="mon") return [new Date(d.getFullYear(),d.getMonth(),1).getTime(),now,(d.getMonth()+1)+"月（今月）"];
+  if(COSTV.per==="all") return [0,now,"全期間"];
+  if(COSTV.per==="cus"&&COSTV.from){
+    const f=new Date(COSTV.from+"T00:00:00").getTime();
+    const t=COSTV.to?new Date(COSTV.to+"T23:59:59").getTime():now;
+    return [f,t,COSTV.from+"〜"+(COSTV.to||"今日")];
+  }
+  return [now-30*D,now,"直近30日"];
+}
+function costAgg(f,t){
+  if(!CDB) costLoad(); else { try{const j=JSON.parse(localStorage.getItem(CKEY));
+    if(j&&j.v===1&&Array.isArray(j.ev)){ j.budget=j.budget||CDB.budget; j.rates=Object.assign({},COST_DEF,j.rates||{}); CDB=j; } }catch(e){} }
+  const A={usd:0,calls:0,est:0,web:0,sd:0,byUser:{},byProv:{},byDay:{}};
+  for(const e of CDB.ev){
+    if(e[0]<f||e[0]>t) continue;
+    const usd=costUsdOf(e);
+    A.usd+=usd; A.calls++; if(e[6])A.est++; if(e[7])A.web++; if(e[9])A.sd++;
+    const U=A.byUser[e[1]]=A.byUser[e[1]]||{usd:0,calls:0,ti:0,to:0,byProv:{},last:[],sd:0};
+    U.usd+=usd; U.calls++; U.ti+=e[4]; U.to+=e[5]; if(e[9])U.sd++;
+    U.byProv[e[2]]=(U.byProv[e[2]]||0)+usd;
+    U.last.push(e); if(U.last.length>60) U.last.shift();
+    const P2=A.byProv[e[2]]=A.byProv[e[2]]||{usd:0,calls:0,ti:0,to:0};
+    P2.usd+=usd; P2.calls++; P2.ti+=e[4]; P2.to+=e[5];
+    const day=new Date(e[0]).toISOString().slice(0,10);
+    A.byDay[day]=(A.byDay[day]||0)+usd;
+  }
+  return A;
+}
+const costYen=(usd,fx)=>Math.round(usd*fx.v);
+const costFmtY=n=>n>=1?"¥"+Math.round(n).toLocaleString():(n>0?"¥1未満":"¥0");
+const costFmtD=v=>"$"+(v>=1?v.toFixed(2):v.toFixed(3));
+function costUserNm(code){
+  if(code==="admin") return "管理者（接続テスト・コンソール操作）";
+  const a=typeof findAcct==="function"?findAcct(code):null;
+  return a?a.co:code;
+}
+/* ── 今月の予算消化とペース（着地は日割りの推計であることを明記） ── */
+function costBudget(fx){
+  const d=new Date(), mf=new Date(d.getFullYear(),d.getMonth(),1).getTime();
+  const M=costAgg(mf,Date.now());
+  const jpy=costYen(M.usd,fx), b=CDB.budget.month;
+  const days=Math.max(1,Math.ceil((Date.now()-mf)/864e5)), mdays=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  const land=Math.round(jpy/days*mdays);
+  const pct=b?Math.round(jpy/b*100):0;
+  return {jpy,b,pct,land,mon:M,badge:!b?"":pct>=100?"🔴":pct>=80?"🟡":"🟢"};
+}
+/* ═══ カード描画 ═══ */
+function costCardHtml(){
+  costLoad();
+  const fx=costFx(), [f,t,perLbl]=costRange(), A=costAgg(f,t);
+  const jpy=costYen(A.usd,fx), B=costBudget(fx);
+  const users=Object.entries(A.byUser).sort((x,y)=>y[1].usd-x[1].usd);
+  const provs=Object.entries(A.byProv).sort((x,y)=>y[1].usd-x[1].usd);
+  const mxU=Math.max(1e-9,...users.map(([,u])=>u.usd));
+  const pb=(k,l)=>`<button class="btn ${COSTV.per===k?"":"g"}" data-cper="${k}" style="padding:4px 10px;font-size:10.5px">${l}</button>`;
+  /* 日次棒グラフ（期間内・最大60日） */
+  const dayKeys=Object.keys(A.byDay).sort(), dks=dayKeys.slice(-60);
+  const mxD=Math.max(1e-9,...dks.map(k=>A.byDay[k]));
+  const bw=dks.length?Math.max(3,Math.floor(300/dks.length))-1:3;
+  const spark=dks.length?`<svg viewBox="0 0 ${dks.length*(bw+1)} 46" style="width:100%;max-width:340px;height:46px" preserveAspectRatio="none">
+    ${dks.map((k,i)=>`<rect x="${i*(bw+1)}" y="${46-Math.max(2,A.byDay[k]/mxD*44)}" width="${bw}" height="${Math.max(2,A.byDay[k]/mxD*44)}" fill="var(--bl)" opacity="${0.45+A.byDay[k]/mxD*0.55}"><title>${k}：${costFmtY(costYen(A.byDay[k],fx))}</title></rect>`).join("")}</svg>
+    <p style="font-size:9px;color:var(--ink-3);margin-top:2px">${dks[0]} 〜 ${dks[dks.length-1]}（日別・棒にカーソルで金額）</p>`:"";
+  return `<div class="c" id="costcard" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start;gap:10px">
+      <div><h3>💰 APIコスト分析 ${B.badge?`<span title="今月予算の消化率 ${B.pct}%">${B.badge}</span>`:""}</h3>
+        <p class="nn">どのユーザーが・どのAIエンジンを・いくら使っているか。トークン数はAPI応答の実測値を記録し、金額は下の参考単価での概算です（実請求は各社の管理画面が正）。</p></div>
+      <div style="text-align:right;flex:none">
+        <div class="rw" style="gap:4px;justify-content:flex-end">${pb("7d","7日")}${pb("30d","30日")}${pb("mon","今月")}${pb("all","全期間")}</div>
+        <div class="rw" style="gap:4px;justify-content:flex-end;margin-top:5px;font-size:10px">
+          <input type="date" class="sel" id="cfrom" value="${COSTV.from}" style="padding:3px 6px;font-size:10px">〜
+          <input type="date" class="sel" id="cto" value="${COSTV.to}" style="padding:3px 6px;font-size:10px">
+          <button class="btn g" id="capply" style="padding:3px 9px;font-size:10px">期間指定</button></div></div></div>
+
+    <div class="g4" style="margin-top:11px;gap:8px">
+      <div class="c" style="margin:0"><p class="lbl">${perLbl}の概算コスト</p>
+        <div class="kv n">${costFmtY(jpy)}</div><div class="kd">${costFmtD(A.usd)}／換算 ¥${fx.v}${fx.live?"（本日TTM）":"（参照レート8/28）"}</div></div>
+      <div class="c" style="margin:0"><p class="lbl">API呼び出し</p>
+        <div class="kv n">${A.calls}<small>回</small></div><div class="kd">うち 🌐Web検索 ${A.web}回${A.est?`・推計 ${A.est}回`:""}</div></div>
+      <div class="c" style="margin:0"><p class="lbl">平均コスト／回</p>
+        <div class="kv n">${A.calls?costFmtY(jpy/A.calls):"—"}</div><div class="kd">${A.calls?costFmtD(A.usd/A.calls):"呼び出しなし"}</div></div>
+      <div class="c" style="margin:0"><p class="lbl">今月の予算消化</p>
+        ${B.b?`<div class="kv n">${B.pct}<small>%</small></div>
+          <div class="mt" style="margin-top:4px"><i style="width:${Math.min(100,B.pct)}%;background:${B.pct>=100?"var(--crit)":B.pct>=80?"var(--warn)":"var(--good)"}"></i></div>
+          <div class="kd">${costFmtY(B.jpy)}／予算 ${costFmtY(B.b)}・このペースだと月末 ${costFmtY(B.land)}（推計）</div>`
+        :`<div class="kv n" style="font-size:14px;color:var(--ink-3)">未設定</div><div class="kd">下の「予算を設定」から月次予算を入力できます</div>`}</div></div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:11px;margin-top:11px">
+      <div><p class="lbl">ユーザー別（クリックで内訳）${CDB.budget.user?`　<span style="font-size:9px;color:var(--ink-3)">⚠＝今月警戒ライン ${costFmtY(CDB.budget.user)} 超え</span>`:""}</p>
+        ${users.length?`<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+        ${users.map(([code,u])=>{
+          const uy=costYen(u.usd,fx);
+          const monU=B.mon.byUser[code], monY=monU?costYen(monU.usd,fx):0;
+          const over=CDB.budget.user&&monY>CDB.budget.user;
+          const tp=Object.entries(u.byProv).sort((a,b)=>b[1]-a[1])[0];
+          const openRow=COSTV.open===code;
+          return `<div style="border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
+          <button data-cuser="${esc(code)}" style="all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;padding:7px 10px">
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11.5px">
+              <span><b>${esc(costUserNm(code))}</b> <span class="acode" style="font-size:9px">${esc(code)}</span>${u.sd?` <span class="p lo" style="font-size:8.5px" title="表示サンプルの模擬利用データ（実課金なし）">🧪サンプル</span>`:""}${over?` <span class="p no" style="font-size:8.5px">⚠ライン超え</span>`:""}</span>
+              <span class="n" style="font-weight:600">${costFmtY(uy)}<span style="color:var(--ink-3);font-weight:400;font-size:10px">・${u.calls}回</span></span></div>
+            <div class="mt" style="margin:5px 0 0"><i style="width:${u.usd/mxU*100}%${over?";background:var(--crit)":""}"></i></div>
+            <div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">主に ${tp?((PROV[tp[0]]&&PROV[tp[0]].short)||tp[0])+"（"+Math.round(tp[1]/u.usd*100)+"%）":"—"}・入力 ${(u.ti/1000).toFixed(0)}K／出力 ${(u.to/1000).toFixed(0)}K tok</div></button>
+          ${openRow?`<div style="padding:0 10px 9px;border-top:1px dashed var(--line-2)">
+            <table style="width:100%;font-size:10.5px;margin-top:6px"><thead><tr><th style="text-align:left">エンジン</th><th class="num">概算</th></tr></thead><tbody>
+            ${Object.entries(u.byProv).sort((a,b)=>b[1]-a[1]).map(([p2,v])=>`<tr><td>${(PROV[p2]&&PROV[p2].nm)||p2}</td><td class="num n">${costFmtY(costYen(v,fx))}</td></tr>`).join("")}</tbody></table>
+            <p class="lbl" style="margin-top:7px">最近の呼び出し（新しい順）</p>
+            <div style="font-size:10px;color:var(--ink-2);line-height:1.8;max-height:130px;overflow:auto">
+            ${u.last.slice(-10).reverse().map(e=>`${new Date(e[0]).getMonth()+1}/${new Date(e[0]).getDate()} ${e[8]||"質問"}・${(PROV[e[2]]&&PROV[e[2]].short)||e[2]} <span style="color:var(--ink-3)">${e[4].toLocaleString()}→${e[5].toLocaleString()}tok</span> <b class="n">${costFmtY(costYen(costUsdOf(e),fx))}</b>${e[6]?'<span class="p lo" style="font-size:8px">推計</span>':""}`).join("<br>")}</div></div>`:""}</div>`;}).join("")}</div>`
+        :`<p class="nn" style="margin-top:6px">この期間のAPI利用はありません（内蔵エンジンの応答は外部AI費用ゼロのため記録されません）。</p>`}</div>
+
+      <div><p class="lbl">エンジン別・日次推移</p>
+        ${provs.length?`<div class="tw" style="margin-top:6px;max-height:none"><table style="font-size:11px"><thead>
+          <tr><th>エンジン</th><th class="num">回</th><th class="num">入力/出力 tok</th><th class="num">概算</th></tr></thead><tbody>
+          ${provs.map(([p2,v])=>`<tr><td>${(PROV[p2]&&PROV[p2].nm)||p2}</td><td class="num n">${v.calls}</td>
+            <td class="num n" style="font-size:10px">${(v.ti/1000).toFixed(0)}K／${(v.to/1000).toFixed(0)}K</td>
+            <td class="num n"><b>${costFmtY(costYen(v.usd,fx))}</b></td></tr>`).join("")}</tbody></table></div>`:""}
+        <div style="margin-top:9px">${spark}</div>
+        ${A.sd?`<p style="font-size:9.5px;color:var(--ink-3);margin-top:7px">🧪 うち${A.sd}回は表示サンプル（みどり製茶ほか）の模擬利用データです。実課金は発生していません。</p>`:""}
+        ${A.est?`<p style="font-size:9.5px;color:var(--ink-3);margin-top:3px">「推計」＝API応答にトークン数が無かった呼び出し。文字数からの概算です。</p>`:""}</div></div>
+
+    <div class="rw" style="margin-top:12px;gap:7px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:10px">
+      <b style="font-size:11.5px">予算を設定：</b>
+      <label style="font-size:10.5px">月次予算（円）<input class="sel n" id="cbud" type="number" min="0" step="500" value="${CDB.budget.month||""}" placeholder="例: 5000" style="width:90px;padding:4px 7px;font-size:11px;margin-left:4px"></label>
+      <label style="font-size:10.5px">ユーザー別警戒ライン（円/月）<input class="sel n" id="cbudu" type="number" min="0" step="500" value="${CDB.budget.user||""}" placeholder="任意" style="width:80px;padding:4px 7px;font-size:11px;margin-left:4px"></label>
+      <button class="btn g" id="cbudsave" style="padding:4px 12px;font-size:11px">保存</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="costai" style="padding:5px 13px;font-size:11.5px">🤖 AIにコスト改善を提案してもらう</button></div>
+    <div id="costaiout" style="margin-top:9px">${COSTV.ai||""}</div>
+
+    <details style="margin-top:9px"><summary style="font-size:10.5px;color:var(--ink-3);cursor:pointer">参考単価の確認・編集（USD／100万トークン）</summary>
+      <div class="rw" style="gap:9px;margin-top:8px;flex-wrap:wrap;font-size:10.5px">
+      ${Object.keys(PROV).map(p2=>`<label style="border:1px solid var(--line);border-radius:var(--r2);padding:6px 9px">
+        <b>${PROV[p2].short}</b>　入 <input class="sel n" data-cri="${p2}" type="number" step="0.05" min="0" value="${CDB.rates[p2].i}" style="width:56px;padding:2px 5px;font-size:10.5px">
+        　出 <input class="sel n" data-cro="${p2}" type="number" step="0.05" min="0" value="${CDB.rates[p2].o}" style="width:56px;padding:2px 5px;font-size:10.5px"></label>`).join("")}
+      <label style="border:1px solid var(--line);border-radius:var(--r2);padding:6px 9px">🌐検索加算/回 $<input class="sel n" id="cwebfee" type="number" step="0.001" min="0" value="${CDB.rates.webFee}" style="width:60px;padding:2px 5px;font-size:10.5px"></label>
+      <button class="btn g" id="cratesave" style="padding:4px 11px;font-size:10.5px">単価を保存</button></div>
+      <p style="font-size:9.5px;color:var(--ink-3);margin-top:6px">初期値は各社代表モデルの公表単価ベースの参考値（モデルごとの単価差は反映されません）。正確な請求額は各社のダッシュボードでご確認ください。</p></details>
+  </div>`;
+}
+/* ═══ AI改善提案 ═══ */
+function costAggText(){
+  const fx=costFx(), [f,t,perLbl]=costRange(), A=costAgg(f,t), B=costBudget(fx);
+  const users=Object.entries(A.byUser).sort((x,y)=>y[1].usd-x[1].usd)
+    .map(([c,u])=>`${costUserNm(c)}(${c}): ${costFmtY(costYen(u.usd,fx))}・${u.calls}回`).join("／");
+  const provs=Object.entries(A.byProv).sort((x,y)=>y[1].usd-x[1].usd)
+    .map(([p2,v])=>`${(PROV[p2]&&PROV[p2].short)||p2}: ${costFmtY(costYen(v.usd,fx))}・${v.calls}回`).join("／");
+  return `期間:${perLbl}／合計:${costFmtY(costYen(A.usd,fx))}(${costFmtD(A.usd)})・${A.calls}回（🌐Web検索${A.web}回・推計${A.est}回）
+ユーザー別:${users||"なし"}
+エンジン別:${provs||"なし"}
+今月:${costFmtY(B.jpy)}${B.b?`／予算${costFmtY(B.b)}（消化${B.pct}%・月末着地推計${costFmtY(B.land)}）`:"／予算未設定"}
+自動ルーティング:${typeof LLM!=="undefined"&&LLM.route!==false?"ON":"OFF"}／利用プラン:${typeof PLANS!=="undefined"&&typeof USERPLAN!=="undefined"?PLANS[USERPLAN].nm:"—"}`;
+}
+function costAdviseLocal(){
+  const fx=costFx(), [f,t]=costRange(), A=costAgg(f,t), B=costBudget(fx);
+  const out=[];
+  const users=Object.entries(A.byUser).sort((x,y)=>y[1].usd-x[1].usd);
+  if(!A.calls) return ["・この期間の外部API利用はありません。内蔵エンジンのみの運用は外部AI費用ゼロです。キー接続後は、この画面に実測トークンとコストが自動で貯まります。"];
+  if(users.length&&users[0][1].usd/A.usd>0.5&&users.length>1)
+    out.push(`・<b>${esc(costUserNm(users[0][0]))}</b> が全体の${Math.round(users[0][1].usd/A.usd*100)}%を占めています。「ユーザー別警戒ライン」を設定すると、超過したユーザーに⚠が表示され、声かけの目安になります。`);
+  if(A.web/A.calls>0.3)
+    out.push(`・Web検索付きの質問が${Math.round(A.web/A.calls*100)}%（${A.web}回）。検索加算と長い出力でコストが上がりやすいため、最新情報が不要な質問は🌐をOFFにする運用が有効です（発行時にアカウント単位で停止も可能）。`);
+  const hi=(A.byProv.anthropic?A.byProv.anthropic.usd:0)+(A.byProv.openai?A.byProv.openai.usd:0);
+  if(hi/Math.max(1e-9,A.usd)>0.5)
+    out.push(`・高単価エンジン（Claude/ChatGPT）が金額の${Math.round(hi/A.usd*100)}%です。${typeof LLM!=="undefined"&&LLM.route!==false?"自動ルーティングはONのため、抽出・翻訳は安価なGemini系へ流れます。契約書など高精度が要る場面だけ高単価が選ばれているか、ユーザー内訳の「⚖️高精度」比率をご確認ください。":"<b>自動ルーティングがOFF</b>です。AIエンジン設定で複数エンジンに✓を入れてONにすると、質問内容に応じて最安のエンジンが自動選択されます。"}`);
+  if(!B.b) out.push(`・月次予算が未設定です。まずは今月実績 ${costFmtY(B.jpy)} を目安に、1.5〜2倍程度で設定すると消化率とペース（月末着地の推計）が常時表示されます。`);
+  else if(B.land>B.b) out.push(`・このペースだと月末着地は <b>${costFmtY(B.land)}</b>（予算比${Math.round(B.land/B.b*100)}%）の推計です。超過が見える場合は、利用の多いユーザーのプラン見直しや🌐制限をご検討ください。`);
+  if(A.est/A.calls>0.3) out.push(`・${A.est}回（${Math.round(A.est/A.calls*100)}%）が文字数からの推計値です。API応答にトークン実測が含まれる呼び出しからは自動で実測記録に切り替わります。`);
+  if(out.length<3) out.push("・利用プランは「スタンダード＝高速で安価なモデル固定」です。HS判別・契約書など高精度が必要な操作だけが自動で上位モデルに切り替わるため、日常利用はスタンダードのままが最も割安です。");
+  if(out.length<3) out.push("・トークンの大半は毎回のコンテキスト注入（社内データ）です。「取り込んだ情報一覧」で不要になった古い資料を削除すると、1回あたりの入力トークンを圧縮できます。");
+  return out;
+}
+async function costAdvise(){
+  const el=document.getElementById("costaiout"); if(!el) return;
+  const on=typeof llmActive==="function"&&llmActive().length>0;
+  const box=(inner,lbl)=>`<div style="border:1px solid var(--line);border-left:3px solid var(--bl);border-radius:var(--r2);padding:10px 13px;background:var(--surface-2);font-size:11.5px;line-height:1.8">
+    <p class="lbl" style="margin-bottom:5px">${lbl}</p>${inner}</div>`;
+  if(!on){
+    COSTV.ai=box(costAdviseLocal().join("<br>"),"🤖 内蔵エンジンによる自動分析（AI未接続・データからのルール判定）");
+    el.innerHTML=COSTV.ai; return;
+  }
+  el.innerHTML=`<p class="nn"><span class="spin"></span> 接続AIがコスト集計を分析しています…</p>`;
+  try{
+    const r=await llmAsk(
+`以下はSaaS「貿易クラウド2.0」トライアル環境のAPI利用コスト集計です。管理者向けに、コスト最適化の改善提案を日本語で3〜5個、「・」の箇条書きで書いてください。各提案に集計内の数字を1つ根拠として添え、集計に無い事実は書かないでください。前置きや結論は不要です。
+
+${costAggText()}`,700,
+      {noWeb:1,sys:"あなたはAI API利用コストの分析アシスタントです。与えられた集計データだけを根拠に、簡潔で実行可能な提案を書きます。"});
+    COSTV.ai=box((typeof ppFormat==="function"?ppFormat(r.txt):esc(r.txt)).replace(/\n/g,"<br>"),
+      `🤖 ${esc(r.provNm||"接続AI")}による分析（${esc(r.model||"")}）`);
+    el.innerHTML=COSTV.ai;
+    if(typeof logU==="function") logU("ai","コスト改善提案");
+  }catch(e){
+    COSTV.ai=box(costAdviseLocal().join("<br>")+`<p style="font-size:9.5px;color:var(--ink-3);margin-top:6px">※接続AIがエラー（${esc(String(e.message||e).slice(0,80))}）のため、内蔵エンジンの自動分析を表示しています。</p>`,"🤖 内蔵エンジンによる自動分析（接続AIエラー時の代替）");
+    el.innerHTML=COSTV.ai;
+  }
+}
+/* ═══ 束縛・再描画 ═══ */
+function costRepaint(){
+  const old=document.getElementById("costcard"); if(!old) return;
+  const tmp=document.createElement("div"); tmp.innerHTML=costCardHtml();
+  old.replaceWith(tmp.firstElementChild); costBind();
+}
+function costBind(){
+  const cc=document.getElementById("costcard"); if(!cc) return;
+  cc.querySelectorAll("[data-cper]").forEach(b=>b.onclick=()=>{COSTV.per=b.dataset.cper;costRepaint();});
+  const ap=cc.querySelector("#capply"); if(ap) ap.onclick=()=>{
+    COSTV.from=cc.querySelector("#cfrom").value; COSTV.to=cc.querySelector("#cto").value;
+    if(!COSTV.from){ toast("開始日を選んでください"); return; }
+    COSTV.per="cus"; costRepaint(); };
+  cc.querySelectorAll("[data-cuser]").forEach(b=>b.onclick=()=>{
+    COSTV.open=COSTV.open===b.dataset.cuser?null:b.dataset.cuser; costRepaint(); });
+  const bs=cc.querySelector("#cbudsave"); if(bs) bs.onclick=()=>{
+    const m=parseInt(cc.querySelector("#cbud").value,10), u2=parseInt(cc.querySelector("#cbudu").value,10);
+    CDB.budget.month=(m>0)?m:null; CDB.budget.user=(u2>0)?u2:null; costSave(); costRepaint();
+    toast(CDB.budget.month?`月次予算を ${costFmtY(CDB.budget.month)} に設定しました`:"予算をクリアしました"); };
+  const rs=cc.querySelector("#cratesave"); if(rs) rs.onclick=()=>{
+    Object.keys(PROV).forEach(p2=>{
+      const i=parseFloat(cc.querySelector(`[data-cri="${p2}"]`).value), o=parseFloat(cc.querySelector(`[data-cro="${p2}"]`).value);
+      if(i>=0) CDB.rates[p2].i=i; if(o>=0) CDB.rates[p2].o=o; });
+    const wf=parseFloat(cc.querySelector("#cwebfee").value); if(wf>=0) CDB.rates.webFee=wf;
+    costSave(); costRepaint(); toast("参考単価を保存しました（概算に即時反映）"); };
+  const ai=cc.querySelector("#costai"); if(ai) ai.onclick=()=>costAdvise();
+}
+
 /* ═══════════ ①② トライアル：ログイン／アカウント発行／管理コンソール ═══════════
    アカウント・利用状況はこの端末のブラウザ（localStorage）に保存されます。製品版ではクラウド管理。 */
 const AKEY="bc20_trial_v1", SKEY="bc20_ses_v1", DAY=864e5;
@@ -12195,6 +12497,8 @@ function renderAdmin(){
 
   ${typeof ppCardHtml==="function"?ppCardHtml():""}
 
+  ${typeof costCardHtml==="function"?costCardHtml():""}
+
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between">
       <div><h3>アカウント一覧と利用状況</h3>
@@ -12233,6 +12537,7 @@ function renderAdmin(){
     </div></div>`;
   $("#adm-demo").onclick=()=>{cur="up";buildNav();render();scrollTo({top:0});};
   if(typeof ppBind==="function"&&$("#ppsave")) ppBind();
+  if(typeof costBind==="function") costBind();
   $("#nissue").onclick=()=>{
     const co=($("#nc").value||"").trim();
     if(!co){toast("会社名を入力してください");return;}
