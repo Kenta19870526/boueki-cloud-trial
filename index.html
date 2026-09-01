@@ -4725,7 +4725,8 @@ function deckSlides(lang,T){
   const tg=Object.entries(D.regs||{}).slice(0,6);
   const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
   const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
-  const hasPrice=!!(pr.length||D.moq||D.lead||D.term||D.pay);
+  const ddpx=(typeof ddpDeckData==="function")?ddpDeckData():[];   /* 国別のDDP確定価格（商品情報②で確定したもの） */
+  const hasPrice=!!(pr.length||D.moq||D.lead||D.term||D.pay||ddpx.length);
   const hasLogi=!!(D.moq||D.lead||D.pol||dim0);
   const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
   const hasComp=!!((D.cert&&D.cert!=="なし")||docs.length);
@@ -4887,6 +4888,16 @@ function deckSlides(lang,T){
         return shpRect(x,y,142,92,LGT,{round:6000})+
           shpText(x+12,y+12,118,70,[{t:k,sz:9,b:1,c:BL},{t:String(v),sz:11.5,b:1,c:INK,spcB:4}],{ea});
       }).join("")+
+    (ddpx.length?(
+      shpRect(48,330,540,26,OR)+
+      shpText(60,335,520,18,[{t:"REFERENCE DDP PRICE BY MARKET  (as of "+(ddpx[0].at||"")+")",sz:9.5,b:1,c:"FFFFFF",spc:1.2}],{ea})+
+      ddpx.map((r,ri)=>{const y=356+ri*26;
+        return shpRect(48,y,540,26,ri%2?LGT:"FFFFFF")+
+          shpText(60,y+5,180,18,[{t:r.en,sz:9.5,b:1,c:INK}],{ea})+
+          shpText(240,y+5,70,18,[{t:r.term,sz:9,c:BL}],{ea})+
+          shpText(310,y+5,150,18,[{t:r.usd,sz:9.5,b:1,c:OR}],{ea})+
+          shpText(430,y+5,150,18,[{t:r.per,sz:9,c:INK}],{ea});}).join("")
+    ):"")+
     shpText(48,478,860,18,[{t:L.cta,sz:10.5,b:1,c:BL}],{ea})+
     foot());
   /* 8) 物流・リードタイム ※納期・港・MOQ・梱包が全て未登録ならスキップ */
@@ -7752,7 +7763,7 @@ function vItem(p){
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px"><h3>② 価格表・寸法</h3>
       <div class="rw" style="gap:6px">
-        ${typeof openDDP==="function"?`<button class="btn" onclick="openDDP()" title="仕向地・荷姿・利益率を指定すると、AI商社マンが社内物流レート＋Web当日実勢（+20%バッファ）で航空/海上を比較し、DDP推奨提示価格とコスト内訳を出します">🚚 DDP推奨価格をAI試算</button>`:""}
+        ${typeof openDDP==="function"?`<button class="btn" onclick="openDDP()" title="仕向地・荷姿・利益率を指定すると、AI商社マンが社内物流レート＋Web当日実勢（+20%バッファ）で航空/海上を比較し、DDP推奨提示価格とコスト内訳を出します">🚚 DDP推奨価格をAI試算${typeof ddpPxList==="function"&&ddpPxList().length?`　<span class="p hi" style="font-size:8.5px">🌍 確定${ddpPxList().length}か国</span>`:""}</button>`:""}
         <span class="src">シート②から</span></div></div>
     <p class="nn">見積書・請求書・梱包明細は、この表から自動で作られます。${tm("MOQ")}や数量帯があるので、AIは「その数量ならいくらか」を即答できます。</p>
     <div style="margin-top:10px">${tbl(D.priceCols,D.priceRows)}</div>
@@ -14383,7 +14394,8 @@ function corpDocExtra(k){
     ["支払期日（Payment Due）",p.cpay||S.pay||"未設定"],
     ["給付受領場所（下請法対応）",p.crecv||"未設定"]];
   return `<div class="dl" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:7px">${
-    rows.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div>`;
+    rows.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}
+    ${typeof ddpDocRow==="function"?ddpDocRow():""}</div>`;
 }
 /* 受注の承認（起票→承認依頼→承認→送付可。「誰も承認せず独断で発注できる」監査指摘への対策） */
 function ordApprAll(){ return (typeof D!=="undefined"&&D&&D.orders)?D.orders:[]; }
@@ -14552,14 +14564,71 @@ function ddpDefaults(){
 }
 function ddpInSave(v){ window.__ddpIn=v;
   if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.ddpIn=v; if(typeof saveTen==="function") saveTen(); } }
+/* ── 国別の確定価格（記録・変更・管理 → 営業資料・書類へ反映） ── */
+const DDP_CTY_EN={香港:"Hong Kong",中国:"China",台湾:"Taiwan",韓国:"Korea",シンガポール:"Singapore",タイ:"Thailand",
+ ベトナム:"Vietnam",マレーシア:"Malaysia",インドネシア:"Indonesia",フィリピン:"Philippines",インド:"India",
+ UAE:"UAE",サウジアラビア:"Saudi Arabia",アメリカ:"USA",カナダ:"Canada",メキシコ:"Mexico",ブラジル:"Brazil",
+ ドイツ:"Germany",オランダ:"Netherlands",フランス:"France",イギリス:"UK",イタリア:"Italy",スペイン:"Spain",
+ オーストラリア:"Australia",ニュージーランド:"New Zealand",ナイジェリア:"Nigeria",エジプト:"Egypt",南アフリカ:"South Africa"};
+function ddpPx(){
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.ddpPx=TEN.ddpPx||{}; return TEN.ddpPx; }
+  if(typeof D!=="undefined"&&D){ D.__ddpPx=D.__ddpPx||{}; return D.__ddpPx; }
+  return (window.__ddpPx=window.__ddpPx||{});
+}
+function ddpPxSave(){ if(typeof TEN!=="undefined"&&TEN&&TEN.ddpPx&&typeof saveTen==="function"){ if(typeof syncTenant==="function") syncTenant(); saveTen(); } }
+function ddpPxList(){ return Object.values(ddpPx()).sort((a,b)=>String(b.at).localeCompare(String(a.at))); }
+function ddpFix(){
+  const st=window.__ddpLast; if(!st) return;
+  const {inp,c,dec}=st; const R=c[dec.route];
+  const routeNm=dec.route==="air"?"航空":dec.route==="lcl"?"海上LCL":"海上FCL";
+  ddpPx()[inp.cty]={cty:inp.cty,city:inp.cityNm,en:DDP_CTY_EN[inp.cty]||inp.cty,at:TODAYS,
+    term:inp.impTerm,route:routeNm,priceJpy:R.price,perJpy:Math.round(R.price/Math.max(1,inp.qty)),
+    qty:inp.qty,unit:inp.unit,margin:inp.margin,days:R.days,
+    pre:`${inp.qty}${inp.unit}・${inp.expTerm}→${inp.impTerm}・${routeNm}${R.days}日・利益率${inp.margin}%・関税${inp.duty}%/VAT${inp.vat}%・運賃=${R.src}・為替=${ddpFx().live?"当日TTM":"参照レート"+ddpFx().at}`,
+    in:JSON.parse(JSON.stringify({city:inp.city,expTerm:inp.expTerm,impTerm:inp.impTerm,qty:inp.qty,unit:inp.unit,
+      dim:inp.dim,wt:inp.wt,wtU:inp.wtU,goods:inp.goods||"",goodsCur:inp.goodsCur,margin:inp.margin,duty:String(inp.duty),vat:String(inp.vat)}))};
+  ddpPxSave();
+  if(typeof logU==="function") logU("fill","DDP確定:"+inp.cty);
+  toast(`${inp.cty}の確定価格として保存しました（外国語営業資料・PI/CI書類に自動反映されます）`);
+  openDDP();
+}
+function ddpPxDel(cty){ delete ddpPx()[cty]; ddpPxSave(); openDDP(); toast(cty+"の確定価格を削除しました"); }
+function ddpPxLoad(cty){
+  const r=ddpPx()[cty]; if(!r||!r.in) return;
+  ddpInSave(r.in); openDDP();
+  toast(cty+"の前提条件を読み込みました（修正して再試算→再確定できます）");
+}
+/* 営業資料（価格スライド）用の確定価格データ */
+function ddpDeckData(){
+  const fxu=ddpFx().rates.USD;
+  return ddpPxList().slice(0,4).map(r=>({en:r.en,term:r.term,usd:"US$ "+Math.round(r.priceJpy/fxu).toLocaleString(),
+    per:"US$ "+(r.perJpy/fxu).toFixed(r.perJpy/fxu>=100?0:1)+" / "+(r.unit==="CTN"?"ctn":r.unit),at:r.at}));
+}
+/* 書類（PI/CI）用の行：出荷案件の仕向国に確定価格があれば追記 */
+function ddpDocRow(){
+  try{
+    const cty=(typeof D!=="undefined"&&D&&D.ship&&D.ship.country)||"";
+    const r=ddpPx()[cty]; if(!r) return "";
+    return `<span>DDP確定提示価格（${esc(r.cty)}・${esc(r.at)}確定）</span><span>¥${r.priceJpy.toLocaleString()}（1${esc(r.unit)} ¥${r.perJpy.toLocaleString()}）／前提: ${esc(r.pre.slice(0,80))}…</span>`;
+  }catch(e){ return ""; }
+}
 /* ── 試算パネル ── */
 function openDDP(){
   const d0=ddpDefaults();
   const cityOpts=DDP_CITY.map(([c,ct])=>`${ct}（${c}）`);
+  const px=ddpPxList();
   openDW(`<div class="dwhead"><h3>🚚 DDP推奨提示価格（AI商社マン試算）</h3></div>
-   <p class="nn" style="margin:7px 0 10px">仕向地・条件・荷姿を指定すると、<b>社内物流レート＋Web当日実勢（+20%バッファ）</b>で
+   <div class="dwbody" style="overflow-y:auto;display:block;padding:14px 20px 18px">
+   <p class="nn" style="margin:0 0 12px">仕向地・条件・荷姿を指定すると、<b>社内物流レート＋Web当日実勢（+20%バッファ）</b>で
    航空／海上LCL／FCLを比較し、<b>最適ルートとDDP推奨価格・コスト内訳</b>を出します。金額は概算＝拘束見積ではありません。</p>
-   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+   ${px.length?`<div style="margin:0 0 14px;padding:10px 13px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
+     <p class="lbl" style="margin-bottom:6px">🌍 国別の確定価格（クリックで読込・営業資料とPI/CIに自動反映中）</p>
+     <div class="rw" style="gap:6px;flex-wrap:wrap">
+       ${px.map(r=>`<span class="rw" style="gap:0;border:1px solid var(--line);border-radius:20px;background:var(--surface);overflow:hidden">
+         <button class="q" style="border:0;border-radius:0;padding:4px 10px" onclick="ddpPxLoad('${esc(r.cty)}')" title="前提：${esc(r.pre)}">${esc(r.cty)}　<b>¥${r.perJpy.toLocaleString()}</b><span style="font-size:9px;color:var(--ink-3)">/${esc(r.unit)}・${esc(r.at)}</span></button>
+         <button class="q" style="border:0;border-radius:0;padding:4px 8px;color:var(--crit)" onclick="ddpPxDel('${esc(r.cty)}')" title="削除">×</button></span>`).join("")}
+     </div></div>`:""}
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
      <div style="grid-column:1/-1"><p class="lbl">仕向地（国＆都市）— 検索または一覧から</p>
        <input class="sel" id="ddpCity" list="ddpCityL" value="${esc(d0.city)}" placeholder="例：ドバイ（UAE）" style="width:100%;box-sizing:border-box">
        <datalist id="ddpCityL">${cityOpts.map(o=>`<option value="${esc(o)}">`).join("")}</datalist></div>
@@ -14586,9 +14655,10 @@ function openDDP(){
      <div><p class="lbl">付加価値税%（参考値・編集可）</p>
        <input class="sel n" id="ddpVat" type="number" step="0.5" min="0" value="${esc(d0.vat)}" placeholder="仕向地から自動" style="width:100%;box-sizing:border-box"></div>
    </div>
-   <div class="rw" style="margin-top:11px;gap:8px">
+   <div class="rw" style="margin-top:14px;gap:8px">
      <button class="btn" id="ddpGo">🤖 AI商社マンに最適ルートとDDP価格を出させる</button></div>
-   <div id="ddpOut" style="margin-top:11px"></div>`);
+   <div id="ddpOut" style="margin-top:13px"></div>
+   </div>`);
   const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr");
   if(typeof dwChrome==="function") dwChrome();
   ddpFxFetch();
@@ -14703,7 +14773,8 @@ Webで確認できなければwebの各値はnull。創作しない。`,900,{for
                  fcl:ai.web.fcl20?ai.web.fcl20*c.boxes:null};
         c=ddpCompute(inp);
       }
-      if(ai&&/^(air|lcl|fcl)$/.test(ai.route||"")) dec={route:ai.route,reason:(ai.reason||[]).slice(0,3),ai:1,webNote:ai.web&&ai.web.note};
+      if(ai&&/^(air|lcl|fcl)$/.test(ai.route||"")) dec={route:ai.route,reason:(ai.reason||[]).slice(0,3),ai:1,
+        hasWeb:!!inp.web,webNote:inp.web?(ai.web&&ai.web.note):null};
       if(typeof logU==="function") logU("web","DDP試算:"+inp.cty);
     }catch(e){ dec.aiErr=String(e&&e.message||"").slice(0,60); }
   }
@@ -14731,7 +14802,7 @@ function ddpRender(st){
         <div class="kv n" style="font-size:17px">${fmt(x.price)}</div>
         <div class="kd">コスト ${fmt(x.cost)}・${x.days}日<br><span style="font-size:8.5px">${esc(x.src)}</span></div></div>`;}).join("")}
    </div>
-   <div class="doc" style="margin-top:10px"><h4>🤖 AI商社マンの判断（${dec.ai?"接続AI＋Web実勢":"内蔵ルール判定"}${dec.webNote?"・"+esc(dec.webNote):""}）</h4>
+   <div class="doc" style="margin-top:10px"><h4>🤖 AI商社マンの判断（${dec.ai?(dec.hasWeb?"接続AI＋Web当日実勢":"接続AIの判断・Web実勢は取得できず社内/内蔵レートで試算"):"内蔵ルール判定"}${dec.webNote?"・"+esc(dec.webNote):""}）</h4>
      <p style="font-size:11.5px;line-height:1.85;margin-top:5px">${(dec.reason||[]).map(r2=>"・"+esc(r2)).join("<br>")}</p>
      ${dec.aiErr?`<p style="font-size:9.5px;color:var(--ink-3)">※接続AIが応答できなかったため内蔵ルールで判定（${esc(dec.aiErr)}）</p>`:""}</div>
    <div class="doc" style="margin-top:10px"><h4>${esc(inp.impTerm)}コストブレークダウン（${dec.route==="air"?"航空":dec.route==="lcl"?"海上LCL":"海上FCL"}・${esc(inp.cty)}／${esc(inp.cityNm)}）</h4>
@@ -14746,8 +14817,63 @@ function ddpRender(st){
    </div>
    <p class="nn" style="margin-top:9px">荷姿：総容積 <b>${c.cbm.toFixed(2)}CBM</b>／実重量 ${Math.round(c.actKg).toLocaleString()}kg／チャージャブル ${Math.round(c.chgKg).toLocaleString()}kg${inp.wtU==="L"?"（L指定は比重1.0でkg換算）":""}。
    関税${inp.duty}%・付加価値税${inp.vat}%は<b>参考値</b>（HS確定＋現地確認で正式化）。${c.inhouse?"海上運賃は<b>社内フォワーダー登録レート</b>を優先採用。":""}${online?"":"<b>AI未接続のためWeb当日実勢は未参照</b>（接続すると当日実勢+20%バッファで安全側に補正されます）。"}本試算は概算であり、拘束力のある見積ではありません。</p>
-   <div class="rw" style="margin-top:9px;gap:8px">
-     <button class="btn g" onclick="ddpToFb()">この価格を商談メモに保存</button></div>`;
+   <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+     <button class="btn" onclick="ddpFix()">✔ この価格を「${esc(inp.cty)}」の確定価格にする（資料・書類へ反映）</button>
+     <button class="btn g" onclick="ddpToFb()">商談メモに保存</button></div>
+   <div class="doc" style="margin-top:12px"><h4>💬 この試算についてAI商社マンに相談する</h4>
+     <div class="rw" style="gap:5px;flex-wrap:wrap;margin-top:7px">
+       ${["この価格は現地の相場で通用しますか？","利益率を上げるならどこを削るべき？","バイヤーへの提示の仕方と交渉の順番は？"].map(q=>`<button class="q" onclick="ddpAsk('${esc(q)}')">${esc(q)}</button>`).join("")}</div>
+     <div class="rw" style="gap:6px;margin-top:8px">
+       <input class="sel" id="ddpQ" placeholder="自由に質問（例：分納にした場合の物流費は？）" style="flex:1;min-width:0"
+         onkeydown="if(event.key==='Enter')ddpAsk()">
+       <button class="btn g" onclick="ddpAsk()" style="flex:none">相談する</button></div>
+     <div id="ddpAdv" style="margin-top:8px"></div></div>`;
+}
+/* ── 試算コンテキスト（相談用） ── */
+function ddpCtx(){
+  const st=window.__ddpLast; if(!st) return "";
+  const {inp,c,dec}=st;
+  const line=k=>{const x=c[k];return `${k.toUpperCase()}: コスト¥${x.cost.toLocaleString()}・提示¥${x.price.toLocaleString()}・${x.days}日（運賃出所:${x.src}）`;};
+  return `【DDP試算の前提】商品=${(typeof D!=="undefined"&&D&&D.item)||""}／仕向地=${inp.cty}・${inp.cityNm}／${inp.qty}${inp.unit}／総容積${c.cbm.toFixed(1)}CBM・実重量${Math.round(c.actKg)}kg・チャージャブル${Math.round(c.chgKg)}kg／${inp.expTerm}→${inp.impTerm}／商品代金¥${Math.round(c.goodsJpy).toLocaleString()}／利益率${inp.margin}%／関税${inp.duty}%・VAT${inp.vat}%
+【3ルート比較】${line("air")}／${line("lcl")}／${line("fcl")}
+【AI推奨】${dec.route.toUpperCase()}（理由：${(dec.reason||[]).join("；")}）
+【確定済みの他国価格】${ddpPxList().map(r=>`${r.cty}¥${r.perJpy.toLocaleString()}/${r.unit}`).join("、")||"なし"}`;
+}
+function ddpAdviseLocal(q){
+  const st=window.__ddpLast; if(!st) return ["まず試算を実行してください。"];
+  const {inp,c,dec}=st; const R=c[dec.route]; const out=[];
+  const per=Math.round(R.price/Math.max(1,inp.qty));
+  if(/相場|通用|妥当|競合/.test(q||"")) out.push(`1${inp.unit}あたり¥${per.toLocaleString()}（DDP）です。現地小売想定価格から逆算し、輸入者マージン25〜40%・小売マージン30〜50%を足しても棚価格が競合レンジに収まるかをまずご確認ください（接続AIならWebで現地相場を照会できます）。`);
+  if(/利益|削る|コスト/.test(q||"")){
+    const fr=R.rows.find(r=>/運賃/.test(r[0])), tax=R.rows.filter(r=>/関税|付加価値/.test(r[0])).reduce((a,r)=>a+r[1],0);
+    out.push(`コスト構成では運賃${fr?`¥${fr[1].toLocaleString()}`:"—"}・税${tax?`¥${tax.toLocaleString()}`:"—"}が大きい項目です。①数量を増やして${dec.route==="lcl"?"FCL化":"混載効率化"}（単価低減）②建値をDAPにして関税・VATをバイヤー負担へ（DDP→DAPで税分が価格から外れます）③梱包見直しで容積削減、の順で効きます。利益率${inp.margin}%は入力欄でいつでも変更できます。`);
+  }
+  if(/提示|交渉|バイヤー/.test(q||"")) out.push(`最初はDDPでなく${inp.expTerm}と両建てで提示し、「DDPは物流込みの安心価格」という位置づけで差額の内訳（運賃・税）を開示すると値引き圧力を運賃側に逃せます。数量スライド（例：${inp.qty}→${inp.qty*2}${inp.unit}で単価▲5〜8%）を同時提示すると発注量が伸びやすいです。`);
+  if(!out.length) out.push(`この試算はコスト¥${R.cost.toLocaleString()}＋利益率${inp.margin}%＝提示¥${R.price.toLocaleString()}（${dec.route==="air"?"航空":dec.route==="lcl"?"海上LCL":"海上FCL"}・${R.days}日）です。関税${inp.duty}%・VAT${inp.vat}%は参考値のため、HS確定後に再試算してください。具体的な論点（相場・コスト削減・交渉）で聞いていただくと、より踏み込んだ助言を返せます。`);
+  return out;
+}
+async function ddpAsk(preset){
+  const qEl=document.getElementById("ddpQ");
+  const q=(preset||((qEl&&qEl.value)||"")).trim();
+  if(!q){ if(qEl) qEl.focus(); return; }
+  if(qEl&&!preset) qEl.value="";
+  const box=document.getElementById("ddpAdv"); if(!box) return;
+  const online=(typeof ppReady==="function"&&ppReady());
+  box.innerHTML=`<p class="nn"><span class="spin"></span> AI商社マンが検討しています…</p>`;
+  let html="",label="";
+  if(online){
+    try{
+      const r=await llmAsk(`${ddpCtx()}
+【質問】${q}
+上記の試算前提だけを根拠に、貿易実務のプロとして日本語で簡潔に助言してください（箇条書き2〜4点・数字を引用・創作しない・不明な点は「要確認」と正直に）。`,700,{noWeb:1});
+      html=(typeof ppFormat==="function"?ppFormat(r.txt):esc(r.txt)).replace(/\n/g,"<br>");
+      label=`🤖 ${esc(r.provNm||"接続AI")}の助言`;
+      if(typeof logU==="function") logU("ai","DDP相談:"+q.slice(0,24));
+    }catch(e){ html=ddpAdviseLocal(q).map(t2=>"・"+esc(t2)).join("<br>"); label="🤖 内蔵エンジンの助言（接続AIエラーのため代替）"; }
+  } else { html=ddpAdviseLocal(q).map(t2=>"・"+esc(t2)).join("<br>"); label="🤖 内蔵エンジンの助言（AI未接続・試算データからのルール助言）"; }
+  box.innerHTML=`<div style="border-left:3px solid var(--bl);background:var(--bl-soft);border-radius:var(--r2);padding:9px 12px">
+    <p class="lbl" style="margin-bottom:4px">${label}　<span style="font-weight:400;color:var(--ink-3)">Q: ${esc(q.slice(0,48))}</span></p>
+    <div style="font-size:11.5px;line-height:1.85">${html}</div></div>`;
 }
 function ddpToFb(){
   const st=window.__ddpLast; if(!st) return;
