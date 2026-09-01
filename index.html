@@ -7750,7 +7750,10 @@ function vItem(p){
   </div>
 
   <div class="c" style="margin-bottom:11px">
-    <div class="rw" style="justify-content:space-between"><h3>② 価格表・寸法</h3><span class="src">シート②から</span></div>
+    <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px"><h3>② 価格表・寸法</h3>
+      <div class="rw" style="gap:6px">
+        ${typeof openDDP==="function"?`<button class="btn" onclick="openDDP()" title="仕向地・荷姿・利益率を指定すると、AI商社マンが社内物流レート＋Web当日実勢（+20%バッファ）で航空/海上を比較し、DDP推奨提示価格とコスト内訳を出します">🚚 DDP推奨価格をAI試算</button>`:""}
+        <span class="src">シート②から</span></div></div>
     <p class="nn">見積書・請求書・梱包明細は、この表から自動で作られます。${tm("MOQ")}や数量帯があるので、AIは「その数量ならいくらか」を即答できます。</p>
     <div style="margin-top:10px">${tbl(D.priceCols,D.priceRows)}</div>
     <p class="lbl" style="margin-top:11px">寸法・重量</p>
@@ -14449,5 +14452,314 @@ render=function(){
 };
 setTimeout(()=>{ try{ notifBadge(); }catch(e){} },400);
 
+
+/* ═══════════ v15.1：DDP推奨提示価格のAI試算（商品情報②価格表・寸法） ═══════════
+   入力（国＆都市・インコタームズ輸出/輸入・数量単位・寸法/重量・利益率）
+   → AI商社マンが 社内物流レート（フォワーダー登録レート優先）＋Web当日実勢（+20%バッファ）を突き合わせ、
+     航空 / 海上LCL / 海上FCL を比較して最適ルートを判定し、DDPベースの推奨提示価格とコスト内訳を提示。
+   ・金額は概算（拘束力のある見積ではない）。採用したレートの出所と日付を必ず明記する
+   ・通貨切替は当日の三菱UFJリサーチ&コンサルティングTTM（取得不可時は参照レートと明記） */
+
+/* ── 仕向地マスタ（国／都市・ゾーン・対応港） ── */
+const DDP_CITY=[
+ ["香港","香港","hk","香港"],["中国","上海","cn","上海"],["中国","深圳","cn","深圳"],["台湾","台北","tw","基隆"],
+ ["韓国","ソウル","kr","釜山"],["シンガポール","シンガポール","sg","シンガポール"],["タイ","バンコク","th","バンコク"],
+ ["ベトナム","ホーチミン","vn","ホーチミン"],["ベトナム","ハノイ","vn","ハイフォン"],["マレーシア","クアラルンプール","my","ポートクラン"],
+ ["インドネシア","ジャカルタ","id","ジャカルタ"],["フィリピン","マニラ","ph","マニラ"],["インド","ムンバイ","in","ナバシェバ"],
+ ["UAE","ドバイ","ae","ジェベルアリ"],["サウジアラビア","リヤド","sa","ダンマン"],
+ ["アメリカ","ロサンゼルス","usw","ロサンゼルス"],["アメリカ","ニューヨーク","use","ニューヨーク"],["カナダ","バンクーバー","usw","バンクーバー"],
+ ["メキシコ","メキシコシティ","use","マンサニヨ"],["ブラジル","サンパウロ","latam","サントス"],
+ ["ドイツ","ハンブルク","eu","ハンブルク"],["オランダ","アムステルダム","eu","ロッテルダム"],["フランス","パリ","eu","ル・アーブル"],
+ ["イギリス","ロンドン","eu","フェリクストウ"],["イタリア","ミラノ","eu","ジェノバ"],["スペイン","マドリード","eu","バレンシア"],
+ ["オーストラリア","シドニー","au","シドニー"],["ニュージーランド","オークランド","au","オークランド"],
+ ["ナイジェリア","ラゴス","africa","ラゴス"],["エジプト","カイロ","africa","アレクサンドリア"],["南アフリカ","ヨハネスブルグ","africa","ダーバン"]];
+/* ── 内蔵参考レーン（円・2026年8月時点の市況レンジ中央値。社内フォワーダー登録レートがあればそちらを優先） ──
+   lcl=円/R.T.（1CBMまたは1t）, fcl20/40=円/本, air=円/チャージャブルkg, 日数=海上/航空 */
+const DDP_LANES={
+ hk:{lcl:11000,fcl20:95000,fcl40:150000,air:520,sea:7,aird:2},
+ cn:{lcl:12000,fcl20:100000,fcl40:160000,air:540,sea:6,aird:2},
+ tw:{lcl:11500,fcl20:98000,fcl40:155000,air:530,sea:6,aird:2},
+ kr:{lcl:10000,fcl20:85000,fcl40:135000,air:480,sea:3,aird:1},
+ sg:{lcl:11000,fcl20:110000,fcl40:175000,air:620,sea:10,aird:2},
+ th:{lcl:12500,fcl20:115000,fcl40:185000,air:640,sea:12,aird:3},
+ vn:{lcl:12000,fcl20:108000,fcl40:172000,air:600,sea:9,aird:3},
+ my:{lcl:12500,fcl20:112000,fcl40:180000,air:640,sea:11,aird:3},
+ id:{lcl:13500,fcl20:125000,fcl40:200000,air:700,sea:13,aird:3},
+ ph:{lcl:13000,fcl20:118000,fcl40:190000,air:660,sea:9,aird:3},
+ in:{lcl:16000,fcl20:150000,fcl40:240000,air:820,sea:18,aird:4},
+ ae:{lcl:15000,fcl20:145000,fcl40:230000,air:780,sea:16,aird:3},
+ sa:{lcl:17000,fcl20:165000,fcl40:265000,air:880,sea:20,aird:4},
+ usw:{lcl:16000,fcl20:280000,fcl40:380000,air:900,sea:14,aird:3},
+ use:{lcl:20000,fcl20:390000,fcl40:520000,air:1050,sea:28,aird:3},
+ latam:{lcl:24000,fcl20:420000,fcl40:560000,air:1400,sea:35,aird:5},
+ eu:{lcl:19000,fcl20:330000,fcl40:450000,air:1000,sea:32,aird:3},
+ au:{lcl:15000,fcl20:180000,fcl40:280000,air:800,sea:14,aird:3},
+ africa:{lcl:26000,fcl20:450000,fcl40:600000,air:1500,sea:30,aird:5}};
+/* ── 関税・付加価値税の参考値（%・編集可。正式にはHS確定＋現地確認） ── */
+const DDP_TAX={香港:[0,0],シンガポール:[0,9],中国:[8,13],台湾:[8,5],韓国:[8,10],タイ:[10,7],ベトナム:[10,10],
+ マレーシア:[5,8],インドネシア:[7.5,11],フィリピン:[7,12],インド:[10,18],UAE:[5,5],サウジアラビア:[5,15],
+ アメリカ:[5,0],カナダ:[4,5],メキシコ:[10,16],ブラジル:[14,17],
+ ドイツ:[6,19],オランダ:[6,21],フランス:[6,20],イギリス:[6,20],イタリア:[6,22],スペイン:[6,21],
+ オーストラリア:[4,10],ニュージーランド:[4,15],ナイジェリア:[15,7.5],エジプト:[15,14],南アフリカ:[10,15]};
+/* ── 主要通貨（対円）：参照レート（2026-08-28 TTM近傍）。当日TTM取得で上書き ── */
+const DDP_FX_REF={JPY:1,USD:159.40,EUR:172.5,CNY:22.4,HKD:20.4,SGD:118.2,THB:4.62,AED:43.4,TWD:5.18,VND:0.0063};
+const DDP_FX_NM={USD:["US ?Dollar","USD"],EUR:["Euro","EUR"],CNY:["Chinese Yuan|Yuan|Renminbi","CNY"],
+ HKD:["Hong ?Kong Dollar","HKD"],SGD:["Singapore Dollar","SGD"],THB:["Thai Baht|Thailand Baht","THB"],
+ AED:["UAE Dirham|U\\.?A\\.?E\\.? Dirham","AED"],TWD:["New Taiwan Dollar|Taiwan Dollar","TWD"]};
+function ddpFx(){
+  try{ const j=JSON.parse(localStorage.getItem("bc20_ttmx_v1")||"null");
+    if(j&&j.at===new Date().toISOString().slice(0,10)&&j.rates) return {rates:Object.assign({},DDP_FX_REF,j.rates),live:1,at:j.at}; }catch(e){}
+  return {rates:Object.assign({},DDP_FX_REF),live:0,at:"2026-08-28"};
+}
+async function ddpFxFetch(){
+  if(ddpFx().live) return;
+  if(typeof pageTextRaw!=="function") return;
+  try{
+    const t=await pageTextRaw("https://www.murc-kawasesouba.jp/fx/index.php");
+    const rates={};
+    Object.entries(DDP_FX_NM).forEach(([k,[nm,code]])=>{
+      const re=new RegExp("(?:"+nm+")[\\s\\S]{0,120}?"+code+"[\\s\\S]{0,60}?(\\d{1,3}\\.\\d{1,2})\\s+(\\d{1,3}\\.\\d{1,2})");
+      const m=String(t||"").match(re);
+      if(m){ const v=Math.round((parseFloat(m[1])+parseFloat(m[2]))/2*100)/100; if(v>0.001&&v<400) rates[k]=v; }
+    });
+    if(Object.keys(rates).length){
+      localStorage.setItem("bc20_ttmx_v1",JSON.stringify({at:new Date().toISOString().slice(0,10),rates}));
+      const p=document.getElementById("ddpOut"); if(p&&window.__ddpLast){ ddpRender(window.__ddpLast); }
+    }
+  }catch(e){}
+}
+/* ── 入力の既定値（寸法・重量は②の表から推定してプレフィル） ── */
+function ddpDefaults(){
+  const dd=typeof D!=="undefined"?D:{};
+  let dim="",wt="";
+  try{
+    /* ②の表から外装カートン寸法（＝×形式のうち体積最大）と外装重量（kg最大）を推定してプレフィル */
+    let bestV=0,bestW=0;
+    for(const r of (dd.dimRows||[])) for(const c of r){
+      const m=String(c||"").match(/^(\d{2,4}(?:\.\d+)?)\s*[×x]\s*(\d{2,4}(?:\.\d+)?)\s*[×x]\s*(\d{2,4}(?:\.\d+)?)$/);
+      if(m){ let a=[+m[1],+m[2],+m[3]];
+        if(Math.max(...a)>80) a=a.map(v=>v/10);            /* mm表記→cm */
+        const vv=a[0]*a[1]*a[2];
+        if(vv>bestV){ bestV=vv; dim=a.map(v=>Math.round(v*10)/10).join("/"); } }
+      const w=String(c||"").match(/^(\d+(?:\.\d+)?)\s*kg$/i);
+      if(w&&+w[1]>bestW){ bestW=+w[1]; wt=w[1]; }
+    }
+  }catch(e){}
+  const st=(typeof TEN!=="undefined"&&TEN&&TEN.ddpIn)||window.__ddpIn||{};
+  return Object.assign({city:"香港（香港）",expTerm:(dd.term&&/EXW|FOB|CIF|CFR/.test(dd.term))?dd.term.match(/EXW|FOB|CIF|CFR/)[0]:"FOB",
+    impTerm:"DDP",qty:100,unit:"CTN",dim:dim||"52/36/28",wt:wt||"6",wtU:"kg",
+    goods:"",goodsCur:"JPY",margin:15,duty:"",vat:""},st);
+}
+function ddpInSave(v){ window.__ddpIn=v;
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.ddpIn=v; if(typeof saveTen==="function") saveTen(); } }
+/* ── 試算パネル ── */
+function openDDP(){
+  const d0=ddpDefaults();
+  const cityOpts=DDP_CITY.map(([c,ct])=>`${ct}（${c}）`);
+  openDW(`<div class="dwhead"><h3>🚚 DDP推奨提示価格（AI商社マン試算）</h3></div>
+   <p class="nn" style="margin:7px 0 10px">仕向地・条件・荷姿を指定すると、<b>社内物流レート＋Web当日実勢（+20%バッファ）</b>で
+   航空／海上LCL／FCLを比較し、<b>最適ルートとDDP推奨価格・コスト内訳</b>を出します。金額は概算＝拘束見積ではありません。</p>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+     <div style="grid-column:1/-1"><p class="lbl">仕向地（国＆都市）— 検索または一覧から</p>
+       <input class="sel" id="ddpCity" list="ddpCityL" value="${esc(d0.city)}" placeholder="例：ドバイ（UAE）" style="width:100%;box-sizing:border-box">
+       <datalist id="ddpCityL">${cityOpts.map(o=>`<option value="${esc(o)}">`).join("")}</datalist></div>
+     <div><p class="lbl">インコタームズ（輸出側＝現在の建値）</p>
+       <select class="sel" id="ddpExp" style="width:100%">${["EXW","FOB","CFR","CIF"].map(x=>`<option ${x===d0.expTerm?"selected":""}>${x}</option>`).join("")}</select></div>
+     <div><p class="lbl">インコタームズ（輸入側＝提示建値）</p>
+       <select class="sel" id="ddpImp" style="width:100%">${["DDP","DAP","CIF"].map(x=>`<option ${x===d0.impTerm?"selected":""}>${x}</option>`).join("")}</select></div>
+     <div><p class="lbl">数量</p><div class="rw" style="gap:6px">
+       <input class="sel n" id="ddpQty" type="number" min="1" value="${d0.qty}" style="width:90px">
+       <select class="sel" id="ddpUnit" style="flex:1">${["CTN","パレット","20ftコンテナ","40ftコンテナ"].map(x=>`<option ${x===d0.unit?"selected":""}>${x}</option>`).join("")}</select></div></div>
+     <div><p class="lbl">1単位の寸法 cm（縦/横/高さ）</p>
+       <input class="sel" id="ddpDim" value="${esc(d0.dim)}" placeholder="52/36/28" style="width:100%;box-sizing:border-box"></div>
+     <div><p class="lbl">1単位の重量</p><div class="rw" style="gap:6px">
+       <input class="sel n" id="ddpWt" type="number" step="0.1" min="0" value="${d0.wt}" style="flex:1">
+       <select class="sel" id="ddpWtU" style="width:74px">${["kg","MT","L"].map(x=>`<option ${x===d0.wtU?"selected":""}>${x}</option>`).join("")}</select></div></div>
+     <div><p class="lbl">商品代金（${esc(d0.expTerm)}相当・合計）</p><div class="rw" style="gap:6px">
+       <input class="sel n" id="ddpGoods" type="number" min="0" value="${esc(d0.goods)}" placeholder="例：1500000" style="flex:1">
+       <select class="sel" id="ddpGoodsCur" style="width:74px">${["JPY","USD"].map(x=>`<option ${x===d0.goodsCur?"selected":""}>${x}</option>`).join("")}</select></div>
+       <p style="font-size:9px;color:var(--ink-3);margin-top:2px">②価格表の単価×数量。空欄なら物流・税のみ試算</p></div>
+     <div><p class="lbl">利益率（%・自由に変更可）</p>
+       <input class="sel n" id="ddpMargin" type="number" step="0.5" min="0" max="80" value="${d0.margin}" style="width:100%;box-sizing:border-box"></div>
+     <div><p class="lbl">関税率%（参考値・編集可）</p>
+       <input class="sel n" id="ddpDuty" type="number" step="0.5" min="0" value="${esc(d0.duty)}" placeholder="仕向地から自動" style="width:100%;box-sizing:border-box"></div>
+     <div><p class="lbl">付加価値税%（参考値・編集可）</p>
+       <input class="sel n" id="ddpVat" type="number" step="0.5" min="0" value="${esc(d0.vat)}" placeholder="仕向地から自動" style="width:100%;box-sizing:border-box"></div>
+   </div>
+   <div class="rw" style="margin-top:11px;gap:8px">
+     <button class="btn" id="ddpGo">🤖 AI商社マンに最適ルートとDDP価格を出させる</button></div>
+   <div id="ddpOut" style="margin-top:11px"></div>`);
+  const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr");
+  if(typeof dwChrome==="function") dwChrome();
+  ddpFxFetch();
+  const b=document.getElementById("ddpGo"); if(b) b.onclick=()=>ddpRun();
+}
+function ddpParseCity(){
+  const v=((document.getElementById("ddpCity")||{}).value||"").trim();
+  let hit=DDP_CITY.find(([c,ct])=>v===ct+"（"+c+"）")||DDP_CITY.find(([c,ct])=>v.includes(ct)||v.includes(c));
+  if(!hit&&typeof cnorm==="function"){ const cn=cnorm(v); hit=DDP_CITY.find(([c])=>c===cn); }
+  return hit?{cty:hit[0],city:hit[1],zone:hit[2],pod:hit[3],known:1}:{cty:v||"—",city:v,zone:"eu",pod:v,known:0};
+}
+/* ── コスト計算の本体（3ルートぶん） ── */
+function ddpCompute(inp){
+  const L=DDP_LANES[inp.zone]||DDP_LANES.eu;
+  /* 荷姿：CBM・実重量・チャージャブル */
+  const dm=String(inp.dim).split(/[\/×x,]/).map(s=>parseFloat(s)).filter(n=>n>0);
+  const unitCbm=(dm.length>=3)?(dm[0]*dm[1]*dm[2])/1e6:0.05;
+  const kgPer=inp.wtU==="MT"?inp.wt*1000:inp.wt;   /* L（液体）は比重≈1としてkg換算（注記） */
+  let cbm,actKg,fclBoxes=0,fclType="";
+  if(inp.unit==="20ftコンテナ"){ cbm=28*inp.qty; actKg=Math.min(kgPer*inp.qty||cbm*250,21000*inp.qty); fclBoxes=inp.qty; fclType="fcl20"; }
+  else if(inp.unit==="40ftコンテナ"){ cbm=58*inp.qty; actKg=Math.min(kgPer*inp.qty||cbm*250,26000*inp.qty); fclBoxes=inp.qty; fclType="fcl40"; }
+  else { cbm=unitCbm*inp.qty*(inp.unit==="パレット"?1:1); actKg=kgPer*inp.qty; }
+  const volKg=cbm*167, chgKg=Math.max(actKg,volKg);
+  const rt=Math.max(cbm,actKg/1000);
+  /* 社内フォワーダー登録レート（トライアル版）があれば最優先で採用 */
+  let inhouse=null;
+  try{ if(typeof fwdFindRate==="function"&&typeof FWDB!=="undefined"&&FWDB&&FWDB.rates){
+    const r=fwdFindRate(inp.pod)||fwdFindRate(inp.cty);
+    if(r&&r.mode==="LCL") inhouse={mode:"LCL",jpyPerRT:r.price,tt:r.tt,label:r.pol+"→"+r.pod};
+    else if(r&&/FCL/.test(r.mode||"")) inhouse={mode:r.mode,jpyBox:r.price,tt:r.tt,label:r.pol+"→"+r.pod};
+  }}catch(e){}
+  const goodsJpy=inp.goodsCur==="USD"?inp.goods*ddpFx().rates.USD:inp.goods;
+  const mk=(mode)=>{
+    let freight,days,src;
+    if(mode==="air"){ freight=Math.round(chgKg*L.air); days=L.aird; src="内蔵参考（¥"+L.air+"/kg）"; }
+    else if(mode==="lcl"){
+      if(inhouse&&inhouse.mode==="LCL"){ freight=Math.round(rt*inhouse.jpyPerRT); days=inhouse.tt||L.sea; src="社内登録レート（"+inhouse.label+" ¥"+inhouse.jpyPerRT.toLocaleString()+"/R.T.）"; }
+      else { freight=Math.round(rt*L.lcl); days=L.sea; src="内蔵参考（¥"+L.lcl.toLocaleString()+"/R.T.）"; }
+    } else {
+      const per=fclType==="fcl40"?L.fcl40:L.fcl20;
+      const boxes=fclBoxes||Math.max(1,Math.ceil(cbm/25));
+      if(inhouse&&/FCL/.test(inhouse.mode)){ freight=inhouse.jpyBox*boxes; days=inhouse.tt||L.sea; src="社内登録レート（"+inhouse.label+"）×"+boxes+"本"; }
+      else { freight=per*boxes; days=L.sea; src="内蔵参考（¥"+per.toLocaleString()+"/本）×"+boxes+"本"; }
+    }
+    /* Web当日実勢（+20%バッファ）が取れていれば、安全側＝高い方を採用 */
+    let webNote="";
+    if(inp.web&&inp.web[mode]){ const w=Math.round(inp.web[mode]*1.2);
+      if(w>freight){ webNote="Web実勢+20%を採用（元:"+freight.toLocaleString()+"円）"; freight=w; src="Web当日実勢+20%バッファ"; }
+      else webNote="Web実勢+20%（"+w.toLocaleString()+"円）より社内/参考が上回るため据置"; }
+    const domestic=mode==="air"?45000:(mode==="fcl"?70000:50000);           /* 国内：通関25,000＋書類10,000＋搬入/ドレー */
+    const insurance=Math.round((goodsJpy+freight)*0.0035);
+    const cifJpy=goodsJpy+freight+insurance+domestic;
+    const dest=mode==="air"?28000:(mode==="fcl"?85000:38000);               /* 現地：THC・DO・現地通関 */
+    const duty=Math.round(cifJpy*(inp.duty/100));
+    const vat=Math.round((cifJpy+duty)*(inp.vat/100));
+    const lastMile=mode==="fcl"?60000:35000;                                 /* 現地配送（都市部想定） */
+    const isDDP=inp.impTerm==="DDP", isDAP=inp.impTerm==="DAP";
+    const rows=[["商品代金（"+inp.expTerm+"相当）",goodsJpy],
+      ["日本側費用（通関・書類・搬入）",domestic],
+      [mode==="air"?"航空運賃（チャージャブル "+Math.round(chgKg).toLocaleString()+"kg）":mode==="lcl"?"海上運賃 LCL（"+rt.toFixed(1)+" R.T.）":"海上運賃 FCL",freight],
+      ["海上/航空保険（0.35%）",insurance],
+      ["現地側費用（THC・DO・輸入通関）",dest]]
+      .concat(isDDP?[["関税（"+inp.duty+"%・参考値）",duty],["付加価値税（"+inp.vat+"%・参考値）",vat]]:[])
+      .concat((isDDP||isDAP)?[["現地配送（"+inp.city+"市内）",lastMile]]:[]);
+    const cost=rows.reduce((a,r)=>a+r[1],0);
+    const price=inp.margin>=100?cost:Math.round(cost/(1-inp.margin/100));
+    rows.push(["── コスト合計",cost]);
+    rows.push(["利益（"+inp.margin+"%）",price-cost]);
+    return {mode,rows,cost,price,days,src,webNote,chgKg,cbm,rt};
+  };
+  const out={air:mk("air"),lcl:mk("lcl"),fcl:mk("fcl"),cbm,actKg,chgKg,goodsJpy,inhouse:!!inhouse,
+    boxes:fclBoxes||Math.max(1,Math.ceil(cbm/25))};
+  return out;
+}
+/* ── ルート判定（決定論ルール。オンライン時はAIの思考で上書き・理由を添える） ── */
+function ddpDecideLocal(c,inp){
+  if(/コンテナ/.test(inp.unit)) return {route:"fcl",reason:["コンテナ単位のご指定のため、FCLが前提になります。","FCLはLCLの重量勝ち・容積勝ちの按分が無く、単価が安定します。","納期は海上標準（"+c.fcl.days+"日）です。"]};
+  if(c.cbm>=13) return {route:"fcl",reason:["総容積 "+c.cbm.toFixed(1)+"CBMはLCL換算で割高になる規模（目安13CBM超）のため、FCL(20ft)が有利です。","LCL比の概算差額："+((c.lcl.cost-c.fcl.cost)>0?("¥"+(c.lcl.cost-c.fcl.cost).toLocaleString()+" 割安"):"僅差")+"。","バンニング1本で貨物ダメージ・混載遅延のリスクも下がります。"]};
+  if(c.chgKg<=200&&c.air.cost<=c.lcl.cost*1.6) return {route:"air",reason:["チャージャブル "+Math.round(c.chgKg)+"kgと小口のため、航空のコスト差が小さく（海上比 +¥"+Math.max(0,c.air.cost-c.lcl.cost).toLocaleString()+"）、納期は"+(c.lcl.days-c.air.days)+"日短縮できます。","初回・サンプル段階では回転の速さが在庫リスクを抑えます。","少量LCLは最低料金・書類費の比重が大きく、割安に見えて差が縮みます。"]};
+  return {route:"lcl",reason:["総容積 "+c.cbm.toFixed(1)+"CBM・チャージャブル "+Math.round(c.chgKg).toLocaleString()+"kgは海上LCLの適正レンジです。","航空比の概算差額：¥"+Math.max(0,c.air.cost-c.lcl.cost).toLocaleString()+"の節約（納期は+"+(c.lcl.days-c.air.days)+"日）。","定期リピートに乗せやすく、DDP価格の安定にもつながります。"]};
+}
+async function ddpRun(){
+  const g=id=>((document.getElementById(id)||{}).value||"").trim();
+  const cty=ddpParseCity();
+  const tax=DDP_TAX[cty.cty]||[8,10];
+  const inp={city:g("ddpCity"),cty:cty.cty,cityNm:cty.city,zone:cty.zone,pod:cty.pod,known:cty.known,
+    expTerm:g("ddpExp"),impTerm:g("ddpImp"),qty:Math.max(1,parseInt(g("ddpQty"),10)||1),unit:g("ddpUnit"),
+    dim:g("ddpDim"),wt:parseFloat(g("ddpWt"))||0,wtU:g("ddpWtU"),
+    goods:parseFloat(g("ddpGoods"))||0,goodsCur:g("ddpGoodsCur"),
+    margin:Math.min(95,Math.max(0,parseFloat(g("ddpMargin"))||0)),
+    duty:g("ddpDuty")!==""?parseFloat(g("ddpDuty")):tax[0],
+    vat:g("ddpVat")!==""?parseFloat(g("ddpVat")):tax[1],web:null};
+  ddpInSave({city:inp.city,expTerm:inp.expTerm,impTerm:inp.impTerm,qty:inp.qty,unit:inp.unit,dim:inp.dim,
+    wt:inp.wt,wtU:inp.wtU,goods:inp.goods||"",goodsCur:inp.goodsCur,margin:inp.margin,duty:g("ddpDuty"),vat:g("ddpVat")});
+  const out=document.getElementById("ddpOut");
+  const online=(typeof ppReady==="function"&&ppReady());
+  if(out) out.innerHTML=`<p class="nn"><span class="spin"></span> AI商社マンが計算しています…（${online?"Web当日実勢の確認込み・10〜40秒":"社内・内蔵レートで即時"}）</p>`;
+  let c=ddpCompute(inp), dec=ddpDecideLocal(c,inp), ai=null;
+  if(online){
+    try{
+      const r=await llmAsk(`あなたは総合商社の物流のプロです。次の輸出案件について、
+(1)本日の日本発の平均的な物流実勢（航空 円/kg・海上LCL 円/R.T.・海上FCL20ft 円/本の概算。分かる範囲で）をWeb検索で確認し、
+(2)航空/海上LCL/海上FCLのどれが最適かを、量・重量・コスト・納期・リスクから判断してください。
+案件: 仕向地=${inp.cty}・${inp.cityNm}／数量=${inp.qty}${inp.unit}／総容積=${c.cbm.toFixed(1)}CBM／実重量=${Math.round(c.actKg)}kg／チャージャブル=${Math.round(c.chgKg)}kg／商品代金=約¥${Math.round(c.goodsJpy).toLocaleString()}／現在の社内試算: AIR¥${c.air.cost.toLocaleString()}(${c.air.days}日)・LCL¥${c.lcl.cost.toLocaleString()}(${c.lcl.days}日)・FCL¥${c.fcl.cost.toLocaleString()}(${c.fcl.days}日)
+JSONだけで回答: {"route":"air|lcl|fcl","reason":["根拠を3つ（それぞれ60字以内・数字を入れる）"],"web":{"airPerKg":数値or null,"lclPerRT":数値or null,"fcl20":数値or null,"note":"出所サイト名と時点（30字以内）"}}
+Webで確認できなければwebの各値はnull。創作しない。`,900,{forceWeb:1,timeout:90000});
+      const t=r.txt.replace(/```json|```/g,""); const a=t.indexOf("{"),b=t.lastIndexOf("}");
+      if(a>=0&&b>a){ ai=JSON.parse(t.slice(a,b+1)); }
+      if(ai&&ai.web&&(ai.web.airPerKg||ai.web.lclPerRT||ai.web.fcl20)){
+        inp.web={air:ai.web.airPerKg?ai.web.airPerKg*c.chgKg:null,
+                 lcl:ai.web.lclPerRT?ai.web.lclPerRT*Math.max(c.cbm,c.actKg/1000):null,
+                 fcl:ai.web.fcl20?ai.web.fcl20*c.boxes:null};
+        c=ddpCompute(inp);
+      }
+      if(ai&&/^(air|lcl|fcl)$/.test(ai.route||"")) dec={route:ai.route,reason:(ai.reason||[]).slice(0,3),ai:1,webNote:ai.web&&ai.web.note};
+      if(typeof logU==="function") logU("web","DDP試算:"+inp.cty);
+    }catch(e){ dec.aiErr=String(e&&e.message||"").slice(0,60); }
+  }
+  window.__ddpLast={inp,c,dec,online};
+  ddpRender(window.__ddpLast);
+}
+function ddpRender(st){
+  const {inp,c,dec,online}=st;
+  const out=document.getElementById("ddpOut"); if(!out) return;
+  const fx=ddpFx(); const cur=st.cur||"JPY"; st.cur=cur;
+  const cv=j=>j/fx.rates[cur];
+  const fmt=j=>{ const v=cv(j);
+    return (cur==="JPY"?"¥":cur+" ")+(Math.abs(v)>=100?Math.round(v).toLocaleString():v.toFixed(2)); };
+  const R=c[dec.route];
+  const per=inp.qty?R.price/inp.qty:R.price;
+  const routes=[["air","✈ 航空"],["lcl","🚢 海上LCL"],["fcl","🚢 海上FCL"]];
+  out.innerHTML=`
+   <div class="rw" style="gap:5px;flex-wrap:wrap;margin-bottom:8px">
+     ${["JPY","USD","EUR","CNY","HKD","SGD","THB","AED"].map(k=>`<button class="btn ${cur===k?"":"g"}" style="padding:3px 9px;font-size:10px" onclick="window.__ddpLast.cur='${k}';ddpRender(window.__ddpLast)">${k}</button>`).join("")}
+     <span style="font-size:9px;color:var(--ink-3);align-self:center">為替：${fx.live?"本日TTM（三菱UFJリサーチ&コンサルティング）":"参照レート "+fx.at+"（当日TTM取得時に自動更新）"}</span></div>
+   <div class="g3" style="gap:8px">
+     ${routes.map(([k,nm])=>{ const x=c[k], win=k===dec.route;
+       return `<div class="c" style="margin:0;${win?"border-color:var(--or);box-shadow:0 0 0 2px var(--or-soft)":""}">
+        <p class="lbl">${nm}${win?'　<span class="p or" style="font-size:8.5px">AI推奨</span>':""}</p>
+        <div class="kv n" style="font-size:17px">${fmt(x.price)}</div>
+        <div class="kd">コスト ${fmt(x.cost)}・${x.days}日<br><span style="font-size:8.5px">${esc(x.src)}</span></div></div>`;}).join("")}
+   </div>
+   <div class="doc" style="margin-top:10px"><h4>🤖 AI商社マンの判断（${dec.ai?"接続AI＋Web実勢":"内蔵ルール判定"}${dec.webNote?"・"+esc(dec.webNote):""}）</h4>
+     <p style="font-size:11.5px;line-height:1.85;margin-top:5px">${(dec.reason||[]).map(r2=>"・"+esc(r2)).join("<br>")}</p>
+     ${dec.aiErr?`<p style="font-size:9.5px;color:var(--ink-3)">※接続AIが応答できなかったため内蔵ルールで判定（${esc(dec.aiErr)}）</p>`:""}</div>
+   <div class="doc" style="margin-top:10px"><h4>${esc(inp.impTerm)}コストブレークダウン（${dec.route==="air"?"航空":dec.route==="lcl"?"海上LCL":"海上FCL"}・${esc(inp.cty)}／${esc(inp.cityNm)}）</h4>
+     <table style="margin-top:6px"><tbody>
+       ${R.rows.map(([l,v])=>`<tr><td style="${/^──/.test(l)?"font-weight:700;border-top:1px solid var(--line)":""}">${esc(l)}</td>
+         <td class="num" style="${/^──/.test(l)?"font-weight:700;border-top:1px solid var(--line)":""}">${fmt(v)}</td></tr>`).join("")}
+       <tr><td style="font-weight:800;font-size:13px;border-top:2px solid var(--or)">DDP推奨提示価格（Buyer向け）</td>
+         <td class="num" style="font-weight:800;font-size:13px;border-top:2px solid var(--or);color:var(--or-deep)">${fmt(R.price)}</td></tr>
+       <tr><td style="color:var(--ink-3)">└ 1${esc(inp.unit)}あたり</td><td class="num" style="color:var(--ink-3)">${fmt(per)}</td></tr>
+     </tbody></table>
+     ${R.webNote?`<p style="font-size:9.5px;color:var(--ink-3);margin-top:5px">運賃：${esc(R.webNote)}</p>`:""}
+   </div>
+   <p class="nn" style="margin-top:9px">荷姿：総容積 <b>${c.cbm.toFixed(2)}CBM</b>／実重量 ${Math.round(c.actKg).toLocaleString()}kg／チャージャブル ${Math.round(c.chgKg).toLocaleString()}kg${inp.wtU==="L"?"（L指定は比重1.0でkg換算）":""}。
+   関税${inp.duty}%・付加価値税${inp.vat}%は<b>参考値</b>（HS確定＋現地確認で正式化）。${c.inhouse?"海上運賃は<b>社内フォワーダー登録レート</b>を優先採用。":""}${online?"":"<b>AI未接続のためWeb当日実勢は未参照</b>（接続すると当日実勢+20%バッファで安全側に補正されます）。"}本試算は概算であり、拘束力のある見積ではありません。</p>
+   <div class="rw" style="margin-top:9px;gap:8px">
+     <button class="btn g" onclick="ddpToFb()">この価格を商談メモに保存</button></div>`;
+}
+function ddpToFb(){
+  const st=window.__ddpLast; if(!st) return;
+  const {inp,c,dec}=st; const R=c[dec.route];
+  const rec={d:TODAYS,b:"（DDP試算）"+inp.cty+"・"+inp.cityNm,c:inp.cty,st:"検討中",react:"中",
+    note:"【DDP試算】"+inp.qty+inp.unit+"／"+(dec.route==="air"?"航空":dec.route==="lcl"?"海上LCL":"海上FCL")+"推奨／DDP提示 ¥"+R.price.toLocaleString()+"（コスト¥"+R.cost.toLocaleString()+"・利益率"+inp.margin+"%・"+R.days+"日）",
+    owner:"AI商社マン",user:1};
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
+    TEN.fbx=(TEN.fbx||[]); TEN.fbx.unshift(rec);
+    if(typeof syncTenant==="function") syncTenant(); if(typeof saveTen==="function") saveTen();
+  } else if(typeof D!=="undefined"&&D) D.fb.unshift(rec);
+  toast("商談・バイヤーのメモに保存しました");
+}
 
 </script>
