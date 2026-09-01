@@ -89,6 +89,10 @@ body.norail #well .g2:has(.stk),body.norail #well .g2:has(.railr){grid-template-
 .ddr .ddar{color:var(--ink-3);font-weight:700}
 .ddr:hover .ddar{color:var(--bl)}
 .attglow{outline:2.5px dashed var(--or)!important;outline-offset:-3px;background:var(--or-soft)!important;transition:background .12s}
+.lwpal{display:inline-flex;gap:2px;opacity:.4;transition:opacity .12s}
+.lwrx:hover .lwpal{opacity:1}
+.lwpal button{all:unset;cursor:pointer;font-size:12px;padding:0 2px;border-radius:4px}
+.lwpal button:hover{background:var(--or-soft)}
 /* ── shell ── */
 .app{display:grid;grid-template-columns:262px minmax(0,1fr);min-height:100vh}
 body.narrow .app{grid-template-columns:minmax(0,1fr)}   /* sideが消えたらmainを全幅1列に（0px列への繰り上がり防止） */
@@ -2511,6 +2515,11 @@ function openBuyerAdd(pre){
       biz:$("#mbBiz").value.trim(),ints:$("#mbInt").value.trim(),size:$("#mbSize").value.trim(),
       url:$("#mbWeb").value.trim(),contact:$("#mbCt").value.trim(),memo:$("#mbMemo").value.trim()});
     if(!b.co||!b.cty||!b.biz){ toast("会社名・国・業種は必須です"); return; }
+    /* 名寄せ：同じメール・社名（国込み）の既存Buyerがいれば一度止めて知らせる（もう一度押すと登録） */
+    const dup=(typeof mbDupWarn==="function")?mbDupWarn(b):null;
+    if(dup&&!window.__mbDupOk){ window.__mbDupOk=1; setTimeout(()=>{window.__mbDupOk=0;},30000);
+      toast("⚠ 既存の「"+dup.co+"」と重複の可能性があります。統合は🧩名寄せから。このまま登録する場合はもう一度押してください"); return; }
+    window.__mbDupOk=0;
     myBuyers().unshift(b); mybSave();
     closeDW(); if(typeof rDB==="function"&&document.querySelector("#dbb")) rDB();
     toast("Buyerを登録しました。AI商社マンがチェック中…");
@@ -5966,7 +5975,7 @@ function vMsg(p){
 }
 function mRows(){
   const q=($("#mQ")?.value||"").trim();
-  const rows=D.msgs.filter(m=>(msgScope==="all"||m.scope===msgScope)
+  const rows=D.msgs.map((m,__mi)=>Object.assign({__mi},m)).filter(m=>(msgScope==="all"||m.scope===msgScope)
     &&(!q||(m.body+m.who+(m.file?m.file.n:"")).includes(q)));
   $("#mlist").innerHTML=rows.length?rows.map(m=>`
     <div style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:${m.ai?"var(--or-soft)":"var(--surface)"}">
@@ -5982,6 +5991,7 @@ function mRows(){
         <b>${esc(m.quote.who)}</b><br>${esc(m.quote.txt)}</div>`:""}
       ${m.mention&&m.mention.length?`<div style="margin-bottom:5px">${m.mention.map(x=>`<span style="color:var(--or-deep);font-weight:700;font-size:11.5px">@${esc(x)}</span>`).join(" ")}</div>`:""}
       <div style="font-size:12px;line-height:1.75">${T(m.body)}</div>
+      ${typeof msgReactHtml==="function"?msgReactHtml(m,m.__mi):""}
       ${m.file?`<div class="rw" style="gap:7px;margin-top:8px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bl)" stroke-width="1.9"><path d="M14 3v5h5"/><path d="M19 8v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8z"/></svg>
         <b style="font-size:11px">${esc(m.file.n)}</b><span style="font-size:10px;color:var(--ink-3)">${m.file.kb} KB</span>
@@ -6227,18 +6237,19 @@ function vOrders(){
     <div class="rw" style="justify-content:space-between">
       <div><h3>受注・請求・入金</h3>
         <p class="nn">見積を出したところから入金の消し込みまで、1本の流れで追えます。</p></div>
-      <button class="btn g" onclick="toast('受注書を作成しました')">受注書をつくる</button></div>
+      <button class="btn g" onclick="typeof ordNewGuard==='function'?ordNewGuard():toast('受注書を作成しました')">受注書をつくる</button></div>
     <div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>
-      <th>受注番号</th><th>お相手</th><th>国</th><th class="num">金額</th><th>受注書</th><th>請求書</th><th>入金</th><th>入金期日</th><th>状況</th>
+      <th>受注番号</th><th>お相手</th><th>国</th><th class="num">金額</th><th>承認</th><th>受注書</th><th>請求書</th><th>入金</th><th>入金期日</th><th>状況</th>
     </tr></thead><tbody>
       ${D.orders.map((o,i)=>`<tr><td class="n"><b>${o.no}</b></td><td>${esc(o.buyer)}</td><td>${o.c}</td>
         <td class="num">${esc(o.amt)}<br><span style="font-size:10px;color:var(--ink-3)">${o.jpy}</span></td>
+        <td>${typeof ordApprChip==="function"?ordApprChip(o)+`<div class="rw" style="gap:4px;margin-top:4px">${ordApprBtns(o)}</div>`:"—"}</td>
         <td><span class="p ${/送付済/.test(o.od)?"hi":"lo"}">${o.od}</span></td>
         <td><span class="p ${/発行済/.test(o.inv)?"hi":"lo"}">${o.inv}</span></td>
         <td><span class="p ${/入金済/.test(o.pay)?"hi":o.pay==="入金待ち"?"mid":"lo"}">${o.pay}</span></td>
         <td class="n" style="color:var(--ink-3)">${o.due}</td>
         <td><span class="p ${i===0?"on":i===1?"hi":"lo"}">${esc(o.st)}</span></td></tr>`).join("")}
-      ${D.orders.length?"":`<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:20px;line-height:1.8">まだ受注がありません。<br><b style="color:var(--ink-2)">「出荷を進める」で、受注から入金までの流れを想定シナリオで体験できます。</b></td></tr>`}
+      ${D.orders.length?"":`<tr><td colspan="10" style="text-align:center;color:var(--ink-3);padding:20px;line-height:1.8">まだ受注がありません。<br><b style="color:var(--ink-2)">「出荷を進める」で、受注から入金までの流れを想定シナリオで体験できます。</b></td></tr>`}
     </tbody></table></div>
     <div class="g3" style="margin-top:11px">
       ${[["受注の累計",D.orders.length+"件","うち入金済 1件"],
@@ -8840,8 +8851,10 @@ function rDoc(k){
     <table><thead><tr><th>Description</th><th>Qty</th><th>${pl?"Cartons":"Unit price"}</th><th>${pl?"Weight":"Amount"}</th></tr></thead>
       <tbody>${d.rows.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="num"':""}>${esc(c)}</td>`).join("")}</tr>`).join("")}
       <tr><td colspan="3" style="text-align:right;font-weight:700">Total</td><td class="num" style="font-weight:700">${esc(d.tot)}</td></tr></tbody></table>
-    <div class="dl" style="margin-top:8px">${d.ex.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div></div>
-    <p class="nn" style="margin-top:7px">商談記録の<b>希望価格 ${S.unitPrice}／${S.qty.split("（")[0]}／${S.term}</b>がそのまま入っています。手入力はありません。</p>`;
+    <div class="dl" style="margin-top:8px">${d.ex.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div>
+    ${typeof corpDocExtra==="function"?corpDocExtra(k):""}</div>
+    <p class="nn" style="margin-top:7px">商談記録の<b>希望価格 ${S.unitPrice}／${S.qty.split("（")[0]}／${S.term}</b>がそのまま入っています。手入力はありません。
+      ${typeof openCorpSet==="function"?`　<button class="btn g" style="font-size:10px;padding:3px 9px" onclick="openCorpSet()">🧾 帳票の会社設定（登録番号・振込先・下請法）</button>`:""}</p>`;
 }
 
 /* ═════════ バイヤーDB・拠点（週次で増えるネットワーク） ═════════ */
@@ -13862,5 +13875,579 @@ document.addEventListener("drop",e=>{
     attSend(inp,[...e.dataTransfer.files]);
   }catch(err){}
 });
+
+/* ═══════════ v15.0：Ver.1ギャップ分析の「実装推奨」8項目 ═══════════
+   ①スマホ本格対応（自動モバイル切替＋PWA） ②行動導線つき通知センター ③音声ログ→商談記録
+   ④バイヤー名寄せ ⑤既読・リアクション ⑥データ一括エクスポート ⑦受発注の承認＋帳票の法令要件 ⑧LINE/WhatsApp連携 */
+
+/* ═══ ① スマホ本格対応 ═══
+   ・画面幅760px以下なら自動でモバイルレイアウト（既存の「スマホ表示」クラスを自動適用。手動切替が優先）
+   ・公開URL（GitHub Pages）では PWA：manifest＋Service Worker を動的登録 → ホーム画面に追加で全画面アプリとして起動 */
+function mobAuto(){
+  try{
+    if(localStorage.getItem("bc20_mob_manual")) return;   /* 手動でトグルした人の意思を尊重 */
+    const want=innerWidth<=760;
+    if(document.body.classList.contains("mob")!==want){
+      document.body.classList.toggle("mob",want);
+      const b=document.getElementById("mob"); if(b) b.setAttribute("aria-pressed",String(want));
+    }
+  }catch(e){}
+}
+addEventListener("resize",()=>{ clearTimeout(window.__mobT); window.__mobT=setTimeout(mobAuto,180); });
+setTimeout(()=>{ mobAuto();
+  const mb=document.getElementById("mob");
+  if(mb) mb.addEventListener("click",()=>{ try{localStorage.setItem("bc20_mob_manual","1");}catch(e){} });
+},0);
+let __a2hs=null;
+addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); __a2hs=e;
+  const b=document.getElementById("a2hsbtn"); if(b) b.hidden=false; });
+function pwaInit(){
+  try{
+    if(location.protocol!=="https:"||!/github\.io|localhost/.test(location.hostname)) return;
+    const l=document.createElement("link"); l.rel="manifest"; l.href="manifest.webmanifest";
+    document.head.appendChild(l);
+    if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }catch(e){}
+}
+pwaInit();
+function pwaInstall(){
+  if(__a2hs){ __a2hs.prompt(); __a2hs=null; return; }
+  openDW(`<h3>📲 アプリとして使う</h3>
+   <p class="nn" style="margin-top:8px;line-height:1.9">この公開ページは<b>PWA（ホーム画面アプリ）</b>に対応しています。<br>
+   ・<b>Android/Chrome</b>：メニュー →「ホーム画面に追加」<br>
+   ・<b>iPhone/Safari</b>：共有 →「ホーム画面に追加」<br>
+   追加すると全画面のアプリとして起動し、2回目以降は圏外でも画面が開きます（データはこの端末に保存）。<br>
+   <span style="font-size:10px;color:var(--ink-3)">※配布ファイル版・アーティファクト版はブラウザ仕様によりPWA登録の対象外です（公開URLでご利用ください）。</span></p>`);
+}
+
+/* ═══ ② 通知センター（データから毎回リアルタイム導出・すべて「→対応する」導線つき） ═══ */
+const NKEY="bc20_notif_v1";
+function notifDB(){
+  try{ const j=JSON.parse(localStorage.getItem(NKEY)); if(j&&j.v===1) return j; }catch(e){}
+  return {v:1,seen:{},prefs:{},browser:0};
+}
+function notifSave(db){ try{localStorage.setItem(NKEY,JSON.stringify(db));}catch(e){} }
+const NCATS=[["today","🌅 今日やること"],["task","⏰ タスク期限"],["appr","🖋 受注の承認"],["pay","💴 請求・入金"],["msg","📨 メッセージ"],["fill","📈 情報の充足"]];
+function notifCalc(){
+  const out=[]; if(typeof PID!=="undefined"&&!PID) return out;
+  const P=notifDB().prefs;
+  const add=(cat,icon,t,d,act,key)=>{ if(P[cat]===false) return; out.push({cat,icon,t,d,act,key}); };
+  try{ if(typeof todayItems==="function"&&typeof todayProg==="function"){
+    const its=todayItems(); let rem=0; its.forEach(x=>{ const p2=todayProg(x); rem+=Math.max(0,p2.total-p2.done); });
+    if(rem>0) add("today","🌅",`今日やること：残り${rem}ステップ`,`${its.length}件のタスクにAI実行支援があります`,{pg:"today"},`today:${TODAYS}`);
+  }}catch(e){}
+  try{
+    const ts=((typeof D!=="undefined"&&D&&D.tasks)||[]).concat((typeof TEN!=="undefined"&&TEN&&TEN.xtasks)||[]);
+    const od=ts.filter(t=>t.st!=="完了"&&t.st!=="中止"&&t.e&&t.e<TODAYS);
+    const sn=ts.filter(t=>t.st!=="完了"&&t.st!=="中止"&&t.e&&t.e>=TODAYS&&t.e<=addDays(TODAYS,3));
+    if(od.length) add("task","⏰",`期限切れのタスク ${od.length}件`,`「${(od[0].n||"").slice(0,22)}」ほか`,{pg:"task"},`taskod:${od.length}`);
+    if(sn.length) add("task","📅",`3日以内が期限のタスク ${sn.length}件`,"早めの着手がおすすめです",{pg:"task"},`tasksn:${sn.length}`);
+  }catch(e){}
+  try{ const w=ordApprAll().filter(o=>o.appr&&o.appr.st==="承認待ち");
+    if(w.length) add("appr","🖋",`承認待ちの受注 ${w.length}件`,"承認が完了するまで注文書・請求書は送付できません",{pg:"ops",pre:"ord"},`appr:${w.length}`);
+  }catch(e){}
+  try{ if(typeof D!=="undefined"&&D&&D.ship&&D.ship.no&&!/入金済/.test(D.ship.payStatus||"")){
+    add("pay","💴",`入金待ち：${D.ship.no}`,`${D.ship.buyer}／${D.ship.total}`,{pg:"ops",pre:"ord"},`pay:${D.ship.no}`);
+  }}catch(e){}
+  try{ ((typeof TEN!=="undefined"&&TEN&&TEN.dmNotifs)||[]).forEach(n=>
+    add("msg","📨",String(n.txt||"新着メッセージ"),"タップしてスレッドを開きます",{dm:String(n.id)},`dm:${n.id}`)); }catch(e){}
+  try{ if(typeof scoreOf==="function"&&typeof TEN!=="undefined"&&TEN&&TEN.src){
+    const sc=scoreOf(TEN);
+    if(sc.missing.length>=3) add("fill","📈",`商品情報の不足 ${sc.missing.length}項目`,`充足度${sc.pct}%。「AIと埋める」で数分で埋まります`,{pg:"up"},`fill:${sc.missing.length}`);
+  }}catch(e){}
+  return out;
+}
+function notifUnread(){ const db=notifDB(); return notifCalc().filter(n=>!db.seen[n.key]); }
+function notifBadge(){
+  const el=document.getElementById("belln"); if(!el) return;
+  const n=notifUnread().length;
+  el.textContent=String(n); el.style.display=n?"":"none";
+}
+/* ブラウザ通知（許可制・新規分のみ・重複なし） */
+function notifBrowserPush(){
+  try{
+    const db=notifDB();
+    if(!db.browser||typeof Notification==="undefined"||Notification.permission!=="granted") return;
+    db.pushed=db.pushed||{};
+    notifUnread().slice(0,3).forEach(n=>{
+      if(db.pushed[n.key]) return; db.pushed[n.key]=1;
+      new Notification("貿易クラウド 2.0",{body:n.t+"　"+n.d,tag:n.key});
+    });
+    const ks=Object.keys(db.pushed); if(ks.length>80) ks.slice(0,ks.length-80).forEach(k=>delete db.pushed[k]);
+    notifSave(db);
+  }catch(e){}
+}
+function notifAct(i){
+  const n=notifCalc()[i]; if(!n) return;
+  const db=notifDB(); db.seen[n.key]=1; notifSave(db); notifBadge();
+  closeDW();
+  if(n.act&&n.act.dm&&typeof openDMThread==="function"){ openDMThread(n.act.dm); return; }
+  if(n.act&&n.act.pg){ if(n.act.pre==="ord"){ try{opsTab="ord";}catch(e){} } go(n.act.pg); }
+}
+function notifPrefToggle(cat,on){ const db=notifDB(); db.prefs[cat]=!!on; notifSave(db); openNotif(); }
+async function notifBrowserToggle(){
+  const db=notifDB();
+  if(db.browser){ db.browser=0; notifSave(db); openNotif(); return; }
+  try{
+    if(typeof Notification==="undefined"){ toast("このブラウザは通知に対応していません"); return; }
+    const p=await Notification.requestPermission();
+    if(p!=="granted"){ toast("ブラウザの通知が許可されませんでした"); return; }
+    db.browser=1; notifSave(db); toast("ブラウザ通知を有効にしました（新しい通知が届くと表示されます）"); openNotif();
+  }catch(e){ toast("通知を有効化できませんでした"); }
+}
+/* 既存 openNotif を「行動導線つき通知センター」へ置換（関数宣言の後勝ちで上書き） */
+function openNotif(){
+  if(typeof PID!=="undefined"&&!PID)
+    return openDW(`<h3>🔔 通知</h3><p class="nn" style="margin-top:8px">商品情報を登録すると、データに連動した通知が届くようになります。</p>`);
+  const db=notifDB(), list=notifCalc();
+  openDW(`<div class="dwhead"><h3>🔔 通知センター <span class="p on" style="font-size:9px">データ連動・リアルタイム</span></h3></div>
+   <p class="nn" style="margin-bottom:9px">登録データから毎回その場で組み立てる<b>「行動につながる通知」</b>です。各行の「対応する」でその画面に直行できます。</p>
+   ${list.length?list.map((n,i)=>`
+   <div class="nf" style="align-items:center">
+     <span class="d" style="background:${db.seen[n.key]?"var(--line)":"var(--or)"}"></span>
+     <div style="flex:1;min-width:0"><b>${n.icon} ${esc(n.t)}</b><br><span style="color:var(--ink-2)">${esc(n.d)}</span></div>
+     <button class="btn ${db.seen[n.key]?"g":""}" style="flex:none;padding:5px 12px;font-size:11px" onclick="notifAct(${i})">対応する →</button></div>`).join("")
+   :`<p class="nn" style="padding:14px 0">🎉 いま対応が必要な通知はありません。</p>`}
+   <details style="margin-top:12px"><summary style="font-size:11px;color:var(--ink-3);cursor:pointer">⚙ 通知の設定</summary>
+     <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
+       ${NCATS.map(([k,nm])=>`<label class="rw" style="gap:8px"><input type="checkbox" ${notifDB().prefs[k]===false?"":"checked"}
+         onchange="notifPrefToggle('${k}',this.checked)" style="accent-color:var(--or)">${nm}</label>`).join("")}
+       <div class="rw" style="gap:8px;margin-top:6px;border-top:1px dashed var(--line);padding-top:9px">
+         <button class="btn g" style="font-size:10.5px" onclick="notifBrowserToggle()">${notifDB().browser?"🔕 ブラウザ通知を止める":"🔔 ブラウザ通知を有効化"}</button>
+         <button class="btn g" id="a2hsbtn" style="font-size:10.5px" ${__a2hs?"":"hidden"} onclick="pwaInstall()">📲 アプリとして入れる</button></div>
+       <p style="font-size:9.5px;color:var(--ink-3);margin:4px 0 0">製品版ではメール・スマホプッシュにも配信されます（このデモはブラウザ内通知）。</p></div></details>`);
+  const seen=notifDB(); list.forEach(n=>seen.seen[n.key]=1); notifSave(seen); notifBadge();
+}
+
+/* ═══ ⑥ データ一括エクスポート（お客様のデータはお客様のもの＝解約時もそのまま持ち出せる） ═══ */
+function expRows(){
+  const S=[];
+  const push=(name,cols,rows)=>S.push({name,rows:[cols].concat(rows)});
+  const dd=typeof D!=="undefined"?D:{};
+  push("商品情報",["項目","内容"],[["会社名",dd.co],["会社名（英）",dd.coEn],["商品名",dd.item],["商品名（英）",dd.itemEn],
+    ["カテゴリ",dd.cat],["HSコード",dd.hs],["産地",dd.origin],["認証",dd.cert],["取引条件",dd.term],["支払条件",dd.pay],
+    ["仕出港",dd.pol],["賞味期限・保証",dd.shelf],["強み",(dd.strengths||[]).map(s=>Array.isArray(s)?s.join("："):s).join(" / ")]].map(r=>[r[0],String(r[1]==null?"":r[1])]));
+  if((dd.priceRows||[]).length) push("価格表",["品目","規格","単価","備考"].slice(0,(dd.priceRows[0]||[]).length),dd.priceRows.map(r=>r.map(c=>String(c==null?"":c))));
+  if((dd.dimRows||[]).length) push("寸法・重量",["項目","値","値2","値3"].slice(0,(dd.dimRows[0]||[]).length),dd.dimRows.map(r=>r.map(c=>String(c==null?"":c))));
+  if((dd.compRows||[]).length) push(dd.compTitle||"成分・材質",["項目","内容"].slice(0,(dd.compRows[0]||[]).length),dd.compRows.map(r=>r.map(c=>String(c==null?"":c))));
+  const fbs=((typeof TEN!=="undefined"&&TEN&&TEN.fbx)||[]).concat(dd.fb||[]);
+  if(fbs.length) push("商談記録",["日付","バイヤー","国","ステータス","反応","内容・次アクション","担当"],
+    fbs.map(f=>[f.d||"",f.b||"",f.c||"",f.st||"",f.react||"",String(f.note||f.raw||"").slice(0,500),f.owner||""]));
+  const mbs=(typeof myBuyers==="function")?myBuyers():[];
+  if(mbs.length) push("自社追加バイヤー",["会社名","担当者","国","メール","電話","メモ"],
+    mbs.map(b=>[b.co||"",b.who||"",b.cty||"",b.mail||"",b.tel||"",String(b.note||"").slice(0,300)]));
+  const ts=(dd.tasks||[]).concat((typeof TEN!=="undefined"&&TEN&&TEN.xtasks)||[]);
+  if(ts.length) push("タスク",["タスク","優先度","開始","期限","状態","担当"],ts.map(t=>[t.n||"",t.pri||"",t.s||"",t.e||"",t.st||"",t.who||""]));
+  if(dd.ship&&dd.ship.no) push("受注・出荷",["項目","内容"],[["案件No",dd.ship.no],["バイヤー",dd.ship.buyer],["国",dd.ship.country],
+    ["数量",dd.ship.qty],["単価",dd.ship.unitPrice],["合計",dd.ship.total],["条件",dd.ship.term],["承認状態",(dd.ship.appr&&dd.ship.appr.st)||"未承認"]]);
+  const srcs=((typeof TEN!=="undefined"&&TEN&&TEN.sources)||[]).map(s=>[s.name||"",s.kind||s.via||"",String(s.at||"")]);
+  if(srcs.length) push("取り込んだ資料一覧",["ファイル名","種別","取込日"],srcs);
+  return S;
+}
+function expXlsxAll(){
+  const sheets=expRows();
+  if(!sheets.length){ toast("エクスポートできるデータがまだありません"); return; }
+  const esx=s=>String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const col=i=>{let s="";i++;while(i){s=String.fromCharCode(65+(i-1)%26)+s;i=Math.floor((i-1)/26);}return s;};
+  const sheetXml=rows=>pxml(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${
+    rows.map((r,ri)=>`<row r="${ri+1}">${r.map((c,ci)=>`<c r="${col(ci)}${ri+1}" t="inlineStr"><is><t xml:space="preserve">${esx(c)}</t></is></c>`).join("")}</row>`).join("")}</sheetData></worksheet>`);
+  const nm=s=>String(s).replace(/[\\\/\?\*\[\]:]/g,"").slice(0,28)||"Sheet";
+  const files=[
+    ["[Content_Types].xml",pxml(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${
+      sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`)],
+    ["_rels/.rels",rels([["rId1","officeDocument","xl/workbook.xml"]])],
+    ["xl/workbook.xml",pxml(`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${
+      sheets.map((s,i)=>`<sheet name="${esx(nm(s.name))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`)],
+    ["xl/_rels/workbook.xml.rels",rels(sheets.map((s,i)=>[`rId${i+1}`,"worksheet",`worksheets/sheet${i+1}.xml`]))]
+  ].concat(sheets.map((s,i)=>[`xl/worksheets/sheet${i+1}.xml`,sheetXml(s.rows)]));
+  const blob=zipStore(files);
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`貿易クラウド_全データ_${(typeof D!=="undefined"&&D&&D.item?D.item.slice(0,16):"export")}_${TODAYS}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  if(typeof logU==="function") logU("upload","全データExcelエクスポート");
+  toast("Excel（"+sheets.length+"シート）をダウンロードしました");
+}
+function expJsonAll(){
+  const data={exportedAt:new Date().toISOString(),app:"貿易クラウド2.0",
+    tenant:(typeof TEN!=="undefined"&&TEN)?TEN:null,view:(typeof D!=="undefined")?{co:D.co,item:D.item,fb:D.fb,tasks:D.tasks,ship:D.ship}:null};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`貿易クラウド_バックアップ_${TODAYS}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("JSONバックアップをダウンロードしました");
+}
+function openExport(){
+  const sheets=expRows();
+  openDW(`<h3>📦 データ一括エクスポート</h3>
+   <p class="nn" style="margin-top:6px;margin-bottom:10px"><b>お客様のデータはお客様のものです。</b>契約中はもちろん、満了・解約のときも、ここからいつでも全データを持ち出せます（Ver.1で解約時にExcelを手作業でお渡ししていた反省からの標準機能です）。</p>
+   <div class="doc"><h4>含まれる内容（現在 ${sheets.length}シート）</h4>
+     <p style="font-size:11.5px;line-height:1.9;margin-top:6px">${sheets.map(s=>`✅ ${esc(s.name)}（${s.rows.length-1}行）`).join("<br>")||"—"}</p></div>
+   <div class="rw" style="margin-top:12px;gap:8px">
+     <button class="btn" onclick="expXlsxAll()">📊 Excelで一括出力</button>
+     <button class="btn g" onclick="expJsonAll()">🗂 JSONフルバックアップ</button></div>
+   <p class="nn" style="margin-top:10px">Excelは表計算でそのまま使える形式、JSONは全データの機械可読バックアップ（再取込・移行用）です。</p>`);
+}
+
+/* ═══ ④ バイヤーの名寄せ（重複検知＋統合。Ver.1の「同一人物が別々に登録される」混乱への対策） ═══ */
+function mbNorm(s){ return String(s||"").toLowerCase().replace(/株式会社|有限会社|co\.?,?\s*ltd\.?|inc\.?|corp\.?|llc|limited|company|\(.*?\)|（.*?）|[\s\.\-,]/g,""); }
+function mbMailOf(b){ const m=String((b&&b.contact)||"").match(/[\w.+-]+@[\w.-]+\.\w+/); return m?m[0].toLowerCase():""; }
+function mbDupGroups(){
+  const list=(typeof myBuyers==="function")?myBuyers():[];
+  const g={};
+  list.forEach((b,i)=>{
+    const keys=[];
+    const ml=mbMailOf(b); if(ml) keys.push("m:"+ml);
+    const nk=mbNorm(b.co); if(nk.length>=3) keys.push("c:"+nk+"|"+(b.cty||""));
+    keys.forEach(k=>{ (g[k]=g[k]||[]).push(i); });
+  });
+  const seen=new Set(), out=[];
+  Object.values(g).forEach(idx=>{
+    const u=[...new Set(idx)]; if(u.length<2) return;
+    const key=u.slice().sort().join(",");
+    if(seen.has(key)) return; seen.add(key); out.push(u);
+  });
+  return out;
+}
+function mbMerge(idxs){
+  const list=myBuyers();
+  const keep=list[idxs[0]]; if(!keep) return;
+  idxs.slice(1).sort((a,b)=>b-a).forEach(i=>{
+    const b=list[i]; if(!b) return;
+    ["biz","ints","size","url","contact","cty"].forEach(k=>{ if(!keep[k]&&b[k]) keep[k]=b[k]; });
+    if(b.memo&&b.memo!==keep.memo) keep.memo=[keep.memo,"（統合: "+b.memo+"）"].filter(Boolean).join(" ").slice(0,600);
+    list.splice(i,1);
+  });
+  if(typeof mybSave==="function") mybSave();
+}
+function openMerge(){
+  const groups=mbDupGroups(), list=myBuyers();
+  openDW(`<h3>🧩 バイヤーの名寄せチェック</h3>
+   <p class="nn" style="margin-top:6px;margin-bottom:10px">メールアドレス・正規化した社名（国込み）で重複を検知します。統合すると1件にまとまり、空欄は互いに補完されます（Ver.1の「同じ相手が別々に登録される」混乱への対策）。</p>
+   ${groups.length?groups.map((g2,gi)=>`<div class="doc" style="margin-bottom:9px"><h4>重複の疑い ${gi+1}（${g2.length}件）</h4>
+     ${g2.map(i=>{const b=list[i];return `<p style="font-size:11.5px;margin:5px 0;line-height:1.7">・<b>${esc(b.co||"—")}</b>／${esc(b.cty||"—")}／${esc(b.biz||"—")}<br>
+       <span style="color:var(--ink-3);font-size:10px">${esc(b.contact||"連絡先未登録")}</span></p>`;}).join("")}
+     <button class="btn g" style="margin-top:6px;font-size:11px" onclick="mbMerge([${g2.join(",")}]);openMerge();toast('統合しました（空欄は補完済み）');if(typeof rDB==='function'&&document.querySelector('#dbb'))rDB();">この${g2.length}件を1件に統合する</button></div>`).join("")
+   :`<p class="nn" style="padding:12px 0">✅ 重複はありません。新規追加時も同じメール・社名を検知して警告します。</p>`}`);
+}
+/* 追加時の重複警告（Ver.1の実害「既存があるのに新規作成」への入口対策） */
+function mbDupWarn(b){
+  const list=(typeof myBuyers==="function")?myBuyers():[];
+  const ml=mbMailOf(b);
+  return list.find(x=>x!==b&&((ml&&mbMailOf(x)===ml)
+    ||(mbNorm(x.co)&&mbNorm(x.co)===mbNorm(b.co)&&(x.cty||"")===(b.cty||""))))||null;
+}
+
+/* ═══ ⑧ LINE / WhatsApp連携 ═══
+   ・取り込み：トーク履歴（アプリの「トーク履歴を送信/エクスポート」の.txt／コピペ）を自動判別でパースし、
+     「やりとり」へ 📱バッジつきで転記（Ver.1の「LINEのやり取りを都度手で転載するルール」を自動化）
+   ・送信：入力中の下書きをLINE/WhatsAppの公式共有URLでそのまま開く（実連携・外部送信はユーザー操作で確定） */
+function lwParse(text){
+  const out=[]; let src=null;
+  const lines=String(text||"").replace(/\r/g,"").split("\n");
+  let curDate="";
+  const push=(who,body,tm)=>{ if(!body||!body.trim()) return;
+    out.push({who:who.trim()||"相手",t:(curDate?curDate+" ":"")+(tm||""),body:body.trim()}); };
+  for(let i=0;i<lines.length;i++){
+    const L=lines[i];
+    let m;
+    if((m=L.match(/^\[?(\d{4}\/\d{1,2}\/\d{1,2})[（(]?[月火水木金土日SunMoTuWeThFrSa]*[）)]?\]?$/))){ curDate=m[1]; src=src||"LINE"; continue; }
+    if((m=L.match(/^(\d{1,2}:\d{2})\t([^\t]+)\t([\s\S]*)$/))){ src="LINE"; push(m[2],m[3],m[1]); continue; }
+    if((m=L.match(/^\[(\d{4}\/\d{1,2}\/\d{1,2})[,、 ]\s*(\d{1,2}:\d{2}(?::\d{2})?)\]\s*([^:：]+)[:：]\s*([\s\S]*)$/))){ src="WhatsApp"; curDate=m[1]; push(m[3],m[4],m[2]); continue; }
+    if((m=L.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})[,、]\s*(\d{1,2}:\d{2})\s*-\s*([^:：]+)[:：]\s*([\s\S]*)$/))){ src="WhatsApp"; curDate=m[1]; push(m[3],m[4],m[2]); continue; }
+    if(out.length&&L.trim()&&!/^\[?\d{4}\/\d/.test(L)) out[out.length-1].body+="\n"+L.trim();  /* 続き行 */
+  }
+  return {src:src||"チャット",msgs:out};
+}
+/* 表示中のメッセージ配列（tenantToDはTEN.msgsを同一参照でDへ渡すため、ここへの追記はテナント保存にも乗る） */
+function lwStore(){ return (typeof D!=="undefined"&&D&&D.msgs)?D.msgs:[]; }
+function lwPersist(){ if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")&&typeof saveTen==="function"){ TEN.msgs=TEN.msgs||lwStore(); saveTen(); } }
+async function lwIngest(text,fileName){
+  const r=lwParse(text);
+  if(!r.msgs.length){ toast("トーク履歴の形式を読み取れませんでした（LINE/WhatsAppのエクスポート.txt、またはコピペに対応）"); return false; }
+  const who=[...new Set(r.msgs.map(m=>m.who))];
+  openDW(`<h3>📱 ${esc(r.src)}のやり取りを取り込む</h3>
+   <p class="nn" style="margin:8px 0 10px">${fileName?esc(fileName)+" から ":""}<b>${r.msgs.length}件</b>のメッセージを検出しました（話者：${who.slice(0,4).map(esc).join("・")}${who.length>4?" ほか":""}）。
+   「やりとり」に📱バッジ付きで転記し、以後のAI回答の文脈にも入ります。</p>
+   <div style="max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:var(--r2);padding:8px 11px;font-size:11px;line-height:1.8;background:var(--surface-2)">
+     ${r.msgs.slice(0,12).map(m=>`<div style="margin:4px 0"><b>${esc(m.who)}</b> <span style="color:var(--ink-3);font-size:9.5px">${esc(m.t)}</span><br>${esc(m.body.slice(0,120))}${m.body.length>120?"…":""}</div>`).join("")}
+     ${r.msgs.length>12?`<p style="color:var(--ink-3)">…ほか${r.msgs.length-12}件</p>`:""}</div>
+   <div class="rw" style="margin-top:12px"><button class="btn" id="lwGo">この内容で取り込む</button>
+     <button class="btn g" onclick="closeDW()">やめる</button></div>`);
+  return new Promise(res=>{
+    const b=document.getElementById("lwGo");
+    if(b) b.onclick=()=>{
+      const store=lwStore();
+      r.msgs.forEach(m=>store.push({who:m.who,org:r.src,t:m.t||TODAYS,scope:"共有",read:0,
+        body:esc(m.body).replace(/\n/g,"<br>"),mention:[],quote:null,file:null,src:r.src}));
+      lwPersist();
+      if(typeof logU==="function") logU("upload",r.src+"トーク取込:"+r.msgs.length+"件");
+      closeDW(); if(typeof cur!=="undefined"&&cur==="msg") render();
+      toast(`${r.src}のやり取り ${r.msgs.length}件を取り込みました（📱バッジ付き）`); res(true);
+    };
+  });
+}
+function openLW(){
+  openDW(`<h3>📱 LINE / WhatsApp連携</h3>
+   <p class="nn" style="margin:8px 0 10px">お客様やバイヤーとのやり取りがLINE・WhatsAppに散らばっていても、<b>コピペ or エクスポート.txtで丸ごと転記</b>できます。手で1件ずつ写す作業は不要です。</p>
+   <p class="lbl">① トーク履歴を貼り付け</p>
+   <textarea class="sel" id="lwTxt" rows="6" placeholder="LINE：トーク設定→トーク履歴を送信（.txt）の中身を貼り付け&#10;WhatsApp：チャットをエクスポート→テキストを貼り付け" style="width:100%;box-sizing:border-box;margin-top:5px;font-size:11.5px"></textarea>
+   <div class="rw" style="margin-top:8px;gap:8px">
+     <button class="btn" onclick="lwIngest(document.getElementById('lwTxt').value)">解析して取り込む</button>
+     <label class="btn g" style="cursor:pointer">📎 .txtファイル<input type="file" id="lwFile" hidden accept=".txt"></label></div>
+   <p class="lbl" style="margin-top:14px">② こちらから共有する（実際にアプリが開きます）</p>
+   <div class="rw" style="margin-top:6px;gap:8px">
+     <button class="btn g" onclick="lwShare('line')">💚 LINEで共有</button>
+     <button class="btn g" onclick="lwShare('wa')">💬 WhatsAppで共有</button></div>
+   <p class="nn" style="margin-top:8px">入力欄の下書き（無ければ最新の共有メッセージ）を各アプリの共有画面に渡します。送信の確定はアプリ側で行うため、誤送信はありません。</p>`);
+  const f=document.getElementById("lwFile");
+  if(f) f.onchange=async e=>{ const file=e.target.files[0]; if(!file) return;
+    const t=await file.text(); e.target.value=""; lwIngest(t,file.name); };
+}
+function lwShare(kind){
+  let text="";
+  const ta=document.getElementById("mtext"); if(ta&&ta.value.trim()) text=ta.value.trim();
+  if(!text){ const ms=lwStore().filter(m=>m.scope==="共有"); if(ms.length) text=String(ms[ms.length-1].body||"").replace(/<br\s*\/?>/g,"\n").replace(/<[^>]+>/g,"").slice(0,500); }
+  if(!text){ toast("共有する下書きがありません（やりとりの入力欄に書いてから押してください）"); return; }
+  const url=kind==="line"?("https://line.me/R/share?text="+encodeURIComponent(text))
+    :("https://wa.me/?text="+encodeURIComponent(text));
+  window.open(url,"_blank","noopener");
+  if(typeof logU==="function") logU("ai",(kind==="line"?"LINE":"WhatsApp")+"共有を起動");
+}
+
+/* ═══ ③ 音声ログ→商談記録の自動登録（FS 14名中12名が「使いたい」への回答） ═══
+   ・🎙 その場で録音（ブラウザ音声認識・Chrome系）／📎 音声・議事録ファイル／✍ 貼り付け の3経路
+   ・音声ファイル（mp3/m4a/wav等）はAI接続時にGemini系へ原音を渡して文字起こし＋抽出。未接続時は正直にご案内
+   ・抽出結果は必ず「確認→修正→登録」を挟む（勝手に確定しない） */
+let VREC=null;
+function vfbRecStart(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ toast("このブラウザは音声認識に対応していません（Chrome推奨）。ファイル添付か貼り付けをご利用ください"); return; }
+  const out=document.getElementById("vfbLive"); const btn=document.getElementById("vfbRec");
+  if(VREC){ try{VREC.stop();}catch(e){} return; }
+  VREC=new SR(); VREC.lang="ja-JP"; VREC.continuous=true; VREC.interimResults=true;
+  let fin="";
+  VREC.onresult=e=>{ let inter="";
+    for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript;
+      if(e.results[i].isFinal) fin+=t+"\n"; else inter+=t; }
+    if(out) out.value=fin+(inter?("… "+inter):""); };
+  VREC.onend=()=>{ VREC=null; if(btn) btn.textContent="🎙 録音を開始"; if(out&&out.value.trim()) toast("録音を停止しました。「AIで整理」へ進めます"); };
+  VREC.onerror=ev=>{ VREC=null; if(btn) btn.textContent="🎙 録音を開始";
+    toast("音声認識エラー："+(ev.error==="not-allowed"?"マイクが許可されていません":String(ev.error))); };
+  VREC.start(); if(btn) btn.textContent="⏹ 録音を停止";
+  toast("録音中…話し終えたら「録音を停止」を押してください");
+}
+async function vfbFile(e){
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const ext=(typeof FEXT==="function")?FEXT(f.name):String(f.name.split(".").pop()||"").toLowerCase();
+  const out=document.getElementById("vfbLive");
+  if(/^(mp3|m4a|wav|ogg|webm|aac)$/.test(ext)){
+    if(!(typeof ppReady==="function"&&ppReady())){
+      toast("音声ファイルの文字起こしはAIエンジン接続時に有効です（議事録テキスト・録音・貼り付けは今も使えます）"); return; }
+    if(f.size>8*1024*1024){ toast("8MBを超える音声は分割してください"); return; }
+    if(out) out.value="（音声を文字起こし中… 10〜60秒）";
+    try{
+      const b64=await new Promise((res,rej)=>{ const rd=new FileReader(); rd.onload=()=>res(String(rd.result).split(",")[1]); rd.onerror=rej; rd.readAsDataURL(f); });
+      const r=await llmAsk("この音声は海外バイヤーとの商談の録音（または口頭メモ）です。日本語で忠実に文字起こししてください。話者が分かる場合は「話者：発言」形式で。",1600,
+        {att:{mime:f.type||"audio/mpeg",b64,name:f.name},noWeb:1,prov:"gemini"});
+      if(out) out.value=r.txt;
+      toast("文字起こしが完了しました。「AIで整理」へ進めます");
+    }catch(err){ if(out) out.value=""; toast("文字起こしできませんでした："+String(err&&err.message).slice(0,60)); }
+    return;
+  }
+  try{
+    const u8=new Uint8Array(await f.arrayBuffer());
+    const r=await entriesCorpus([{name:f.name,u8}]);
+    if(!(r.corpus||"").trim()){ toast("本文を取り出せませんでした（txt/vtt/docx/pdf対応）"); return; }
+    if(out) out.value=r.corpus.slice(0,9000);
+    toast(f.name+" を読み込みました。「AIで整理」へ進めます");
+  }catch(err){ toast("読み込めませんでした"); }
+}
+async function vfbExtract(){
+  const raw=(document.getElementById("vfbLive")||{}).value||"";
+  if(!raw.trim()){ toast("先に録音・ファイル・貼り付けのいずれかで内容を入れてください"); return; }
+  const box=document.getElementById("vfbForm");
+  const online=(typeof ppReady==="function"&&ppReady());
+  let j={buyer:"",country:"",date:TODAYS,channel:"オンライン",summary:raw.slice(0,400),next:"",likelihood:"中"};
+  if(online){
+    if(box) box.innerHTML=`<p class="nn"><span class="spin"></span> AI商社マンが商談記録に整理しています…</p>`;
+    try{
+      const r=await llmAsk(`次の商談ログ（文字起こし・議事録）から、商談記録をJSONだけで返してください：
+{"buyer":"バイヤー社名","country":"国","date":"YYYY-MM-DD（不明なら${TODAYS}）","channel":"対面|オンライン|電話|メール|WhatsApp","summary":"商談内容の要約（200字以内・数字は落とさない）","next":"次のアクション（60字以内）","likelihood":"高|中|低"}
+ログに無い事実は創作しない。不明な項目は空文字。
+=== ログ ===
+${raw.slice(0,9000)}`,700,{noWeb:1});
+      const t=r.txt.replace(/```json|```/g,""); const a=t.indexOf("{"),b=t.lastIndexOf("}");
+      if(a>=0&&b>a){ const p=JSON.parse(t.slice(a,b+1)); Object.keys(j).forEach(k=>{ if(p[k]) j[k]=String(p[k]); }); }
+    }catch(e){}
+  } else {
+    const m=raw.match(/(?:商談|会社|バイヤー)[：:]\s*([^\n、。]{2,30})/); if(m) j.buyer=m[1].trim();
+    const c=raw.match(/(香港|台湾|シンガポール|アメリカ|米国|タイ|ベトナム|マレーシア|韓国|UAE|ドバイ|フランス|ドイツ|中国|インド|ナイジェリア|エジプト)/); if(c) j.country=c[1];
+  }
+  if(!box) return;
+  box.innerHTML=`<p class="lbl" style="margin-top:4px">確認して登録（修正できます）${online?"":"　<span class='p lo'>AI未接続＝簡易抽出</span>"}</p>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px">
+    <input class="sel" id="vfB" placeholder="バイヤー社名（必須）" value="${esc(j.buyer)}">
+    <input class="sel" id="vfC" placeholder="国（必須）" value="${esc(j.country)}">
+    <input class="sel" id="vfD" type="date" value="${esc(j.date)}">
+    <select class="sel" id="vfCh">${["対面","オンライン","電話","メール","WhatsApp"].map(x=>`<option ${x===j.channel?"selected":""}>${x}</option>`).join("")}</select></div>
+   <textarea class="sel" id="vfS" rows="4" style="width:100%;box-sizing:border-box;margin-top:7px" placeholder="商談内容の要約">${esc(j.summary)}</textarea>
+   <input class="sel" id="vfN" style="width:100%;box-sizing:border-box;margin-top:7px" placeholder="次のアクション" value="${esc(j.next)}">
+   <div class="rw" style="margin-top:7px;gap:8px;align-items:center"><span style="font-size:11px">受注確度：</span>
+     <select class="sel" id="vfL" style="width:90px">${["高","中","低"].map(x=>`<option ${x===j.likelihood?"selected":""}>${x}</option>`).join("")}</select>
+     <button class="btn" onclick="vfbSave()">この内容で商談記録に登録</button></div>`;
+}
+function vfbSave(){
+  const v=id=>((document.getElementById(id)||{}).value||"").trim();
+  const rec={d:v("vfD")||TODAYS,b:v("vfB"),c:v("vfC"),st:"検討中",react:v("vfL")||"中",
+    note:"【音声ログから自動登録】"+v("vfS")+(v("vfN")?"／次アクション："+v("vfN"):"")+"（チャネル："+v("vfCh")+"）",
+    owner:"貴社担当",user:1,voice:1};
+  if(!rec.b||!rec.c){ toast("バイヤー社名と国は必須です"); return; }
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
+    TEN.fbx=(TEN.fbx||[]); TEN.fbx.unshift(rec);
+    if(typeof syncTenant==="function") syncTenant(); if(typeof saveTen==="function") saveTen();
+  } else if(typeof D!=="undefined"&&D){ D.fb.unshift(rec); if(D.kpi) D.kpi.fbDone++; }
+  if(typeof logU==="function") logU("fill","音声→商談記録:"+rec.b);
+  closeDW(); if(typeof cur!=="undefined"&&cur==="deal") render();
+  toast("商談記録に登録しました（🎙音声ログ由来のマーク付き）");
+}
+function openVoiceFb(){
+  openDW(`<div class="dwhead"><h3>🎙 音声・議事録から商談記録を自動登録</h3></div>
+   <p class="nn" style="margin:8px 0 9px">商談の録音・口頭メモ・議事録を、<b>AIが商談記録の形に整理</b>します。1件ずつの手入力は不要です（登録前に必ず確認画面を挟みます）。</p>
+   <div class="rw" style="gap:8px;flex-wrap:wrap">
+     <button class="btn g" id="vfbRec" onclick="vfbRecStart()">🎙 録音を開始</button>
+     <label class="btn g" style="cursor:pointer">📎 音声・議事録ファイル<input type="file" hidden accept=".mp3,.m4a,.wav,.ogg,.webm,.aac,.txt,.vtt,.docx,.pdf" onchange="vfbFile(event)"></label>
+     <span style="font-size:10px;color:var(--ink-3)">音声ファイルの文字起こしはAI接続時（Gemini系）</span></div>
+   <textarea class="sel" id="vfbLive" rows="7" style="width:100%;box-sizing:border-box;margin-top:9px;font-size:11.5px" placeholder="ここに文字起こし・議事録が入ります（直接貼り付けもOK）"></textarea>
+   <div class="rw" style="margin-top:8px"><button class="btn" onclick="vfbExtract()">🤖 AIで商談記録に整理する</button></div>
+   <div id="vfbForm"></div>`);
+}
+
+/* ═══ ⑤ 既読・リアクション（やりとり画面。データはメッセージ本体に保存＝テナントごと永続） ═══ */
+const LW_EMO=["👍","🙏","🎉","✅","😊"];
+function msgReact(mi,emo){
+  const m=lwStore()[mi]; if(!m) return;
+  m.reacts=m.reacts||{}; const me="貴社";
+  m.reacts[emo]=m.reacts[emo]||[];
+  const i=m.reacts[emo].indexOf(me);
+  if(i>=0){ m.reacts[emo].splice(i,1); if(!m.reacts[emo].length) delete m.reacts[emo]; }
+  else m.reacts[emo].push(me);
+  lwPersist();
+  if(typeof mRows==="function"&&document.getElementById("mlist")) mRows();
+}
+function msgReactHtml(m,mi){
+  const r=m.reacts||{};
+  const chips=Object.entries(r).map(([e,who])=>`<button class="q" style="padding:1px 8px;font-size:11px" title="${esc(who.join("・"))}" onclick="msgReact(${mi},'${e}')">${e} ${who.length}</button>`).join("");
+  const pal=`<span class="lwpal">${LW_EMO.map(e=>`<button onclick="msgReact(${mi},'${e}')" title="リアクション">${e}</button>`).join("")}</span>`;
+  const read=(m.read|0)>0?`<span style="font-size:9px;color:var(--ink-3)" title="このメッセージを開いた人数（デモ環境の実測）">👁 既読 ${m.read}</span>`:"";
+  const src=m.src?`<span class="p on" style="font-size:8.5px">📱 ${esc(m.src)}</span>`:"";
+  return `<div class="rw lwrx" style="gap:6px;margin-top:4px;align-items:center">${src}${chips}${pal}${read}</div>`;
+}
+
+/* ═══ ⑦ 受発注の承認フロー＋帳票の法令要件 ═══ */
+const CPKEY="bc20_corp_v1";
+function corpProf(){
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.corp=TEN.corp||{}; return TEN.corp; }
+  try{ const j=JSON.parse(localStorage.getItem(CPKEY)); if(j) return j; }catch(e){}
+  return {};
+}
+function corpSave(p){
+  if(typeof TEN!=="undefined"&&TEN&&TEN.corp===p&&typeof saveTen==="function"){ saveTen(); return; }
+  try{ localStorage.setItem(CPKEY,JSON.stringify(p)); }catch(e){}
+}
+function openCorpSet(){
+  const p=corpProf();
+  openDW(`<h3>🧾 帳票の会社設定（適格請求書・下請法・振込先）</h3>
+   <p class="nn" style="margin:8px 0 10px">Ver.1で実際に起きた指摘（請求書に振込先が無い／適格請求書の記載要件／下請法の記載事項）をここで一括設定し、生成する書類すべてに反映します。</p>
+   ${[["cregno","適格請求書 登録番号","T1234567890123"],["cbank","振込先口座","○○銀行 ○○支店 普通 1234567 カ）ミドリセイチャ"],
+      ["cpay","支払期日ルール","月末締め翌月末払い（下請法：受領後60日以内）"],["crecv","給付受領場所（下請法）","貴社 本社倉庫"]]
+     .map(([id,l,ph2])=>`<p class="lbl" style="margin-top:8px">${l}</p><input class="sel" id="${id}" style="width:100%;box-sizing:border-box" placeholder="${esc(ph2)}" value="${esc(p[id]||"")}">`).join("")}
+   <div class="rw" style="margin-top:12px"><button class="btn" id="corpSaveBtn">保存して書類に反映</button></div>
+   <p class="nn" style="margin-top:9px">輸出取引の消費税は<b>免税（0%）</b>として区分表示します。国内向け請求書では8%／10%の区分合計を自動計算します。</p>`);
+  const b=document.getElementById("corpSaveBtn");
+  if(b) b.onclick=()=>{ const p2=corpProf();
+    ["cregno","cbank","cpay","crecv"].forEach(id=>p2[id]=((document.getElementById(id)||{}).value||"").trim());
+    corpSave(p2); closeDW(); if(typeof cur!=="undefined"&&cur==="ops") render(); toast("会社設定を保存しました（PI/CIなど生成書類に反映）"); };
+}
+/* 書類（rDoc）に差し込む法令要件ブロック */
+function corpDocExtra(k){
+  const p=corpProf(), S=(typeof D!=="undefined"&&D&&D.ship)||{};
+  if(k==="pl") return "";
+  const rows=[
+    ["取引年月日（Transaction Date）","2026-07-28（年を含めて表記）"],
+    ["消費税区分（Tax）","輸出免税取引（消費税 0%）／Export exempt.　※対象外税率（8%・10%）該当なし：¥0"],
+    ["適格請求書 登録番号",p.cregno||"未設定（🧾会社設定から登録できます）"],
+    ["お振込先（Bank）",p.cbank||"未設定（🧾会社設定から登録できます）"],
+    ["支払期日（Payment Due）",p.cpay||S.pay||"未設定"],
+    ["給付受領場所（下請法対応）",p.crecv||"未設定"]];
+  return `<div class="dl" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:7px">${
+    rows.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div>`;
+}
+/* 受注の承認（起票→承認依頼→承認→送付可。「誰も承認せず独断で発注できる」監査指摘への対策） */
+function ordApprAll(){ return (typeof D!=="undefined"&&D&&D.orders)?D.orders:[]; }
+function ordApprSet(no,st){
+  const o=ordApprAll().find(x=>x.no===no); if(!o) return;
+  o.appr=o.appr||{log:[]};
+  o.appr.st=st; o.appr.by=(typeof D!=="undefined"&&D&&D.co)?D.co+" 代表承認者":"承認者";
+  o.appr.at=TODAYS; o.appr.log=(o.appr.log||[]).concat([[TODAYS,st]]).slice(-8);
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")&&typeof saveTen==="function") saveTen();
+  if(typeof render==="function") render();
+  toast(st==="承認済み"?("受注 "+no+" を承認しました（受注書・請求書の送付が可能になりました）")
+    :st==="承認待ち"?("受注 "+no+" の承認を依頼しました（承認者に通知されます）"):("受注 "+no+" を差し戻しました"));
+}
+function ordNewGuard(){
+  toast("受注書のドラフトを作成しました。送付には「承認」列での承認完了が必要です（監査対応）");
+}
+function ordApprChip(o){
+  const st=(o.appr&&o.appr.st)||"未承認";
+  const c=st==="承認済み"?"hi":st==="承認待ち"?"or":st==="差戻し"?"no":"lo";
+  return `<span class="p ${c}" style="font-size:9px" title="${o.appr?esc((o.appr.by||"")+" "+(o.appr.at||"")):"監査対応：承認が完了するまで送付できません"}">承認：${st}</span>`;
+}
+function ordApprBtns(o){
+  const st=(o.appr&&o.appr.st)||"未承認";
+  if(st==="承認済み") return `<span style="font-size:9.5px;color:var(--good)">✓ ${esc(o.appr.by||"")}・${esc(o.appr.at||"")}</span>`;
+  if(st==="承認待ち") return `<button class="btn" style="padding:3px 10px;font-size:10px" onclick="ordApprSet('${esc(o.no)}','承認済み')">承認する</button>
+    <button class="btn g" style="padding:3px 9px;font-size:10px" onclick="ordApprSet('${esc(o.no)}','差戻し')">差戻し</button>`;
+  return `<button class="btn g" style="padding:3px 10px;font-size:10px" onclick="ordApprSet('${esc(o.no)}','承認待ち')">承認を依頼</button>`;
+}
+
+/* ═══ 画面への注入（renderフック）＋通知バッジの常時更新 ═══ */
+const __renderV15=render;
+render=function(){
+  __renderV15();
+  try{
+    notifBadge(); notifBrowserPush();
+    if(typeof cur==="undefined") return;
+    /* 商談・バイヤー：🎙音声ボタン */
+    if(cur==="deal"&&!document.getElementById("vfbOpen")){
+      const h=[...document.querySelectorAll("#well h3")].find(x=>/商談の記録|商談を記録|商談記録/.test(x.textContent));
+      if(h) h.insertAdjacentHTML("beforeend",` <button class="btn g" id="vfbOpen" style="font-size:10.5px;padding:4px 11px;margin-left:8px" onclick="openVoiceFb()">🎙 音声・議事録から自動登録</button>`);
+    }
+    /* バイヤーDB：🧩名寄せ */
+    if(cur==="db"&&!document.getElementById("mbMergeBtn")){
+      const h=[...document.querySelectorAll("#well h3")].find(x=>/相手を探す|バイヤー/.test(x.textContent));
+      const dup=mbDupGroups().length;
+      if(h) h.insertAdjacentHTML("beforeend",` <button class="btn g" id="mbMergeBtn" style="font-size:10.5px;padding:4px 11px;margin-left:8px" onclick="openMerge()">🧩 名寄せ${dup?`（重複${dup}組）`:""}</button>`);
+    }
+    /* ダッシュボード：📦エクスポート */
+    if(cur==="dash"&&!document.getElementById("expOpen")){
+      const bar=[...document.querySelectorAll("#well .rw")].find(x=>x.querySelector("button"));
+      const h=[...document.querySelectorAll("#well h1, #well h3")][0];
+      (bar||h)&&(bar||h).insertAdjacentHTML("beforeend",` <button class="btn g" id="expOpen" style="font-size:10.5px;padding:4px 11px" onclick="openExport()">📦 データを持ち出す</button>`);
+    }
+    /* やりとり：📱LINE/WhatsApp */
+    if(cur==="msg"&&!document.getElementById("lwOpen")){
+      const mq=document.getElementById("mQ");
+      if(mq&&mq.parentElement) mq.parentElement.insertAdjacentHTML("beforeend",
+        `<button class="btn g" id="lwOpen" style="flex:none" onclick="openLW()" title="LINE/WhatsAppのトーク履歴を取り込む・共有する">📱 LINE/WA</button>`);
+    }
+    /* 貿易実務・書類：🧾会社設定（受注・請求・入金タブ） */
+    if(cur==="ops"&&typeof opsTab!=="undefined"&&opsTab==="ord"&&!document.getElementById("corpSetBtn")){
+      const h=[...document.querySelectorAll("#well h3")][0];
+      if(h) h.insertAdjacentHTML("beforeend",` <button class="btn g" id="corpSetBtn" style="font-size:10.5px;padding:4px 11px;margin-left:8px" onclick="openCorpSet()">🧾 帳票の会社設定</button>`);
+    }
+  }catch(e){}
+};
+setTimeout(()=>{ try{ notifBadge(); }catch(e){} },400);
+
 
 </script>
