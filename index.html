@@ -469,6 +469,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
+const BC20_SYNC_URL="";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
 
@@ -12663,10 +12664,11 @@ function showLogin(){
     v.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;paint();});
     const err=m=>{const e=$("#lg-err");e.hidden=false;e.textContent=m;};
     if(tab==="trial"){
-      const go2=()=>{
+      const go2=async()=>{
         const code=($("#lg-code").value||"").trim().toUpperCase();
         if(!code) return err("アクセスコードを入力してください。");
-        const a=findAcct(code);
+        let a=findAcct(code);
+        if(!a&&typeof syncLookup==="function"){ try{ err("☁ サーバーの台帳を確認しています…"); a=await syncLookup(code); }catch(e){} }
         if(!a) return err("このコードは登録されていません。入力内容をご確認ください。");
         if(a.st!=="active") return err("このアカウントは無効化されています。STANDAGEの担当までご連絡ください。");
         if(a.expires<NOW()) return err("このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。");
@@ -12684,7 +12686,7 @@ function showLogin(){
     }else{
       const go3=()=>{
         if(($("#ad-id").value||"").trim()===ADB.admin.id&&($("#ad-pw").value||"")===ADB.admin.pw){
-          SES={t:"admin"}; try{sessionStorage.setItem(SKEY,JSON.stringify(SES));}catch(e){}
+          SES={t:"admin",apw:($("#ad-pw").value||"")}; try{sessionStorage.setItem(SKEY,JSON.stringify(SES));}catch(e){}
           cur="adm"; enterApp(); toast("管理コンソールにログインしました");
         } else err("IDまたはパスワードが違います。");
       };
@@ -16477,5 +16479,320 @@ if(typeof vSrcs==="function"){ const __vSrcsPO=vSrcs;
 /* 書類をつくるタブに来たら、PO案件を D.ship に乗せる（価格表無しの商品でも）。render後の後処理 */
 const __renderPO=render;
 render=function(){ try{ if(typeof cur!=="undefined"&&(cur==="ops"||cur==="ship")) poAttachShip(); }catch(e){} __renderPO(); };
+
+/* ═══════════ v15.15：クラウド同期（別のPC・ブラウザ・スマホでも同じ状態）＋同時ログイン制御（PC1台＋スマホ1台） ═══════════
+   ・保存先＝STANDAGE管理のバックエンド（Google Apps Script 版 sync_gas.js。接続先は配布版に埋め込む BC20_SYNC_URL）。
+   ・端末側で AES-GCM 暗号化（鍵はアクセスコードから PBKDF2 で導出）してから預けるため、サーバー側でも中身は読めない。
+     APIキー（bc20_llm_v1）は同期しない＝各端末のブラウザにだけ残る。
+   ・同期対象：商品・商談・書類・案件・設定（bc20_ten_<code>、帳票の会社設定、通知設定、部署グループ、通貨）。
+     物流会社モードのレート表・見積依頼（bc20_fwd_v1）は荷主⇄物流会社で共有するため、暗号化しない共有領域（fwd）に置く。
+   ・同時ログイン：端末種別（PC／スマホ）ごとに1台。別の端末で同じアカウントがログインすると、先の端末は次の生存確認（30秒以内）で
+     自動ログアウト。同じPCの別ブラウザは端末指紋（画面・CPU・タイムゾーン等）が一致すれば同一端末として許可。
+   ・未設定（BC20_SYNC_URL が空）のときは従来どおり端末内保存のみ。ログイン画面・管理コンソールにその旨を表示する（誤情報ゼロ） */
+const SYNC={url:"",on:false,kid:"",key:null,dev:null,ver:{acct:0,fwd:0},busy:0,timer:null,fwdTimer:null,beatT:null,dirty:0,fwdDirty:0,
+  last:{push:0,pull:0,beat:0},err:"",cfgSrc:"",applying:0,started:0,acctAt:0,fwdAt:0,kicked:0,srvAcct:null,pwDefault:0};
+const SYNC_KEYS=["bc20_corp_v1","bc20_notif_v1","bc20_dept_v1","bc20_dashcur"];
+function syncUrl(){
+  let u=""; try{ u=localStorage.getItem("bc20_sync_url")||""; }catch(e){}
+  if(u.trim()){ SYNC.cfgSrc="この端末で上書き設定"; return u.trim(); }
+  if(typeof BC20_SYNC_URL!=="undefined"&&BC20_SYNC_URL){ SYNC.cfgSrc="配布版に設定済み"; return String(BC20_SYNC_URL).trim(); }
+  SYNC.cfgSrc=""; return "";
+}
+function syncOn(){ SYNC.url=syncUrl(); SYNC.on=!!SYNC.url&&!!(window.crypto&&crypto.subtle); return SYNC.on; }
+function syncCryptoOk(){ return !!(window.crypto&&crypto.subtle); }
+/* ── 端末の識別（ブラウザごとのID＋端末指紋＋種別） ── */
+function fnv1a(s){ let h=0x811c9dc5; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } return ("0000000"+h.toString(16)).slice(-8); }
+function syncDev(){
+  if(SYNC.dev) return SYNC.dev;
+  let d=null; try{ d=JSON.parse(localStorage.getItem("bc20_dev")||"null"); }catch(e){}
+  if(!d||!d.id){ d={id:"D"+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,7).toUpperCase(),at:Date.now()}; try{ localStorage.setItem("bc20_dev",JSON.stringify(d)); }catch(e){} }
+  const ua=navigator.userAgent||"";
+  const mobile=!!((navigator.userAgentData&&navigator.userAgentData.mobile)||/Android|iPhone|iPad|iPod|Mobile/i.test(ua)||(matchMedia("(pointer:coarse)").matches&&Math.min(screen.width,screen.height)<900));
+  const fpSrc=[navigator.platform||"",screen.width,screen.height,screen.colorDepth,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,
+    (Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||"",(navigator.languages||[]).join(",")].join("|");
+  const br=/Edg\//.test(ua)?"Edge":/OPR\//.test(ua)?"Opera":/Chrome\//.test(ua)?"Chrome":/Firefox\//.test(ua)?"Firefox":/Safari\//.test(ua)?"Safari":"ブラウザ";
+  const os=/Windows/.test(ua)?"Windows":/Mac OS/.test(ua)&&!/iPhone|iPad/.test(ua)?"Mac":/iPhone|iPad/.test(ua)?"iOS":/Android/.test(ua)?"Android":/Linux/.test(ua)?"Linux":"";
+  const fp=(window.__fpOverride)||fnv1a(fpSrc);
+  SYNC.dev={id:(window.__devOverride)||d.id,kind:mobile?"mobile":"pc",fp,name:(mobile?"スマホ":"PC")+"・"+br+(os?"・"+os:"")};
+  return SYNC.dev;
+}
+/* ── 暗号化（アクセスコード → PBKDF2 → AES-GCM 256） ── */
+function b64(u){ let s=""; for(let i=0;i<u.length;i+=8192) s+=String.fromCharCode.apply(null,u.subarray(i,i+8192)); return btoa(s); }
+function ub64(s){ const b=atob(s), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
+async function syncDerive(code){
+  const enc=new TextEncoder(), sub=crypto.subtle;
+  const base=await sub.importKey("raw",enc.encode(String(code)),"PBKDF2",false,["deriveBits","deriveKey"]);
+  const bits=await sub.deriveBits({name:"PBKDF2",salt:enc.encode("bc20-kid:"+code),iterations:120000,hash:"SHA-256"},base,256);
+  const kid=[...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,40);
+  const key=await sub.deriveKey({name:"PBKDF2",salt:enc.encode("bc20-key:"+code),iterations:120000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+  return {kid,key};
+}
+async function syncEnc(obj){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},SYNC.key,new TextEncoder().encode(JSON.stringify(obj))));
+  const out=new Uint8Array(12+ct.length); out.set(iv); out.set(ct,12); return "v1:"+b64(out);
+}
+async function syncDec(s){
+  if(!s||!/^v1:/.test(s)) return null;
+  const u=ub64(s.slice(3));
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},SYNC.key,u.slice(12));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+/* ── 通信（text/plain の単純リクエスト＝Apps Script でも CORS 事前確認なしで届く） ── */
+async function syncCall(op,body,opt){
+  opt=opt||{}; const ctrl=("AbortController" in window)?new AbortController():null; const tm=ctrl?setTimeout(()=>ctrl.abort(),opt.timeout||20000):0;
+  try{
+    const r=await fetch(SYNC.url,{method:"POST",mode:"cors",redirect:"follow",keepalive:!!opt.keepalive,signal:ctrl&&ctrl.signal,
+      headers:{"Content-Type":"text/plain;charset=UTF-8"},body:JSON.stringify(Object.assign({op,v:1,t:Date.now()},body||{}))});
+    const t=await r.text(); let j;
+    try{ j=JSON.parse(t); }catch(e){ throw new Error("接続先の応答が読めません（"+String(t).slice(0,60)+"）"); }
+    if(j&&j.error) throw new Error(j.error);
+    SYNC.err=""; return j;
+  }catch(e){ SYNC.err=(e&&e.name==="AbortError")?"接続がタイムアウトしました":String(e&&e.message||e); throw e; }
+  finally{ if(tm) clearTimeout(tm); }
+}
+/* ── 同期する内容 ── */
+function syncMetaGet(){ try{ return JSON.parse(localStorage.getItem("bc20_sync_meta")||"{}")||{}; }catch(e){ return {}; } }
+function syncMetaSet(o){ try{ localStorage.setItem("bc20_sync_meta",JSON.stringify(o)); }catch(e){} }
+function syncSnapshot(){
+  const o={at:Date.now(),dev:syncDev().id,items:{}}; const code=(typeof SES!=="undefined"&&SES&&SES.code)||"";
+  if(code){ const k="bc20_ten_"+code; const v=localStorage.getItem(k); if(v) o.items[k]=v; }
+  SYNC_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o.items[k]=v; });
+  return o;
+}
+function syncApply(snap){
+  SYNC.applying=1;
+  try{ Object.entries(snap.items||{}).forEach(([k,v])=>{ try{ localStorage.setItem(k,v); }catch(e){} }); }
+  finally{ SYNC.applying=0; }
+}
+function syncUsage(){
+  const a=(typeof acct==="function")?acct():null; const u=(a&&a.usage)||{};
+  return {logins:u.logins||0,uploads:u.uploads||0,aiQ:u.aiQ||0,webQ:u.webQ||0,fills:u.fills||0,lastActive:u.lastActive||0,first:u.first||0,
+    screens:u.screens||{},who:(typeof SES!=="undefined"&&SES&&SES.who)||"",dev:syncDev().name};
+}
+/* ── ログイン時：サーバーへ端末登録 → 保存済みの状態を取得して端末へ反映 ── */
+async function syncStart(){
+  if(!syncOn()||typeof SES==="undefined"||!SES||SES.t!=="trial") return {ok:true,skip:1};
+  syncStatus("☁ 同期中…");
+  const {kid,key}=await syncDerive(SES.code); SYNC.kid=kid; SYNC.key=key;
+  const r=await syncCall("login",{kid,dev:syncDev(),usage:syncUsage(),code_hint:String(SES.code).slice(0,3)});
+  if(!r.ok) return {ok:false,reason:r.reason||"login",msg:r.msg||""};
+  SYNC.srvAcct=r.acct||null; SYNC.ver=Object.assign({acct:0,fwd:0},r.ver||{});
+  if(r.acct&&typeof findAcct==="function"){ const a=findAcct(SES.code); if(a){ ["co","who","st","expires","role"].forEach(k=>{ if(r.acct[k]!=null&&r.acct[k]!=="") a[k]=r.acct[k]; }); if(typeof asave==="function") asave(); } }
+  await syncPullAcct(true);
+  await syncPullFwd(true);
+  SYNC.started=1; syncBeatStart(); syncStatus(""); return {ok:true};
+}
+async function syncPullAcct(initial){
+  if(!SYNC.on||!SYNC.kid) return;
+  const p=await syncCall("pull",{kid:SYNC.kid,ns:"acct"});
+  SYNC.ver.acct=p.ver||0; SYNC.last.pull=Date.now();
+  const meta=syncMetaGet(); const localAt=(meta[SYNC.kid]&&meta[SYNC.kid].at)||0;
+  const hasLocal=!!localStorage.getItem("bc20_ten_"+SES.code);
+  if(p.blob){
+    let snap=null; try{ snap=await syncDec(p.blob); }catch(e){ SYNC.err="保存データを復号できません（別のコードで暗号化されています）"; return; }
+    if(snap&&(snap.at||0)>localAt||(snap&&!hasLocal)){ syncApply(snap); meta[SYNC.kid]={at:snap.at||Date.now()}; syncMetaSet(meta); SYNC.acctAt=snap.at||0;
+      if(!initial){ syncReloadState(); } }
+    else if(hasLocal&&localAt>(snap&&snap.at||0)){ syncSchedule("acct"); }   /* 端末側が新しい → 送る */
+  } else if(hasLocal){ syncSchedule("acct"); }
+}
+async function syncPushAcct(){
+  if(!SYNC.on||!SYNC.kid||!SES||SES.t!=="trial") return;
+  const snap=syncSnapshot(); const blob=await syncEnc(snap);
+  let r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:SYNC.ver.acct,blob,at:snap.at,usage:syncUsage(),dev:syncDev()});
+  if(r.conflict){
+    /* 他端末が先に保存していた：向こうの方が新しければ取り込む、こちらが新しければ上書き */
+    let remote=null; try{ remote=await syncDec(r.blob); }catch(e){}
+    if(remote&&(remote.at||0)>snap.at){ syncApply(remote); const meta=syncMetaGet(); meta[SYNC.kid]={at:remote.at}; syncMetaSet(meta); SYNC.ver.acct=r.ver||SYNC.ver.acct; syncReloadState(); toast("他の端末の更新を取り込みました"); return; }
+    r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:r.ver,blob,at:snap.at,usage:syncUsage(),dev:syncDev(),force:1});
+  }
+  if(r.ok){ SYNC.ver.acct=r.ver||SYNC.ver.acct; SYNC.dirty=0; SYNC.last.push=Date.now(); const meta=syncMetaGet(); meta[SYNC.kid]={at:snap.at}; syncMetaSet(meta); }
+}
+/* 物流会社モードのデータ（荷主⇄物流会社で共有・平文） */
+function fwdMerge(loc,rem){
+  if(!rem) return loc; if(!loc) return rem;
+  const out=Object.assign({},loc);
+  const rid=r=>r.id, rkey=r=>[r.pol,r.pod,r.mode].join("|");
+  const reqs={}; (rem.reqs||[]).forEach(r=>reqs[rid(r)]=r); (loc.reqs||[]).forEach(r=>{ const o=reqs[rid(r)]; if(!o||(r._m||0)>=(o._m||0)) reqs[rid(r)]=r; });
+  out.reqs=Object.values(reqs).sort((a,b)=>String(b.d).localeCompare(String(a.d))||String(b.id).localeCompare(String(a.id)));
+  const rates={}; (rem.rates||[]).forEach(r=>rates[rkey(r)]=r); (loc.rates||[]).forEach(r=>rates[rkey(r)]=r);
+  out.rates=Object.values(rates);
+  const seen=new Set(); out.hist=[].concat(loc.hist||[],rem.hist||[]).filter(h=>{ const k=(h.t||"")+"|"+(h.d||""); if(seen.has(k)) return false; seen.add(k); return true; }).sort((a,b)=>(b.t||0)-(a.t||0)).slice(0,200);
+  out.profile=(rem.profile&&(rem._at||0)>(loc._at||0))?rem.profile:(loc.profile||rem.profile);
+  out.plan=(rem._at||0)>(loc._at||0)?(rem.plan||loc.plan):(loc.plan||rem.plan);
+  return out;
+}
+async function syncPullFwd(initial){
+  if(!SYNC.on||typeof FWDB==="undefined") return;
+  let p; try{ p=await syncCall("pull",{ns:"fwd"}); }catch(e){ return; }
+  SYNC.ver.fwd=p.ver||0;
+  if(p.blob){ let rem=null; try{ rem=JSON.parse(p.blob); }catch(e){}
+    if(rem){ if(typeof fwdLoad==="function") fwdLoad(); const merged=fwdMerge(FWDB,rem); SYNC.applying=1; try{ FWDB=merged; if(typeof fwdSave==="function") fwdSave(); } finally{ SYNC.applying=0; }
+      if(!initial&&typeof FWDON!=="undefined"&&FWDON&&typeof fwdRender==="function") fwdRender(); } }
+}
+async function syncPushFwd(){
+  if(!SYNC.on||typeof FWDB==="undefined"||!FWDB) return;
+  (FWDB.reqs||[]).forEach(r=>{ if(!r._m) r._m=Date.now(); }); FWDB._at=Date.now();
+  const blob=JSON.stringify(FWDB);
+  let r=await syncCall("push",{ns:"fwd",base:SYNC.ver.fwd,blob,at:FWDB._at,dev:syncDev(),kid:SYNC.kid||""});
+  if(r.conflict){ let rem=null; try{ rem=JSON.parse(r.blob); }catch(e){}
+    const merged=fwdMerge(FWDB,rem); SYNC.applying=1; try{ FWDB=merged; if(typeof fwdSave==="function") fwdSave(); } finally{ SYNC.applying=0; }
+    r=await syncCall("push",{ns:"fwd",base:r.ver,blob:JSON.stringify(FWDB),at:FWDB._at,dev:syncDev(),kid:SYNC.kid||"",force:1}); }
+  if(r.ok){ SYNC.ver.fwd=r.ver||SYNC.ver.fwd; SYNC.fwdDirty=0; }
+}
+/* 保存のたびに呼ばれる：2.5秒まとめて送る */
+function syncSchedule(ns){
+  if(!SYNC.on||SYNC.applying) return;
+  if(ns==="fwd"){ SYNC.fwdDirty=1; clearTimeout(SYNC.fwdTimer); SYNC.fwdTimer=setTimeout(()=>{ syncPushFwd().catch(()=>{}); },2500); return; }
+  if(!SES||SES.t!=="trial"||!SYNC.kid) return;
+  SYNC.dirty=1; clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>{ syncPushAcct().catch(()=>{}); },2500);
+}
+async function syncFlush(){ try{ if(SYNC.dirty) await syncPushAcct(); if(SYNC.fwdDirty) await syncPushFwd(); }catch(e){} }
+/* 他端末の更新を取り込んだあと、画面のメモリ状態を作り直す */
+function syncReloadState(){
+  try{
+    if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&typeof loadTen==="function"){
+      const t=loadTen(); if(t){ TEN=t; PID="custom"; if(typeof syncTenant==="function") syncTenant(); }
+    }
+    if(typeof buildNav==="function") buildNav(); if(typeof render==="function") render();
+  }catch(e){}
+}
+/* ── 生存確認（30秒ごと・画面復帰時）：別端末のログインで蹴られたら自動ログアウト、他端末の更新があれば取り込む ── */
+function syncBeatStart(){
+  clearInterval(SYNC.beatT); SYNC.beatT=setInterval(()=>syncBeat(),30000);
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") syncBeat(); });
+  window.addEventListener("pagehide",()=>{ try{ if(SYNC.dirty&&SYNC.on&&SYNC.kid){ syncSnapshot(); syncPushAcct(); } }catch(e){} });
+}
+async function syncBeat(){
+  if(!SYNC.on||!SYNC.started||SYNC.kicked||!SES||SES.t!=="trial") return;
+  let r; try{ r=await syncCall("beat",{kid:SYNC.kid,dev:syncDev(),usage:syncUsage()},{timeout:12000}); }catch(e){ return; }
+  SYNC.last.beat=Date.now();
+  if(!r.ok){ if(r.reason==="kicked") syncKicked(r.by); else if(r.reason==="expired"||r.reason==="disabled") syncKicked(null,r.reason); return; }
+  const v=r.ver||{};
+  if((v.acct||0)>(SYNC.ver.acct||0)&&!SYNC.dirty){ try{ await syncPullAcct(false); }catch(e){} }
+  if((v.fwd||0)>(SYNC.ver.fwd||0)&&!SYNC.fwdDirty){ try{ await syncPullFwd(false); }catch(e){} }
+}
+function syncKicked(by,reason){
+  SYNC.kicked=1; clearInterval(SYNC.beatT);
+  try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){}
+  const msg=reason==="expired"?"このアカウントは有効期限が切れました。":reason==="disabled"?"このアカウントは無効化されました。"
+    :`別の端末（${esc((by&&by.name)||"PC／スマホ")}）で同じアカウントのログインがあったため、この端末はログアウトされました。<br><span style="font-size:11px;color:var(--ink-2)">同時にログインできるのは PC1台＋スマホ1台までです。この端末で続ける場合は、もう一度ログインしてください（相手の端末がログアウトされます）。</span>`;
+  const v=document.createElement("div"); v.id="synckick";
+  v.style.cssText="position:fixed;inset:0;z-index:200;background:rgba(20,26,34,.55);display:grid;place-items:center;padding:20px";
+  v.innerHTML=`<div style="width:min(460px,94vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--pop);padding:24px">
+    <b style="font-size:15px">🔒 ログアウトしました</b><p style="font-size:12.5px;line-height:1.8;margin-top:10px">${msg}</p>
+    <div class="rw" style="margin-top:14px"><button class="btn" onclick="location.reload()">ログイン画面へ</button></div></div>`;
+  document.body.appendChild(v);
+  setTimeout(()=>{ try{ location.reload(); }catch(e){} },6000);
+}
+/* ログイン時の照会：この端末に無いアクセスコードでも、管理者が発行済みならサーバーから引く */
+async function syncLookup(code){
+  if(!syncOn()) return null;
+  const {kid}=await syncDerive(code);
+  const r=await syncCall("lookup",{kid});
+  if(!r.ok||!r.acct) return null;
+  const a={code,co:r.acct.co||"（会社名 未登録）",who:r.acct.who||"—",st:r.acct.st||"active",web:true,role:r.acct.role||"",
+    created:r.acct.created||Date.now(),expires:r.acct.expires||(Date.now()+14*864e5),usage:(typeof emptyU==="function")?emptyU():{},members:r.acct.members||[]};
+  if(typeof ADB!=="undefined"&&ADB){ ADB.accounts.push(a); if(typeof asave==="function") asave(); }
+  return a;
+}
+/* ── 管理者：アカウント台帳をサーバーへ（発行したコードが他の端末でも使える）、利用状況・端末セッションの取得 ── */
+async function syncAdminPush(){
+  if(!syncOn()||typeof SES==="undefined"||!SES||SES.t!=="admin"||typeof ADB==="undefined") return;
+  const accounts=[]; for(const a of ADB.accounts){ const {kid}=await syncDerive(a.code);
+    accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,members:(a.members||[]).map(m=>({name:m.name,st:m.st}))}); }
+  const r=await syncCall("admin_set",{pw:SES.apw||"",accounts});
+  if(r.ok){ SYNC.last.push=Date.now(); SYNC.pwDefault=r.pwDefault?1:0; }
+  return r;
+}
+async function syncAdminGet(){
+  if(!syncOn()||!SES||SES.t!=="admin") return null;
+  const r=await syncCall("admin_get",{pw:SES.apw||""});
+  if(!r.ok) throw new Error(r.msg||"管理者パスワードがサーバー設定と一致しません");
+  SYNC.pwDefault=r.pwDefault?1:0;
+  /* 利用状況（各端末から集まった回数）を台帳に反映 */
+  const byKid={}; (r.accounts||[]).forEach(a=>byKid[a.kid]=a);
+  for(const a of ADB.accounts){ const {kid}=await syncDerive(a.code); const u=(r.usage||{})[kid]; a._kid=kid;
+    if(u){ a.usage=a.usage||emptyU(); ["logins","uploads","aiQ","webQ","fills"].forEach(k=>{ a.usage[k]=Math.max(a.usage[k]||0,u[k]||0); });
+      a.usage.lastActive=Math.max(a.usage.lastActive||0,u.lastActive||0); if(u.first&&(!a.usage.first||u.first<a.usage.first)) a.usage.first=u.first;
+      a.usage.screens=Object.assign({},a.usage.screens||{},u.screens||{}); a._devs=u.devs||[]; } }
+  asave(); return r;
+}
+async function syncAdminKick(kid,kind){ const r=await syncCall("admin_kick",{pw:SES.apw||"",kid,kind}); return r; }
+/* ── 表示（ログイン画面・管理コンソール） ── */
+function syncStatusText(){
+  if(!syncOn()) return syncCryptoOk()?"☁ クラウド同期：未設定（この端末のブラウザにだけ保存されます）":"☁ クラウド同期：この環境では利用できません（暗号化機能なし）";
+  return "☁ クラウド同期：有効 — 別のPC・ブラウザ・スマホでも同じ内容が使えます／同時ログインは PC1台＋スマホ1台まで";
+}
+function syncStatus(t){ const e=document.getElementById("lgsync"); if(e) e.textContent=t||syncStatusText(); }
+function syncLoginLine(){
+  const c=document.querySelector("#lgv .lgc"); if(!c||c.querySelector("#lgsync")) return;
+  const p=document.createElement("p"); p.id="lgsync"; p.style.cssText="font-size:10.5px;color:var(--ink-2);margin-top:10px;line-height:1.7;padding:7px 10px;border:1px dashed var(--line);border-radius:8px";
+  p.textContent=syncStatusText(); c.appendChild(p);
+}
+new MutationObserver(()=>{ try{ syncLoginLine(); }catch(e){} }).observe(document.body,{childList:true,subtree:true});
+function syncAdminCardHtml(){
+  const on=syncOn(); const dev=syncDev();
+  return `<div class="c" id="synccard" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
+      <div><h3>☁ クラウド同期・端末管理 <span class="p ${on?"hi":"lo"}" style="font-size:9.5px">${on?"有効":"未設定"}</span></h3>
+        <p class="nn">${on?`接続先：<code style="font-size:10px">${esc(SYNC.url.replace(/^https?:\/\//,"").slice(0,70))}</code>（${esc(SYNC.cfgSrc)}）。お客様の商品・商談・書類・案件は<b>アクセスコードで暗号化</b>して預けます（サーバー側でも読めません）。APIキーは同期しません。`
+          :"未設定のため、各端末のブラウザにだけ保存されます。バックエンド（Google Apps Script：sync_gas.js）を配置し、そのURLを配布版に設定すると、別のPC・ブラウザ・スマホでも同じ状態になり、同時ログイン（PC1台＋スマホ1台）の制御が働きます。"}</p></div>
+      <div class="rw" style="gap:6px;flex:none">${on?`<button class="btn g" style="font-size:11px" id="synctest">接続テスト</button><button class="btn g" style="font-size:11px" id="syncpush">台帳をサーバーへ送る</button><button class="btn" style="font-size:11px" id="syncget">利用状況・端末を取得</button>`:""}</div></div>
+    <div id="syncout" style="margin-top:8px"></div>
+    <details class="fwdx" style="margin-top:8px"><summary>接続先URLをこの端末で上書き（テスト・移行用）</summary><div>
+      <div class="rw" style="gap:6px;margin-top:6px"><input class="sel" id="syncurl" placeholder="https://script.google.com/macros/s/…/exec" value="${esc((()=>{try{return localStorage.getItem("bc20_sync_url")||""}catch(e){return ""}})())}" style="flex:1;min-width:0">
+        <button class="btn g" style="font-size:11px" id="syncsave">保存して再読込</button><button class="btn g" style="font-size:11px" id="syncclear">上書きを解除</button></div>
+      <p class="nn" style="margin-top:5px">配布版への恒久設定は build 時の sync_config.json（BC20_SYNC_URL）で行います。この端末：${esc(dev.name)}（ID ${esc(dev.id)}・指紋 ${esc(dev.fp)}）</p></div></details>
+  </div>`;
+}
+function syncAdminBind(){
+  const q=id=>document.getElementById(id); const out=q("syncout"); const say=h=>{ if(out) out.innerHTML=h; };
+  if(q("synctest")) q("synctest").onclick=async()=>{ say(`<p class="nn">接続中…</p>`); try{ const r=await syncCall("ping",{}); say(`<p class="nn" style="color:var(--good)">✓ 接続OK：${esc(r.name||"backend")} v${esc(String(r.version||"?"))}／保存先 ${esc(r.store||"")}／台帳 ${r.accounts||0}件${r.pwDefault?"　<b style='color:var(--crit)'>⚠ 管理者パスワードが初期値のままです（Apps Script のプロパティ ADMIN_PW を設定してください）</b>":""}</p>`); }catch(e){ say(`<p class="nn" style="color:var(--crit)">✕ 接続できません：${esc(SYNC.err||String(e.message||e))}</p>`); } };
+  if(q("syncpush")) q("syncpush").onclick=async()=>{ say(`<p class="nn">送信中…（コードごとに鍵を計算します）</p>`); try{ const r=await syncAdminPush(); say(`<p class="nn" style="color:var(--good)">✓ 台帳 ${r.count||ADB.accounts.length}件を送りました。発行済みのコードは他の端末からもログインできます。</p>`); }catch(e){ say(`<p class="nn" style="color:var(--crit)">✕ 送れません：${esc(SYNC.err||String(e.message||e))}</p>`); } };
+  if(q("syncget")) q("syncget").onclick=async()=>{ say(`<p class="nn">取得中…</p>`); try{ const r=await syncAdminGet(); const S=r.sessions||{};
+      const rows=ADB.accounts.map(a=>{ const s=S[a._kid]||{}; const cells=["pc","mobile"].map(k=>{ const rec=s[k]; if(!rec||!rec.ids||!Object.keys(rec.ids).length) return `<td style="color:var(--ink-3)">—</td>`;
+          return `<td>${Object.entries(rec.ids).map(([id,x])=>`<div style="font-size:10.5px">${esc(x.name||id)}<br><span style="color:var(--ink-3);font-size:9.5px">${esc(new Date(x.at||0).toLocaleString())}</span></div>`).join("")}<button class="btn g" style="padding:2px 7px;font-size:10px;margin-top:3px" data-kick="${esc(a._kid)}" data-kind="${k}">強制ログアウト</button></td>`; }).join("");
+          return `<tr><td class="n"><b>${esc(a.code)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${esc(a.co)}</span></td><td class="num">${(a.usage&&a.usage.logins)||0}</td><td class="num">${(a.usage&&a.usage.aiQ)||0}</td>${cells}</tr>`; }).join("");
+      say(`<div class="tw" style="max-height:none"><table><thead><tr><th>アカウント</th><th class="num">ログイン</th><th class="num">AI質問</th><th>PC</th><th>スマホ</th></tr></thead><tbody>${rows}</tbody></table></div><p class="nn" style="margin-top:5px">利用回数は各端末から集まった値です。${r.pwDefault?"<b style='color:var(--crit)'>⚠ 管理者パスワードが初期値のままです。</b>":""}</p>`);
+      out.querySelectorAll("[data-kick]").forEach(b=>b.onclick=async()=>{ try{ await syncAdminKick(b.dataset.kick,b.dataset.kind); toast("強制ログアウトしました（30秒以内に反映）"); q("syncget").click(); }catch(e){ toast("失敗："+String(e.message||e)); } });
+      if(typeof render==="function"&&typeof cur!=="undefined"&&cur==="adm"){ /* 台帳表示の回数も更新 */ }
+    }catch(e){ say(`<p class="nn" style="color:var(--crit)">✕ 取得できません：${esc(SYNC.err||String(e.message||e))}</p>`); } };
+  if(q("syncsave")) q("syncsave").onclick=()=>{ const u=(q("syncurl").value||"").trim(); try{ if(u) localStorage.setItem("bc20_sync_url",u); else localStorage.removeItem("bc20_sync_url"); }catch(e){} location.reload(); };
+  if(q("syncclear")) q("syncclear").onclick=()=>{ try{ localStorage.removeItem("bc20_sync_url"); }catch(e){} location.reload(); };
+}
+/* ── 既存フローへの接続 ── */
+if(typeof enterApp==="function"){ const __enterAppSync=enterApp;
+  enterApp=function(){
+    if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&syncOn()&&!SYNC.started){
+      const lg=document.querySelector("#lg-go"); if(lg){ lg.disabled=true; lg.textContent="☁ 同期しています…"; }
+      syncStart().then(r=>{
+        if(!r.ok){ try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){} SES=null;
+          if(typeof showLogin==="function") showLogin();
+          const e=document.getElementById("lg-err"); const m=r.reason==="unknown"?"このコードはサーバーの台帳にありません（管理者が「台帳をサーバーへ送る」を実行すると使えます）。":r.reason==="expired"?"このアカウントは有効期限が切れています。":r.reason==="disabled"?"このアカウントは無効化されています。":(r.msg||"同期サーバーでログインを確認できませんでした。");
+          if(e){ e.hidden=false; e.textContent=m; } return; }
+        __enterAppSync();
+      }).catch(err=>{
+        /* 接続できないときは端末内保存で続行（正直に表示） */
+        __enterAppSync(); toast("☁ 同期サーバーに接続できないため、この端末の保存だけで続行します（"+String(SYNC.err||err.message||"").slice(0,50)+"）");
+      });
+      return;
+    }
+    __enterAppSync();
+  }; }
+if(typeof injectBar==="function"){ const __injectBarSync=injectBar;
+  injectBar=function(){ __injectBarSync(); const b=document.getElementById("lgout"); if(b&&SYNC.on){ b.onclick=async()=>{ try{ await syncFlush(); if(SYNC.kid) await syncCall("logout",{kid:SYNC.kid,dev:syncDev()},{keepalive:1,timeout:5000}); }catch(e){} try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){} location.reload(); }; } }; }
+/* 保存フック：保存のたびに同期を予約 */
+[["saveTen","acct"],["notifSave","acct"],["corpSave","acct"],["dashDeptSave","acct"],["fwdSave","fwd"]].forEach(([fn,ns])=>{
+  if(typeof window[fn]==="function"){ const __o=window[fn]; window[fn]=function(){ const r=__o.apply(this,arguments); try{ syncSchedule(ns); }catch(e){} return r; }; } });
+if(typeof asave==="function"){ const __asave=asave; asave=function(){ const r=__asave.apply(this,arguments); try{ if(SES&&SES.t==="trial") syncSchedule("acct"); }catch(e){} return r; }; }
+if(typeof dashSet==="function"){ const __dashSetSync=dashSet; dashSet=function(k,v){ const r=__dashSetSync.apply(this,arguments); if(k==="cur") syncSchedule("acct"); return r; }; }
+/* 管理コンソールにカードを差し込む */
+if(typeof renderAdmin==="function"){ const __renderAdminSync=renderAdmin;
+  renderAdmin=function(){ __renderAdminSync();
+    try{ const well=document.getElementById("well"); if(well&&!document.getElementById("synccard")){ const first=well.querySelector(".c"); if(first) first.insertAdjacentHTML("beforebegin",syncAdminCardHtml()); else well.insertAdjacentHTML("afterbegin",syncAdminCardHtml()); syncAdminBind(); } }catch(e){} }; }
+/* 管理者が台帳を変えたら（発行・無効化・延長）サーバーへも反映 */
+if(typeof asave==="function"){ const __asave2=asave; asave=function(){ const r=__asave2.apply(this,arguments); try{ if(SES&&SES.t==="admin"&&syncOn()){ clearTimeout(SYNC.admT); SYNC.admT=setTimeout(()=>{ syncAdminPush().catch(()=>{}); },2000); } }catch(e){} return r; }; }
+setTimeout(()=>{ try{ syncLoginLine(); }catch(e){} },300);
 
 </script>
