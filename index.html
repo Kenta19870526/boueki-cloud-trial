@@ -15187,36 +15187,73 @@ function fobLocal(){
     cur?`貴社の現行FOB ${cur.sym}${cur.min.toLocaleString()}〜 は統計換算に対し${usdU?(cur.minUsd/usdU>=1?"+"+((cur.minUsd/usdU-1)*100).toFixed(0)+"%":"−"+((1-cur.minUsd/usdU)*100).toFixed(0)+"%"):"—"}の位置。`:"価格表に単価が無いため、統計だけから提案しています。"];
   return {tiers,why,risks:["HS6桁には規格・等級違いが混在するため、同等品の単価は上下に振れます。","為替（年平均レートで換算）と輸送費の変動で、現地着値は変わります。"]};
 }
+/* 統計換算より20%以上高い（低い）価格を提案するときの「思考の根拠」（データから組み立てる。AIの回答があればそれを優先） */
+function fobGapLocal(gapPct){
+  const st=window.__fobStat; if(!st) return [];
+  const {S,cur,usdU,kg}=st; const out=[];
+  const strengths=((typeof D!=="undefined"&&D&&D.strengths)||[]).map(s=>s[0]).filter(Boolean);
+  if(gapPct>=0.2){
+    const prem=S.top.filter(p=>p.upkg&&S.world.upkg&&p.upkg>=S.world.upkg*1.5).sort((a,b)=>b.upkg-a.upkg).slice(0,3);
+    const low=S.top.filter(p=>p.upkg&&S.world.upkg&&p.upkg<=S.world.upkg*0.6).slice(0,2);
+    out.push(`統計の平均 $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg は HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}（${S.meta.ja||""}）の全等級の平均で、${low.length?`${low.map(p=>p.name+" $"+p.upkg.toFixed(2)).join("・")}など低単価帯の大口輸出が平均を押し下げています`:"廉価品から高級品まで混在しています"}。貴社の商品と同じ土俵の数字ではありません。`);
+    if(prem.length) out.push(`一方で ${prem.map(p=>`${p.name} $${p.upkg.toFixed(2)}/kg`).join("・")} と、平均の${(prem[0].upkg/S.world.upkg).toFixed(1)}倍で取引されるプレミアム市場が統計上に実在します（1単位換算 $${(prem[0].upkg*(kg||1)).toFixed(2)}）。狙う市場を上位単価国に絞れば、この価格帯は統計とも整合します。`);
+    if(cur) out.push(`現行の価格表 ${cur.sym}${cur.min.toLocaleString()}〜${cur.max.toLocaleString()} は既に統計換算の${(cur.minUsd/usdU).toFixed(1)}倍で、商談に使われている＝<b>市場が受け入れている実績値</b>です。ここを統計平均まで下げる合理性はありません。`);
+    if(strengths.length) out.push(`「${strengths.slice(0,3).join("」「")}」といった差別化要素（受賞・原料・製法・認証）は統計の平均単価には一切反映されていません。これらを営業資料の冒頭で示せる前提で、プレミアム帯の成立可能性があると判断しています。`);
+    out.push(`重量換算（正味${kg||"?"}kg × 単価/kg）は、瓶・小袋など<b>本数・個数で評価される商品</b>では実勢より低く出ます。統計側の「単位あたり単価」も併せて確認してください（エクスプローラの「単価/単位」）。`);
+  } else if(gapPct<=-0.2){
+    out.push(`統計平均 $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg（換算 $${usdU?usdU.toFixed(2):"—"}）より低い提案です。数量獲得・初回参入を優先し、上位仕向国（${S.top.slice(0,3).map(p=>p.name).join("・")}）の大口価格帯に合わせています。`);
+    out.push(`低価格で入る場合は MOQ・支払条件（前払比率）で採算を守り、実績が付いた時点で「標準」へ引き上げる前提です。`);
+  }
+  return out;
+}
 async function fobRun(){
   const out=document.getElementById("fobAI"); if(!out) return;
   const st=window.__fobStat; if(!st){ toast("統計品目を選んでください"); return; }
   const online=(typeof ppReady==="function"&&ppReady());
   const loc=fobLocal();
-  out.innerHTML=`<p class="nn" style="margin-top:10px"><span class="spin"></span> ${online?"AI商社マンが情勢・トレンドをWeb検索し、統計と突き合わせています…（10〜40秒）":"内蔵ルールで統計から提案を組み立てています…"}</p>`;
-  let ai=null, err="";
+  out.innerHTML=`<p class="nn" style="margin-top:10px"><span class="spin"></span> ${online?"AI商社マンが情勢・トレンドをWeb検索し、統計と突き合わせています…（15〜50秒）":"内蔵ルールで統計から提案を組み立てています…"}</p>`;
+  let ai=null, err="", web=null;
+  const {S,cur,usdU,kg}=st;
+  const clean=a=>(Array.isArray(a)?a:[]).map(x=>String(x==null?"":x).trim()).filter(x=>x.length>3);
   if(online){
+    /* 1段目：Web検索専用（平文で事実を集める。JSON一発だと検索結果が空文字で返りやすいため分離） */
     try{
-      const {S,cur,usdU,kg}=st;
-      const r=await llmAsk(`あなたは総合商社の貿易のプロです。日本からの輸出品「${(D&&D.item)||""}」（HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}・${S.meta.ja||""}）の<b>推奨FOB Japan Price</b>を提案してください。
-(1) Web検索で、この品目・カテゴリの直近の輸出市況・需要トレンド・為替・主要国の関税や規制の動き（2026年）を確認する。
-(2) 以下の統計と自社データを根拠に、1単位あたりのFOB価格（USD）を3段階（守り／標準／プレミアム）で提案する。
-【通関統計（UN Comtrade・日本の輸出・FOB建て）】${S.world.y}年 平均単価 $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg（前年比${S.yoyUpkg==null?"—":(S.yoyUpkg*100).toFixed(1)+"%"}）、輸出額 $${(S.world.value/1e6).toFixed(1)}M、上位仕向国 ${S.top.slice(0,5).map(p=>`${p.name}(${(p.share*100).toFixed(0)}%・$${p.upkg?p.upkg.toFixed(2):"—"}/kg)`).join("、")}
-【自社】1単位正味 ${kg||"不明"}kg → 統計換算 ${usdU?"$"+usdU.toFixed(2):"—"}/単位、現行FOB ${cur?cur.sym+cur.min.toLocaleString()+"〜"+cur.max.toLocaleString():"未登録"}、強み ${((D&&D.strengths)||[]).slice(0,4).map(s=>s[0]).join("／")||"未登録"}
-JSONだけで回答: {"web":{"trend":"市況・トレンドの要点（120字以内）","factors":["情勢要因を3つ（各50字以内・数字入り）"],"sources":["出所サイト名 最大3つ"]},
- "tiers":[{"name":"守り","usd":数値,"why":"根拠60字以内"},{"name":"標準","usd":数値,"why":"根拠60字以内"},{"name":"プレミアム","usd":数値,"why":"根拠60字以内"}],
- "rationale":["推奨の根拠を3つ（数字入り）"],"risks":["リスクを2つ"]}
-Webで確認できない項目は空文字。統計・自社データに無い事実は創作しない。`,1200,{forceWeb:1,timeout:100000});
+      const r1=await llmAsk(`Web検索で、日本産「${(D&&D.item)||""}」（${S.meta.ja||""}・HS ${S.hs.slice(0,4)}）の輸出市況について、2025〜2026年の最新情報を調べてください。
+次の観点で、確認できた事実だけを「・」箇条書きで3〜6行（各60字以内・数字と年を入れる）：需要・輸出額のトレンド／主要仕向国の動き／為替（円安・円高）の影響／関税・規制の変更／競合・価格帯。
+最後に「出所：サイト名（複数可）」を1行。確認できない観点は書かない。創作しない。`,700,{forceWeb:1,timeout:70000});
+      const lines=String(r1.txt||"").split("\n").map(s=>s.trim());
+      const facts=lines.filter(s=>/^[・\-•*●]/.test(s)).map(s=>s.replace(/^[・\-•*●]\s*/,"")).filter(s=>s.length>3).slice(0,6);
+      let sources=(lines.find(s=>/^出所|^出典|^ソース|^Sources?/i.test(s))||"").replace(/^[^：:]+[：:]\s*/,"").split(/[、,／/]/).map(s=>s.trim()).filter(Boolean).slice(0,4);
+      if(!sources.length&&r1.cits&&r1.cits.length) sources=[...new Set(r1.cits.map(u=>{try{return new URL(u).hostname.replace(/^www\./,"");}catch(e){return "";}}).filter(Boolean))].slice(0,4);
+      if(facts.length) web={trend:facts[0],factors:facts.slice(1),sources,prov:r1.provNm||""};
+    }catch(e){ err="Web検索："+String(e&&e.message||"").slice(0,50); }
+    /* 2段目：統計＋自社データ＋Web事実 → 3段階の提案と、統計との乖離理由 */
+    try{
+      const r=await llmAsk(`あなたは総合商社の貿易のプロです。日本からの輸出品「${(D&&D.item)||""}」（HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}・${S.meta.ja||""}）の推奨FOB Japan Price（1単位あたりUSD）を3段階で提案してください。
+【通関統計（UN Comtrade・日本の輸出・FOB建て）】${S.world.y}年 平均単価 $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg（前年比${S.yoyUpkg==null?"—":(S.yoyUpkg*100).toFixed(1)+"%"}）、輸出額 $${(S.world.value/1e6).toFixed(1)}M、上位仕向国 ${S.top.slice(0,6).map(p=>`${p.name}(シェア${(p.share*100).toFixed(0)}%・$${p.upkg?p.upkg.toFixed(2):"—"}/kg)`).join("、")}
+【自社】1単位正味 ${kg||"不明"}kg → 統計の重量換算 ${usdU?"$"+usdU.toFixed(2):"—"}/単位、現行FOB ${cur?cur.sym+cur.min.toLocaleString()+"〜"+cur.max.toLocaleString():"未登録"}、強み ${((D&&D.strengths)||[]).slice(0,5).map(s=>s[0]).join("／")||"未登録"}
+【Webで確認した情勢】${web?[web.trend].concat(web.factors).map(f=>"・"+f).join("\n"):"（確認できず）"}
+JSONだけで回答:
+{"tiers":[{"name":"守り","usd":数値,"why":"根拠60字以内"},{"name":"標準","usd":数値,"why":"根拠60字以内"},{"name":"プレミアム","usd":数値,"why":"根拠60字以内"}],
+ "rationale":["推奨の根拠を3つ（数字入り）"],"risks":["リスクを2つ"],
+ "gapReason":["提案（標準）が統計の重量換算より20%以上高い、または低い場合に必ず書く。なぜその価格帯でも成立可能性があると判断したかを、①統計の分類混在（同HSに廉価品が含まれる等）②上位仕向国の単価（プレミアム市場の実在）③商品の強み・受賞・原料・製法④現行価格の市場受容実績⑤競合・価格帯 の観点から3〜5点、数字を添えて論理的に"]}
+統計・自社・Web情勢に無い事実は創作しない。`,1300,{noWeb:1,timeout:90000});
       const t=r.txt.replace(/```json|```/g,""); const a=t.indexOf("{"),b=t.lastIndexOf("}");
       if(a>=0&&b>a){ ai=JSON.parse(t.slice(a,b+1)); ai._prov=r.provNm||"接続AI"; }
       if(typeof logU==="function") logU("web","推奨FOB:"+S.hs);
-    }catch(e){ err=String(e&&e.message||"").slice(0,70); }
+    }catch(e){ err=(err?err+"／":"")+"提案："+String(e&&e.message||"").slice(0,50); }
   }
   const num=v=>{ const n=parseFloat(String(v==null?"":v).replace(/[^\d.]/g,"")); return isFinite(n)&&n>0?n:null; };
   const tiers=(ai&&Array.isArray(ai.tiers)&&ai.tiers.some(x=>num(x.usd)))?ai.tiers.map((x,i)=>({name:x.name||["守り","標準","プレミアム"][i],usd:num(x.usd)||(loc?loc.tiers[i].usd:0),why:String(x.why||"")})):(loc?loc.tiers:[]);
-  const why=(ai&&ai.rationale&&ai.rationale.length)?ai.rationale.slice(0,3):(loc?loc.why:[]);
-  const risks=(ai&&ai.risks&&ai.risks.length)?ai.risks.slice(0,2):(loc?loc.risks:[]);
-  const web=ai&&ai.web&&(ai.web.trend||(ai.web.factors||[]).length)?ai.web:null;
-  window.__fobLast={tiers,why,risks,web,ai:!!ai,cur:"USD"};
+  const why=clean(ai&&ai.rationale).length?clean(ai.rationale).slice(0,3):(loc?loc.why:[]);
+  const risks=clean(ai&&ai.risks).length?clean(ai.risks).slice(0,2):(loc?loc.risks:[]);
+  /* 統計換算との乖離（標準ティア基準）。±20%以上なら「思考の根拠」を必ず添える */
+  const std=tiers[1]||tiers[0]; const gapPct=(std&&usdU)?(std.usd/usdU-1):null;
+  let gap=null;
+  if(gapPct!=null&&Math.abs(gapPct)>=0.2){
+    const rs=clean(ai&&ai.gapReason); gap={pct:gapPct,reasons:rs.length>=2?rs.slice(0,5):fobGapLocal(gapPct),ai:rs.length>=2};
+  }
+  window.__fobLast={tiers,why,risks,web,gap,ai:!!ai,cur:"USD"};
   fobRenderAI(err);
 }
 function fobRenderAI(err){
@@ -15227,13 +15264,18 @@ function fobRenderAI(err){
    <div class="doc" style="margin-top:10px"><div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
      <h4>🤖 AI商社マンの推奨FOB Japan Price（${L.ai?"接続AI＋Web情勢":"内蔵ルール・統計のみ"}）</h4>
      <span class="rw" style="gap:4px">${["USD","JPY"].map(k=>`<button class="btn ${L.cur===k?"":"g"}" style="padding:2px 9px;font-size:10px" onclick="window.__fobLast.cur='${k}';fobRenderAI()">${k}</button>`).join("")}</span></div>
-     ${L.web?`<p style="font-size:11px;line-height:1.8;margin-top:6px;padding:7px 10px;background:var(--bl-soft);border-radius:var(--r2)">🌐 <b>情勢・トレンド：</b>${esc(L.web.trend||"")}${(L.web.factors||[]).length?"<br>"+(L.web.factors||[]).map(f=>"・"+esc(f)).join("<br>"):""}${(L.web.sources||[]).length?`<br><span style="font-size:9.5px;color:var(--ink-3)">出所：${(L.web.sources||[]).map(esc).join("／")}</span>`:""}</p>`
-       :(L.ai?`<p style="font-size:10px;color:var(--ink-3);margin-top:6px">🌐 Web検索では当該品目の具体的な市況情報が確認できませんでした（統計と自社データで提案）。</p>`:`<p style="font-size:10px;color:var(--ink-3);margin-top:6px">AI未接続のためWeb情勢は未参照。接続すると市況・為替・規制の最新情報を併せて提案します。</p>`)}
+     ${(()=>{ const W=L.web; const facts=W?[W.trend].concat(W.factors||[]).map(s=>String(s||"").trim()).filter(s=>s.length>3):[];
+       return facts.length?`<p style="font-size:11px;line-height:1.8;margin-top:6px;padding:7px 10px;background:var(--bl-soft);border-radius:var(--r2)">🌐 <b>情勢・トレンド（Web検索${W.prov?"・"+esc(W.prov):""}）：</b><br>${facts.map(f=>"・"+esc(f)).join("<br>")}${(W.sources||[]).length?`<br><span style="font-size:9.5px;color:var(--ink-3)">出所：${(W.sources||[]).map(esc).join("／")}</span>`:""}</p>`
+       :(L.ai?`<p style="font-size:10px;color:var(--ink-3);margin-top:6px">🌐 Web検索では当該品目の具体的な市況情報が確認できませんでした（統計と自社データで提案しています）。</p>`:`<p style="font-size:10px;color:var(--ink-3);margin-top:6px">AI未接続のためWeb情勢は未参照。接続すると市況・為替・規制の最新情報を併せて提案します。</p>`); })()}
      <div class="g3" style="margin-top:9px;gap:8px">${L.tiers.map((t,i)=>`<div class="c" style="margin:0;${i===1?"border-color:var(--or);box-shadow:0 0 0 2px var(--or-soft)":""}">
        <p class="lbl">${esc(t.name)}${i===1?'　<span class="p or" style="font-size:8.5px">推奨</span>':""}</p>
        <div class="kv n" style="font-size:18px">${fmt(t.usd)}<small>/単位</small></div>
        <div class="kd" style="line-height:1.6">${esc(t.why)}</div>
        <button class="btn g" style="margin-top:6px;font-size:10px;padding:3px 9px" onclick="openTableEdit('price',{suggest:${Math.round(t.usd*100)/100}})">✎ この価格を価格表へ</button></div>`).join("")}</div>
+     ${L.gap?`<div style="margin-top:10px;padding:10px 13px;border:1px solid var(--or);border-left:4px solid var(--or);border-radius:var(--r2);background:var(--or-soft)">
+       <p class="lbl" style="color:var(--or-deep);margin-bottom:5px">🧭 統計の重量換算 ${fmt(window.__fobStat.usdU)} より <b>${L.gap.pct>=0?"+":""}${Math.round(L.gap.pct*100)}%</b> ${L.gap.pct>=0?"高い":"低い"}価格を提案した理由（AI商社マンの思考・${L.gap.ai?"接続AI":"データからの論理整理"}）</p>
+       <ol style="margin:0;padding-left:20px;font-size:11.5px;line-height:1.85">${L.gap.reasons.map(r2=>`<li>${typeof ppFormat==="function"?ppFormat(r2):esc(r2)}</li>`).join("")}</ol>
+       <p style="font-size:9.5px;color:var(--ink-3);margin:6px 0 0">※統計との差が±20%以上のときは、この根拠を必ず表示します。妥当性は商談での成約単価（商談記録）で継続的に検証してください。</p></div>`:""}
      <p style="font-size:11.5px;line-height:1.85;margin-top:9px">${L.why.map(w=>"・"+esc(w)).join("<br>")}</p>
      ${L.risks.length?`<p style="font-size:10.5px;color:var(--ink-2);margin-top:4px">⚠ ${L.risks.map(esc).join("　⚠ ")}</p>`:""}
      ${err?`<p style="font-size:9.5px;color:var(--ink-3)">※接続AIが応答できなかったため内蔵ルールで提案（${esc(err)}）</p>`:""}
@@ -15254,7 +15296,7 @@ function fobCtx(){
   return `【商品】${(D&&D.item)||""}／HS ${S.hs}（${S.meta.ja||""}）
 【通関統計 ${S.world.y}年】平均FOB単価 $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg（前年比${S.yoyUpkg==null?"—":(S.yoyUpkg*100).toFixed(1)+"%"}）、輸出額 $${(S.world.value/1e6).toFixed(1)}M、上位国 ${S.top.slice(0,5).map(p=>`${p.name}${p.upkg?"($"+p.upkg.toFixed(2)+"/kg)":""}`).join("、")}
 【自社】1単位${kg||"?"}kg、統計換算 ${usdU?"$"+usdU.toFixed(2):"—"}、現行FOB ${cur?cur.sym+cur.min+"〜"+cur.max:"未登録"}、強み ${((D&&D.strengths)||[]).slice(0,4).map(s=>s[0]).join("／")||"未登録"}
-【提案】${L?L.tiers.map(t=>`${t.name} $${t.usd.toFixed(2)}`).join("／"):"未算出"}${L&&L.web?"／情勢："+(L.web.trend||""):""}`;
+【提案】${L?L.tiers.map(t=>`${t.name} $${t.usd.toFixed(2)}`).join("／"):"未算出"}${L&&L.web?"／情勢："+[L.web.trend].concat(L.web.factors||[]).filter(Boolean).join("；"):""}${L&&L.gap?`／統計との乖離${Math.round(L.gap.pct*100)}%の理由：${L.gap.reasons.join("；")}`:""}`;
 }
 async function fobAsk(preset){
   const qEl=document.getElementById("fobQ"); const q=(preset||((qEl&&qEl.value)||"")).trim();
