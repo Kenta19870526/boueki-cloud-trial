@@ -13793,10 +13793,14 @@ function fwdBindPage(){
 function fwdEnter(){
   document.body.classList.remove("locked");
   const l=$("#lgv"); l&&l.remove();
+  const w=$("#welv"); w&&w.remove();   /* 荷主向けの歓迎パネルは物流会社モードでは出さない */
   if(typeof injectBar==="function") injectBar();
   FWDON=true; fwdCur="finbox";
   fwdLoad(); fwdNav(); fwdRender();
 }
+/* 荷主向け歓迎パネル（showWelcome）は物流会社セッションでは表示しない（F5復元時は authBoot→enterApp が遅延表示を予約するため、ここで無効化） */
+if(typeof showWelcome==="function"){ const __showWelcomeFwd=showWelcome;
+  showWelcome=function(){ if(FWDON||(typeof SES!=="undefined"&&SES&&SES.role==="fwd")) return; return __showWelcomeFwd.apply(this,arguments); }; }
 /* ── 既存フローへの接続 ── */
 const __enterFwd=enterApp;
 enterApp=function(){
