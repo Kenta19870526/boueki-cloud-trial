@@ -14616,12 +14616,16 @@ function ddpDefaults(){
       if(w&&+w[1]>bestW){ bestW=+w[1]; wt=w[1]; }
     }
   }catch(e){}
-  const st=(typeof TEN!=="undefined"&&TEN&&TEN.ddpIn)||window.__ddpIn||{};
+  /* 前回入力の復元は「同じ商品」のときだけ（別商品へ切り替えたら寸法・重量はその商品から引き直す） */
+  const item=dd.item||"";
+  const mem=(typeof TEN!=="undefined"&&TEN&&TEN.ddpIn&&TEN.ddpIn.item===item)?TEN.ddpIn:(((window.__ddpIn||{})[item])||{});
+  const st=(mem&&mem.item===item)?mem:{};
   return Object.assign({city:"香港（香港）",expTerm:(dd.term&&/EXW|FOB|CIF|CFR/.test(dd.term))?dd.term.match(/EXW|FOB|CIF|CFR/)[0]:"FOB",
     impTerm:"DDP",qty:100,unit:"CTN",dim:dim||"52/36/28",wt:wt||"6",wtU:"kg",
     goods:"",goodsCur:"JPY",margin:15,duty:"",vat:""},st);
 }
-function ddpInSave(v){ window.__ddpIn=v;
+function ddpInSave(v){ v=Object.assign({},v,{item:(typeof D!=="undefined"&&D&&D.item)||""});
+  window.__ddpIn=window.__ddpIn||{}; window.__ddpIn[v.item]=v;
   if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.ddpIn=v; if(typeof saveTen==="function") saveTen(); } }
 /* ── 国別の確定価格（記録・変更・管理 → 営業資料・書類へ反映） ── */
 const DDP_CTY_EN={香港:"Hong Kong",中国:"China",台湾:"Taiwan",韓国:"Korea",シンガポール:"Singapore",タイ:"Thailand",
@@ -15075,7 +15079,8 @@ function csUnitKg(){
   const dd=typeof D!=="undefined"?D:{}; let kg=null;
   try{
     /* 商品名の内容量（例「抹茶パウダー 100g」「720ml」）を最優先、無ければ②寸法表の単品行の重量 */
-    const m0=String(dd.item||"").match(/([\d.]+)\s*(kg|g|ml|mL|L)\b/); if(m0){ const v=parseFloat(m0[1]); kg=/kg|L/.test(m0[2])?v:v/1000; }
+    const m0=String(dd.item||"").match(/([\d.]+)\s*(kg|g|ml|mL|L)\b/);
+    if(m0){ const v=parseFloat(m0[1]), u=m0[2].toLowerCase(); kg=(u==="kg"||u==="l")?v:v/1000; }   /* mL・gは1/1000（30mL→0.03kg） */
     if(!kg){ const rows=(dd.dimRows||[]);
       for(const r of rows){ for(const c of r){ const s=String(c||"");
           let m=s.match(/^([\d,]+(?:\.\d+)?)\s*kg$/i); if(m){ kg=parseFloat(m[1].replace(/,/g,"")); break; }
@@ -15114,18 +15119,25 @@ function openFOB(){
   const C=csData();
   if(!C){ toast("通関統計データを読み込めませんでした"); return; }
   const hs0=csHs6((typeof D!=="undefined"&&D&&D.hs)||"");
-  const st=(typeof TEN!=="undefined"&&TEN&&TEN.fobIn)||window.__fobIn||{};
+  /* 前回の選択は「同じ商品」のときだけ復元（別商品に切り替えたら登録HSから引き直す＝商品をまたぐ記憶の持ち越しを禁止） */
+  const item=(typeof D!=="undefined"&&D&&D.item)||"";
+  const mem=(typeof TEN!=="undefined"&&TEN&&TEN.fobIn&&TEN.fobIn.item===item)?TEN.fobIn:(((window.__fobIn||{})[item])||{});
+  const st=(mem.hs0===hs0)?mem:{};
   const f=csFind(st.hs||hs0);
   const hs=st.hs&&csHas(st.hs)?st.hs:f.hs;
   const cur=csCurFob(); const kg=st.kg||csUnitKg()||"";
   const S=hs?csStats(hs):null;
   const cands=f.cands.length?f.cands:(hs?[{hs,ja:(C.meta[hs]||{}).ja,has:1}]:[]);
+  const allOpts=Object.keys(C.meta).filter(k=>csHas(k)).map(k=>`${k.slice(0,4)}.${k.slice(4)}　${C.meta[k].ja}`);
   openDW(`<div class="dwhead"><h3>📈 推奨FOB Japan Price（AI商社マン提案）</h3></div>
    <div class="dwbody" style="overflow-y:auto;display:block;padding:14px 20px 18px">
    <p class="nn" style="margin:0 0 12px">通関統計（日本の輸出実績＝<b>FOB建て</b>）で類似商品の実勢単価を参照し、<b>Web検索の情勢・トレンド</b>を併せてAI商社マンが推奨FOB価格を提案します。金額は概算で、最終決定は貴社で。</p>
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
-     <div style="grid-column:1/-1"><p class="lbl">参照する統計品目（登録HS ${esc(hs0?hs0.slice(0,4)+"."+hs0.slice(4):"未登録")}${f.exact?"・一致":"・類似候補から選択"}）</p>
-       <select class="sel" id="fobHs" style="width:100%">${cands.map(c=>`<option value="${c.hs}" ${c.hs===hs?"selected":""} ${c.has?"":"disabled"}>${c.hs.slice(0,4)}.${c.hs.slice(4)}　${esc(c.ja||"")}${c.has?"":"（データなし）"}</option>`).join("")}</select></div>
+     <div><p class="lbl">参照する統計品目（登録HS ${esc(hs0?hs0.slice(0,4)+"."+hs0.slice(4):"未登録")}${f.exact?"・一致":"・類似候補から選択"}）</p>
+       <select class="sel" id="fobHs" style="width:100%">${cands.map(c=>`<option value="${c.hs}" ${c.hs===hs?"selected":""} ${c.has?"":"disabled"}>${c.hs.slice(0,4)}.${c.hs.slice(4)}　${esc(c.ja||"")}${c.has?"":"（データなし）"}</option>`).join("")}${cands.length?"":`<option value="">候補なし（右の検索から選択）</option>`}</select></div>
+     <div><p class="lbl">別の品目を検索して参照（${allOpts.length}品目・HSコードまたは品名）</p>
+       <input class="sel" id="fobFind" list="fobFindL" placeholder="例：ジーンズ／6203／スキンケア" style="width:100%;box-sizing:border-box">
+       <datalist id="fobFindL">${allOpts.map(o=>`<option value="${esc(o)}">`).join("")}</datalist></div>
      <div><p class="lbl">1単位（1${esc((cur&&/本|瓶/.test(JSON.stringify(D.priceCols||[]))?"本":"個"))}あたり）の正味重量 kg</p>
        <input class="sel n" id="fobKg" type="number" step="0.001" min="0" value="${esc(String(kg))}" placeholder="例：0.1（100g）" style="width:100%;box-sizing:border-box"></div>
      <div><p class="lbl">現在のFOB単価（②価格表から自動）</p>
@@ -15140,9 +15152,27 @@ function openFOB(){
   if(typeof dwChrome==="function") dwChrome();
   const sel=document.getElementById("fobHs");
   const paint=()=>{ const h=sel.value; const kgv=parseFloat((document.getElementById("fobKg")||{}).value)||null;
-    window.__fobIn={hs:h,kg:kgv}; if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.fobIn=window.__fobIn; }
-    fobRenderStats(h,kgv); };
+    const rec={item,hs0,hs:h,kg:kgv};
+    window.__fobIn=window.__fobIn||{}; window.__fobIn[item]=rec;          /* 商品名ごとに記憶（別商品へ持ち越さない） */
+    if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.fobIn=rec; if(typeof saveTen==="function") saveTen(); }
+    if(h) fobRenderStats(h,kgv); };
   sel.onchange=paint; document.getElementById("fobKg").onchange=paint;
+  /* キーワード検索で任意の品目に切り替え（候補に無い類似品でも参照できる） */
+  const fd=document.getElementById("fobFind");
+  /* 通称→HS項（4桁）の別名表：統計の品名は「男子用ズボン（綿）」のような統計用語のため、日常語でも引けるようにする */
+  const ALIAS={ジーンズ:"6203",デニム:"6203",パンツ:"6203",ズボン:"6203",スカート:"6204",シャツ:"6205",tシャツ:"6109",抹茶:"0902",緑茶:"0902",茶:"0902",
+    日本酒:"2206",清酒:"2206",ウイスキー:"2208",ビール:"2203",美容液:"3304",化粧水:"3304",クリーム:"3304",スキンケア:"3304",シャンプー:"3305",石鹸:"3401",
+    醤油:"2103",味噌:"2103",ソース:"2103",カレー:"2103",菓子:"1806",チョコ:"1806",米:"1006",ラーメン:"1902",麺:"1902",サバ:"0303",ホタテ:"0307",ぶり:"0303",
+    ベアリング:"8482",ポンプ:"8413",バルブ:"8481",モーター:"8501",タオル:"6302",陶器:"6912",食器:"6912",包丁:"8211",水筒:"9617",タンブラー:"9617",マスク:"6307",ガーゼ:"3005"};
+  if(fd) fd.onchange=()=>{ const m=String(fd.value||"").match(/^(\d{4})\.(\d{2})/); let h=m?m[1]+m[2]:"";
+    if(!h){ const q=String(fd.value||"").trim().toLowerCase(); const dig=q.replace(/\D/g,"");
+      const ak=Object.keys(ALIAS).find(a=>q.includes(a.toLowerCase())); const pre=(dig.length>=4?dig.slice(0,4):(ak?ALIAS[ak]:""));
+      const k=Object.keys(C.meta).find(k2=>csHas(k2)&&(String(C.meta[k2].ja||"").toLowerCase().includes(q)||String(C.meta[k2].en||"").toLowerCase().includes(q)))
+        ||(pre?Object.keys(C.meta).filter(k2=>k2.startsWith(pre)&&csHas(k2)).sort()[0]:"");
+      h=k||""; }
+    if(!h){ toast("該当する品目が見つかりません（例：ジーンズ／6203）"); return; }
+    if(![...sel.options].some(o=>o.value===h)){ const o=document.createElement("option"); o.value=h; o.textContent=h.slice(0,4)+"."+h.slice(4)+"　"+(C.meta[h]||{}).ja; sel.appendChild(o); }
+    sel.value=h; fd.value=""; paint(); };
   document.getElementById("fobGo").onclick=()=>fobRun();
   paint();
 }
