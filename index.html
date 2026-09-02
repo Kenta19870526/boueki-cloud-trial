@@ -13204,7 +13204,7 @@ function fwdMsgsLocal(req){
   const ok=req.legs.filter(l=>l.ok), ng=req.legs.filter(l=>!l.ok);
   const item=req.item||"貨物", cat=req.cat||"一般貨物", n=req.legs.length;
   return [
-   {f:"商",t:`${FWDB.profile.co}のAI物流マンさん、<b>${n}か国分</b>の見積をお願いします。<br>仕出：<b>${esc(req.pol)}</b>／仕向：<b>${req.legs.map(l=>esc(l.cty)).join("・")}</b>／貨物：<b>${esc(item)}</b>（${esc(cat)}）／各${req.cbm}m³ LCL想定／条件：${esc(req.term||"FOB")}。`},
+   {f:"商",t:`${FWDB.profile.co}のAI物流マンさん、<b>${n}か国分</b>の見積をお願いします。<br>仕出：<b>${esc(req.pol)}</b>／仕向：<b>${req.legs.map(l=>esc(l.cty)).join("・")}</b>／貨物：<b>${esc(item)}</b>（${esc(cat)}）／${req.cargo?esc(req.cargo)+"／":""}各${req.cbm}m³ ${esc(req.mode||"LCL")}想定／条件：${esc(req.term||"FOB")}${req.poNo?"／発注書 "+esc(req.poNo):""}${req.etd?"／希望納期 "+esc(req.etd):""}${(req.docs||[]).length?"／船積書類："+req.docs.map(esc).join("・"):""}。`},
    {f:"物",t:`承知しました。2点確認させてください。<br>① 危険物・リチウム電池・液体規制への該当は？<br>② ${n>1?"各国とも同一貨物・同一量":"貨物量"}（${req.cbm}m³）の想定でよろしいですか？`},
    {f:"商",t:`① 登録済みの${esc(cat)}の成分・材質表から<b>非該当</b>と判断しています。<br>② はい、まずは同一条件で比較したいです（梱包明細の確定後に実測精算でOK）。`},
    {f:"物",t:`レート表と照合しました。<b>${n}か国中${ok.length}か国は即時ご提案できます</b>：<br>${req.legs.map(fwdLegLine).join("<br>")}${
@@ -13235,25 +13235,28 @@ ${facts}
   return j.msgs.map(m=>({f:/物/.test(m.f)?"物":"商",t:esc(String(m.t||"")).replace(/\n/g,"<br>")}));
 }
 /* 荷主側：見積依頼の実行（進出希望国をまとめて照合。1か国でも該当があれば提案する） */
-async function fwdRequest(){
+async function fwdRequest(opts){
+  opts=opts||{};   /* PO案件からの共有：cbm・cargo・docs・poNo・caseNo・etd・term・pod・only（仕向国だけ） */
   if(!D||!D.ship){ toast("先に価格表・寸法・進出希望国を登録してください"); return; }
   fwdLoad();
   if(typeof llmReload==="function") llmReload();
-  const pol=D.pol||"横浜港";
+  const pol=D.ship.pol||D.pol||"横浜港";
+  const cbm=Math.max(0.5,+opts.cbm||2);
   const ctys=[...new Set(
-    ([D.ship.country].concat((typeof TEN!=="undefined"&&TEN&&TEN.targets)||[]))
+    ([D.ship.country].concat(opts.only?[]:((typeof TEN!=="undefined"&&TEN&&TEN.targets)||[])))
       .flatMap(c=>String(c).split(/[・･、,\/／\s]+/)).filter(Boolean)
       .map(c=>typeof cnorm==="function"?cnorm(c):c))].slice(0,5);   /* いま開いている案件の国を必ず第1レッグに */
   const legs=ctys.map(c=>{
-    const pod=FWD_POD[c]||c;
-    const rate=fwdFindRate(pod)||(pod!==c?fwdFindRate(c):null);
-    return rate?{cty:c,pod:rate.pod,ok:1,quote:fwdQuoteCalc(rate,2)}:{cty:c,pod,ok:0};
+    const pod=(c===D.ship.country&&opts.pod)?opts.pod:(FWD_POD[c]||c);
+    const rate=fwdFindRate(pod)||(pod!==c?fwdFindRate(c):null)||(FWD_POD[c]&&FWD_POD[c]!==pod?fwdFindRate(FWD_POD[c]):null);
+    return rate?{cty:c,pod:rate.pod,ok:1,quote:fwdQuoteCalc(rate,cbm)}:{cty:c,pod,ok:0};
   });
   const ok=legs.filter(l=>l.ok);
   const req={id:"RQ-"+Date.now().toString(36).toUpperCase().slice(-6),d:TODAYS,
     co:(TEN&&TEN.co)||D.co||"荷主",item:D.item||"—",cat:D.cat||"一般貨物",
-    cty:ctys.join("・"),pol,pod:legs.map(l=>l.pod).join("・"),mode:"LCL",cbm:2,term:D.term||"FOB",
+    cty:ctys.join("・"),pol,pod:legs.map(l=>l.pod).join("・"),mode:opts.mode||"LCL",cbm,term:opts.term||D.ship.term||D.term||"FOB",
     legs,status:ok.length?(ok.length<legs.length?"一部AI回答":"AI回答済み"):"レーン未登録",
+    cargo:opts.cargo||"",docs:opts.docs||[],poNo:opts.poNo||"",caseNo:opts.caseNo||D.ship.no||"",etd:opts.etd||"",weight:opts.weight||0,cartons:opts.cartons||0,
     msgs:[],quote:null};
   openDW(`<h3>🚚 貿易クラウド内 物流会社へのAI見積</h3>
     <p class="nn" style="margin-top:8px"><span class="spin"></span> AI物流マン（${esc(FWDB.profile.co)}）と、貴社のAI商社マンが<b>${ctys.length}か国分</b>を交渉しています…（数秒〜30秒）</p>`);
@@ -13299,6 +13302,8 @@ function openFwdQuote(id){
   const any=okL.length||r.quote;
   openDW(`<h3>🚚 AI見積 ${esc(r.id)} <span class="p ${r.status==="仮押さえ済み"?"hi":any?(okL.length&&legs&&okL.length<legs.length?"mid":"hi"):"mid"}">${esc(r.status)}</span></h3>
     <p class="nn" style="margin-top:4px">${esc(r.co)}／<b>${esc(r.pol)} → ${esc(r.cty)}</b>／${esc(r.item)}・${r.cbm}m³ ${esc(r.mode)}${legs?`／<b>${okL.length}/${legs.length}か国 提案あり</b>`:""}</p>
+    ${(r.cargo||r.poNo||(r.docs||[]).length)?`<div style="margin-top:6px;padding:8px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:11px;line-height:1.7">
+      <b>荷主から共有された貨物情報</b>${r.caseNo?"（案件 "+esc(r.caseNo)+"）":""}<br>${r.cargo?"貨物："+esc(r.cargo)+"<br>":""}${r.poNo?"発注書："+esc(r.poNo)+"／":""}${r.etd?"希望納期："+esc(r.etd)+"／":""}条件：${esc(r.term||"")}${(r.docs||[]).length?"<br>船積書類："+r.docs.map(esc).join("・"):""}</div>`:""}
     <p class="lbl" style="margin-top:11px">AI同士の交渉記録（荷主のAI商社マン × 物流会社のAI物流マン）</p>
     <div style="margin-top:7px;max-height:260px;overflow-y:auto;padding-right:4px">${chat}</div>
     ${qHtml}
@@ -15704,5 +15709,654 @@ function tblSave(){
   closeDW(); if(typeof render==="function") render();
   toast(K.t.replace(/^[②③]\s*/,"")+"を保存しました（営業資料・書類・AI回答に反映）");
 }
+
+/* ═══════════ v15.12：発注書（PO）→船積書類ワークベンチ ═══════════
+   ・海外Buyerの発注書（PDF／画像／Excel／Word／CSV／テキスト・貼り付け）をAI商社マンが読み取り、出荷案件を起票
+   ・発注書に無い情報（梱包・重量・HS・原産地・輸出者情報・銀行）は貿易クラウドの登録データから引用
+   ・PI／CI／PL／S/I／原産地証明（下書き）を生成し、すべて編集可能
+   ・足りない情報は「足りない情報」リストとAI商社マンとの対話で埋める（接続時はWeb検索で対象国の必要書類も調査）
+   ・完成したら物流会社（AI物流マン）へ貨物情報ごと共有し、出荷の相談ができる
+   ・データはテナント（TEN.poCases）に永続化。案件は「出荷を進める」の案件タブと同じ SHIPS を共有する */
+
+/* ── 案件とPO情報の置き場所 ── */
+function poCase(){ try{ if(typeof shipEnsure==="function") shipEnsure(); }catch(e){} return (typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null; }
+function poStore(){
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.poCases=TEN.poCases||[]; return TEN.poCases; }
+  window.__poCases=window.__poCases||{}; const k=(typeof PID!=="undefined"&&PID)||"_"; return (window.__poCases[k]=window.__poCases[k]||[]);
+}
+function poPersist(c){
+  c=c||poCase(); if(!c||!c.po) return;
+  const st=poStore(); const i=st.findIndex(x=>x.no===c.ship.no);
+  const rec={no:c.ship.no,ship:JSON.parse(JSON.stringify(c.ship)),po:JSON.parse(JSON.stringify(c.po)),step:c.step||0,at:TODAYS};
+  if(i>=0) st[i]=rec; else st.push(rec);
+  if(typeof saveTen==="function") saveTen();
+}
+/* リロード後：保存したPO案件を案件タブ（SHIPS）へ戻す */
+function poRehydrate(){
+  if(typeof SHIPS==="undefined"||!SHIPS) return;
+  poStore().forEach(r=>{ if(!r||!r.ship||SHIPS.some(c=>c&&c.ship&&c.ship.no===r.no)) return;
+    SHIPS.push({ship:JSON.parse(JSON.stringify(r.ship)),step:r.step||0,qa:[],custom:1,src:"po",mods:{},open:1,
+      at:(SHIPS._seq=(SHIPS._seq||1)+1),po:JSON.parse(JSON.stringify(r.po))}); });
+}
+if(typeof shipEnsure==="function"){ const __shipEnsurePO=shipEnsure;
+  shipEnsure=function(){ __shipEnsurePO(); try{ poRehydrate(); }catch(e){} }; }
+/* 価格表・寸法が無くて想定案件（buildShip）が作れない商品でも、PO案件があれば出荷画面を使えるようにする */
+function poAttachShip(){
+  try{
+    if(typeof D==="undefined"||!D||D.ship) return;
+    const st=poStore(); if(!st.length) return;
+    if(!SHIPS||SHIPS._pid!==PID){ SHIPS=[]; SHIPS._pid=PID; SHIPS._seq=1; SHIPA=0; }
+    poRehydrate(); if(!SHIPS[SHIPA]) SHIPA=0;
+    if(SHIPS[SHIPA]&&SHIPS[SHIPA].custom) D.ship=SHIPS[SHIPA].ship;
+  }catch(e){}
+}
+if(typeof syncTenant==="function"){ const __syncPO=syncTenant; syncTenant=function(){ __syncPO(); poAttachShip(); }; }
+
+/* ── 発注書の読み取り ── */
+const PO_SCHEMA=`{"poNo":"","poDate":"YYYY-MM-DD","buyer":{"name":"","address":"","country":"","contact":"","email":"","tel":""},
+ "consignee":"","notify":"","incoterm":"","incotermPlace":"","pol":"","pod":"","payment":"","currency":"USD",
+ "delivery":"","items":[{"desc":"","sku":"","qty":0,"unit":"","unitPrice":0,"amount":0}],"total":0,"marks":"","remarks":""}`;
+function poNum(v){ if(typeof v==="number") return v; const m=String(v==null?"":v).replace(/,/g,"").match(/-?\d+(?:\.\d+)?/); return m?parseFloat(m[0]):0; }
+function poDate(s){
+  s=String(s||"").trim(); if(!s) return "";
+  let m=s.match(/(\d{4})[-\/.年](\d{1,2})[-\/.月](\d{1,2})/); if(m) return `${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;
+  const MO={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+  m=s.match(/(\d{1,2})\s*(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?,?\s*(\d{4})/i); if(m) return `${m[3]}-${String(MO[m[2].toLowerCase().slice(0,4)]||MO[m[2].toLowerCase().slice(0,3)]).padStart(2,"0")}-${String(m[1]).padStart(2,"0")}`;
+  m=s.match(/(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s*(\d{1,2}),?\s*(\d{4})/i); if(m) return `${m[3]}-${String(MO[m[1].toLowerCase().slice(0,4)]||MO[m[1].toLowerCase().slice(0,3)]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m) return `${m[3]}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  return s.slice(0,40);
+}
+function poCountryOf(s){
+  s=String(s||""); if(!s) return "";
+  const M=[["hong kong","香港"],["hongkong","香港"],["singapore","シンガポール"],["taiwan","台湾"],["taipei","台湾"],["kaohsiung","台湾"],["japan","日本"],["korea","韓国"],["seoul","韓国"],["busan","韓国"],["china","中国"],["shanghai","中国"],["shenzhen","中国"],["beijing","中国"],
+    ["thailand","タイ"],["bangkok","タイ"],["vietnam","ベトナム"],["viet nam","ベトナム"],["ho chi minh","ベトナム"],["hanoi","ベトナム"],["malaysia","マレーシア"],["kuala lumpur","マレーシア"],["indonesia","インドネシア"],["jakarta","インドネシア"],["philippines","フィリピン"],["manila","フィリピン"],
+    ["india","インド"],["mumbai","インド"],["u.a.e","UAE"],["uae","UAE"],["dubai","UAE"],["united arab","UAE"],["saudi","サウジアラビア"],["australia","オーストラリア"],["sydney","オーストラリア"],["melbourne","オーストラリア"],["new zealand","ニュージーランド"],
+    ["united states","アメリカ"],["u.s.a","アメリカ"],["usa","アメリカ"],["new york","アメリカ"],["los angeles","アメリカ"],["california","アメリカ"],["canada","カナダ"],["mexico","メキシコ"],["brazil","ブラジル"],
+    ["united kingdom","イギリス"],["u.k.","イギリス"],["london","イギリス"],["germany","ドイツ"],["hamburg","ドイツ"],["france","フランス"],["paris","フランス"],["italy","イタリア"],["spain","スペイン"],["netherlands","オランダ"],["rotterdam","オランダ"],["belgium","ベルギー"],
+    ["sweden","スウェーデン"],["stockholm","スウェーデン"],["norway","ノルウェー"],["denmark","デンマーク"],["finland","フィンランド"],["poland","ポーランド"],["switzerland","スイス"],["austria","オーストリア"],["ireland","アイルランド"],["portugal","ポルトガル"],["greece","ギリシャ"],["czech","チェコ"],["hungary","ハンガリー"],["romania","ルーマニア"],["turkey","トルコ"],["türkiye","トルコ"],["israel","イスラエル"],
+    ["egypt","エジプト"],["south africa","南アフリカ"],["nigeria","ナイジェリア"],["kenya","ケニア"],["morocco","モロッコ"],["qatar","カタール"],["kuwait","クウェート"],["oman","オマーン"],["bahrain","バーレーン"],["pakistan","パキスタン"],["bangladesh","バングラデシュ"],["sri lanka","スリランカ"],["cambodia","カンボジア"],["myanmar","ミャンマー"],["mongolia","モンゴル"],["chile","チリ"],["peru","ペルー"],["argentina","アルゼンチン"],["colombia","コロンビア"],["russia","ロシア"]];
+  const l=s.toLowerCase();
+  for(const [k,v] of M){ if(l.includes(k)) return v; }
+  const jp=s.match(/(香港|シンガポール|台湾|韓国|中国|タイ|ベトナム|マレーシア|インドネシア|フィリピン|インド|UAE|アラブ首長国|サウジ|オーストラリア|ニュージーランド|アメリカ|米国|カナダ|メキシコ|ブラジル|イギリス|英国|ドイツ|フランス|イタリア|スペイン|オランダ|ベルギー)/);
+  if(jp) return jp[1]==="米国"?"アメリカ":jp[1]==="英国"?"イギリス":jp[1]==="アラブ首長国"?"UAE":jp[1];
+  return (typeof bnFindCty==="function")?(bnFindCty(s)||""):"";
+}
+/* 未接続でも使える簡易抽出（英文POの一般的な書式に対応。読めなかった項目は空欄→「足りない情報」で埋める） */
+function poParseLocal(text){
+  const t=String(text||"").replace(/\r/g,""); const L=t.split("\n").map(x=>x.trim()).filter(Boolean);
+  const g=(re)=>{ const m=t.match(re); return m?String(m[1]).trim():""; };
+  const after=(re)=>{ for(let i=0;i<L.length;i++){ const m=L[i].match(re); if(m){ const rest=(m[1]||"").trim(); return rest||(L[i+1]||""); } } return ""; };
+  const j={poNo:g(/(?:P\.?\s?O\.?|Purchase\s*Order|Order)\s*(?:No\.?|Number|#|№)?\s*[:：]?\s*([A-Z0-9][A-Z0-9\-\/_.]{3,})/i),
+    poDate:poDate(g(/(?:Date|Dated|Order\s*Date)\s*[:：]?\s*([^\n]{4,30})/i)||g(/(\d{4}[-\/.]\d{1,2}[-\/.]\d{1,2})/)),
+    buyer:{name:after(/^(?:Buyer|Purchaser|Bill\s*to|From|Importer)\s*[:：]?\s*(.*)$/i)||(L.find(x=>/\b(Ltd|Limited|Inc\.?|Co\.,?\s*Ltd|Corp|Corporation|GmbH|Pte|LLC|Trading|S\.A\.|Sdn|JSC|LLP)\b/i.test(x)&&!/seller|exporter/i.test(x))||""),
+      address:after(/^(?:Address|Ship\s*to|Deliver\s*to)\s*[:：]?\s*(.*)$/i),country:"",contact:after(/^(?:Attn|Attention|Contact)\s*[:：]?\s*(.*)$/i),
+      email:g(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i),tel:g(/(?:Tel|Phone)\s*[:：]?\s*([+\d][\d\s\-()]{6,})/i)},
+    consignee:after(/^Consignee\s*[:：]?\s*(.*)$/i),notify:after(/^Notify(?:\s*Party)?\s*[:：]?\s*(.*)$/i),
+    incoterm:(t.match(/\b(EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP)\b/i)||["",""])[1].toUpperCase(),
+    incotermPlace:g(/\b(?:EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP)\b\s+([A-Z][A-Za-z .,-]{2,30})/),
+    pol:after(/^Port\s*of\s*Loading\s*[:：]?\s*(.*)$/i)||after(/^(?:POL|Loading\s*Port)\s*[:：]?\s*(.*)$/i),
+    pod:after(/^Port\s*of\s*(?:Discharge|Destination|Delivery)\s*[:：]?\s*(.*)$/i)||after(/^(?:POD|Destination|Discharge\s*Port|Final\s*Destination)\s*[:：]?\s*(.*)$/i),
+    payment:g(/((?:T\/T|L\/C|D\/P|D\/A|Net\s*\d+|\d+\s*days?\s*after)[^\n]{0,40})/i),
+    currency:(t.match(/\b(USD|EUR|JPY|GBP|HKD|SGD|AUD|CNY|RMB|TWD|KRW|THB|AED)\b/)||[])[1]||(/US\$|\$/.test(t)?"USD":/¥|￥/.test(t)?"JPY":""),
+    delivery:g(/(?:Delivery\s*(?:Date|Time)?|Ship(?:ment)?\s*Date|Requested\s*(?:Delivery|Ship)|ETD|ETA)\s*[:：]?\s*([^\n]{3,40})/i),
+    items:[],total:0,marks:after(/^(?:Shipping\s*)?Marks?\s*[:：]?\s*(.*)$/i),remarks:after(/^(?:Remarks?|Notes?|Special\s*Instructions?)\s*[:：]?\s*(.*)$/i),_src:"local"};
+  /* 明細行：品名 … 数量 [単位] … 単価 … 金額（小数2桁の金額を手がかりにする） */
+  const NUM="(?:US\\$|\\$|USD|¥|￥|EUR|€)?\\s*([\\d,]+(?:\\.\\d{1,2})?)";
+  const re=new RegExp("^(.*?\\S)\\s+(\\d[\\d,]*)\\s*(pcs|pieces|units?|bags?|ctns?|cartons?|bottles?|sets?|boxes?|kg|pack|packs|個|本|袋|箱|セット)?\\s+"+NUM+"\\s+"+NUM+"\\s*$","i");
+  L.forEach(x=>{ const m=x.match(re); if(!m) return; const qty=poNum(m[2]), up=poNum(m[4]), amt=poNum(m[5]);
+    if(!qty||!up) return; if(/total|subtotal|sub-total|合計/i.test(m[1])) return;
+    const skm=m[1].match(/\b([A-Z]{2,}[-_]?[A-Z0-9]{2,}[-_]?[A-Z0-9]*)\b/); j.items.push({desc:m[1].replace(/^\d+[.)]\s*/,""),sku:skm?skm[1]:"",qty,unit:(m[3]||""),unitPrice:up,amount:amt||qty*up}); });
+  const tm2=[...t.matchAll(/(?:Grand\s*)?Total[^\n\d]{0,30}(?:US\$|\$|USD|¥|￥)?\s*([\d,]+(?:\.\d{1,2})?)/gi)]; if(tm2.length) j.total=poNum(tm2[tm2.length-1][1]);
+  j.buyer.country=poCountryOf(j.buyer.address||"")||poCountryOf(j.consignee||"")||poCountryOf(j.pod||"")||poCountryOf(t);
+  return j;
+}
+function poNorm(j){
+  j=j||{}; j.buyer=j.buyer||{}; j.items=Array.isArray(j.items)?j.items:[];
+  const s=v=>String(v==null?"":v).trim();
+  ["poNo","consignee","notify","incoterm","incotermPlace","pol","pod","payment","currency","delivery","marks","remarks"].forEach(k=>j[k]=s(j[k]));
+  ["name","address","country","contact","email","tel"].forEach(k=>j.buyer[k]=s(j.buyer[k]));
+  j.poDate=poDate(j.poDate); j.incoterm=j.incoterm.toUpperCase().slice(0,3); j.currency=(j.currency||"").toUpperCase().replace("RMB","CNY").replace("US$","USD");
+  j.items=j.items.map(x=>({desc:s(x.desc),sku:s(x.sku),qty:poNum(x.qty),unit:s(x.unit),unitPrice:poNum(x.unitPrice),amount:poNum(x.amount)||poNum(x.qty)*poNum(x.unitPrice)})).filter(x=>x.desc||x.qty);
+  j.total=poNum(j.total)||j.items.reduce((a,x)=>a+(x.amount||0),0);
+  if(!j.buyer.country){ j.buyer.country=poCountryOf(j.buyer.address)||poCountryOf(j.consignee)||poCountryOf(j.pod)||poCountryOf(j.buyer.name); }
+  if(j.buyer.country&&typeof cnorm==="function") j.buyer.country=cnorm(j.buyer.country)||j.buyer.country;
+  if(!j.currency){ const sym=String(((typeof D!=="undefined"&&D&&D.priceRows)||[[]])[0].join(" ")); j.currency=/¥|￥/.test(sym)?"JPY":"USD"; }
+  return j;
+}
+async function poParse(text,att){
+  const online=(typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function");
+  if(online){
+    try{
+      const sys="あなたは貿易実務のプロフェッショナルです。海外バイヤーの発注書（Purchase Order／注文書／オーダーシート）を読み、次のJSONだけを返してください（前後の文章・コードフェンス禁止）。不明な項目は空文字または0。数値はカンマなしの数値。国名は日本語（例：香港、アメリカ、台湾、UAE）。日付は YYYY-MM-DD。買い手（Buyer）と受荷主（Consignee）が同じなら consignee に同じ社名を入れる。\n"+PO_SCHEMA;
+      const r=await llmAsk((text?"=== 発注書の内容 ===\n"+String(text).slice(0,16000):"添付した発注書（PDF／画像）を読み取ってください。"),1800,{sys,noWeb:1,timeout:90000,att:att||undefined});
+      const t=String(r.txt||"").replace(/```json|```/g,"").trim(); const a=t.indexOf("{"),b=t.lastIndexOf("}");
+      const j=JSON.parse(t.slice(a,b+1)); j._src="ai"; j._engine=r.provNm||r.model||""; return poNorm(j);
+    }catch(e){ if(!text) throw new Error("AIでの読み取りに失敗しました："+String(e&&e.message||e).slice(0,80)); }
+  }
+  if(!text) throw new Error("PDF・画像の発注書を読むにはAIエンジンの接続が必要です（Excel／Word／CSV／テキスト／貼り付けは未接続でも読み取れます）");
+  return poNorm(poParseLocal(text));
+}
+
+/* ── 梱包計算：発注数量 × 商品マスタ（②寸法・重量表／入数）→ カートン数・総重量・容積 ── */
+function poCtnInfo(){
+  const dd=typeof D!=="undefined"&&D?D:{}; const cols=(dd.dimCols||[]).map(c=>String(c||"")); const rows=dd.dimRows||[];
+  const fi=re=>cols.findIndex(c=>re.test(c));
+  const iPer=fi(/入数|入り|内箱|ctn|カートン入|per\s*ctn|pcs\/ctn/i), iCtnDim=fi(/外装|外箱|カートン.*(寸法|サイズ|size)|carton\s*size|ctn\s*size/i), iCtnKg=fi(/外装.*重量|外箱.*重量|カートン.*重量|g\.?w|gross/i), iNet=fi(/正味|net|n\.?w/i), iUnitG=fi(/総重量|gross/i);
+  const nums=s=>String(s||"").match(/[\d.]+/g)||[];
+  const per0=(()=>{ const m=String(dd.ctn||"").match(/(\d+)/); return m?+m[1]:0; })();
+  /* 発注品に近い行（品番・品名の一致）を優先。無ければ先頭行 */
+  const pick=item=>{ const q=String((item&&(item.sku||item.desc))||"").toLowerCase(); let r=rows.find(x=>q&&String(x[0]||"").toLowerCase()&&q.includes(String(x[0]||"").toLowerCase())); return r||rows[0]||[]; };
+  return {per(item){ const r=pick(item); const v=iPer>=0?parseInt(nums(r[iPer])[0]||"0",10):0; return v||per0||0; },
+    ctnDim(item){ const r=pick(item); const v=iCtnDim>=0?nums(r[iCtnDim]).map(Number):[]; if(v.length<3) return null; const mx=Math.max(...v.slice(0,3)); const cm=mx>200?v.slice(0,3).map(x=>x/10):v.slice(0,3); return {cm,txt:String(r[iCtnDim])}; },
+    ctnKg(item){ const r=pick(item); const s=iCtnKg>=0?String(r[iCtnKg]):""; const m=s.match(/([\d.]+)\s*(kg|g)/i); if(!m) return 0; return m[2].toLowerCase()==="g"?+m[1]/1000:+m[1]; },
+    unitNet(item){ const r=pick(item); const s=iNet>=0?String(r[iNet]):""; const m=s.match(/([\d.]+)\s*(kg|g|ml|l)/i); if(!m) return 0; const u=m[2].toLowerCase(); return (u==="kg"||u==="l")?+m[1]:+m[1]/1000; },
+    unitGross(item){ const r=pick(item); const s=iUnitG>=0?String(r[iUnitG]):""; const m=s.match(/([\d.]+)\s*(kg|g)/i); if(!m) return 0; return m[2].toLowerCase()==="g"?+m[1]/1000:+m[1]; }};
+}
+function poPacking(items){
+  const ci=poCtnInfo(); let cartons=0,gw=0,nw=0,cbm=0,ctnSize="",miss=[]; const rows=[];
+  items.forEach(it=>{
+    const per=ci.per(it), dim=ci.ctnDim(it), ckg=ci.ctnKg(it), un=ci.unitNet(it), ug=ci.unitGross(it), q=+it.qty||0;
+    const c=per?Math.ceil(q/per):0; const g=c&&ckg?c*ckg:(ug?q*ug:0); const n=un?q*un:0;
+    cartons+=c; gw+=g; nw+=n; if(dim){ cbm+=c*(dim.cm[0]*dim.cm[1]*dim.cm[2])/1e6; ctnSize=ctnSize||dim.txt; }
+    if(!per) miss.push("入数（1カートンあたりの個数）"); if(!dim) miss.push("カートン寸法"); if(!ckg&&!ug) miss.push("カートン重量");
+    rows.push([it.desc||"",`${q.toLocaleString()}${it.unit?" "+it.unit:""}`,c?`${c} CTN`:"—",g?`G.W. ${Math.round(g*10)/10} kg${n?" / N.W. "+Math.round(n*10)/10+" kg":""}`:"—"]);
+  });
+  return {cartons,gw:Math.round(gw*10)/10,nw:Math.round(nw*10)/10,cbm:Math.round(cbm*100)/100,ctnSize,rows,miss:[...new Set(miss)],
+    cargo:`${cartons?cartons+"カートン":"カートン数未算出"}${ctnSize?"（"+ctnSize+"）":""}／${gw?"総重量 "+Math.round(gw*10)/10+"kg":"重量未算出"}${cbm?"／"+(Math.round(cbm*100)/100)+"m³":""}`};
+}
+/* 必要書類（送り先の規制DB）＋船積の基本書類 */
+function poDocList(cty){
+  const dd=typeof D!=="undefined"&&D?D:{}; const r=(dd.regs||{})[cty]||{};
+  const base=[["PI","Proforma Invoice","注文内容の確認用。発注書と照合してからCIに進みます"],["CI","Commercial Invoice","通関に必須の正式な請求書"],
+    ["PL","Packing List","何をどの箱に・何kgで詰めたかの明細（発注書には無い情報＝商品マスタから引用）"],["S/I","Shipping Instruction","物流会社へ渡す船積指示書（ブッキング・B/L作成の元）"]];
+  /* 規制DBの書類名のうち、PI/CI/PL/S/I と同じもの（インボイス・パッキングリスト等の和名）は重複させない */
+  const extra=(r.docs||[]).filter(x=>!/^(PI|CI|PL|S\/I)$/.test(x)&&!/インボイス|invoice|パッキング|packing|梱包明細|船積指示|shipping\s*instruction|見積送り状|送り状/i.test(x)).map(x=>[x,"",(typeof GL!=="undefined"&&GL[x])||"送り先の通関・輸入で求められる書類です"]);
+  return base.concat(extra);
+}
+function poBaseShip(cty){
+  const dd=D||{}; const r=(dd.regs||{})[cty]||{}; const ad=n=>addDays(TODAYS,n);
+  const cc=(typeof BN_CC!=="undefined"&&BN_CC[cty])||"XX"; const n=(SHIPS?SHIPS.length:0)+1;
+  return {buyer:"",country:cty,no:`${cc}-${String(TODAYS).replace(/-/g,"").slice(4)}-PO${n}`,qty:"",unitPrice:"",total:"",term:(dd.term||"FOB")+" "+(dd.pol||"横浜港"),pay:dd.pay||"T/T 30日",want:ad(30),
+    cargo:"",pol:dd.pol||"横浜港",pod:cty,mode:"LCL",quotes:[],pick:"（物流会社へ共有後に決定）",reason:"物流会社へ貨物情報を共有すると、AI物流マンがレート表から見積を提案します。",
+    docs:[],vessel:"（未定）",bl:"（未発行）",coNo:"（未申請）",
+    link:[["物流会社へ S/I・貨物情報を共有","AI物流マンが見積・ブッキング条件を回答"],["通関業者へ CI・PL を連携",`HSコード ${dd.hs||"未登録"} で申告予定`],["商工会議所へ原産地証明書を申請","必要な場合のみ（送り先の規制による）"],["会計システムへ売上計上データを連携","入金期日の管理まで自動で"]],
+    sched:[[ad(18).slice(5),"書類の準備",""],[ad(19).slice(5),"通関",""],[ad(20).slice(5),"出港（ETD）","o"],[ad(27).slice(5),"到着（ETA）",""],[ad(30).slice(5),"荷渡し",""],[ad(50).slice(5),"入金期日","g"]],
+    min:"—",mails:13,days:"約3日",duty:r.duty||"",docRows:{pi:[],ex:[],plRows:[],plEx:[]}};
+}
+function poFmtMoney(cur,n){ const sym=cur==="JPY"?"¥":cur==="USD"?"US$":cur==="EUR"?"€":(cur+" "); return sym+(Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:cur==="JPY"?0:2,maximumFractionDigits:2}); }
+/* 発注書 → 出荷案件（受注内容・書類の元データを組み立てる） */
+function poCreateCase(j,src){
+  if(typeof shipEnsure==="function") shipEnsure();
+  if(!SHIPS||SHIPS._pid!==PID){ SHIPS=[]; SHIPS._pid=PID; SHIPS._seq=1; SHIPA=0; }
+  const cty=j.buyer.country||(D.targets&&D.targets[0])||"";
+  const items=(j.items||[]).length?j.items:[{desc:D.itemEn||D.item||"",sku:D.sku||"",qty:0,unit:"",unitPrice:0,amount:0}];
+  const pk=poPacking(items); const cur=j.currency||"USD";
+  const total=j.total||items.reduce((a,x)=>a+(x.amount||0),0); const qtySum=items.reduce((a,x)=>a+(+x.qty||0),0);
+  const unitLbl=items[0].unit||(/袋|本|個|箱|セット/.test(String(D.moq||""))?String(D.moq).replace(/[\d,\s]/g,""):"個");
+  const ship=poBaseShip(cty);
+  Object.assign(ship,{buyer:j.buyer.name||("（社名未読取）"+(cty||"")+"のバイヤー"),country:cty||ship.country,poNo:j.poNo||"",date:j.poDate||TODAYS,
+    buyerAddr:j.buyer.address||"",buyerContact:[j.buyer.contact,j.buyer.email,j.buyer.tel].filter(Boolean).join(" / "),
+    consignee:j.consignee||j.buyer.name||"",notify:j.notify||"",
+    qty:`${qtySum.toLocaleString()}${unitLbl}（${pk.cartons?pk.cartons+"カートン・":""}${pk.gw?"総重量 "+pk.gw+"kg":"重量未算出"}）`,
+    unitPrice:items.length===1?poFmtMoney(cur,items[0].unitPrice||0):"（明細参照）",total:poFmtMoney(cur,total),currency:cur,
+    term:(j.incoterm||(D.term||"FOB").split(" ")[0])+" "+(j.incotermPlace||j.pol||D.pol||"横浜港"),
+    pay:j.payment||D.pay||"T/T 30日",want:j.delivery||addDays(TODAYS,30),
+    pol:j.pol||D.pol||"横浜港",pod:j.pod||cty||"",marks:j.marks||"",remarks:j.remarks||"",
+    hs:D.hs||"",origin:"Japan"+(D.origin?" ("+D.origin+")":""),
+    cargo:pk.cargo,mode:pk.cbm>15?"FCL":(pk.cbm&&pk.cbm<0.3)?"クーリエ／航空":"LCL"});
+  ship.docRows={pi:items.map(x=>[x.desc||D.itemEn||D.item||"—",String((+x.qty||0).toLocaleString())+(x.unit?" "+x.unit:""),poFmtMoney(cur,x.unitPrice||0),poFmtMoney(cur,x.amount||0)]),
+    ex:[["Payment",ship.pay],["Delivery",ship.term],["P/O No.",ship.poNo||"—"],["Validity","30 days"]],
+    plRows:pk.rows,
+    plEx:[["Carton size",pk.ctnSize||"—"],["Total cartons",pk.cartons?String(pk.cartons):"—"],["Gross / Net weight",(pk.gw?"G.W. "+pk.gw+" kg":"—")+" / "+(pk.nw?"N.W. "+pk.nw+" kg":"—")],
+      ["Volume",pk.cbm?pk.cbm+" m³":"—"],["Marks",ship.marks||"（未設定）"],["Origin",ship.origin],["HS code",ship.hs||"（未登録）"]]};
+  ship.docs=poDocList(ship.country);
+  const cse={ship,step:0,qa:[],custom:1,src:"po",mods:{},open:1,at:(SHIPS._seq=(SHIPS._seq||1)+1),
+    po:{src,parsed:j,at:TODAYS,pack:pk,chat:[],research:null,shared:null}};
+  SHIPS.push(cse);
+  if(typeof shipActivate==="function") shipActivate(SHIPS.length-1); else { SHIPA=SHIPS.length-1; D.ship=ship; }
+  D.ship=ship; shipStep=0; SHIPQA=[];
+  /* 発注書ファイルを「書類」と「AI参照ソース」の両方に登録（役割が違う：書類＝案件の記録、ソース＝AIの根拠） */
+  try{
+    const row=[src.name||"発注書",("発注書（PO）"),"バイヤー（"+(ship.buyer||cty)+"）",TODAYS,1];
+    if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) TEN.xdocs=(TEN.xdocs||[]).concat([row]);
+    else if(Array.isArray(D.docs)) D.docs.unshift(row);
+    if(src.text&&typeof srcList==="function"){ const L=srcList(); if(!L.some(x=>x.name===src.name)) L.unshift({id:"S"+Date.now().toString(36),name:src.name||"発注書",kind:"発注書（PO）",chars:src.text.length,txt:String(src.text).slice(0,6000),on:1,added:TODAYS}); }
+  }catch(e){}
+  poPersist(cse);
+  if(typeof logU==="function") logU("upload","発注書取込:"+(ship.poNo||ship.buyer));
+  return cse;
+}
+
+/* ── 足りない情報（貿易素人でも分かる説明つき） ── */
+function poGaps(c){
+  const S=c.ship, dd=D||{}, cp=(typeof corpProf==="function")?(corpProf()||{}):{}; const pk=(c.po&&c.po.pack)||{};
+  const has=v=>!!(v&&String(v).trim()&&!/^（.*未|—|未登録|未設定|未算出|未読取/.test(String(v)));
+  const g=[];
+  const add=(k,label,ok,val,why,how,tgt)=>g.push({k,label,ok:!!ok,val:val||"",why,how,tgt});
+  add("buyer","バイヤー（社名）",has(S.buyer)&&!/未読取/.test(S.buyer),S.buyer,"すべての書類の宛名になります","発注書の Buyer／Bill to 欄。読み取れなければ手入力","ship.buyer");
+  add("buyerAddr","バイヤーの住所",has(S.buyerAddr),S.buyerAddr,"CI・PLの宛名と通関で使います","発注書のレターヘッドか署名欄。無ければバイヤーに確認","ship.buyerAddr");
+  add("country","仕向国",has(S.country),S.country,"必要書類・関税・規制がこの国で決まります","発注書の住所・納品先から。輸入通関する国を指定","ship.country");
+  add("consignee","荷受人（Consignee）",has(S.consignee),S.consignee,"B/Lで貨物を受け取れる相手。バイヤーと同じことが多いです","発注書に指定が無ければバイヤー社名で可（L/Cの場合は銀行指定に注意）","ship.consignee");
+  add("notify","着荷通知先（Notify Party）",has(S.notify),S.notify,"到着時に船会社が連絡する相手。通関業者や荷受人","バイヤーに確認。無ければ「Same as consignee」","ship.notify");
+  add("term","取引条件（インコタームズ）",has(S.term),S.term,"運賃・保険・リスクをどこまで売り手が持つかが決まります","発注書の Terms／Incoterm 欄。無ければ見積時の条件（価格表の建値）","ship.term");
+  add("pay","支払条件",has(S.pay),S.pay,"CIに記載し、入金期日の管理に使います","発注書の Payment 欄。無ければ商談で合意した条件","ship.pay");
+  add("pol","積出港（POL）",has(S.pol),S.pol,"S/Iとブッキングに必要","貴社の最寄り港（商品情報の仕出港）","ship.pol");
+  add("pod","仕向港（POD）",has(S.pod)&&S.pod!==S.country,S.pod,"S/I・B/L・運賃見積に必要","発注書の Destination／Port of discharge。無ければバイヤーに確認（国名だけでは港が決まりません）","ship.pod");
+  add("want","希望納期・着荷日",has(S.want),S.want,"物流会社が便を選ぶ基準","発注書の Delivery 欄","ship.want");
+  add("items","明細（品名・数量・単価）",(S.docRows&&S.docRows.pi||[]).length>0&&!(S.docRows.pi||[]).some(r=>/^0/.test(String(r[1]))),(S.docRows.pi||[]).length+"行","PI・CI・PLの本文です","発注書の明細。読み取れない場合は「✎ 書類を編集」で入力","doc.pi");
+  add("hs","HSコード",has(S.hs),S.hs,"通関申告・原産地証明・関税率の根拠","商品情報のHSコード（未登録なら「商品情報を登録」）","D.hs");
+  add("ctn","入数・カートン寸法・重量",!(pk.miss||[]).length,(pk.miss||[]).length?"不足："+pk.miss.join("・"):`${pk.cartons}CTN／${pk.gw}kg／${pk.cbm}m³`,"梱包明細（PL）と運賃見積は発注書に無い情報。商品マスタの②寸法・重量表から引用します","「商品情報 › ②寸法・重量 › ✎編集」で入数・外装寸法・カートン重量を登録","dim");
+  add("marks","荷印（Shipping Marks）",has(S.marks),S.marks,"カートン外装の表示。荷受け時の照合に使います","バイヤー指定が無ければ「社名略称／仕向地／C/No.」で作成","ship.marks");
+  add("exp","輸出者情報（英文社名）",has(dd.coEn),dd.coEn,"全書類のShipper／Exporter欄","商品情報の英文社名（「商品情報を登録」で登録）","D.coEn");
+  add("bank","振込先（銀行情報）",has(cp.cbank),cp.cbank,"CIの支払先。T/Tでは必須","🧾 帳票の会社設定で登録","corp.cbank");
+  add("regno","適格請求書 登録番号",has(cp.cregno),cp.cregno,"国内向け帳票の要件（輸出免税でも記載が望ましい）","🧾 帳票の会社設定で登録","corp.cregno");
+  const co=(S.docs||[]).some(d=>/原産地/.test(d[0]));
+  add("codoc","原産地証明の要否",true,co?"必要（送り先の規制DB）":"規制DBでは必須ではありません",co?"関税優遇や輸入許可の条件になることがあります":"念のためバイヤーに要否を確認すると安全です","「🌐 この国の必要書類を調べる」でAI商社マンが最新情報を確認","info");
+  return g;
+}
+function poFill(k,tgt,v){
+  const c=poCase(); if(!c) return; v=String(v||"").trim(); const S=c.ship;
+  if(tgt.startsWith("ship.")){ S[tgt.slice(5)]=v; if(tgt==="ship.marks"){ const px=S.docRows.plEx.find(r=>r[0]==="Marks"); if(px) px[1]=v; } if(tgt==="ship.pay"){ const ex=S.docRows.ex.find(r=>r[0]==="Payment"); if(ex) ex[1]=v; } if(tgt==="ship.term"){ const ex=S.docRows.ex.find(r=>r[0]==="Delivery"); if(ex) ex[1]=v; } if(tgt==="ship.country"&&typeof cnorm==="function"){ S.country=cnorm(v)||v; S.docs=poDocList(S.country); } }
+  else if(tgt==="D.hs"){ D.hs=v; S.hs=v; const px=S.docRows.plEx.find(r=>r[0]==="HS code"); if(px) px[1]=v; if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) TEN.hs=v; }
+  else if(tgt==="D.coEn"){ D.coEn=v; if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) TEN.coEn=v; }
+  else if(tgt.startsWith("corp.")&&typeof corpProf==="function"&&typeof corpSave==="function"){ const p=corpProf()||{}; p[tgt.slice(5)]=v; corpSave(p); }
+  poPersist(c); if(typeof saveTen==="function") saveTen(); render(); toast("反映しました：書類にも即時反映されます");
+}
+
+/* ── ワークベンチ（貿易実務・書類 › 書類をつくる） ── */
+function poWorkbenchHtml(){
+  const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null; const po=c&&c.po;
+  const cases=(SHIPS||[]).map((x,i)=>({x,i})).filter(o=>o.x&&o.x.ship);
+  const tabs=cases.length>1?`<div class="rw" style="gap:5px;flex-wrap:wrap;margin-top:8px"><span class="lbl" style="margin:0 4px 0 0">案件</span>${cases.map(({x,i})=>`<button class="btn ${i===SHIPA?"":"g"}" style="padding:4px 9px;font-size:10.5px" onclick="shipActivate(${i});render()">${esc(x.ship.no)}｜${esc(x.ship.country)}${x.po?" 📥":""}</button>`).join("")}</div>`:"";
+  const head=`<div class="c" style="margin-bottom:11px;border-color:var(--or)">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start;gap:10px">
+      <div><h3>📥 バイヤーの発注書から船積書類をつくる <span class="nt">この版で新規</span></h3>
+        <p class="nn" style="margin-top:4px">発注書（PDF・画像・Excel・Word・CSV・テキスト、メールの貼り付け）をAI商社マンが読み取り、<b>PI／CI／PL／S/I</b>を自動作成。発注書に無い梱包・重量・HS・原産地・輸出者情報は<b>貿易クラウドの登録データから引用</b>します。足りない情報はAI商社マンと対話しながら埋め、完成したら物流会社へそのまま共有できます。</p></div>
+      <div class="rw" style="gap:6px;flex:none"><label class="btn" style="cursor:pointer">📥 発注書を取り込む<input type="file" id="pof" hidden accept="${typeof FACCEPT!=="undefined"?FACCEPT:".pdf,.xlsx,.docx,.csv,.txt,.png,.jpg"}" onchange="poFile(event)"></label>
+        <button class="btn g" onclick="openPoPaste()">📋 メール本文を貼り付け</button></div></div>
+    ${tabs}${po?"":`<p class="nn" style="margin-top:8px">まだ発注書は取り込まれていません。ファイルをここへドラッグ＆ドロップしても取り込めます。</p>`}</div>`;
+  if(!po) return head;
+  const S=c.ship, gaps=poGaps(c), miss=gaps.filter(x=>!x.ok), pk=po.pack||{};
+  const docsDone=["pi","ci","pl","si"].length;
+  const shared=po.shared&&typeof FWDB!=="undefined"&&FWDB?FWDB.reqs.find(r=>r.id===po.shared.reqId):null;
+  return head+`<div class="c" style="margin-bottom:11px;background:var(--or-soft);border-color:var(--or)">
+    <div class="rw" style="justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div style="font-size:12px;line-height:1.7"><b>📥 発注書 ${esc(S.poNo||"（番号なし）")}</b>　${esc(S.buyer)}（${esc(S.country)}）　${esc(S.date||"")}<br>
+        <span style="color:var(--ink-2)">${esc(S.qty)}／合計 <b>${esc(S.total)}</b>／${esc(S.term)}／${esc(S.pay)}／希望納期 ${esc(S.want)}<br>
+        読み取り：${po.parsed&&po.parsed._src==="ai"?"接続AI（"+esc(po.parsed._engine||"AI")+"）":"内蔵エンジン（簡易抽出）"}・${esc(po.src&&po.src.name||"")}　案件 ${esc(S.no)}</span></div>
+      <div class="rw" style="gap:6px;flex:none">
+        <span class="p ${miss.length?"or":"hi"}" style="font-size:10px">${miss.length?"足りない情報 "+miss.length+"件":"必要情報はそろっています"}</span>
+        <span class="p ${shared?"hi":"lo"}" style="font-size:10px">${shared?"物流会社へ共有済み（"+esc(shared.id)+"）":"物流会社 未共有"}</span>
+        <button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="go('ship')">🚢 出荷を進める画面で続ける</button></div></div></div>`;
+}
+/* 右カラム：足りない情報＋AI商社マン対話 */
+function poGapsHtml(){
+  const c=poCase(); if(!c||!c.po) return "";
+  const gaps=poGaps(c), miss=gaps.filter(x=>!x.ok), ok=gaps.filter(x=>x.ok);
+  const row=x=>`<div style="padding:7px 0;border-bottom:1px dashed var(--line-2)">
+      <div class="rw" style="justify-content:space-between;gap:6px"><b style="font-size:11.5px">${x.ok?"✅":"⚠️"} ${esc(x.label)}</b>${x.ok?`<span style="font-size:10.5px;color:var(--ink-2);max-width:55%;text-align:right;word-break:break-all">${esc(String(x.val).slice(0,60))}</span>`:""}</div>
+      ${x.ok?"":`<p style="font-size:10.5px;color:var(--ink-2);margin:2px 0 4px;line-height:1.6">なぜ必要：${esc(x.why)}<br>どこから：${esc(x.how)}</p>
+      ${/^(ship\.|D\.|corp\.)/.test(x.tgt)?`<div class="rw" style="gap:4px"><input class="sel" id="pog_${x.k}" placeholder="ここに入力" style="flex:1;min-width:0;padding:5px 8px;font-size:11.5px"><button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="poFill('${x.k}','${x.tgt}',document.getElementById('pog_${x.k}').value)">反映</button></div>`
+        :x.tgt==="doc.pi"?`<button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="openPoDocEdit('pi')">✎ 明細を入力</button>`
+        :x.tgt==="dim"?`<button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="openTableEdit('dim')">✎ 寸法・重量表を編集</button>`:""}`}</div>`;
+  const chat=(c.po.chat||[]).slice(-8).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
+  const rs=c.po.research;
+  return `<div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between"><h3>足りない情報 <span class="p ${miss.length?"or":"hi"}" style="font-size:9.5px">${miss.length?miss.length+"件":"なし"}</span></h3>
+      <button class="btn g" style="padding:3px 9px;font-size:10.5px" onclick="poToggleOk()">${window.__poShowOk?"そろっている項目を隠す":"そろっている項目も見る（"+ok.length+"）"}</button></div>
+    <p class="nn" style="margin-top:4px">貿易が初めてでも進められるよう、<b>なぜ必要か・どこから持ってくるか</b>を添えています。入力すると書類へ即時反映されます。</p>
+    <div style="margin-top:6px">${miss.map(row).join("")||`<p class="nn">必要な情報はそろっています。書類を確認して物流会社へ共有しましょう。</p>`}${window.__poShowOk?ok.map(row).join(""):""}</div>
+  </div>
+  <div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between"><h3>🌐 送り先の必要書類・規制</h3>
+      <button class="btn g" id="poResBtn" style="padding:3px 9px;font-size:10.5px" onclick="poResearch()">${(typeof ppReady==="function"&&ppReady())?"🌐 AI商社マンにWebで調べさせる":"内蔵の規制DBで確認"}</button></div>
+    <div style="margin-top:6px;font-size:11.5px;line-height:1.7">${rs?`${rs.html}<p class="nn" style="margin-top:4px">${esc(rs.at)} 調査${rs.cits&&rs.cits.length?"・出典 "+rs.cits.slice(0,4).map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener">[${i+1}]</a>`).join(" "):"（内蔵の規制DB）"}</p>`
+      :`<span style="color:var(--ink-2)">${esc(c.ship.country)}向けの必要書類：${(c.ship.docs||[]).map(d=>esc(d[0])).join("・")||"—"}（内蔵の規制DB）。原産地証明の要否・衛生証明・ラベル規制などの最新情報は、ボタンでAI商社マンに調べさせられます${(typeof ppReady==="function"&&ppReady())?"":"（AIエンジン接続時）"}。</span>`}</div>
+  </div>
+  <div class="c">
+    <h3>🤖 AI商社マンに相談しながら埋める</h3>
+    <div class="chat" id="pochat" style="max-height:260px;margin-top:8px">${chat||`<div class="m a"><div class="bb">この案件の発注書・登録データ・送り先の規制をすべて見ています。「何が足りない？」「原産地証明は必要？」「梱包明細はどう書く？」など、何でも聞いてください。</div></div>`}</div>
+    <div class="qb" style="margin-top:7px">${["何が足りない？","原産地証明は必要？","この国の必要書類は？","梱包明細の書き方は？","荷印はどう決める？"].map(q=>`<button class="q" onclick="poAsk('${q}')">${q}</button>`).join("")}</div>
+    <div class="rw" style="margin-top:7px;gap:6px"><input class="sel" id="poq" placeholder="質問を入力（Enterで送信）" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();poAsk(this.value);this.value='';}"><button class="btn" onclick="const i=document.getElementById('poq');poAsk(i.value);i.value=''">質問</button></div>
+  </div>`;
+}
+function poToggleOk(){ window.__poShowOk=!window.__poShowOk; render(); }
+
+/* 書類をつくるタブ：PO案件があれば統合ワークベンチ、無ければ従来表示＋取込カード */
+if(typeof vOpsDoc==="function"){ const __vOpsDocPO=vOpsDoc;
+  vOpsDoc=function(){
+    try{ poAttachShip(); if(D&&D.ship&&typeof shipEnsure==="function") shipEnsure();   /* 案件タブ（SHIPS）を初期化し、保存したPO案件を復元 */
+      /* 表示中が「想定シナリオ」の案件で、発注書から起票した案件があれば、そちらを表示する（直前まで作業していた案件） */
+      if(SHIPS&&SHIPS[SHIPA]&&!SHIPS[SHIPA].po){ let last=-1; SHIPS.forEach((x,i)=>{ if(x&&x.po) last=i; }); if(last>=0&&typeof shipActivate==="function"){ shipActivate(last); D.ship=SHIPS[last].ship; } }
+    }catch(e){}
+    const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null;
+    if(!(c&&c.po&&D&&D.ship===c.ship)) return poWorkbenchHtml()+__vOpsDocPO();
+    const S=D.ship;
+    return poWorkbenchHtml()+`<div class="g2" style="align-items:start">
+    <div class="c">
+      <div class="rw" style="justify-content:space-between;margin-bottom:2px;gap:6px;flex-wrap:wrap"><h3>船積書類（編集できます）</h3>
+        <div class="rw" style="gap:4px;flex-wrap:wrap">
+          <button class="btn g" data-doc="pi" aria-pressed="true">PI 見積送り状</button>
+          <button class="btn g" data-doc="ci" aria-pressed="false">CI 請求書</button>
+          <button class="btn g" data-doc="pl" aria-pressed="false">PL 梱包明細</button>
+          <button class="btn g" data-doc="si" aria-pressed="false">S/I 船積指示書</button>
+          ${(S.docs||[]).some(d=>/原産地/.test(d[0]))||(c.po.research&&/原産地証明.{0,12}(必要|要)/.test(String(c.po.research.txt||"")))?`<button class="btn g" data-doc="co" aria-pressed="false">原産地証明（下書き）</button>`:""}</div></div>
+      <p class="nn">発注書 ${esc(S.poNo||"")} と登録データから作成。<b>灰色の項目は発注書に無い情報を貿易クラウドのデータから引用</b>したものです。</p>
+      <div id="dO" style="margin-top:10px"></div>
+      <div class="rw" style="margin-top:10px;gap:6px;flex-wrap:wrap">
+        <button class="btn" id="poEditBtn" onclick="openPoDocEdit(window.__poDocK||'pi')">✎ この書類を編集</button>
+        <button class="btn g" onclick="poPrintDoc()">🖨 印刷／PDF保存</button>
+        <button class="btn g" onclick="poShareFwd()">🚚 物流会社へ共有して相談</button></div></div>
+    <div class="stk">
+      <div class="c"><h3>この案件で使う書類 ${S.docs.length}点</h3>
+        <p class="nn">送り先（${esc(S.country)}）の規制調査から自動で決まります。</p>
+        <div style="margin-top:8px;display:flex;flex-direction:column">${S.docs.map(([k,e,d])=>`<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px dashed var(--line-2)">
+          <span style="flex:none;margin-top:1px">${/^(PI|CI|PL|S\/I)$/.test(k)?"✅":"📄"}</span><span><b style="font-size:11.5px">${(typeof GL!=="undefined"&&GL[k])?tm(k):esc(k)}</b><span style="font-size:9.5px;color:var(--ink-3)">　${esc(e)}</span><br><span style="font-size:10.5px;color:var(--ink-2)">${esc(d)}</span></span></div>`).join("")}</div></div>
+      ${poGapsHtml()}
+    </div></div>`;
+  };
+}
+/* 書類の描画：S/I・原産地証明を追加し、PI/CI/PLには発注書の追加項目（荷受人・通知先・荷印・港）を付ける */
+if(typeof rDoc==="function"){ const __rDocPO=rDoc;
+  rDoc=function(k){
+    window.__poDocK=k; const S=D&&D.ship; const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null;
+    if(k==="si"||k==="co"){ const o=document.getElementById("dO"); if(o) o.innerHTML=poDocHtml(k); return; }
+    __rDocPO(k);
+    if(!(c&&c.po&&S===c.ship)) return;
+    const o=document.getElementById("dO"); if(!o) return;
+    const ex=[["P/O No.",S.poNo||"—"],["Consignee",S.consignee||"—"],["Notify party",S.notify||"（Same as consignee）"],["Port of loading / discharge",(S.pol||"—")+" → "+(S.pod||"—")],["Marks",S.marks||"（未設定）"],["Country of origin",S.origin||"Japan"],["HS code",S.hs||"（未登録）"]];
+    const doc=o.querySelector(".doc"); if(doc) doc.insertAdjacentHTML("beforeend",`<div class="dl" style="margin-top:8px;border-top:1px dashed var(--line);padding-top:7px">${ex.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div>`);
+    const nn=o.querySelector("p.nn"); if(nn) nn.innerHTML=`発注書 <b>${esc(S.poNo||"—")}</b>（${esc(S.buyer)}）の内容と、貿易クラウドの登録データ（梱包・HS・原産地・会社設定）から作成しています。「✎ この書類を編集」で自由に修正できます。`;
+  };
+}
+function poDocHtml(k){
+  const S=D.ship, dd=D, cp=(typeof corpProf==="function")?(corpProf()||{}):{}; const pk=((SHIPS&&SHIPS[SHIPA]&&SHIPS[SHIPA].po)||{}).pack||{};
+  const dl=rows=>`<div class="dl">${rows.map(([a,b])=>`<span>${esc(a)}</span><span>${esc(b)}</span>`).join("")}</div>`;
+  if(k==="si"){
+    const term=(S.term||"FOB").split(" ")[0]; const frt=/^(EXW|FCA|FOB|FAS)$/.test(term)?"Freight Collect":"Freight Prepaid";
+    return `<div class="doc"><h4>SHIPPING INSTRUCTION（船積指示書）</h4>
+      ${dl([["Ref. No.",S.no.replace(/^([A-Z]+)-/,"$1-SI-")],["Date",TODAYS],["Shipper / Exporter",(dd.coEn||dd.co)+(dd.city?" / "+dd.city+", Japan":"")],["Consignee",S.consignee||S.buyer],["Notify party",S.notify||"Same as consignee"],
+        ["Port of loading",S.pol||"—"],["Port of discharge",S.pod||"—"],["Final destination",S.country],["Incoterms",S.term],["Requested ETD / delivery",(S.sched&&S.sched[2]?S.sched[2][0]:"—")+" / "+(S.want||"—")],["Mode",S.mode||"LCL"]])}
+      <table><thead><tr><th>Description of goods</th><th>Qty</th><th>Packages</th><th>Weight / Volume</th></tr></thead><tbody>
+        ${(S.docRows.plRows||[]).map(r=>`<tr>${r.map((c2,i)=>`<td${i?' class="num"':""}>${esc(c2)}</td>`).join("")}</tr>`).join("")}
+        <tr><td colspan="2" style="text-align:right;font-weight:700">Total</td><td class="num" style="font-weight:700">${pk.cartons?pk.cartons+" CTN":"—"}</td><td class="num" style="font-weight:700">${pk.gw?"G.W. "+pk.gw+" kg":"—"}${pk.cbm?" / "+pk.cbm+" m³":""}</td></tr></tbody></table>
+      ${dl([["HS code",S.hs||"（未登録）"],["Marks & numbers",S.marks||"（未設定）"],["Freight",frt],["B/L type","Original 3/3（Telex release on request）"],["Documents to be issued","B/L, CI, PL"+((S.docs||[]).some(d=>/原産地/.test(d[0]))?", Certificate of Origin":"")],["Remarks",S.remarks||"Non-hazardous, keep dry"]])}
+      <p class="nn" style="margin-top:7px">物流会社（フォワーダー）へブッキングと B/L 作成のために渡す指示書です。「🚚 物流会社へ共有して相談」でこの内容ごと送れます。</p></div>`;
+  }
+  return `<div class="doc"><h4>CERTIFICATE OF ORIGIN（原産地証明書・申請用下書き）</h4>
+    ${dl([["Exporter",(dd.coEn||dd.co)+(dd.city?" / "+dd.city+", Japan":"")],["Consignee",S.consignee||S.buyer],["Country of destination",S.country],["Transport",(S.pol||"—")+" → "+(S.pod||"—")+"（"+(S.mode||"LCL")+"）"],["Invoice No. / Date",S.no.replace(/^([A-Z]+)-/,"$1-CI-")+" / "+(S.date||TODAYS)]])}
+    <table><thead><tr><th>Marks / Packages</th><th>Description of goods</th><th>HS code</th><th>Origin criterion</th><th>Qty / Weight</th></tr></thead><tbody>
+      ${(S.docRows.plRows||[]).map(r=>`<tr><td>${esc(S.marks||"—")} / ${esc(r[2])}</td><td>${esc(r[0])}</td><td class="num">${esc(S.hs||"—")}</td><td>Wholly obtained / produced in Japan</td><td class="num">${esc(r[1])} / ${esc(r[3])}</td></tr>`).join("")}</tbody></table>
+    <p class="nn" style="margin-top:7px">商工会議所（または原産地証明の発給機関）の様式へ転記するための下書きです。EPA／FTA の特定原産地証明は、協定ごとの原産地規則の確認が必要です（AI商社マンに「原産地証明は必要？」と聞くと送り先の要否を説明します）。</p></div>`;
+}
+/* 書類の編集（見出し項目＋明細表） */
+function openPoDocEdit(k){
+  const c=poCase(); if(!c||!c.po){ toast("先に発注書を取り込んでください"); return; } const S=c.ship; k=k||"pi";
+  const F=[["buyer","Buyer（宛名）"],["buyerAddr","Buyer address"],["consignee","Consignee"],["notify","Notify party"],["poNo","P/O No."],["date","Date"],["term","Incoterms（例：FOB Yokohama）"],["pay","Payment"],["pol","Port of loading"],["pod","Port of discharge"],["want","Delivery / ETA"],["marks","Marks"],["hs","HS code"],["origin","Country of origin"],["vessel","Vessel / Flight（CI）"],["bl","B/L・AWB No.（CI）"],["remarks","Remarks"]];
+  const grid=(k==="pl"||k==="si")?{cols:["Description","Qty","Cartons","Weight"],rows:S.docRows.plRows,key:"plRows"}:{cols:["Description","Qty","Unit price","Amount"],rows:S.docRows.pi,key:"pi"};
+  const exKey=(k==="pl"||k==="si")?"plEx":"ex"; const ex=S.docRows[exKey]||[];
+  openDW(`<div class="dwhead"><h3>✎ 書類を編集（${esc({pi:"PI",ci:"CI",pl:"PL",si:"S/I",co:"原産地証明"}[k]||k)}）</h3></div>
+   <div class="dwbody" style="overflow:auto;display:block;padding:12px 18px 16px">
+   <p class="nn" style="margin:0 0 8px">ここで直した内容は PI／CI／PL／S/I のすべてに反映され、案件（出荷を進める）にも引き継がれます。</p>
+   <p class="lbl">見出し項目</p>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:4px">${F.map(([id,l])=>`<label style="font-size:10.5px;color:var(--ink-3)">${esc(l)}<input class="sel" data-pof="${id}" value="${esc(S[id]||"")}" style="width:100%;box-sizing:border-box;margin-top:2px"></label>`).join("")}</div>
+   <p class="lbl" style="margin-top:10px">明細（${esc(grid.cols.join(" / "))}）</p>
+   <div id="poGrid" style="overflow-x:auto"></div>
+   <div class="rw" style="margin-top:6px;gap:6px"><button class="btn g" onclick="poGridRow(1)">＋ 行を追加</button><button class="btn g" onclick="poGridRow(-1)">－ 最後の行を削除</button></div>
+   <p class="lbl" style="margin-top:10px">追記欄（項目 / 内容）</p>
+   <div id="poEx">${ex.map((r,i)=>`<div class="rw" style="gap:5px;margin-top:4px"><input class="sel" data-pex="${i}" data-c="0" value="${esc(r[0])}" style="width:36%"><input class="sel" data-pex="${i}" data-c="1" value="${esc(r[1])}" style="flex:1;min-width:0"></div>`).join("")}</div>
+   <div class="rw" style="margin-top:12px;gap:6px"><button class="btn" onclick="poDocSave('${k}')">保存して反映</button><button class="btn g" onclick="closeDW()">キャンセル</button></div>
+   </div>`);
+  const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr"); if(typeof dwChrome==="function") dwChrome();
+  window.__poGrid={cols:grid.cols,rows:(grid.rows||[]).map(r=>r.slice()),key:grid.key,exKey};
+  poGridPaint();
+}
+function poGridPaint(){
+  const g=document.getElementById("poGrid"), G=window.__poGrid; if(!g||!G) return;
+  if(!G.rows.length) G.rows=[G.cols.map(()=>"")];
+  g.innerHTML=`<table style="border-collapse:separate;border-spacing:3px;min-width:100%"><thead><tr>${G.cols.map(c=>`<th style="font-size:10.5px;text-align:left;padding:0 4px">${esc(c)}</th>`).join("")}</tr></thead>
+    <tbody>${G.rows.map((r,ri)=>`<tr>${G.cols.map((_,ci)=>`<td style="padding:0"><input class="sel" data-pr="${ri}" data-pc="${ci}" value="${esc(r[ci]==null?"":r[ci])}" style="width:100%;font-size:11.5px;padding:5px 7px;box-sizing:border-box"></td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+function poGridSync(){ const G=window.__poGrid; if(!G) return; document.querySelectorAll("#poGrid input[data-pr]").forEach(i=>{ G.rows[+i.dataset.pr][+i.dataset.pc]=i.value; }); }
+function poGridRow(d){ poGridSync(); const G=window.__poGrid; if(d>0) G.rows.push(G.cols.map(()=>"")); else if(G.rows.length>1) G.rows.pop(); poGridPaint(); }
+function poDocSave(k){
+  const c=poCase(); if(!c) return; const S=c.ship; poGridSync(); const G=window.__poGrid;
+  document.querySelectorAll("[data-pof]").forEach(i=>{ S[i.dataset.pof]=i.value.trim(); });
+  if(typeof cnorm==="function"&&S.country){ /* 国名は正規化 */ }
+  S.docRows[G.key]=G.rows.map(r=>r.map(v=>String(v||"").trim())).filter(r=>r.some(Boolean));
+  const ex=[]; document.querySelectorAll("#poEx input[data-pex]").forEach(i=>{ const n=+i.dataset.pex; ex[n]=ex[n]||["",""]; ex[n][+i.dataset.c]=i.value.trim(); });
+  S.docRows[G.exKey]=ex.filter(r=>r&&(r[0]||r[1]));
+  /* 合計・数量を明細から再計算（PI/CI） */
+  if(G.key==="pi"){ const cur=S.currency||"USD"; const tot=S.docRows.pi.reduce((a,r)=>a+poNum(r[3]),0); if(tot) S.total=poFmtMoney(cur,tot); }
+  const px=S.docRows.plEx.find(r=>r[0]==="Marks"); if(px&&S.marks) px[1]=S.marks;
+  poPersist(c); closeDW(); render(); toast("書類を更新しました（PI／CI／PL／S/I・案件に反映）");
+}
+function poPrintDoc(){
+  const o=document.getElementById("dO"); if(!o||!o.innerHTML.trim()){ toast("先に書類を選んでください"); return; }
+  const w=window.open("","_blank"); if(!w){ toast("ポップアップがブロックされました。ブラウザの印刷（Ctrl+P）をご利用ください"); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc((D&&D.ship&&D.ship.no)||"document")}</title><style>body{font-family:Arial,"Noto Sans JP",sans-serif;font-size:12px;color:#111;padding:28px}h4{font-size:16px;margin:0 0 10px}.dl{display:grid;grid-template-columns:160px 1fr;gap:3px 10px;margin:8px 0}.dl span:nth-child(odd){color:#555}table{border-collapse:collapse;width:100%;margin:8px 0}th,td{border:1px solid #999;padding:5px 7px;text-align:left}td.num,th.num{text-align:right}.nn,button{display:none}</style></head><body>${o.innerHTML}</body></html>`);
+  w.document.close(); setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} },300);
+}
+
+/* ── 取り込み（ファイル／貼り付け） ── */
+async function poFile(e){
+  const f=e.target.files&&e.target.files[0]; e.target.value=""; if(!f) return;
+  if(!D){ toast("先に商品情報を登録してください"); return; }
+  toast("発注書を読み取っています…");
+  try{
+    const u8=new Uint8Array(await f.arrayBuffer());
+    const r=await entriesCorpus([{name:f.name,u8}]);
+    const text=(r.corpus||"").trim(), att=r.att||null;
+    if(!text&&!att) throw new Error("本文を取り出せませんでした（対応形式：PDF／画像／Excel／Word／PowerPoint／CSV／テキスト）");
+    const j=await poParse(text,att);
+    openPoConfirm(j,{name:f.name,kind:"ファイル",text});
+  }catch(err){ toast(String(err&&err.message||err).slice(0,120)); }
+}
+function openPoPaste(){
+  openDW(`<div class="dwhead"><h3>📋 発注メールの本文を貼り付け</h3></div><div class="dwbody" style="display:block;padding:12px 18px 16px">
+    <p class="nn">バイヤーからの発注メール・注文書の文面をそのまま貼り付けてください。AI商社マンが品名・数量・単価・条件・納品先を読み取ります。</p>
+    <textarea class="sel" id="poPasteT" rows="12" style="width:100%;box-sizing:border-box;margin-top:8px;font-size:12px" placeholder="例：PO No. GL-2026-0912 / Buyer: Golden Leaf Trading Ltd. / Organic Matcha 100g x 500 bags @ US$14.50 / FOB Yokohama / T/T 30 days / Delivery by 2026-10-15 / Consignee: ..."></textarea>
+    <div class="rw" style="margin-top:10px;gap:6px"><button class="btn" id="poPasteGo">読み取る</button><button class="btn g" onclick="closeDW()">キャンセル</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  document.getElementById("poPasteGo").onclick=async()=>{ const t=(document.getElementById("poPasteT").value||"").trim(); if(!t){ toast("本文を貼り付けてください"); return; }
+    try{ const j=await poParse(t,null); openPoConfirm(j,{name:"発注メール（貼り付け "+TODAYS+"）",kind:"貼り付け",text:t}); }catch(err){ toast(String(err&&err.message||err).slice(0,120)); } };
+}
+/* 読み取り結果の確認（修正してから案件化） */
+function openPoConfirm(j,src){
+  const F=[["poNo","P/O No.",j.poNo],["poDate","発注日",j.poDate],["buyerName","バイヤー社名",j.buyer.name],["buyerAddr","バイヤー住所",j.buyer.address],["country","仕向国",j.buyer.country],["consignee","荷受人（Consignee）",j.consignee],["notify","通知先（Notify）",j.notify],
+    ["incoterm","インコタームズ",j.incoterm+(j.incotermPlace?" "+j.incotermPlace:"")],["payment","支払条件",j.payment],["currency","通貨",j.currency],["pol","積出港",j.pol],["pod","仕向港",j.pod],["delivery","納期",j.delivery],["marks","荷印",j.marks]];
+  const rows=(j.items.length?j.items:[{desc:"",sku:"",qty:"",unit:"",unitPrice:"",amount:""}]);
+  openDW(`<div class="dwhead"><h3>📥 発注書の読み取り結果 <span class="p ${j._src==="ai"?"on":"lo"}" style="font-size:9.5px">${j._src==="ai"?"接続AIが読み取り":"内蔵エンジン（簡易抽出）"}</span></h3></div>
+   <div class="dwbody" style="overflow:auto;display:block;padding:12px 18px 16px">
+   <p class="nn" style="margin:0 0 8px">${esc(src.name)} から読み取りました。空欄や誤りはここで直せます（あとからも編集できます）。<b>発注書に無い梱包・重量・HS・原産地・輸出者情報は登録データから自動で補います。</b></p>
+   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px">${F.map(([id,l,v])=>`<label style="font-size:10.5px;color:var(--ink-3)">${esc(l)}${v?"":' <span style="color:var(--crit)">未読取</span>'}<input class="sel" data-pc="${id}" value="${esc(v||"")}" style="width:100%;box-sizing:border-box;margin-top:2px"></label>`).join("")}</div>
+   <p class="lbl" style="margin-top:10px">明細（品名 / 品番 / 数量 / 単位 / 単価 / 金額）</p>
+   <div style="overflow-x:auto"><table style="border-collapse:separate;border-spacing:3px;min-width:100%"><tbody id="poItems">${rows.map((x,i)=>`<tr>${["desc","sku","qty","unit","unitPrice","amount"].map(k=>`<td style="padding:0;${k==="desc"?"min-width:200px":"min-width:70px"}"><input class="sel" data-pi="${i}" data-k="${k}" value="${esc(x[k]==null?"":x[k])}" placeholder="${k}" style="width:100%;font-size:11.5px;padding:5px 7px;box-sizing:border-box"></td>`).join("")}</tr>`).join("")}</tbody></table></div>
+   <div class="rw" style="margin-top:6px"><button class="btn g" onclick="poConfirmRow()">＋ 明細を追加</button></div>
+   <div class="rw" style="margin-top:12px;gap:6px"><button class="btn" id="poMake">この内容で船積書類をつくる</button><button class="btn g" onclick="closeDW()">キャンセル</button></div></div>`);
+  const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr"); if(typeof dwChrome==="function") dwChrome();
+  document.getElementById("poMake").onclick=()=>{
+    const v=id=>((document.querySelector(`[data-pc="${id}"]`)||{}).value||"").trim();
+    const inc=v("incoterm").split(/\s+/); j.poNo=v("poNo"); j.poDate=poDate(v("poDate")); j.buyer.name=v("buyerName"); j.buyer.address=v("buyerAddr"); j.buyer.country=v("country"); j.consignee=v("consignee"); j.notify=v("notify");
+    j.incoterm=(inc[0]||"").toUpperCase(); j.incotermPlace=inc.slice(1).join(" "); j.payment=v("payment"); j.currency=(v("currency")||"USD").toUpperCase(); j.pol=v("pol"); j.pod=v("pod"); j.delivery=v("delivery"); j.marks=v("marks");
+    const its={}; document.querySelectorAll("#poItems input[data-pi]").forEach(i=>{ const n=+i.dataset.pi; its[n]=its[n]||{}; its[n][i.dataset.k]=i.value.trim(); });
+    j.items=Object.values(its).map(x=>({desc:x.desc||"",sku:x.sku||"",qty:poNum(x.qty),unit:x.unit||"",unitPrice:poNum(x.unitPrice),amount:poNum(x.amount)||poNum(x.qty)*poNum(x.unitPrice)})).filter(x=>x.desc||x.qty);
+    j.total=j.items.reduce((a,x)=>a+(x.amount||0),0);
+    if(j.buyer.country&&typeof cnorm==="function") j.buyer.country=cnorm(j.buyer.country)||j.buyer.country;
+    if(!j.buyer.country){ toast("仕向国を入力してください（必要書類・規制の判定に使います）"); return; }
+    closeDW(); const cse=poCreateCase(j,src);
+    opsTab="doc"; go("ops");
+    const miss=poGaps(cse).filter(x=>!x.ok).length;
+    toast(`案件 ${cse.ship.no} を起票し、PI／CI／PL／S/I を作成しました${miss?`（足りない情報 ${miss}件）`:""}`);
+  };
+}
+function poConfirmRow(){ const tb=document.getElementById("poItems"); if(!tb) return; const i=tb.querySelectorAll("tr").length;
+  tb.insertAdjacentHTML("beforeend",`<tr>${["desc","sku","qty","unit","unitPrice","amount"].map(k=>`<td style="padding:0"><input class="sel" data-pi="${i}" data-k="${k}" placeholder="${k}" style="width:100%;font-size:11.5px;padding:5px 7px;box-sizing:border-box"></td>`).join("")}</tr>`); }
+
+/* ── AI商社マンとの対話（不足情報・必要書類・規制。接続時はWeb検索を使う） ── */
+function poCtx(c){
+  const S=c.ship, g=poGaps(c); const dd=D||{}; const r=(dd.regs||{})[S.country]||{};
+  return `【案件】${S.no}／発注書 ${S.poNo||"-"}（${S.date||"-"}）／バイヤー ${S.buyer}（${S.country}）住所:${S.buyerAddr||"-"}／荷受人:${S.consignee||"-"}／通知先:${S.notify||"-"}
+【条件】${S.term}／${S.pay}／通貨 ${S.currency||"-"}／POL ${S.pol||"-"} → POD ${S.pod||"-"}／納期 ${S.want||"-"}／輸送 ${S.mode||"-"}
+【明細】${(S.docRows.pi||[]).map(x=>x.join(" | ")).join("；")}／合計 ${S.total}
+【梱包】${S.cargo}／荷印 ${S.marks||"-"}／HS ${S.hs||"-"}／原産地 ${S.origin||"-"}
+【商品】${dd.item}（${dd.itemEn||"-"}）カテゴリ ${dd.cat||"-"}／輸出者 ${dd.coEn||dd.co}
+【送り先の規制DB】関税 ${r.duty||"-"}／通関 ${r.lead||"-"}／必要書類 ${(r.docs||[]).join("、")||"-"}${r.warn?"／注意 "+r.warn:""}
+【必要書類（案件）】${(S.docs||[]).map(d=>d[0]).join("、")}
+【足りない情報】${g.filter(x=>!x.ok).map(x=>x.label).join("、")||"なし"}`;
+}
+function poAdviseLocal(q,c){
+  const S=c.ship, g=poGaps(c), miss=g.filter(x=>!x.ok); const dd=D||{}; const r=(dd.regs||{})[S.country]||{};
+  const co=(S.docs||[]).some(d=>/原産地/.test(d[0]));
+  if(/足りな|不足|何が必要|埋め/.test(q)) return {a:miss.length?`いま足りないのは <b>${miss.length}件</b> です。<br>${miss.map(x=>`・<b>${esc(x.label)}</b>：${esc(x.why)}。→ ${esc(x.how)}`).join("<br>")}<br><br>左の「足りない情報」欄に入力すると、書類に即時反映されます。`:"必要な情報はそろっています。書類を確認して「🚚 物流会社へ共有して相談」へ進めます。",c:"根拠：発注書の読み取り結果＋登録データ＋帳票の会社設定"};
+  if(/原産地|C\/?O\b|certificate of origin/i.test(q)) return {a:`${esc(S.country)}向けの内蔵規制DBでは、原産地証明書は<b>${co?"必要書類に含まれています":"必須書類には含まれていません"}</b>。<br>・関税の優遇（EPA／FTA）を受けるには<b>協定ごとの特定原産地証明</b>が必要で、商工会議所または経済産業省の手続きになります。<br>・優遇を使わない場合でも、バイヤー側の輸入通関やL/Cの条件で求められることがあるため、<b>発注書・L/Cの書類条件を確認</b>してください。<br><br>${(typeof ppReady==="function"&&ppReady())?"「🌐 AI商社マンにWebで調べさせる」で最新の要否を確認できます。":"AIエンジンを接続すると、Web検索で最新の要否（協定・税率）を確認できます。"}`,c:`根拠：規制DB（${esc(S.country)}：${(r.docs||[]).join("、")||"—"}）`};
+  if(/必要書類|書類は|何の書類|どの書類/.test(q)) return {a:`${esc(S.country)}向けのこの案件で使う書類は <b>${(S.docs||[]).length}点</b>です。<br>${(S.docs||[]).map(d=>`・<b>${esc(d[0])}</b>${d[1]?"（"+esc(d[1])+"）":""}：${esc(d[2])}`).join("<br>")}<br><br>PI／CI／PL／S/I はこの画面で作成済み（編集可）。その他の証明書は発給機関への申請が必要です。`,c:`根拠：規制DB（${esc(S.country)}）＋案件の必要書類`};
+  if(/梱包|packing|PL|明細/i.test(q)) return {a:`梱包明細（Packing List）は<b>発注書には無い情報</b>なので、商品マスタの②寸法・重量表から作っています。<br>・1カートンの入数 → カートン数（数量÷入数を切り上げ）<br>・カートン寸法 → 容積（m³）＝運賃の基準<br>・カートン重量 → 総重量（G.W.）、単品正味重量 → 正味重量（N.W.）<br>・荷印（Marks）＝カートン外装の表示<br><br>いまの計算：${esc(S.cargo)}${(c.po.pack&&c.po.pack.miss&&c.po.pack.miss.length)?`<br><span style="color:var(--crit)">不足：${esc(c.po.pack.miss.join("・"))}</span> → 「商品情報 › ②寸法・重量 › ✎編集」で登録すると再計算されます。`:""}`,c:"根拠：商品マスタ（寸法・重量表・入数）"};
+  if(/荷印|marks|マーク/i.test(q)) return {a:`荷印（Shipping Marks）は、カートンの外側に印字してバイヤーが荷受け時に照合する表示です。バイヤー指定が無ければ、<b>社名略称／仕向地／カートン番号</b>の3行が一般的です。<br>例：<b>${esc((dd.coEn||dd.co||"SHIPPER").split(" ")[0].toUpperCase())} / ${esc(S.pod||S.country)} / C/No. 1-${(c.po.pack&&c.po.pack.cartons)||"N"}</b><br>左の「荷印」欄に入力すると PL・S/I に反映されます。`,c:"根拠：貿易実務の一般的な慣行"};
+  if(/インコタームズ|FOB|CIF|DDP|DAP|条件/i.test(q)) return {a:`この案件の条件は <b>${esc(S.term)}</b>、支払は <b>${esc(S.pay)}</b> です。<br>${(typeof GL!=="undefined"&&GL[(S.term||"").split(" ")[0]])?esc(GL[(S.term||"").split(" ")[0]]):"インコタームズは費用とリスクの分岐点を決める国際ルールです。"}<br>FOB／FCA／EXW は運賃着払い（Freight Collect）、CFR／CIF／DAP／DDP は運賃前払い（Prepaid）として S/I に記載します。`,c:"根拠：発注書の条件＋用語集"};
+  return {a:`この案件（${esc(S.no)}・${esc(S.country)}・${esc(S.buyer)}）について、発注書と登録データを見ています。<br>聞けること：「何が足りない？」「原産地証明は必要？」「この国の必要書類は？」「梱包明細の書き方は？」「荷印はどう決める？」。${(typeof ppReady==="function"&&ppReady())?"":"<br><span style=\"color:var(--ink-3)\">AIエンジンを接続すると、自由な質問とWeb検索による最新規制の確認ができます。</span>"}`,c:"内蔵エンジン"};
+}
+async function poAsk(q){
+  q=String(q||"").trim(); if(!q) return; const c=poCase(); if(!c||!c.po) return;
+  c.po.chat=c.po.chat||[]; c.po.chat.push({w:"u",t:q}); const box=document.getElementById("pochat");
+  if(box){ box.insertAdjacentHTML("beforeend",`<div class="m u"><div class="bb">${esc(q)}</div></div><div class="m a" id="poWait"><div class="bb"><span class="spin"></span> 考えています…</div></div>`); box.scrollTop=1e6; }
+  let r;
+  const online=(typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function");
+  if(online){
+    try{
+      const web=/規制|必要書類|証明|認証|関税|ラベル|検疫|最新|調べ/.test(q);
+      const rr=await llmAsk(`${q}\n\n=== この案件の情報（回答の前提にすること） ===\n${poCtx(c)}`,1200,{sys:"あなたは総合商社で20年の経験がある貿易実務のプロフェッショナル。貿易が初めての担当者にも分かる日本語で、この案件の船積書類に必要な情報の埋め方・必要書類・規制・注意点を、案件情報を根拠に具体的に答える。推測は推測と明記し、規制はWeb検索の出典を付ける。",timeout:60000,noWeb:web?0:1});
+      const cits=(rr.cits||[]).slice(0,4);
+      r={a:(typeof ppFormat==="function"?ppFormat(rr.txt):esc(rr.txt).replace(/\n/g,"<br>"))+(cits.length?`<div style="margin-top:6px;font-size:10px">出典：${cits.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener">[${i+1}] ${esc(String(u).replace(/^https?:\/\//,"").slice(0,40))}</a>`).join(" ")}</div>`:""),c:`エンジン：${esc(rr.provNm||"接続AI")}${cits.length?"／Web検索を参照":"／社内データを注入済み"}`};
+    }catch(e){ r=poAdviseLocal(q,c); r.c+="／⚠ 接続AI失敗→内蔵エンジン"; }
+  } else r=poAdviseLocal(q,c);
+  c.po.chat.push({w:"a",t:r.a,c:r.c}); poPersist(c);
+  const w=document.getElementById("poWait"); if(w) w.outerHTML=`<div class="m a"><div class="bb">${r.a}<div class="ci">${r.c}</div></div></div>`;
+  if(box) box.scrollTop=1e6;
+  if(typeof logU==="function") logU("ai","PO相談:"+q.slice(0,30));
+}
+async function poResearch(){
+  const c=poCase(); if(!c||!c.po) return; const S=c.ship, dd=D||{}; const b=document.getElementById("poResBtn"); if(b){ b.disabled=true; b.textContent="調査中…（10〜60秒）"; }
+  const online=(typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function");
+  try{
+    if(online){
+      const rr=await llmAsk(`${S.country}向けに日本から「${dd.item}」（カテゴリ：${dd.cat||"-"}、HSコード ${S.hs||dd.hs||"未登録"}）を輸出する際に、輸入側で必要な書類・証明を最新情報で調べてください。必ず含める：①原産地証明書の要否（一般／EPA・FTA特定原産地の優遇があるか）②衛生証明・検疫・認証・登録（食品／化粧品／工業品それぞれの制度）③ラベル表示の要件 ④関税率の目安。箇条書きで簡潔に、各項目に出典URLを付ける。不明な点は不明と書く。`,1500,{sys:"貿易実務の専門家として、事実と出典に基づき簡潔に日本語で答える。推測は推測と明記。",timeout:90000});
+      c.po.research={txt:rr.txt,html:(typeof ppFormat==="function"?ppFormat(rr.txt):esc(rr.txt).replace(/\n/g,"<br>")),cits:rr.cits||[],at:TODAYS+"（"+(rr.provNm||"接続AI")+"・Web検索）"};
+      /* 原産地証明が必要と読めるなら案件の必要書類に追加 */
+      if(/原産地証明.{0,20}(必要|必須|求められ)/.test(String(rr.txt))&&!(S.docs||[]).some(d=>/原産地/.test(d[0]))) S.docs.push(["原産地証明書","Certificate of Origin","Web調査で必要と判断（発給：商工会議所）"]);
+    } else {
+      const r=(dd.regs||{})[S.country]||{};
+      c.po.research={txt:"",html:`<b>内蔵の規制DB（${esc(S.country)}）</b><br>・関税率：${esc(r.duty||"—")}／通関：${esc(r.lead||"—")}<br>・必要書類：${(r.docs||[]).map(esc).join("・")||"—"}${r.warn?"<br>・注意："+esc(r.warn):""}<br><span style="color:var(--ink-3)">最新の要否（EPA／FTA・認証・ラベル）はAIエンジン接続時にWeb検索で確認できます。</span>`,cits:[],at:TODAYS+"（内蔵DB）"};
+    }
+    poPersist(c); render();
+  }catch(e){ toast("調査に失敗しました："+String(e&&e.message||e).slice(0,60)); if(b){ b.disabled=false; b.textContent="🌐 もう一度調べる"; } }
+}
+
+/* ── 物流会社へ共有して相談（貨物・書類ごと見積依頼→AI物流マンと対話） ── */
+async function poShareFwd(){
+  const c=poCase(); if(!c||!c.po){ toast("先に発注書を取り込んでください"); return; }
+  if(typeof fwdRequest!=="function"){ toast("物流会社への共有はトライアル版（物流会社ユーザー連携）で利用できます"); return; }
+  const S=c.ship, pk=c.po.pack||{}; const gaps=poGaps(c).filter(x=>!x.ok&&/^(pod|ctn|term|want)$/.test(x.k));
+  if(gaps.length&&!confirm(`物流会社の見積に必要な情報が不足しています：${gaps.map(x=>x.label).join("・")}\nこのまま共有しますか？（不足分はAI物流マンが確認事項として扱います）`)) return;
+  D.ship=S;
+  await fwdRequest({cbm:Math.max(0.5,+pk.cbm||2),only:1,cargo:S.cargo,docs:(S.docs||[]).map(d=>d[0]),poNo:S.poNo,caseNo:S.no,etd:S.want,term:S.term,pod:S.pod,mode:S.mode,weight:pk.gw,cartons:pk.cartons});
+  const req=(typeof FWDB!=="undefined"&&FWDB&&FWDB.reqs[0])||null;
+  c.po.shared={reqId:req?req.id:"",at:TODAYS}; if((c.step||0)<1) c.step=1; if(SHIPS[SHIPA]===c&&shipStep<1) shipStep=1;
+  S.quotes=(req&&req.legs||[]).filter(l=>l.ok).map(l=>[FWDB.profile.co+"（AI物流マン）","¥"+l.quote.freight.toLocaleString(),"¥"+(l.quote.thc+l.quote.doc).toLocaleString(),"¥"+l.quote.total.toLocaleString(),l.quote.lane,"—","約"+l.quote.tt+"日",1]);
+  poPersist(c); if(typeof logU==="function") logU("fwd","PO案件を物流会社へ共有:"+S.no);
+  setTimeout(()=>openFwdConsult(),400);
+}
+function openFwdConsult(){
+  const c=poCase(); if(!c) return; const S=c.ship; const req=(c.po&&c.po.shared&&typeof FWDB!=="undefined"&&FWDB)?FWDB.reqs.find(r=>r.id===c.po.shared.reqId):null;
+  c.po.fwdChat=c.po.fwdChat||[];
+  const chat=c.po.fwdChat.slice(-10).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
+  openDW(`<div class="dwhead"><h3>🚚 物流会社（AI物流マン）に出荷を相談</h3></div>
+   <div class="dwbody" style="display:flex;flex-direction:column;min-height:0">
+   <p class="nn">共有した内容：<b>${esc(S.pol||"—")} → ${esc(S.pod||S.country)}</b>／${esc(S.term)}／${esc(S.cargo)}／希望納期 ${esc(S.want||"—")}／書類 ${(S.docs||[]).map(d=>esc(d[0])).join("・")}${req?`<br>見積依頼 <b>${esc(req.id)}</b>：${esc(req.status)}　<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="openFwdQuote('${esc(req.id)}')">見積内容を見る</button>`:""}</p>
+   <div class="chat" id="fwdcchat" style="flex:1;min-height:0;max-height:none;margin-top:8px">${chat||`<div class="m a"><div class="bb">AI物流マンです。共有いただいた貨物情報と登録レートをもとに、運賃・所要日数・ブッキングに必要な書類・締切（CY／CFSカット）についてお答えします。</div></div>`}</div>
+   <div class="qb" style="margin-top:8px">${["運賃と所要日数は？","ブッキングに必要な書類は？","希望納期に間に合う便は？","LCLとFCLどちらがいい？","危険物や温度管理の注意は？"].map(q=>`<button class="q" onclick="poFwdAsk('${q}')">${q}</button>`).join("")}</div>
+   </div>
+   <div class="dwfoot"><div class="rw" style="gap:6px"><input class="sel" id="fwdcq" placeholder="AI物流マンへの質問（Enterで送信）" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();poFwdAsk(this.value);this.value='';}"><button class="btn" onclick="const i=document.getElementById('fwdcq');poFwdAsk(i.value);i.value=''">送信</button></div></div>`);
+  const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr"); if(typeof dwChrome==="function") dwChrome();
+}
+function poFwdLocal(q,c){
+  const S=c.ship, pk=(c.po&&c.po.pack)||{}; if(typeof fwdLoad==="function") fwdLoad();
+  const pod=(typeof FWD_POD!=="undefined"&&FWD_POD[S.country])||S.pod||S.country;
+  const rate=(typeof fwdFindRate==="function")?(fwdFindRate(pod)||fwdFindRate(S.country)||fwdFindRate(S.pod||"")):null;
+  const cbm=Math.max(0.5,+pk.cbm||2);
+  const qt=rate&&typeof fwdQuoteCalc==="function"?fwdQuoteCalc(rate,cbm):null;
+  const term=(S.term||"FOB").split(" ")[0]; const collect=/^(EXW|FCA|FOB|FAS)$/.test(term);
+  if(/運賃|いくら|所要|日数|費用/.test(q)) return qt?{a:`登録レートから：<b>${esc(qt.lane)}（${esc(qt.mode)}）</b>　運賃 ¥${qt.freight.toLocaleString()}（${esc(qt.unit)}・${esc(qt.basis||"")}）＋諸掛 ¥${(qt.thc+qt.doc).toLocaleString()} ＝ <b>合計 ¥${qt.total.toLocaleString()}</b>／所要 約${qt.tt}日／有効期限 ${esc(qt.valid)}。<br>${collect?`条件が ${esc(term)} なので運賃は<b>着払い（Freight Collect）</b>＝バイヤー負担です。`:`条件が ${esc(term)} なので運賃は<b>前払い（Prepaid）</b>＝貴社負担です。`}`,c:"根拠：物流会社のレート表（貿易クラウド内）"}:{a:`${esc(pod)}向けのレーンはまだレート表に登録がありません。物流会社がレートを登録すると<b>自動で見積が届きます</b>。お急ぎならSTANDAGE経由の相見積も可能です。`,c:"根拠：レート表に該当レーンなし（正直回答）"};
+  if(/書類|ブッキング|booking|必要/.test(q)) return {a:`ブッキングとB/L作成に必要なのは、<b>S/I（船積指示書）・CI・PL</b>の3点です。この案件では作成済みなので、S/Iの内容（荷受人・通知先・港・数量・重量・容積・荷印）を確認してお送りください。${(S.docs||[]).some(d=>/原産地/.test(d[0]))?"<br>原産地証明書は通関側で必要になるため、出港前に発給を受けてください。":""}<br>危険物・リチウム電池・液体規制に該当しない旨も併せてご連絡ください（登録の成分・材質表から非該当と見ています）。`,c:"根拠：案件の書類一覧＋成分・材質表"};
+  if(/間に合|納期|便|スケジュール|いつ/.test(q)) return {a:`希望納期 <b>${esc(S.want||"—")}</b> に対し、${qt?`所要は約${qt.tt}日です。書類準備と通関（3〜4営業日）＋CY／CFSカット（出港の2〜3営業日前）を逆算すると、<b>出港希望日の1週間前までにS/Iと貨物の準備</b>が目安です。`:"レーン未登録のため所要日数を提示できません。登録後に自動でお知らせします。"}`,c:"根拠：レート表の所要日数＋一般的な通関・カット日程"};
+  if(/LCL|FCL|コンテナ/i.test(q)) return {a:`貨物は <b>${esc(S.cargo)}</b>。目安として <b>15m³以上または重量が大きい場合はFCL（20ft）</b>、それ未満は<b>LCL（混載）</b>が経済的です。この案件は ${pk.cbm?pk.cbm+"m³":"容積未算出"} なので <b>${S.mode||"LCL"}</b> を想定しています。容積が未算出なら、カートン寸法を商品マスタに登録してください。`,c:"根拠：貨物の容積・重量（梱包計算）"};
+  if(/危険|温度|冷蔵|リチウム|液体/.test(q)) return {a:`登録の成分・材質表からは<b>危険物非該当</b>と見ています（${esc(D.cat||"")}）。液体・エアゾール・電池を含む場合はSDS（安全データシート）の提出が必要です。温度管理が必要な食品はリーファー（冷蔵コンテナ）の要否をお知らせください。`,c:"根拠：成分・材質表（登録データ）"};
+  return {a:`AI物流マンです。この案件（${esc(S.pol||"—")}→${esc(S.pod||S.country)}・${esc(S.cargo)}）について、運賃・所要日数・必要書類・便のスケジュール・LCL/FCLの判断・危険物の扱いをお答えできます。`,c:"内蔵エンジン"};
+}
+async function poFwdAsk(q){
+  q=String(q||"").trim(); if(!q) return; const c=poCase(); if(!c) return; c.po.fwdChat=c.po.fwdChat||[]; c.po.fwdChat.push({w:"u",t:q});
+  const box=document.getElementById("fwdcchat"); if(box){ box.insertAdjacentHTML("beforeend",`<div class="m u"><div class="bb">${esc(q)}</div></div><div class="m a" id="fwdcWait"><div class="bb"><span class="spin"></span> AI物流マンが確認しています…</div></div>`); box.scrollTop=1e6; }
+  let r; const online=(typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function");
+  if(online){
+    try{ const rr=await llmAsk(`${q}\n\n=== 案件（荷主から共有） ===\n${poCtx(c)}\n\n=== 物流会社のデータ ===\n${typeof fwdContext==="function"?fwdContext():""}`,1000,{sys:"あなたは物流会社（フォワーダー）のAI物流マン。荷主の担当者からの出荷相談に、登録レート表・所要日数・一般的な船積実務（S/I・カット日・B/L）をもとに、簡潔で実務的な日本語で答える。レート表に無いレーンは無いと正直に言う。",timeout:60000,noWeb:1,planTier:(typeof FWDPLAN!=="undefined"&&FWDPLAN==="pro"?"pro":"std")});
+      r={a:(typeof ppFormat==="function"?ppFormat(rr.txt):esc(rr.txt).replace(/\n/g,"<br>")),c:"エンジン："+esc(rr.provNm||"接続AI")+"／レート表・案件情報を注入"}; }
+    catch(e){ r=poFwdLocal(q,c); }
+  } else r=poFwdLocal(q,c);
+  c.po.fwdChat.push({w:"a",t:r.a,c:r.c}); poPersist(c);
+  const w=document.getElementById("fwdcWait"); if(w) w.outerHTML=`<div class="m a"><div class="bb">${r.a}<div class="ci">${r.c}</div></div></div>`; if(box) box.scrollTop=1e6;
+}
+
+/* ── 出荷を進める（案件チャット）との統合：ステップ4に書類ワークベンチへの導線 ── */
+if(typeof shipSteps==="function"){ const __shipStepsPO=shipSteps;
+  shipSteps=function(){ const st=__shipStepsPO();
+    try{ const c=SHIPS&&SHIPS[SHIPA];
+      if(st[3]&&st[3].art){ st[3].art.b+=`<div class="rw" style="margin-top:8px;gap:6px"><button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="opsTab='doc';go('ops')">✎ 書類を確認・編集する（貿易実務・書類）</button>${c&&c.po?"":`<button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="opsTab='doc';go('ops')">📥 バイヤーの発注書から作り直す</button>`}</div>`; }
+      if(c&&c.po&&st[1]&&st[1].art){ st[1].art.b+=`<div class="rw" style="margin-top:8px"><button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="openFwdConsult()">🚚 AI物流マンに出荷を相談</button></div>`; }
+    }catch(e){} return st; };
+}
+
+/* ── ③ 「この案件の書類」と「取り込んだ情報一覧」の役割分担 ──
+   書類＝案件の記録（船積書類・発注書・契約書・添付）／情報一覧＝AIが根拠にする資料（ON/OFF管理）。重複掲載をやめ、相互リンクにする */
+vDocs=function(){
+  const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null; const S=D.ship; const po=c&&c.po;
+  const gen=S?[["PI","Proforma Invoice",true],["CI","Commercial Invoice",true],["PL","Packing List",true],["S/I","Shipping Instruction",!!po]].concat((S.docs||[]).filter(d=>!/^(PI|CI|PL|S\/I)$/.test(d[0])).map(d=>[d[0],d[1]||"",false])):[];
+  const received=[];
+  (poStore()||[]).forEach(r=>{ if(r&&r.po&&r.po.src) received.push([r.po.src.name||"発注書","発注書（PO）",r.ship.buyer+"（"+r.ship.country+"）",r.po.at||r.at||"",'onclick="opsTab=\'doc\';render()"']); });
+  ((typeof TEN!=="undefined"&&TEN&&TEN.legal&&TEN.legal.docs)||(window.__leg&&window.__leg.docs)||[]).forEach(d=>received.push([d.name,"契約書（"+(d.kind||"")+"）","契約書関連",String(d.ts||"").slice(0,10),'onclick="go(\'legal\')"']));
+  ((typeof TEN!=="undefined"&&TEN&&TEN.xdocs)||[]).forEach(r=>{ if(r[1]!=="発注書（PO）") received.push([r[0],r[1],r[2],r[3],'onclick="go(\'msg\')"']); });
+  (D.docs||[]).forEach(r=>{ if(/商品マスタ|やりとり添付|発注書/.test(String(r[1]))) return; if(!received.some(x=>x[0]===r[0])) received.push([r[0],r[1],r[2],r[3],""]); });
+  const src=(typeof srcList==="function")?srcList():[];
+  return `<div class="c" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start;gap:8px">
+      <div><h3>船積書類 ${S?`<span class="n" style="color:var(--ink-3);font-weight:400">案件 ${esc(S.no)}</span>`:""}</h3>
+        <p class="nn">この案件で作る書類です。${po?"発注書から作成済み・":""}「書類をつくる」タブで表示・編集・印刷できます。</p></div>
+      <button class="btn g" style="flex:none" onclick="opsTab='doc';render()">書類をつくる／編集する</button></div>
+    ${S?`<div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr><th>書類</th><th>名称</th><th>状態</th><th></th></tr></thead><tbody>
+      ${gen.map(([k,e,done])=>`<tr><td><b>${(typeof GL!=="undefined"&&GL[k])?tm(k):esc(k)}</b></td><td style="color:var(--ink-2)">${esc(e)}</td><td>${done?'<span class="p hi">作成済（編集可）</span>':'<span class="p lo">申請・取得が必要</span>'}</td><td>${done?`<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="opsTab='doc';window.__poDocK='${k==="S/I"?"si":k.toLowerCase()}';render();setTimeout(()=>{const b=document.querySelector('[data-doc=\\'${k==="S/I"?"si":k.toLowerCase()}\\']');if(b)b.click();},50)">表示</button>`:""}</td></tr>`).join("")}
+    </tbody></table></div>`:`<p class="nn" style="margin-top:8px">まだ出荷案件がありません。「書類をつくる」タブでバイヤーの発注書を取り込むと、船積書類が自動で作られます。</p>`}
+  </div>
+  <div class="c" style="margin-bottom:11px">
+    <h3>受け取った書類・添付 <span class="n" style="color:var(--ink-3);font-weight:400">${received.length}件</span></h3>
+    <p class="nn">バイヤーの発注書、契約書、やりとりで添付されたファイルの記録です。</p>
+    ${received.length?`<div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr><th>ファイル名</th><th>種類</th><th>出所</th><th>日付</th><th></th></tr></thead><tbody>
+      ${received.map(([n,t,s,d,oc])=>`<tr><td><b>${esc(n)}</b></td><td><span class="p lo">${esc(t)}</span></td><td style="color:var(--ink-3)">${esc(s)}</td><td class="n" style="color:var(--ink-3)">${esc(d)}</td><td>${oc?`<button class="btn g" style="padding:2px 8px;font-size:10px" ${oc}>開く</button>`:""}</td></tr>`).join("")}
+    </tbody></table></div>`:`<p class="nn" style="margin-top:8px">まだありません。</p>`}
+  </div>
+  <div class="c" style="background:var(--bl-soft);border-color:var(--bl)">
+    <div class="rw" style="justify-content:space-between;gap:8px"><div><b style="font-size:12px">📚 商品資料・参考資料（AIの根拠になる情報源）は「取り込んだ情報一覧」で管理します</b>
+      <p class="nn" style="margin-top:3px">アップロードした商品規格書などの資料は、書類ではなく<b>AI商社マンが参照する情報源</b>として扱います（現在 ${src.length}件・参照ON ${src.filter(x=>x.on!==false).length}件）。ここには載せず、役割を分けています。</p></div>
+      <button class="btn g" style="flex:none" onclick="go('srcs')">取り込んだ情報一覧を開く</button></div>
+  </div>`;
+};
+if(typeof vSrcs==="function"){ const __vSrcsPO=vSrcs;
+  vSrcs=function(p){ const h=__vSrcsPO(p);
+    const note=`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)"><div class="rw" style="justify-content:space-between;gap:8px"><div><b style="font-size:12px">📄 書類（PI／CI／PL・発注書・契約書・添付）は「貿易実務・書類 › この案件の書類」にあります</b>
+      <p class="nn" style="margin-top:3px">ここは<b>AI商社マンが回答の根拠に使う情報源</b>の一覧です。発注書は書類として記録されると同時に、AIが参照できるようここにも登録されます（役割が違うため両方に表示）。</p></div>
+      <button class="btn g" style="flex:none" onclick="opsTab='file';go('ops')">この案件の書類を開く</button></div></div>`;
+    const i=h.indexOf('<div class="g2" style="align-items:start">'); return i>=0?h.slice(0,i)+note+h.slice(i):h+note; };
+}
+/* 書類をつくるタブに来たら、PO案件を D.ship に乗せる（価格表無しの商品でも）。render後の後処理 */
+const __renderPO=render;
+render=function(){ try{ if(typeof cur!=="undefined"&&(cur==="ops"||cur==="ship")) poAttachShip(); }catch(e){} __renderPO(); };
 
 </script>
