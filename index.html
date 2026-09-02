@@ -16480,6 +16480,211 @@ if(typeof vSrcs==="function"){ const __vSrcsPO=vSrcs;
 const __renderPO=render;
 render=function(){ try{ if(typeof cur!=="undefined"&&(cur==="ops"||cur==="ship")) poAttachShip(); }catch(e){} __renderPO(); };
 
+/* ═══════════ v15.16：AI見積の評価相談（相場比較・倉庫・LCL/FCL）＋ページ位置の再読込復元 ═══════════
+   ① 「RQ-xxxxxx の見積は相場と比べて安い？」のような評価質問は、登録レート表の一覧を返す横取り処理（shipRateAsk）を通さず、
+      該当依頼・該当国の見積を特定して、内蔵の参考レーン表（目安）と比較した評価を返す。AI接続時は Web検索（実勢）も使う。
+   ② AI見積パネル内に「この見積についてAI商社マンに相談」チャットを追加（履歴は依頼ごとに保存）。
+   ③ 再読込しても、見ていた画面・タブ・商品を保つ（sessionStorage bc20_nav）。 */
+const FWDQ_EVAL=/相場|比較|安い|高い|妥当|適正|割高|割安|お得|得か|どちらが|どっちが|倉庫|拠点|保管|配送センター|在庫|仮押さえ|RQ-[A-Z0-9]{5,8}|納期|短縮|早く|急ぎ|LCL|FCL|コンテナ|航空/i;
+const FWDQ_HUB={
+ アメリカ:"西海岸向けはロサンゼルス／ロングビーチ港近郊（Inland Empire：オンタリオ・リバーサイド）、東海岸向けはニュージャージー（Port Newark）近郊が一般的な配送拠点です。全米配送なら西海岸＋東海岸の2拠点、まず1か所ならバイヤーの主要納品先に近い側。",
+ 香港:"葵涌（Kwai Chung）コンテナターミナル周辺、または元朗・屯門の物流センターが一般的です。中国本土への再輸出が目的なら保税扱いが可能な倉庫を。",
+ 中国:"上海（外高橋・洋山の保税区）、深圳（塩田港周辺・前海保税区）、天津（華北向け）。国内配送先に近い港を選ぶと内陸輸送費を抑えられます。",
+ 台湾:"基隆港周辺（北部向け）、台中港（中部）、高雄港（南部）。航空便なら桃園空港近郊の保税倉庫。",
+ 韓国:"釜山新港の保税倉庫（海上）、仁川空港近郊（航空）。ソウル圏向けは仁川港も選択肢。",
+ シンガポール:"Jurong／Tuas 周辺のフリーゾーン倉庫（再輸出に有利、GST繰延）。東南アジアの中継拠点として一般的。",
+ タイ:"レムチャバン港周辺（チョンブリ県）の保税倉庫、バンコク近郊（航空はスワンナプーム）。",
+ ベトナム:"ホーチミン（カットライ港周辺・ビンズオン省）、ハノイ向けはハイフォン港周辺。",
+ マレーシア:"ポートクラン フリーゾーン（PKFZ）周辺が一般的。ジョホールはシンガポール向け併用に便利。",
+ インドネシア:"ジャカルタ（タンジュンプリオク港周辺・チカラン工業団地）の保税倉庫。",
+ フィリピン:"マニラ港周辺（マニラ南港・北港）、またはスービック・クラークのフリーポート。",
+ インド:"ナバシェバ（JNPT）周辺（ムンバイ・ナビムンバイ）の保税倉庫。北部向けはデリー近郊のICD。",
+ UAE:"ジェベルアリ・フリーゾーン（JAFZA）内の倉庫が一般的（再輸出・関税繰延）。ドバイ市内配送はアルクーズ地区。",
+ サウジアラビア:"ジェッダ（キング・アブドゥルアジズ港）周辺、東部はダンマーム港周辺。",
+ ドイツ:"ハンブルク港周辺、または内陸のデュイスブルク（ライン川港・欧州配送のハブ）。",
+ フランス:"ルアーブル港周辺、パリ近郊（ロワシー）の物流センター。",
+ イギリス:"フェリクストウ港周辺、またはミッドランズ（バーミンガム周辺）の物流センター。",
+ オランダ:"ロッテルダム港周辺（欧州全域配送のハブ）。",
+ オーストラリア:"シドニー（Port Botany）周辺、メルボルン港周辺。",
+ カナダ:"バンクーバー港周辺（西部）、トロント近郊（東部）。",
+ メキシコ:"マンサニージョ港周辺、またはメキシコシティ近郊の物流団地。",
+ ブラジル:"サントス港周辺（サンパウロ州）の保税倉庫。"};
+function fwdqCty(q){
+  q=String(q||"");
+  if(typeof FWD_POD!=="undefined"){ const k=Object.keys(FWD_POD).find(c=>q.includes(c)); if(k) return k; }
+  if(q.includes("米国")) return "アメリカ";
+  if(typeof bnFindCty==="function"){ const c=bnFindCty(q); if(c) return (typeof cnorm==="function")?cnorm(c):c; }
+  return "";
+}
+function fwdqReq(q){
+  if(typeof FWDB==="undefined"||!FWDB){ try{ if(typeof fwdLoad==="function") fwdLoad(); }catch(e){} }
+  if(typeof FWDB==="undefined"||!FWDB) return null;
+  const m=String(q||"").match(/RQ-[A-Z0-9]{5,8}/i);
+  if(m){ const r=FWDB.reqs.find(x=>x.id.toUpperCase()===m[0].toUpperCase()); if(r) return r; }
+  const mine=(typeof fwdCaseReqs==="function")?fwdCaseReqs((typeof D!=="undefined"&&D&&D.ship)||null):[];
+  return mine[0]||FWDB.reqs[0]||null;
+}
+function fwdqLeg(r,q){
+  if(!r||!Array.isArray(r.legs)) return null;
+  const cty=fwdqCty(q); let l=cty?r.legs.find(x=>x.cty===cty):null;
+  if(!l) l=r.legs.find(x=>x.hold)||null;
+  if(!l) l=r.legs.find(x=>x.ok)||r.legs[0]||null;
+  return l;
+}
+function fwdqZone(cty,pod){
+  if(typeof DDP_CITY==="undefined") return null;
+  const P=String(pod||"");
+  let hit=P?DDP_CITY.find(x=>x[3]&&(P.includes(x[3])||x[3].includes(P))):null;
+  if(!hit) hit=DDP_CITY.find(x=>x[0]===cty);
+  return hit?hit[2]:null;
+}
+/* 内蔵の参考レーン表との比較（目安）。Web実勢はAI接続時のみ */
+function fwdqEval(r,l){
+  if(!r||!l||!l.ok) return null;
+  const q=l.quote, cbm=Math.max(0.5,+r.cbm||2), zone=fwdqZone(l.cty,l.pod), L=(typeof DDP_LANES!=="undefined"&&zone)?DDP_LANES[zone]:null;
+  const B=(typeof shipFwdb==="function")?shipFwdb():null;
+  const fcl=B?(B.rates||[]).find(x=>x.pod===l.pod&&/FCL20/i.test(x.mode)):null;
+  const lclRate=B?(B.rates||[]).find(x=>x.pod===l.pod&&/LCL/i.test(x.mode)):null;
+  const out={cty:l.cty,pod:l.pod,mode:q.mode,total:q.total,freight:q.freight,thc:q.thc,doc:q.doc,cbm,perCbm:/LCL/i.test(q.mode)?Math.round(q.freight/cbm):null,tt:q.tt,valid:q.valid,zone,ref:null,verdict:"",fclBreak:null,refDays:L?L.sea:null,hub:FWDQ_HUB[l.cty]||""};
+  if(L){ const refLcl=L.lcl, refTotal=Math.round(refLcl*cbm)+(typeof FWD_THC!=="undefined"?FWD_THC:12000)+(typeof FWD_DOC!=="undefined"?FWD_DOC:8000);
+    out.ref={lclPerCbm:refLcl,total:refTotal,fcl20:L.fcl20,fcl40:L.fcl40,airKg:L.air,seaDays:L.sea};
+    if(/LCL/i.test(q.mode)){ const d=(out.perCbm-refLcl)/refLcl; out.diff=Math.round(d*100);
+      out.verdict=d<=-0.15?"内蔵参考値よりかなり安い（好条件）":d<0?"内蔵参考値よりやや安い〜同水準":d<=0.15?"内蔵参考値と同水準〜やや高め":d<=0.35?"内蔵参考値より高め（交渉・相見積の余地あり）":"内蔵参考値よりかなり高い（要相見積）"; }
+    else if(/FCL20/i.test(q.mode)){ const d=(q.freight-L.fcl20)/L.fcl20; out.diff=Math.round(d*100); out.verdict=d<=-0.1?"内蔵参考値より安い":d<=0.15?"内蔵参考値と同水準":"内蔵参考値より高め（相見積の余地あり）"; }
+    else if(/AIR/i.test(q.mode)){ out.verdict="航空は重量課金のため、¥/kg で比較します（内蔵参考 ¥"+L.air.toLocaleString()+"/kg）"; } }
+  const fclPrice=fcl?(typeof fwdRateJpy==="function"?fwdRateJpy(fcl):fcl.price):(L?L.fcl20:null);
+  const lclPer=lclRate?(typeof fwdRateJpy==="function"?fwdRateJpy(lclRate):lclRate.price):(out.perCbm||(L?L.lcl:null));
+  if(fclPrice&&lclPer){ out.fclBreak={cbm:Math.round(fclPrice/lclPer*10)/10,fclPrice,src:fcl?"登録レート":"内蔵参考値"}; }
+  return out;
+}
+function fwdqFmt(v){ return "¥"+Math.round(v).toLocaleString(); }
+/* 内蔵エンジンでの回答（正直な根拠付き） */
+function fwdqAnswerLocal(q,r,l){
+  if(!r) return {a:"評価できる見積がまだありません。「出荷を進める › ＋ 新しくAI見積を依頼」で見積を取ると、相場比較や倉庫の相談ができます。",c:"根拠：見積依頼 0件"};
+  if(!l||!l.ok) return {a:`依頼 <b>${esc(r.id)}</b> の ${l?esc(l.cty)+"向けは":""}レーン未登録のため見積がありません。物流会社がレート表を更新すると自動で見積が届きます。他の国の見積について聞くこともできます。`,c:"根拠：見積依頼 "+r.id};
+  const e=fwdqEval(r,l); const s=String(q||"");
+  const parts=[]; const head=`依頼 <b>${esc(r.id)}</b>・<b>${esc(l.cty)}</b>（${esc(e.pod)}・${esc(e.mode)}・約${e.tt}日）：合計 <b>${fwdqFmt(e.total)}</b>（運賃 ${fwdqFmt(e.freight)}${e.perCbm?"＝"+fwdqFmt(e.perCbm)+"/m³×"+e.cbm+"m³":""}＋THC ${fwdqFmt(e.thc)}＋書類 ${fwdqFmt(e.doc)}）${l.hold?"　<span class='p hi' style='font-size:9px'>仮押さえ済み</span>":""}`;
+  parts.push(head);
+  const wantEval=/相場|比較|安い|高い|妥当|適正|割高|割安|お得|得か|どう|評価/.test(s)||!/倉庫|拠点|保管|配送センター|在庫|納期|短縮|早く|LCL|FCL|コンテナ|航空/.test(s);
+  if(wantEval){ if(e.ref){ parts.push(`<b>相場との比較（内蔵参考レーン表・目安）</b>：${e.zone?esc(e.zone.toUpperCase())+"ゾーン":""}の参考は LCL ${fwdqFmt(e.ref.lclPerCbm)}/m³（${e.cbm}m³なら諸掛込み ${fwdqFmt(e.ref.total)}）、FCL20 ${fwdqFmt(e.ref.fcl20)}/本、航空 ${fwdqFmt(e.ref.airKg)}/kg、海上所要 約${e.ref.seaDays}日。この見積は<b>${e.diff>0?"+":""}${e.diff}%</b> → <b>${esc(e.verdict)}</b>。`);
+      parts.push(`<span style="color:var(--ink-3)">※内蔵参考値は当社が整備した目安で、実勢はシーズン・燃料サーチャージ・スペース逼迫で±20〜30%動きます。<b>Web実勢は未取得</b>（管理コンソールでAIエンジンを接続すると、Web検索で当日の相場感も併せて答えます）。</span>`); }
+    else parts.push(`この仕向地の内蔵参考値が無いため、相場比較は出せません（AI接続時はWeb検索で確認します）。`); }
+  if(/LCL|FCL|コンテナ|どちらが|どっちが|得/.test(s)||wantEval){ if(e.fclBreak) parts.push(`<b>LCLかFCLか</b>：FCL20は ${fwdqFmt(e.fclBreak.fclPrice)}/本（${esc(e.fclBreak.src)}）なので、<b>約${e.fclBreak.cbm}m³以上ならFCLの方が安く</b>なります（20ftの積載目安 25〜28m³）。今回の${e.cbm}m³ならLCLが妥当です。`); }
+  if(/納期|短縮|早く|急ぎ|航空|日数/.test(s)){ parts.push(`<b>納期</b>：海上 約${e.tt}日${e.refDays?"（参考 約"+e.refDays+"日）":""}。急ぐ場合は航空（${e.ref?"内蔵参考 "+fwdqFmt(e.ref.airKg)+"/kg・2〜3日":"要見積"}）か、直行便の本船を指定して転送待ちを減らす方法があります。希望納期を添えて「🔁 再見積を依頼」で航空・直行便の条件を取り直せます。`); }
+  if(/倉庫|拠点|保管|配送センター|在庫/.test(s)||(!wantEval&&e.hub)){ parts.push(`<b>倉庫・配送拠点の候補（${esc(l.cty)}・一般的な例）</b>：${esc(e.hub||"仕向港の周辺で、バイヤーの主要納品先に近い保税倉庫が第一候補です。")}<br><span style="color:var(--ink-3)">最終的には、バイヤーの納品先・保税（関税繰延）の要否・在庫回転・現地の3PL（物流会社）の有無で決めます。AI物流マンに「${esc(l.cty)}で提携倉庫はあるか」を依頼すると、レート表の物流会社が回答します。</span>`); }
+  parts.push(`次の一手：${l.hold?"仮押さえ済みなので、本予約の前に有効期限（"+esc(e.valid)+"）内に相見積を1社取ると比較が固まります。":"納得できれば「この国を仮押さえ」、条件を変えるなら「🔁 再見積を依頼」（数量・LCL/FCL/航空・納期・要望）。"}`);
+  return {a:parts.join("<br><br>"),c:`根拠：AI見積 ${r.id}（AI物流マンの回答）／内蔵参考レーン表${e.fclBreak?"／登録レート":""}／Web実勢 未取得`};
+}
+function fwdqCtx(r,l){
+  if(!r) return "";
+  const e=(l&&l.ok)?fwdqEval(r,l):null;
+  return `=== 評価対象のAI見積（貿易クラウド内の物流会社 AI物流マンの回答） ===
+依頼 ${r.id}（${r.d}）荷主 ${r.co}／${r.pol} → ${r.cty}／貨物 ${r.item}・${r.cbm}m³ ${r.mode}／条件 ${r.term||""}${r.cargo?"／"+r.cargo:""}${r.etd?"／希望納期 "+r.etd:""}
+${(r.legs||[]).map(x=>x.ok?`・${x.cty}（${x.quote.lane}・${x.quote.mode}）合計¥${x.quote.total.toLocaleString()}＝運賃¥${x.quote.freight.toLocaleString()}（${x.quote.unit}）＋THC¥${x.quote.thc.toLocaleString()}＋書類¥${x.quote.doc.toLocaleString()}／約${x.quote.tt}日／有効${x.quote.valid}${x.hold?"／仮押さえ済み":""}`:`・${x.cty}：レーン未登録`).join("\n")}
+${e&&e.ref?`内蔵参考レーン表（当社整備の目安・ゾーン ${e.zone}）：LCL ¥${e.ref.lclPerCbm.toLocaleString()}/m³、FCL20 ¥${e.ref.fcl20.toLocaleString()}/本、FCL40 ¥${e.ref.fcl40.toLocaleString()}/本、航空 ¥${e.ref.airKg.toLocaleString()}/kg、海上所要 約${e.ref.seaDays}日。評価対象（${e.cty}）は参考値比 ${e.diff>0?"+":""}${e.diff}%。`:""}
+${e&&e.fclBreak?`LCL→FCL20の損益分岐 約${e.fclBreak.cbm}m³（FCL20 ¥${e.fclBreak.fclPrice.toLocaleString()}／${e.fclBreak.src}）。`:""}
+${e&&e.hub?`倉庫・配送拠点の一般例（${e.cty}）：${e.hub}`:""}
+回答方針：見積が相場より高いか安いかは、上の参考値と（Web検索できる場合は）直近の実勢レートの両方を根拠に、必ず数字と出所を添えて判断する。断定できない場合は「目安」と明示。倉庫はバイヤーの納品先・保税の要否で変わることを添える。`;
+}
+async function fwdqAnswer(q,r,l){
+  const online=(typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function");
+  if(!online) return fwdqAnswerLocal(q,r,l);
+  try{
+    const ctx=fwdqCtx(r,l)+"\n\n"+((typeof ppContext==="function")?ppContext().slice(0,6000):"");
+    const sys=`あなたは総合商社で20年の経験がある貿易・物流のプロフェッショナル（AI商社マン）。荷主の担当者からの物流見積についての相談に、日本語で簡潔かつ具体的に答える。
+数字は必ず根拠（登録レート／内蔵参考値／Web検索の出所）を添え、Web検索で得た実勢は「時点と出所」を明示する。推測で断定しない。回答はHTMLタグを使わず、見出し・箇条書きの平文で。`;
+    const r2=await llmAsk(q+"\n\n"+ctx,1300,{sys,forceWeb:/相場|実勢|市況|最近|今|倉庫|拠点/.test(q)?1:0,task:"reason"});
+    let a=(typeof ppFormat==="function")?ppFormat(r2.txt):esc(r2.txt).replace(/\n/g,"<br>");
+    if(r2.cits&&r2.cits.length) a+=`<div style="margin-top:8px;font-size:10.5px;color:var(--ink-2)">🌐 出典：${r2.cits.slice(0,4).map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">[${i+1}] ${esc(String(u).replace(/^https?:\/\//,"").slice(0,48))}</a>`).join("　")}</div>`;
+    return {a,c:`根拠：AI見積 ${r?r.id:"—"}／内蔵参考レーン表／接続AI${(r2.cits&&r2.cits.length)?"＋Web検索":"（Web検索なし）"}`};
+  }catch(e){ const loc=fwdqAnswerLocal(q,r,l); loc.c+="／⚠ 接続AI失敗のため内蔵エンジンで回答"; return loc; }
+}
+/* ── ① 出荷画面・AI商社マン共通：評価質問は登録レート一覧の横取りを通さない ── */
+if(typeof shipRateAsk==="function"){ const __shipRateAskQ=shipRateAsk;
+  shipRateAsk=function(q,online){
+    const s=String(q||"");
+    if(FWDQ_EVAL.test(s)&&(typeof FWDB!=="undefined"||typeof fwdLoad==="function")){
+      const r=fwdqReq(s);
+      if(r&&(/RQ-/i.test(s)||/相場|比較|安い|高い|妥当|適正|割高|割安|お得|得か|倉庫|拠点|保管|配送センター|仮押さえ|納期|短縮|LCL|FCL/i.test(s))){
+        const l=fwdqLeg(r,s); return online?fwdqAnswer(s,r,l):fwdqAnswerLocal(s,r,l); } }
+    return __shipRateAskQ.apply(this,arguments);
+  }; }
+/* ── ② AI見積パネルに相談チャットを追加（履歴は依頼に保存） ── */
+function fwdqDrawerRender(id){
+  const box=document.getElementById("fwdqchat"); if(!box) return;
+  const r=(typeof FWDB!=="undefined"&&FWDB)?FWDB.reqs.find(x=>x.id===id):null; const hist=(r&&r.chat)||[];
+  box.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join(""):`<p class="nn" style="padding:6px 2px">例：「この見積は相場より高い？」「最適な倉庫はどこ？」「LCLとFCLどちらが得？」「納期を短くするには？」</p>`;
+  box.scrollTop=box.scrollHeight;
+}
+async function fwdqDrawerAsk(id,q){
+  q=String(q||"").trim(); if(!q) return;
+  if(typeof fwdLoad==="function") fwdLoad(); const r=FWDB.reqs.find(x=>x.id===id); if(!r) return;
+  r.chat=(r.chat||[]).concat([{w:"u",t:q,at:Date.now()}]).slice(-30); fwdqDrawerRender(id);
+  const box=document.getElementById("fwdqchat"); if(box) box.insertAdjacentHTML("beforeend",`<div class="m a" id="fwdqwait"><div class="bb"><span class="car"></span></div></div>`);
+  const l=fwdqLeg(r,q); let ans;
+  try{ ans=await fwdqAnswer(q,r,l); }catch(e){ ans={a:"うまく処理できませんでした。もう一度お試しください。",c:"内部エラー"}; }
+  r.chat=(r.chat||[]).concat([{w:"a",t:ans.a,c:ans.c,at:Date.now()}]).slice(-30);
+  if(typeof fwdSave==="function") fwdSave();
+  if(typeof logU==="function") logU("ai","見積相談:"+q.slice(0,24));
+  fwdqDrawerRender(id);
+}
+if(typeof openFwdQuote==="function"){ const __openFwdQuoteQ=openFwdQuote;
+  openFwdQuote=function(id){
+    __openFwdQuoteQ.apply(this,arguments);
+    try{
+      if(typeof FWDON!=="undefined"&&FWDON) return;   /* 物流会社側には荷主向けの相談欄は出さない */
+      const body=document.querySelector("#pn .dwbody"); if(!body||document.getElementById("fwdqchat")) return;
+      const anchor=[...body.querySelectorAll("details.fwdx")][0];
+      const html=`<details class="fwdx" open id="fwdqbox"><summary>💬 この見積についてAI商社マンに相談（相場・倉庫・LCL/FCL・納期）</summary><div>
+        <div class="chat" id="fwdqchat" style="max-height:300px;margin-top:6px"></div>
+        <div class="qb" style="margin-top:7px">${["この見積は相場より高い？安い？","最適な倉庫・配送拠点は？","LCLとFCLどちらが得？","納期を短くするには？"].map(x=>`<button class="q" data-fwdqq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+        <div class="rw" style="margin-top:7px;gap:6px"><input class="sel" id="fwdqq" placeholder="この見積について質問（例：東海岸向けの倉庫は？）" style="flex:1;min-width:0"><button class="btn" id="fwdqgo" style="flex:none">質問する</button></div>
+        <p class="nn" style="margin-top:5px">根拠：AI物流マンの見積・登録レート・内蔵の参考レーン表（目安）。AI接続時は相場・倉庫の質問でWeb検索の実勢も参照します（未接続時はその旨を明示）。</p></div></details>`;
+      if(anchor) anchor.insertAdjacentHTML("beforebegin",html); else body.insertAdjacentHTML("beforeend",html);
+      fwdqDrawerRender(id);
+      const go=()=>{ const i=document.getElementById("fwdqq"); const v=(i.value||"").trim(); if(!v) return; i.value=""; fwdqDrawerAsk(id,v); };
+      document.getElementById("fwdqgo").onclick=go;
+      document.getElementById("fwdqq").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } };
+      body.querySelectorAll("[data-fwdqq]").forEach(b=>b.addEventListener("click",()=>fwdqDrawerAsk(id,b.dataset.fwdqq)));
+    }catch(e){}
+  }; }
+/* ── ③ 再読込しても同じ画面・タブ・商品に戻る ── */
+function navSave(){
+  try{ if(typeof cur==="undefined") return;
+    const o={cur,opsTab:(typeof opsTab!=="undefined")?opsTab:"",taskTab:(typeof taskTab!=="undefined")?taskTab:"",
+      pid:(typeof PID!=="undefined"&&PID&&PID!=="custom")?PID:"",fwdCur:(typeof fwdCur!=="undefined")?fwdCur:"",fwd:(typeof FWDON!=="undefined"&&FWDON)?1:0};
+    sessionStorage.setItem("bc20_nav",JSON.stringify(o)); }catch(e){}
+}
+function navLoad(){ try{ return JSON.parse(sessionStorage.getItem("bc20_nav")||"null"); }catch(e){ return null; } }
+function navRestorePid(o){
+  /* デモ商品（サンプル）は保存されないため、再読込時にここで選び直す（充足対話や演出は省略） */
+  try{ if(o&&o.pid&&typeof PRODUCTS!=="undefined"&&PRODUCTS[o.pid]&&(typeof PID==="undefined"||!PID)){
+      PID=o.pid; D=PRODUCTS[PID]; if(typeof tenantFromSample==="function") TEN=tenantFromSample(D); if(typeof applyTenScalars==="function") applyTenScalars(); return true; } }catch(e){}
+  return false;
+}
+function navRestoreCur(o){
+  try{ if(!o||!o.cur||typeof PAGES==="undefined") return false;
+    const p=PAGES.find(x=>x.id===o.cur); if(!p) return false;
+    if(!(typeof PID!=="undefined"&&PID)&&!p.free) return false;
+    if(o.opsTab&&typeof opsTab!=="undefined") opsTab=o.opsTab; if(o.taskTab&&typeof taskTab!=="undefined") taskTab=o.taskTab;
+    cur=o.cur; return true; }catch(e){ return false; }
+}
+if(typeof render==="function"){ const __renderNav=render; render=function(){ const r=__renderNav.apply(this,arguments); navSave(); return r; }; }
+if(typeof enterApp==="function"){ const __enterAppNav=enterApp;
+  enterApp=function(){
+    const o=navLoad(); const isTrial=(typeof SES!=="undefined"&&SES&&SES.t==="trial");
+    if(isTrial&&!(SES.role==="fwd")) navRestorePid(o);
+    __enterAppNav.apply(this,arguments);
+    if(isTrial&&!(SES.role==="fwd")&&navRestoreCur(o)){ if(typeof buildNav==="function") buildNav(); __renderNav(); scrollTo({top:0}); }
+  }; }
+if(typeof fwdEnter==="function"){ const __fwdEnterNav=fwdEnter;
+  fwdEnter=function(){ const o=navLoad(); if(o&&o.fwdCur&&typeof fwdCur!=="undefined") fwdCur=o.fwdCur; __fwdEnterNav.apply(this,arguments); }; }
+if(typeof fwdRender==="function"){ const __fwdRenderNav=fwdRender; fwdRender=function(){ const r=__fwdRenderNav.apply(this,arguments); navSave(); return r; }; }
+/* デモ版（ログイン無し）：起動描画の直後に復元。トライアル版のF5（セッション復元）も authBoot() がこのファイルより先に走るため、ここで復元する */
+try{ const o=navLoad();
+  const trialRestored=(typeof enterApp==="function"&&typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.role!=="fwd"&&!document.body.classList.contains("locked"));
+  if(typeof enterApp!=="function"||trialRestored){ const okP=navRestorePid(o); if(okP||(o&&o.cur)){ if(navRestoreCur(o)||okP){ if(typeof buildNav==="function") buildNav(); if(typeof render==="function") render(); } } } }catch(e){}
+
 /* ═══════════ v15.15：クラウド同期（別のPC・ブラウザ・スマホでも同じ状態）＋同時ログイン制御（PC1台＋スマホ1台） ═══════════
    ・保存先＝STANDAGE管理のバックエンド（Google Apps Script 版 sync_gas.js。接続先は配布版に埋め込む BC20_SYNC_URL）。
    ・端末側で AES-GCM 暗号化（鍵はアクセスコードから PBKDF2 で導出）してから預けるため、サーバー側でも中身は読めない。
@@ -16540,7 +16745,7 @@ async function syncDec(s){
 }
 /* ── 通信（text/plain の単純リクエスト＝Apps Script でも CORS 事前確認なしで届く） ── */
 async function syncCall(op,body,opt){
-  opt=opt||{}; const ctrl=("AbortController" in window)?new AbortController():null; const tm=ctrl?setTimeout(()=>ctrl.abort(),opt.timeout||20000):0;
+  opt=opt||{}; const ctrl=("AbortController" in window)?new AbortController():null; const tm=ctrl?setTimeout(()=>ctrl.abort(),opt.timeout||30000):0;
   try{
     const r=await fetch(SYNC.url,{method:"POST",mode:"cors",redirect:"follow",keepalive:!!opt.keepalive,signal:ctrl&&ctrl.signal,
       headers:{"Content-Type":"text/plain;charset=UTF-8"},body:JSON.stringify(Object.assign({op,v:1,t:Date.now()},body||{}))});
@@ -16579,8 +16784,9 @@ async function syncStart(){
   if(!r.ok) return {ok:false,reason:r.reason||"login",msg:r.msg||""};
   SYNC.srvAcct=r.acct||null; SYNC.ver=Object.assign({acct:0,fwd:0},r.ver||{});
   if(r.acct&&typeof findAcct==="function"){ const a=findAcct(SES.code); if(a){ ["co","who","st","expires","role"].forEach(k=>{ if(r.acct[k]!=null&&r.acct[k]!=="") a[k]=r.acct[k]; }); if(typeof asave==="function") asave(); } }
-  await syncPullAcct(true);
-  await syncPullFwd(true);
+  /* 取得は並列に（Apps Script は1呼び出し 3〜15秒かかることがあるため、直列にしない） */
+  syncStatus("☁ 保存済みの状態を取得しています…");
+  await Promise.all([syncPullAcct(true),syncPullFwd(true).catch(()=>{})]);
   SYNC.started=1; syncBeatStart(); syncStatus(""); return {ok:true};
 }
 async function syncPullAcct(initial){
@@ -16659,7 +16865,8 @@ function syncReloadState(){
 }
 /* ── 生存確認（30秒ごと・画面復帰時）：別端末のログインで蹴られたら自動ログアウト、他端末の更新があれば取り込む ── */
 function syncBeatStart(){
-  clearInterval(SYNC.beatT); SYNC.beatT=setInterval(()=>syncBeat(),30000);
+  /* 生存確認は90秒ごと（＋画面復帰時）。Apps Script の1日あたり実行時間の上限を消費しすぎないため */
+  clearInterval(SYNC.beatT); SYNC.beatT=setInterval(()=>syncBeat(),90000);
   document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") syncBeat(); });
   window.addEventListener("pagehide",()=>{ try{ if(SYNC.dirty&&SYNC.on&&SYNC.kid){ syncSnapshot(); syncPushAcct(); } }catch(e){} });
 }
@@ -16794,5 +17001,10 @@ if(typeof renderAdmin==="function"){ const __renderAdminSync=renderAdmin;
 /* 管理者が台帳を変えたら（発行・無効化・延長）サーバーへも反映 */
 if(typeof asave==="function"){ const __asave2=asave; asave=function(){ const r=__asave2.apply(this,arguments); try{ if(SES&&SES.t==="admin"&&syncOn()){ clearTimeout(SYNC.admT); SYNC.admT=setTimeout(()=>{ syncAdminPush().catch(()=>{}); },2000); } }catch(e){} return r; }; }
 setTimeout(()=>{ try{ syncLoginLine(); }catch(e){} },300);
+/* F5（再読込）でセッションが復元された場合：authBoot() はこのファイルより前に実行済みで、上の enterApp ラッパーを通らない。
+   ここで遅れて同期を開始し、サーバー側が新しければ画面に反映する（蹴られていれば自動ログアウト） */
+try{ if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&!SYNC.started&&syncOn()){
+  syncStart().then(r=>{ if(r&&r.ok===false){ syncKicked(null,r.reason==="unknown"?"":r.reason); return; }
+    if(r&&r.ok&&!r.skip){ syncReloadState(); } }).catch(()=>{}); } }catch(e){}
 
 </script>
