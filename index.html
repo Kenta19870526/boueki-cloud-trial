@@ -16148,7 +16148,7 @@ if(typeof vOpsDoc==="function"){ const __vOpsDocPO=vOpsDoc;
       if(SHIPS&&SHIPS[SHIPA]&&!SHIPS[SHIPA].po){ let last=-1; SHIPS.forEach((x,i)=>{ if(x&&x.po) last=i; }); if(last>=0&&typeof shipActivate==="function"){ shipActivate(last); D.ship=SHIPS[last].ship; } }
     }catch(e){}
     const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null;
-    if(!(c&&c.po&&D&&D.ship===c.ship)) return poWorkbenchHtml()+__vOpsDocPO();
+    if(!(c&&c.po&&D&&D.ship===c.ship)) return poWorkbenchHtml()+__vOpsDocPO()+((typeof fwdCaseReqs==="function"&&typeof fwdHistCardHtml==="function"&&D&&D.ship&&fwdCaseReqs(D.ship).length)?fwdHistCardHtml(D.ship):"");
     const S=D.ship;
     return poWorkbenchHtml()+`<div class="g2" style="align-items:start">
     <div class="c">
