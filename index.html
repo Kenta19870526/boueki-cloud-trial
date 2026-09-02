@@ -296,6 +296,16 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 .doc{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r2);padding:12px;font-size:10.5px;line-height:1.6}
 .doc h4{font-size:11.5px;letter-spacing:.05em;margin-bottom:7px}
 .doc .dl{display:grid;grid-template-columns:76px 1fr;gap:2px 8px}
+/* AI見積パネル：国ごとのコンパクトカード＋折りたたみ（二重スクロールを排除） */
+.fwdleg{padding:9px 12px;margin-top:7px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface)}
+.fwdleg.held{border-color:var(--good);box-shadow:inset 3px 0 0 var(--good);background:var(--good-soft)}
+.fwdleg .tot{font-size:15px;font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+.fwdx{margin-top:10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)}
+.fwdx>summary{cursor:pointer;padding:8px 11px;font-size:11.5px;font-weight:700;color:var(--ink-2);list-style:none;display:flex;align-items:center;gap:6px}
+.fwdx>summary::-webkit-details-marker{display:none}
+.fwdx>summary::before{content:"▶";font-size:9px;color:var(--ink-3);transition:transform .15s}
+.fwdx[open]>summary::before{transform:rotate(90deg)}
+.fwdx>div{padding:2px 11px 10px}
 .doc .dl span:nth-child(odd){color:var(--ink-3)}
 .doc table{font-size:10px;margin-top:7px} .doc th,.doc td{padding:4px 6px}
 
@@ -13273,6 +13283,7 @@ async function fwdRequest(opts){
   FWDB.reqs.unshift(req); fwdSave();
   fwdHist(`見積依頼を受信：${req.id}（${req.co}／${ctys.join("・")}／${ok.length}/${legs.length}か国 提案）`);
   if(typeof logU==="function") logU("fwd","AI見積依頼:"+ctys.join("・"));
+  if(typeof render==="function"&&!FWDON) render();   /* 履歴カード・ステップ表示を最新化 */
   openFwdQuote(req.id);
 }
 /* 交渉トランスクリプト＋見積カード（荷主・物流の両画面から使う） */
@@ -13328,66 +13339,66 @@ async function fwdRequoteSend(id,cty){
   if(typeof logU==="function") logU("fwd","再見積依頼:"+cty);
 }
 /* 交渉トランスクリプト＋見積カード（荷主・物流の両画面から使う）。国ごとに仮押さえ／再見積ができる */
+/* 交渉記録＋国ごとの見積（荷主・物流の両画面から使う）。スクロールはパネル本体の1本だけ：
+   国ごとの見積を先頭に、AI同士の交渉記録・共有した貨物情報は折りたたみで表示する */
 function openFwdQuote(id){
   fwdLoad();
   const r=FWDB.reqs.find(x=>x.id===id); if(!r) return;
-  const chat=r.msgs.map(m=>`
-    <div style="display:flex;gap:8px;margin-bottom:9px;${m.f==="物"?"flex-direction:row-reverse":""}">
-      <span style="width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:8.5px;font-weight:800;
-        background:${m.f==="物"?"var(--bl)":"var(--or)"};color:#fff">${m.f==="物"?"AI物流":"AI商社"}</span>
-      <div style="max-width:82%;padding:8px 11px;border-radius:10px;font-size:11.5px;line-height:1.7;
-        background:${m.f==="物"?"var(--bl-soft)":"var(--or-soft)"}">${m.t}</div></div>`).join("");
   const legs=r.legs||null, okL=legs?legs.filter(l=>l.ok):[];
-  const brk=q=>q.courier
-    ?`<span>運賃（小包・最小重量帯基準）</span><span class="n">¥${q.freight.toLocaleString()}（${esc(q.unit)}）</span>
-      <span>諸掛・書類費</span><span class="n">運賃込み</span>`
-    :`<span>${/AIR/i.test(q.mode)?"航空運賃":"海上運賃"}</span><span class="n">¥${q.freight.toLocaleString()}（${esc(q.unit)}${q.basis?"・"+esc(q.basis):""}）</span>
-      <span>THC等 諸掛</span><span class="n">¥${q.thc.toLocaleString()}</span>
-      <span>書類費</span><span class="n">¥${q.doc.toLocaleString()}</span>`;
   const rid=esc(r.id);
-  const legCard=l=>{ const q=l.quote, held=fwdLegHeld(r,l);
-    return `<div class="doc" style="margin-top:8px;${held?"border-color:var(--good);box-shadow:inset 3px 0 0 var(--good)":""}">
-    <div class="rw" style="justify-content:space-between;gap:6px;align-items:center"><h4 style="margin:0">${esc(l.cty)}（${esc(q.lane)}・${esc(q.mode)}）</h4>
-      ${held?`<span class="p hi" style="font-size:9.5px">✓ 仮押さえ済み${l.holdAt?"・"+esc(l.holdAt):""}</span>`:`<span class="p lo" style="font-size:9.5px">提案中</span>`}</div>
-    <div class="dl" style="margin-top:6px">${brk(q)}
-      <span style="font-weight:800">合計</span><span class="n" style="font-weight:800">¥${q.total.toLocaleString()}</span>
-      <span>所要日数</span><span class="n">約${q.tt}日</span>
-      <span>有効期限</span><span class="n">${esc(q.valid)}</span></div>
-    ${FWDON?"":`<div class="rw" style="margin-top:9px;gap:6px">
-      ${held?`<button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdHoldLeg('${rid}','${esc(l.cty)}',0)">仮押さえを解除</button>`
-            :`<button class="btn" style="padding:4px 12px;font-size:11px" onclick="fwdHoldLeg('${rid}','${esc(l.cty)}',1)">この国を仮押さえ</button>`}
-      <button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${rid}','${esc(l.cty)}')">🔁 再見積を依頼</button></div>`}</div>`; };
-  const ngCard=l=>`<div style="margin-top:8px;padding:9px 12px;border:1px dashed var(--warn);border-radius:var(--r2);font-size:11.5px;line-height:1.7">
-        <b>${esc(l.cty)}</b>：レーン未登録 — 物流会社がレート表を更新すると<b>自動で見積が届きます</b>。お急ぎの場合はSTANDAGE経由の相見積も可能です。
-        ${FWDON?"":`<div class="rw" style="margin-top:6px"><button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${rid}','${esc(l.cty)}')">🔁 この国だけ要望を添えて再依頼</button></div>`}</div>`;
-  const quoteCard=(title,q)=>`<div class="doc" style="margin-top:8px"><h4>${title}</h4>
-    <div class="dl">${brk(q)}
-      <span style="font-weight:800">合計</span><span class="n" style="font-weight:800">¥${q.total.toLocaleString()}</span>
-      <span>所要日数</span><span class="n">約${q.tt}日</span>
-      <span>有効期限</span><span class="n">${esc(q.valid)}</span></div></div>`;
-  const qHtml=legs?legs.map(l=>l.ok?legCard(l):ngCard(l)).join("")
-    :(r.quote?quoteCard(`見積内訳（${esc(r.quote.lane)}・${r.quote.mode}）`,r.quote):"");
-  const any=okL.length||r.quote;
   const st=fwdReqStatus(r);
   const heldN=legs?okL.filter(l=>fwdLegHeld(r,l)).length:0;
   const parent=r.parentId?FWDB.reqs.find(x=>x.id===r.parentId):null;
   const kids=FWDB.reqs.filter(x=>x.parentId===r.id);
+  /* 同じ案件・荷主の他の見積へ移動（閉じずに切替） */
+  const sibs=FWDB.reqs.filter(x=>x.co===r.co&&((r.caseNo&&x.caseNo===r.caseNo)||(!r.caseNo&&!x.caseNo&&x.item===r.item)));
+  const nav=sibs.length>1?`<label class="rw" style="gap:5px;font-size:10.5px;color:var(--ink-3);flex:none">他の見積
+      <select class="sel" style="min-height:28px;padding:3px 7px;font-size:11px;max-width:230px" onchange="openFwdQuote(this.value)">${sibs.map(x=>`<option value="${esc(x.id)}" ${x.id===r.id?"selected":""}>${esc(x.d)}　${esc(x.id)}${x.requote?"🔁":""}　${esc(fwdReqStatus(x))}</option>`).join("")}</select></label>`:"";
+  const brkLine=q=>q.courier
+    ?`運賃（小包・最小重量帯基準）¥${q.freight.toLocaleString()}（${esc(q.unit)}）／諸掛・書類費は運賃込み`
+    :`${/AIR/i.test(q.mode)?"航空運賃":"海上運賃"} ¥${q.freight.toLocaleString()}（${esc(q.unit)}${q.basis?"・"+esc(q.basis):""}）＋ THC等諸掛 ¥${q.thc.toLocaleString()} ＋ 書類費 ¥${q.doc.toLocaleString()}`;
+  const legCard=l=>{ const q=l.quote, held=fwdLegHeld(r,l);
+    return `<div class="fwdleg ${held?"held":""}">
+    <div class="rw" style="justify-content:space-between;gap:8px;align-items:center">
+      <div style="min-width:0"><b style="font-size:12.5px">${esc(l.cty)}</b> <span style="font-size:10.5px;color:var(--ink-3)">${esc(q.lane)}・${esc(q.mode)}・約${q.tt}日</span></div>
+      <div class="rw" style="gap:8px;flex:none"><span class="tot n">¥${q.total.toLocaleString()}</span>
+        ${held?`<span class="p hi" style="font-size:9.5px">✓ 仮押さえ済み${l.holdAt?"・"+esc(l.holdAt):""}</span>`:`<span class="p lo" style="font-size:9.5px">提案中</span>`}</div></div>
+    <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">${brkLine(q)}／有効期限 ${esc(q.valid)}</div>
+    ${FWDON?"":`<div class="rw" style="margin-top:7px;gap:6px">
+      ${held?`<button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdHoldLeg('${rid}','${esc(l.cty)}',0)">仮押さえを解除</button>`
+            :`<button class="btn" style="padding:4px 12px;font-size:11px" onclick="fwdHoldLeg('${rid}','${esc(l.cty)}',1)">この国を仮押さえ</button>`}
+      <button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${rid}','${esc(l.cty)}')">🔁 再見積を依頼</button></div>`}</div>`; };
+  const ngCard=l=>`<div class="fwdleg" style="border-style:dashed;border-color:var(--warn)">
+      <div class="rw" style="justify-content:space-between;gap:8px;align-items:center"><b style="font-size:12.5px">${esc(l.cty)}</b><span class="p mid" style="font-size:9.5px">レーン未登録</span></div>
+      <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">物流会社がレート表を更新すると<b>自動で見積が届きます</b>。お急ぎの場合はSTANDAGE経由の相見積も可能です。</div>
+      ${FWDON?"":`<div class="rw" style="margin-top:7px"><button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${rid}','${esc(l.cty)}')">🔁 この国だけ要望を添えて再依頼</button></div>`}</div>`;
+  const oneCard=q=>`<div class="fwdleg"><div class="rw" style="justify-content:space-between;gap:8px;align-items:center"><b style="font-size:12.5px">${esc(q.lane)}・${esc(q.mode)}・約${q.tt}日</b><span class="tot n">¥${q.total.toLocaleString()}</span></div>
+      <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">${brkLine(q)}／有効期限 ${esc(q.valid)}</div></div>`;
+  const qHtml=legs?legs.map(l=>l.ok?legCard(l):ngCard(l)).join(""):(r.quote?oneCard(r.quote):`<p class="nn">見積はまだありません。</p>`);
+  const any=okL.length||r.quote;
+  const chat=(r.msgs||[]).map(m=>`
+    <div style="display:flex;gap:8px;margin:8px 0;${m.f==="物"?"flex-direction:row-reverse":""}">
+      <span style="width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:8px;font-weight:800;
+        background:${m.f==="物"?"var(--bl)":"var(--or)"};color:#fff">${m.f==="物"?"AI物流":"AI商社"}</span>
+      <div style="max-width:86%;padding:7px 10px;border-radius:10px;font-size:11.5px;line-height:1.7;
+        background:${m.f==="物"?"var(--bl-soft)":"var(--or-soft)"}">${m.t}</div></div>`).join("");
   openDW(`<div class="dwhead"><h3>🚚 AI見積 ${rid} <span class="p ${/仮押さえ/.test(st)?"hi":any?(legs&&okL.length<legs.length?"mid":"hi"):"mid"}">${esc(st)}</span>${r.requote?` <span class="p or" style="font-size:9px">🔁 再見積</span>`:""}</h3></div>
     <div class="dwbody" style="display:block;overflow-y:auto;padding:12px 18px 16px">
-    <p class="nn" style="margin:0">${esc(r.co)}／<b>${esc(r.pol)} → ${esc(r.cty)}</b>／${esc(r.item)}・${r.cbm}m³ ${esc(r.mode)}${legs?`／<b>${okL.length}/${legs.length}か国 提案あり</b>${heldN?`・仮押さえ ${heldN}か国`:""}`:""}${r.d?`／依頼日 ${esc(r.d)}`:""}</p>
-    ${r.requote?`<div style="margin-top:6px;padding:8px 11px;border:1px solid var(--or);border-radius:var(--r2);background:var(--or-soft);font-size:11px;line-height:1.7"><b>🔁 再見積の依頼</b>${parent?`（元の依頼 <a href="#" onclick="openFwdQuote('${esc(parent.id)}');return false" style="color:var(--bl)">${esc(parent.id)}</a>）`:""}<br>要望：${esc(r.note||"（記載なし）")}${r.etd?"／希望納期 "+esc(r.etd):""}</div>`:""}
+    <div class="rw" style="justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
+      <p class="nn" style="margin:0;flex:1 1 260px">${esc(r.co)}／<b>${esc(r.pol)} → ${esc(r.cty)}</b>／${esc(r.item)}・${r.cbm}m³ ${esc(r.mode)}${legs?`／<b>${okL.length}/${legs.length}か国 提案あり</b>${heldN?`・仮押さえ ${heldN}か国`:""}`:""}${r.d?`／依頼日 ${esc(r.d)}`:""}</p>
+      ${nav}</div>
+    ${r.requote?`<div style="margin-top:8px;padding:8px 11px;border:1px solid var(--or);border-radius:var(--r2);background:var(--or-soft);font-size:11px;line-height:1.7"><b>🔁 再見積の依頼</b>${parent?`（元の依頼 <a href="#" onclick="openFwdQuote('${esc(parent.id)}');return false" style="color:var(--bl)">${esc(parent.id)}</a>）`:""}<br>要望：${esc(r.note||"（記載なし）")}${r.etd?"／希望納期 "+esc(r.etd):""}</div>`:""}
     ${kids.length?`<p class="nn" style="margin-top:6px">この依頼からの再見積：${kids.map(k=>`<a href="#" onclick="openFwdQuote('${esc(k.id)}');return false" style="color:var(--bl)">${esc(k.id)}（${esc(k.cty)}・${esc(fwdReqStatus(k))}）</a>`).join("／")}</p>`:""}
-    ${(r.cargo||r.poNo||(r.docs||[]).length)?`<div style="margin-top:6px;padding:8px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:11px;line-height:1.7">
-      <b>荷主から共有された貨物情報</b>${r.caseNo?"（案件 "+esc(r.caseNo)+"）":""}<br>${r.cargo?"貨物："+esc(r.cargo)+"<br>":""}${r.poNo?"発注書："+esc(r.poNo)+"／":""}${r.etd?"希望納期："+esc(r.etd)+"／":""}条件：${esc(r.term||"")}${(r.docs||[]).length?"<br>船積書類："+r.docs.map(esc).join("・"):""}</div>`:""}
-    <p class="lbl" style="margin-top:11px">AI同士の交渉記録（荷主のAI商社マン × 物流会社のAI物流マン）</p>
-    <div style="margin-top:7px;max-height:240px;overflow-y:auto;padding-right:4px">${chat}</div>
     <p class="lbl" style="margin-top:12px">国ごとの見積${FWDON?"":"（国ごとに仮押さえ・再見積ができます）"}</p>
     ${qHtml}
     <div id="fwdrq"></div>
-    <div class="rw" style="margin-top:12px;gap:6px">
+    <div class="rw" style="margin-top:10px;gap:6px">
       ${!FWDON&&legs&&okL.length>1&&heldN<okL.length?`<button class="btn g" style="font-size:11px" onclick="fwdHoldAll('${rid}')">提案のあった${okL.length}か国をすべて仮押さえ</button>`:""}
-      ${!FWDON&&!legs&&r.quote&&r.status!=="仮押さえ済み"?`<button class="btn" id="fwdHold">この見積で仮押さえ</button>`:""}
-      <button class="btn g" onclick="closeDW()">閉じる</button></div>
+      ${!FWDON&&!legs&&r.quote&&r.status!=="仮押さえ済み"?`<button class="btn" id="fwdHold">この見積で仮押さえ</button>`:""}</div>
+    <details class="fwdx" ${any?"":"open"}><summary>💬 AI同士の交渉記録（${(r.msgs||[]).length}件・荷主のAI商社マン × 物流会社のAI物流マン）</summary><div>${chat||'<p class="nn">記録はありません。</p>'}</div></details>
+    ${(r.cargo||r.poNo||(r.docs||[]).length)?`<details class="fwdx"><summary>📦 荷主から共有された貨物情報${r.caseNo?"（案件 "+esc(r.caseNo)+"）":""}</summary><div style="font-size:11px;line-height:1.7">${r.cargo?"貨物："+esc(r.cargo)+"<br>":""}${r.poNo?"発注書："+esc(r.poNo)+"／":""}${r.etd?"希望納期："+esc(r.etd)+"／":""}条件：${esc(r.term||"")}${(r.docs||[]).length?"<br>船積書類："+r.docs.map(esc).join("・"):""}</div></details>`:""}
+    <div class="rw" style="margin-top:12px;gap:6px"><button class="btn g" onclick="closeDW()">閉じる</button>
+      ${FWDON?"":`<span class="nn">この見積は「出荷を進める › AI見積の履歴」からいつでも開けます。</span>`}</div>
     <p class="nn" style="margin-top:8px">${FWDON?"荷主が「出荷を進める」画面から依頼すると、AI物流マンが貴社のレート表から自動回答します。金額・納期を直したい場合はレート管理から更新してください。荷主の仮押さえ・再見積の要望は、この記録と受信箱に反映されます。"
       :"仮押さえは無料で、国ごとに選べます。再見積は数量・輸送形態・納期・要望を添えて、その国だけ取り直せます。本予約の時点で費用が発生します。トライアル環境のため実手配は行われません。"}</p></div>`);
   const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr");
@@ -13411,8 +13422,35 @@ function fwdInlineHtml(){
     <p style="font-size:9.5px;color:var(--ink-3);margin:6px 0 0">※物流レートの提供は、貿易クラウドの<b>物流会社ユーザー登録</b>が前提です（体験用アカウント：FWD-2026）。</p>
   </div>`;
 }
+/* この案件（または同じ荷主・商品）の見積依頼一覧：閉じても消えない履歴 */
+function fwdCaseReqs(S){
+  fwdLoad(); S=S||((typeof D!=="undefined"&&D&&D.ship)||null);
+  const co=(typeof TEN!=="undefined"&&TEN&&TEN.co)||(typeof D!=="undefined"&&D&&D.co)||"";
+  const item=(typeof D!=="undefined"&&D&&D.item)||"";
+  return (FWDB.reqs||[]).filter(r=>S&&r.caseNo?r.caseNo===S.no:(r.co===co&&(!item||!r.item||r.item===item)));
+}
+function fwdHistCardHtml(S){
+  const L=fwdCaseReqs(S);
+  const rows=L.slice(0,8).map(r=>{ const st=fwdReqStatus(r), ok=fwdOkLegs(r);
+    return `<tr><td class="n">${esc(r.d)}</td><td class="n"><b>${esc(r.id)}</b>${r.requote?` <span class="p or" style="font-size:9px">🔁 再見積</span>`:""}</td>
+      <td>${esc(r.cty)}<br><span style="font-size:9.5px;color:var(--ink-3)">${r.cbm}m³ ${esc(r.mode)}${r.note?"／"+esc(String(r.note).slice(0,30)):""}</span></td>
+      <td class="num">${fwdReqCell(r)}</td>
+      <td><span class="p ${/仮押さえ/.test(st)?"hi":ok.length?"on":"mid"}">${esc(st)}</span>${(r.legs||[]).some(l=>l.hold)?`<br><span style="font-size:9.5px;color:var(--good)">${(r.legs||[]).filter(l=>l.hold).map(l=>esc(l.cty)).join("・")}</span>`:""}</td>
+      <td><button class="btn g" style="padding:3px 9px;font-size:10.5px" data-fwdq="${esc(r.id)}">開く</button></td></tr>`; }).join("");
+  return `<div class="c" id="fwdhist" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap">
+      <div><h3>🚚 AI見積の履歴 <span class="n" style="color:var(--ink-3);font-weight:400">${L.length}件</span></h3>
+        <p class="nn">依頼した見積はここに残ります（パネルを閉じても消えません）。「開く」で交渉記録・国ごとの仮押さえ・再見積へ進めます。</p></div>
+      <div class="rw" style="gap:6px;flex:none">${L.length?`<button class="btn g" style="font-size:11px" data-fwdq="${esc(L[0].id)}">直近の見積結果を確認</button>`:""}<button class="btn" style="font-size:11px" id="fwdgo2">＋ 新しくAI見積を依頼</button></div></div>
+    ${L.length?`<div class="tw" style="margin-top:9px;max-height:none"><table><thead><tr><th>依頼日</th><th>依頼No</th><th>仕向</th><th class="num">見積合計</th><th>状況</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>${L.length>8?`<p class="nn" style="margin-top:5px">ほか ${L.length-8} 件（物流会社側の受信箱に全件あります）</p>`:""}`
+     :`<p class="nn" style="margin-top:8px">まだ依頼がありません。「＋ 新しくAI見積を依頼」で、貿易クラウド内の物流会社（AI物流マン）へ見積を出せます。</p>`}
+  </div>`;
+}
 function fwdShipBind(){
+  /* 出荷画面：ステップカードの直後に「AI見積の履歴」を常設（ステップが進んでも見失わない） */
+  if(!document.getElementById("fwdhist")&&D&&D.ship){ const stp=document.querySelector("#well .stp"); const card=stp&&stp.closest(".c"); if(card) card.insertAdjacentHTML("afterend",fwdHistCardHtml(D.ship)); }
   const b=$("#fwdgo"); if(b) b.onclick=()=>fwdRequest();
+  const b2=$("#fwdgo2"); if(b2) b2.onclick=()=>fwdRequest();
   document.querySelectorAll("[data-fwdq]").forEach(x=>x.addEventListener("click",()=>openFwdQuote(x.dataset.fwdq)));
 }
 
@@ -13917,7 +13955,7 @@ const __renderFwd=render;
 render=function(){
   if(FWDON){ fwdRender(); return; }
   __renderFwd();
-  if(cur==="ship"&&D&&D.ship) fwdShipBind();
+  if((cur==="ship"||cur==="ops")&&D&&D.ship) fwdShipBind();   /* 書類ワークベンチ側の履歴カードのボタンも束ねる */
 };
 /* 出荷ステップ2「運送会社に見積を頼む」のAI商社マンの発話・成果物に組み込む */
 const __shipStepsFwd=shipSteps;
@@ -16127,6 +16165,7 @@ if(typeof vOpsDoc==="function"){ const __vOpsDocPO=vOpsDoc;
         <button class="btn" id="poEditBtn" onclick="openPoDocEdit(window.__poDocK||'pi')">✎ この書類を編集</button>
         <button class="btn g" onclick="poPrintDoc()">🖨 印刷／PDF保存</button>
         <button class="btn g" onclick="poShareFwd()">🚚 物流会社へ共有して相談</button></div></div>
+    ${(typeof fwdCaseReqs==="function"&&typeof fwdHistCardHtml==="function"&&fwdCaseReqs(S).length)?fwdHistCardHtml(S):""}
     <div class="stk">
       <div class="c"><h3>この案件で使う書類 ${S.docs.length}点</h3>
         <p class="nn">送り先（${esc(S.country)}）の規制調査から自動で決まります。</p>
@@ -16352,7 +16391,7 @@ function openFwdConsult(){
   const chat=c.po.fwdChat.slice(-10).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
   openDW(`<div class="dwhead"><h3>🚚 物流会社（AI物流マン）に出荷を相談</h3></div>
    <div class="dwbody" style="display:flex;flex-direction:column;min-height:0">
-   <p class="nn">共有した内容：<b>${esc(S.pol||"—")} → ${esc(S.pod||S.country)}</b>／${esc(S.term)}／${esc(S.cargo)}／希望納期 ${esc(S.want||"—")}／書類 ${(S.docs||[]).map(d=>esc(d[0])).join("・")}${req?`<br>見積依頼 <b>${esc(req.id)}</b>：${esc(req.status)}　<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="openFwdQuote('${esc(req.id)}')">見積内容を見る</button>`:""}</p>
+   <p class="nn">共有した内容：<b>${esc(S.pol||"—")} → ${esc(S.pod||S.country)}</b>／${esc(S.term)}／${esc(S.cargo)}／希望納期 ${esc(S.want||"—")}／書類 ${(S.docs||[]).map(d=>esc(d[0])).join("・")}${req?`<br>見積依頼 <b>${esc(req.id)}</b>：${esc(req.status)}　<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="openFwdQuote('${esc(req.id)}')">見積内容を見る</button>`:""}</p>${typeof fwdHistCardHtml==="function"?`<div style="margin-top:8px">${fwdHistCardHtml(S)}</div>`:""}
    <div class="chat" id="fwdcchat" style="flex:1;min-height:0;max-height:none;margin-top:8px">${chat||`<div class="m a"><div class="bb">AI物流マンです。共有いただいた貨物情報と登録レートをもとに、運賃・所要日数・ブッキングに必要な書類・締切（CY／CFSカット）についてお答えします。</div></div>`}</div>
    <div class="qb" style="margin-top:8px">${["運賃と所要日数は？","ブッキングに必要な書類は？","希望納期に間に合う便は？","LCLとFCLどちらがいい？","危険物や温度管理の注意は？"].map(q=>`<button class="q" onclick="poFwdAsk('${q}')">${q}</button>`).join("")}</div>
    </div>
