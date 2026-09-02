@@ -1388,6 +1388,9 @@ function tenantFromSample2(x){
 }
 function adoptSample2(k){
   const x=SAMPLES2[k]; if(!x) return;
+  /* 同じ業種サンプルが既にあれば複製せず、そちらへ切り替える（選び直すたびに同名商品が増えない） */
+  const ex=(typeof TENS!=="undefined"?TENS:[]).findIndex(t=>t&&t.src==="sample2"&&t.co===x.co&&t.item===x.item);
+  if(ex>=0&&typeof switchTen==="function"){ switchTen(ex); if(typeof toast==="function") toast(`${x.cat}のサンプル環境（${x.co}）に切り替えました`); return; }
   PID="custom"; pushTen(tenantFromSample2(x)); shipStep=0; SHIPQA=[];
   FILL={on:false,log:[],cur:null,sel:[]};
   syncTenant(); if(typeof saveTen==="function") saveTen();
@@ -1618,7 +1621,7 @@ function pickHS(txt,cat){
 async function buildTenant(file){
   let sheets;
   if(/\.(xlsx|xlsm)$/i.test(file.name)) sheets=await readWorkbook(file);
-  else if(/\.(csv|txt)$/i.test(file.name)) sheets=parseCSV(await file.text());
+  else if(/\.(csv|txt)$/i.test(file.name)) sheets=parseCSV(typeof zipTextDec==="function"?zipTextDec(new Uint8Array(await file.arrayBuffer())):await file.text());   /* Shift-JIS のCSV（日本語Excel既定）も文字化けさせない */
   else throw new Error("unsupported");
   const allTxt=sheets.map(s=>s.grid.map(r=>(r||[]).join(" ")).join("\n")).join("\n");
   const kv=findKV(sheets), cat=detectCat(allTxt);
@@ -2036,7 +2039,7 @@ function tenantToD(t){
     dbr:[],
     kpi:{fbDone:0,fbGoal:42,buyers:0,hot:0,countries:(t.targets||[]).length,quotes:0,
       quoteAmt:"¥0",weighted:"¥0",won:0,wonNote:"これからです"},
-    hotList:[],pipeline:[],orders:[],docs:[[t.file,"商品マスタ","アップロード",TODAYS,1]],
+    hotList:[],pipeline:[],orders:[],docs:[[t.file,"商品マスタ","アップロード",TODAYS,1]].concat((t.xdocs||[]).slice().reverse()),   /* やりとりの添付（xdocs）も書類一覧へ */
     msgs:(t.msgs||[]).slice(),members:[[t.co||"貴社","（登録した担当者）","貴社"],["STANDAGE CS","STANDAGE","STANDAGE"],
       ["AI商社マン","貴社データ専用","AI"]],
     msgSummary:(t.msgs&&t.msgs.length)?`これまでに<b>${t.msgs.length}件</b>のやりとりがあります。決定事項と宿題はここに要約されます（トライアルでは件数のみ）。`
@@ -2091,16 +2094,36 @@ function tenantToD(t){
   d.dashNote=s.missing.length
     ?`いまの充足度は<b>${s.pct}%</b>です。あと<b>${s.missing.length}項目</b>を埋めると、
       規制判定・書類の自動作成・運賃見積・商談準備のすべてが動きます。`
-    :`必要な情報はすべて揃っています。ここからは<b>商談の記録を貯める段階</b>です。2年で42件が目標です。`;
+    :(d.dashNote||`必要な情報はすべて揃っています。ここからは<b>商談の記録を貯める段階</b>です。2年で42件が目標です。`);   /* 商談記録がある場合はその要約を優先 */
   d.aiq=buildAiq(t,s);
   d.ship=buildShip(d,t);
+  /* 出荷ステップ1で編集した受注内容（TEN.shipEdit）を再生成後の案件に上書き（同期・リロードで消えない） */
+  if(d.ship&&t.shipEdit&&typeof t.shipEdit==="object") Object.assign(d.ship,t.shipEdit);
   if(d.ship) d.pipeline=[[d.ship.no,d.ship.buyer,d.ship.country,d.ship.qty.split("（")[0],
     "{"+(d.term||"FOB").split(" ")[0]+"} "+(d.pol||""),"作成待ち","想定シナリオ","—"]];
   return d;
 }
-const TODAYS="2026-08-04";
+/* 「今日」の定義（v15.10 QAで修正）：
+   ・デモ商品（抹茶／セラム／ベアリング）＝物語の基準日 2026-08-04 に固定（商談・受注・タスクの前後関係を保つ）
+   ・アップロード実データ／業種サンプル／物流会社モード＝実際の今日（タスク期限・通知・日次更新・帳票日付が実時間で進む）
+   参照側は従来どおり TODAYS（文字列）／TODAY（Date）をそのまま使う（グローバルgetter） */
+const DEMO_ANCHOR_DAY="2026-08-04";
+function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function isDemoClock(){
+  try{
+    if(typeof SES!=="undefined"&&SES&&(SES.role==="fwd"||SES.t==="fwd")) return false;
+    /* TEN を先に見る：tenantToD 実行中は D がまだ前の商品なので、TEN の種類で判定する */
+    if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) return false;
+    if(typeof D!=="undefined"&&D&&(D.src==="upload"||D.src==="sample2")) return false;
+  }catch(e){}
+  return true;
+}
+Object.defineProperty(globalThis,"TODAYS",{configurable:true,get:()=>isDemoClock()?DEMO_ANCHOR_DAY:todayISO()});
+Object.defineProperty(globalThis,"TODAY",{configurable:true,get:()=>new Date(TODAYS+"T00:00:00")});
+/* 日付の加算はローカル日付で整形する（toISOString はUTCのため、日本時間では1日前にずれる） */
+function fmtLocalDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function addDays(s,n){const d=new Date(s+"T00:00:00");d.setDate(d.getDate()+n);
-  return d.toISOString().slice(0,10);}
+  return fmtLocalDate(d);}
 
 function buildSummary(t,s){
   const P=[];
@@ -2203,6 +2226,7 @@ function buildShip(d,t){
 }
 function syncTenant(){
   if(!TEN) return;
+  try{ if(typeof __DU!=="undefined") __DU=null; }catch(e){}   /* ダッシュボードの集計キャッシュを無効化（Dを再生成するため） */
   if(TEN.src==="sample"){ D=PRODUCTS[TEN.catKey]; return; }
   D=tenantToD(TEN);   /* upload / sample2（業種サンプル）は共に1日目の状態から */
 }
@@ -2551,7 +2575,7 @@ function openMyBuyer(i){
       </div>`
     :'<p class="nn">まだチェックが実行されていません。</p>'}
     <div class="rw" style="margin-top:12px;gap:6px;flex-wrap:wrap">
-      <button class="btn" onclick="closeDW();openDM('${esc(b.id)}','${esc(b.cty)}','${esc(b.co)}')">✉ 直接連絡</button>
+      <button class="btn" data-a="${esc(JSON.stringify([String(b.id),String(b.cty||""),String(b.co||"")]))}" onclick="closeDW();openDM.apply(null,JSON.parse(this.dataset.a))">✉ 直接連絡</button>
       <button class="btn g" id="mbRe">🔄 AIで再チェック</button>
       <button class="btn g" onclick="openBuyerEdit(${i})">✎ 編集</button>
       <button class="btn g" id="mbDel">🗑 削除</button>
@@ -3816,7 +3840,7 @@ function openHealth(){
       const f=map[i.k]; if(!f) return;
       const inp=document.querySelector(`[data-hval="${idx}"]`);
       if(inp&&!inp.value&&f.value) inp.value=String(f.value);
-      if(f.note){ const p=inp&&inp.closest("div"); }
+      if(f.note&&inp){ inp.title="AIの根拠："+String(f.note); const p=inp.closest("div"); if(p&&!p.querySelector(".hnote")) p.insertAdjacentHTML("beforeend",`<span class="hnote" style="display:block;font-size:10px;color:var(--ink-3);margin-top:2px">🤖 ${esc(String(f.note).slice(0,80))}</span>`); }
     });
     const h=$("#hai"); if(h) h.innerHTML="🤖 AIの提案値を入力欄に入れました。<b>内容を確認のうえ「修正する」を押してください</b>（提案が空欄の項目は消去→あとでヒアリングで埋め直しがおすすめ）。";
   }).catch(()=>{ const h=$("#hai"); if(h) h.textContent="（AI提案の取得に失敗しました。手入力またはクリアで修正できます）"; });
@@ -5448,7 +5472,8 @@ function pickCountry(q){
   return null;
 }
 function pickQty(q){
-  const m=q.match(/([\d][\d,]*)\s*(袋|本|個|箱|ケース|kg|pcs|units|セット)?/);
+  /* 数量とみなすのは「独立した数」だけ：品番（TP-6204ZZ）・内容量（100g／350ml）・金額（$14.50）の一部を数量に誤認しない */
+  const m=q.match(/(?<![A-Za-z0-9\-.$¥￥])(\d[\d,]*)\s*(袋|本|個|箱|ケース|kg|pcs|units|セット|台|枚|缶|瓶|パック|カートン|ctn|cs)?(?![A-Za-z\d.\-])/i);
   if(!m) return null;
   const n=parseInt(m[1].replace(/,/g,""),10);
   return n>=10?{n,u:m[2]||""}:null;
@@ -5500,10 +5525,14 @@ const INTENTS=[
  ["order",["受注","入金","請求","支払","回収","売上"]],
  ["missing",["足りな","不足","埋め","何が必要","充足","完成度"]],
  ["help",["何ができ","なにができ","使い方","つかいかた","ヘルプ","help","はじめ","こんにちは","どんなこと","教えて欲しい"]],
+ ["fx",["為替","レート","ttm","円安","円高","ドル円","換算"]],
+ ["ddp",["ddp","dap","現地価格","現地販売価格","着地価格","確定価格","提示価格","確定した価格"]],
+ ["terms",["支払条件","取引条件","建値","インコタームズ","賞味期限","消費期限","産地","原産","仕出港","積み地","保存方法","保管"]],
 ];
 function detectIntent(q){
   const s=norm2(q), sc={};
   INTENTS.forEach(([k,ws])=>{ sc[k]=ws.reduce((a,w)=>a+(s.includes(norm2(w))?1:0),0); });
+  if(/支払条件|取引条件|賞味期限|消費期限|産地|原産|仕出港|建値|インコタームズ/.test(s)) sc.terms+=2;   /* 「支払条件」は受注（支払）より条件回答を優先 */
   if(pickBuyer(q)) sc.buyer=(sc.buyer||0)+2;
   if(pickQty(q)&&/いくら|価格|単価|見積|金額/.test(s)) sc.price+=2;
   const best=Object.entries(sc).sort((a,b)=>b[1]-a[1])[0];
@@ -5618,7 +5647,7 @@ function ansBuyer(q){
   if(b){
     const hist=(D.fb||[]).filter(f=>f.b===b);
     if(hist.length) return {a:`<b>${esc(b)}</b>との記録は${hist.length}件あります。<br><br>`+
-      hist.map(f=>`<b>${f.d}</b>　${esc(f.item)}<br>希望価格 ${esc(f.price)}／数量 ${esc(f.lot)}／${esc(f.st)}
+      hist.map(f=>`<b>${esc(f.d||"")}</b>　${esc(f.item||D.item||"")}<br>希望価格 ${esc(f.price||"—")}／数量 ${esc(f.lot||"—")}／${esc(f.st||"")}
         ${f.why?`<br><span style="color:var(--crit)">断られた理由：${esc(f.why)}</span>`:""}
         <br><span style="color:var(--ink-2)">${esc(f.note)}</span>`).join("<br><br>"),
       c:`根拠：商談記録 ${hist.length}件（${esc(b)}）`};
@@ -5726,12 +5755,31 @@ function brain(q){
       {a:`まだ失注の記録がありません。`,c:"根拠：失注 0件"};
     case "prep": return (D.aiq&&D.aiq[1])?{a:D.aiq[1].a,c:D.aiq[1].c}:
       {a:`商談記録がまだないため、想定問答を作れません。`,c:"根拠：商談記録 0件"};
+    /* 取引条件・賞味期限・産地など、商品マスタのスカラー項目（登録が無い項目は「未登録」と正直に） */
+    case "terms": { const F=[["取引条件（建値）",D.term],["支払条件",D.pay],["仕出港",D.pol],["最小発注数量（MOQ）",D.moq],["リードタイム",D.lead],["賞味期限・保証",D.shelf],["産地",D.origin],["認証",D.cert],["カートン入数",D.ctn]];
+      const has=F.filter(x=>x[1]), none=F.filter(x=>!x[1]);
+      return {a:`登録されている取引条件・基本情報です。<br>${has.map(x=>`・${esc(x[0])}：<b>${esc(String(x[1]))}</b>`).join("<br>")||"（登録がありません）"}${none.length?`<br><br><span style="color:var(--ink-3)">未登録：${none.map(x=>esc(x[0])).join("・")}（「商品情報を登録 › AIと埋める」で追加できます）</span>`:""}`,
+        c:`根拠：商品マスタ（登録 ${has.length}項目／未登録 ${none.length}項目）`}; }
+    /* 為替：DDP試算・営業資料と同じレート（当日TTMが取れていれば当日値、無ければ参照レートと正直に表示） */
+    case "fx": { const fx=(typeof ddpFx==="function")?ddpFx():null; const dr=(typeof dashRate==="function")?dashRate():null;
+      if(!fx&&!dr) return {a:"為替レートの参照データがこの版にはありません。",c:"根拠：なし"};
+      const usd=fx?fx.rates.USD:dr.v, live=fx?fx.live:dr.live, at=fx?fx.at:dr.d;
+      const others=fx?Object.entries(fx.rates).filter(([k])=>k!=="USD"&&k!=="JPY").slice(0,7).map(([k,v])=>`${esc(k)} ¥${v}`).join("／"):"";
+      return {a:`三菱UFJリサーチ&コンサルティングのTTM（仲値）ベースで <b>1 USD = ¥${usd}</b>${others?`<br><span style="font-size:11px">${others}</span>`:""}<br><br>${live
+          ?`<b>当日（${esc(String(at))}）に取得した実勢値</b>です。`
+          :`<b>参照レート（${esc(String(at))}時点）</b>です。当日値はまだ取得できていません（Web取得が有効な環境では、ダッシュボード・現地販売価格の試算時に自動更新されます）。`}<br>現地販売価格（DDP）の試算・営業資料の通貨換算には、このレートを使っています。`,
+        c:`根拠：${live?"当日TTM（murc-kawasesouba.jp）":"内蔵の参照レート（"+esc(String(at))+"）"}`}; }
+    /* 現地販売価格（DDP/DAP…）の確定記録：国別に記録したものだけを答える（未確定なら正直に「まだ無い」） */
+    case "ddp": { const L=(typeof ddpPxList==="function")?ddpPxList():[];
+      if(!L.length) return {a:`確定した現地販売価格（DDP／DAP など）は<b>まだありません</b>。<br>「商品情報 › ②価格表・寸法」の<b>🚚 現地販売価格をAI商社マンと試算</b>で仕向地・条件を指定して試算し、<b>✔ この価格で確定</b>すると国ごとに記録され、外国語営業資料・PI/CI に自動反映されます。`,c:"根拠：確定価格 0か国"};
+      return {a:`確定済みの現地販売価格は <b>${L.length}か国</b>です。<br>${L.map(r=>`・<b>${esc(r.cty)}（${esc(r.city||"")}）</b> ${esc(r.term)}／${esc(r.route)}：<b>¥${Number(r.priceJpy||0).toLocaleString()}</b>（1${esc(r.unit)} ¥${Number(r.perJpy||0).toLocaleString()}・${esc(String(r.qty))}${esc(r.unit)}・利益率${esc(String(r.margin))}%・${esc(r.at)}確定）`).join("<br>")}<br><br>前提（運賃・為替・関税）は各国の記録に残しています。変更は同じパネルから再試算→再確定してください。`,
+        c:`根拠：確定価格 ${L.length}か国（国別記録）`}; }
     default: return ansFallback(q);
   }
 }
 
 /* ═════════ タスク・進行管理（現行「スケジュール」＋サイドバー「進捗」を統合・強化） ═════════ */
-const TODAY=new Date("2026-08-04T00:00:00");
+/* TODAY（Date）／TODAYS（"YYYY-MM-DD"）は logic_tenant.js で定義する「その時点の今日」（デモ商品＝固定 2026-08-04、実データ＝実日付） */
 const G0=new Date("2026-06-01T00:00:00"), GD=122;   // ガント表示窓
 const dnum=s=>Math.round((new Date(s+"T00:00:00")-G0)/864e5);
 const clampP=(a,b)=>Math.max(0,Math.min(100,a))+"%";
@@ -5925,7 +5973,7 @@ function openAiTask(){
 let msgScope="all", msgQ="";
 function vMsg(p){
   return ph(p,"<b>この画面でできること：</b>STANDAGEの担当者・海外拠点・AI商社マンと、この案件のことだけを1か所で話せます。<b>誰に見えるか</b>は1つの切替で決まります。",
-    `<button class="btn g" onclick="openNotif()">通知（3）</button>`)+`
+    `<button class="btn g" onclick="openNotif()">通知（${typeof notifCalc==="function"?notifCalc().length:0}）</button>`)+`
   <div class="g2" style="align-items:start">
     <div class="c">
       <div class="rw" style="justify-content:space-between;margin-bottom:9px">
@@ -6069,13 +6117,17 @@ function sendMsg(){
   const v=ta.value.trim();
   const attF=MSGA; MSGA=null; const chip=$("#mattn"); if(chip) chip.innerHTML="";
   if(!v&&!attF){ toast("メッセージを入力するか、ファイルを添付してください"); return; }
-  const who=(typeof SES!=="undefined"&&SES&&SES.name)?SES.name:"貴社担当";
+  const who=(typeof SES!=="undefined"&&SES&&SES.who)?SES.who:"貴社担当";   /* ログイン時の担当者名（SES.who） */
   const tstr=TODAYS+" "+new Date().toTimeString().slice(0,5);
   const askAI=msgNewScope==="AIに質問";
   msgStore().push({who,org:D.co,t:tstr,scope:askAI?"共有":msgNewScope,
     body:(v?mdU(esc(v)):"（ファイルを添付しました）"),read:1,
     mention:askAI?["AI商社マン"]:[],
     file:attF?{n:attF.name,kb:Math.max(1,Math.round(attF.size/1024))}:undefined});
+  /* 添付ファイルは「書類一覧」にも自動登録（表示チップ「書類一覧に自動保存」と一致させる）。テナントは TEN.xdocs に永続化 */
+  if(attF){ const row=[attF.name,"やりとり添付","やりとり（"+who+"）",TODAYS,1];
+    if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) TEN.xdocs=(TEN.xdocs||[]).concat([row]);
+    else if(D&&Array.isArray(D.docs)) D.docs.unshift(row); }
   ta.value="";
   const fin=()=>{ if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")) syncTenant();
     if(typeof saveTen==="function") saveTen();
@@ -6263,7 +6315,7 @@ function vOrders(){
       ${D.orders.length?"":`<tr><td colspan="10" style="text-align:center;color:var(--ink-3);padding:20px;line-height:1.8">まだ受注がありません。<br><b style="color:var(--ink-2)">「出荷を進める」で、受注から入金までの流れを想定シナリオで体験できます。</b></td></tr>`}
     </tbody></table></div>
     <div class="g3" style="margin-top:11px">
-      ${[["受注の累計",D.orders.length+"件","うち入金済 1件"],
+      ${[["受注の累計",D.orders.length+"件","うち入金済 "+D.orders.filter(o=>/入金済/.test(String(o.pay||""))).length+"件"],
          ["入金待ちの金額",D.orders.find(o=>o.pay==="入金待ち")?.jpy||"—","期日 "+(D.orders.find(o=>o.pay==="入金待ち")?.due||"—")],
          ["見積提出前",D.orders.filter(o=>o.od==="作成待ち").length+"件","AIが受注書のドラフトを用意できます"]]
         .map(([l,v,d])=>`<div style="padding:10px 12px;border-radius:var(--r2);background:var(--surface-2);border:1px solid var(--line)">
@@ -6457,7 +6509,7 @@ function LEG(){
 }
 function legSave(){ if(typeof saveTen==="function") saveTen(); }
 const LEG_ACCEPT=".pdf,.docx,.pptx,.xlsx,.xlsm,.csv,.txt,.png,.jpg,.jpeg";
-const LEG_TYPES=["AIにおまかせ（やり取りから判断）","売買契約書（Sales Agreement）","販売店契約書（Distributorship Agreement)","代理店契約書（Agency Agreement）","秘密保持契約書（NDA）","OEM製造委託契約書","品質保証合意書（Quality Agreement）"];
+const LEG_TYPES=["AIにおまかせ（やり取りから判断）","売買契約書（Sales Agreement）","販売店契約書（Distributorship Agreement）","代理店契約書（Agency Agreement）","秘密保持契約書（NDA）","OEM製造委託契約書","品質保証合意書（Quality Agreement）"];
 function legNow(){ const d=new Date(),z=n=>String(n).padStart(2,"0");
   return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes())+":"+z(d.getSeconds()); }
 
@@ -6616,12 +6668,13 @@ function legDl(blob,nm){ const a=document.createElement("a");
 
 /* 修正版の出力（Word / Google Document 選択） */
 function legalExport(i,mode){
-  const d=LEG().docs[i]; if(!d||!d.rv) return;
+  const d=LEG().docs[i]; if(!d) return;
+  const rv=d.rv||{risks:[],missing:[]};   /* AI起草ドラフト（レビュー未実施）でも本文をそのまま出力できる */
   const paras=String(d.srcText||"").split(/\n/);
   if(!d.srcText){ toast("PDF・画像から取り込んだ契約書は本文を保持していないため、追加提案のみのWordを出力します"); }
-  const blob=legalBuildDocx({title:"修正版（AI法務チェック済）："+d.name,
+  const blob=legalBuildDocx({title:(d.rv?"修正版（AI法務チェック済）：":"ドラフト：")+d.name,
     paras:d.srcText?paras:[ "（原本はPDF/画像のため、以下はAI法務の指摘・提案の一覧です。原本と突き合わせてご確認ください）" ],
-    risks:d.rv.risks,missing:d.rv.missing,mode:"rev"});
+    risks:rv.risks||[],missing:rv.missing||[],mode:"rev"});
   const nm="修正版_"+d.name.replace(/\.[a-z0-9]+$/i,"")+".docx";
   legDl(blob,nm);
   if(mode==="gdoc"){
@@ -6814,6 +6867,7 @@ ${prior?"【これまでのQ&A】\n"+prior:""}【質問】${q}`,1300,{noWeb:1,ti
 /* レビュー実行（プログレス付き） */
 async function legalRun(i){
   const L=LEG(), d=L.docs[i]; if(!d||legBusy) return;
+  if(!d.srcText&&!d.att){ toast(d.attDropped?"PDF・画像の原本はブラウザ保存の容量対策で再読み込み後は保持していません。もう一度アップロードするとレビューできます":"本文が無いためレビューできません"); return; }
   legBusy=1;
   const pg=$("#legprog");
   if(pg) pg.innerHTML=`<div style="margin-top:9px;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:12px">
@@ -7507,11 +7561,12 @@ function runParse(key,info){
   setTimeout(tick,reduce?60:520);
 }
 
+/* テナントから引いたスカラー項目をDにも反映（AIの回答・書類・営業資料が参照する）。adopt と #psw 切替の両方から呼ぶ */
+function applyTenScalars(){ if(!TEN||!D) return; ["moq","lead","ctn","term","pay","pol","cert","shelf","origin"].forEach(f=>{if(TEN[f])D[f]=TEN[f];}); }
 function adopt(key,info){
   PID=key; D=PRODUCTS[key]; shipStep=0; SHIPQA=[]; upFile=info;
   TEN=tenantFromSample(D); FILL={on:false,log:[],cur:null,sel:[]};
-  /* テナントから引いたスカラー項目をDにも反映（AIの回答が参照する） */
-  ["moq","lead","ctn","term","pay","pol","cert","shelf","origin"].forEach(f=>{if(TEN[f])D[f]=TEN[f];});
+  applyTenScalars();
   buildNav(); go("dash");
   toast(`${D.cat}の環境を作成しました：${D.co}`);
 }
@@ -7732,7 +7787,7 @@ function vItem(p){
         <p class="nn">${esc(D.itemEn)}／${esc(D.co)}（${esc(D.city)}）／${tm("HSコード")} ${D.hs}</p></div>
       <span class="src">📄 ${esc(upFile?upFile.name:D.file)} から自動抽出</span></div>
     <div class="g3" style="margin-top:11px">
-      ${[["構造化できた項目",`${5+D.priceRows.length+D.dimRows.length+D.compRows.length}`,"項目","強み5・価格"+D.priceRows.length+"・寸法"+D.dimRows.length+"・成分"+D.compRows.length],
+      ${[["構造化できた項目",`${(D.strengths||[]).length+D.priceRows.length+D.dimRows.length+D.compRows.length}`,"項目","強み"+(D.strengths||[]).length+"・価格"+D.priceRows.length+"・寸法"+D.dimRows.length+"・成分"+D.compRows.length],
          ["調査済みの仕向国",`${Object.keys(D.regs).length}`,"か国","関税率と必要書類を紐付け済み"],
          ["AIが使える状態か","OK","","書類の自動作成・規制判定・商談準備に使えます"]]
         .map(([l,v,u,d])=>`<div style="padding:10px 12px;border-radius:var(--r2);background:var(--surface-2);border:1px solid var(--line)">
@@ -7984,8 +8039,7 @@ function shipCaseNew(o){
   ship.no=cc+"-"+TODAYS.replace(/-/g,"").slice(4)+"-0"+((SHIPS?SHIPS.length:1)+1);
   ship.country=cty;
   ship.buyer=o.buyer||("（想定）"+cty+"の輸入商社");
-  const d=new Date(TODAYS+"T00:00:00"); d.setDate(d.getDate()+14+((SHIPS?SHIPS.length:1)*2));
-  ship.want=d.toISOString().slice(0,10);
+  ship.want=addDays(TODAYS,14+((SHIPS?SHIPS.length:1)*2));   /* ローカル日付（UTC変換で1日ずれない） */
   return {ship,step:0,qa:[],custom:1,src:o.src||"",mods:{},open:1,at:(SHIPS?(SHIPS._seq=(SHIPS._seq||1)+1):1)};
 }
 function shipSlot(keep){
@@ -8188,6 +8242,10 @@ function openStepEdit(i){
                               document.querySelector(`[data-sxv="${k}"]`).value.trim()]).filter(e=>e[0]&&e[1]);
       const nn2=($("#seN").value||"").trim();
       c.mods[0]={note:nn2};
+      /* アップロード／業種サンプルは D.ship が同期のたびに再生成されるため、編集内容をテナントに保存して再適用する */
+      if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){
+        TEN.shipEdit={buyer:S.buyer,qty:S.qty,unitPrice:S.unitPrice,total:S.total,term:S.term,pay:S.pay,want:S.want,extra:(S.extra||[]).slice()};
+        if(typeof saveTen==="function") saveTen(); }
       const cur3={buyer:S.buyer,qty:S.qty,unitPrice:S.unitPrice,total:S.total,term:S.term,pay:S.pay,want:S.want};
       const LB={buyer:"お相手",qty:"数量",unitPrice:"単価",total:"合計",term:"取引条件",pay:"支払",want:"希望着荷"};
       const diffs=Object.keys(LB).filter(k=>String(old[k])!==String(cur3[k])).map(k=>`${LB[k]}：${old[k]} → ${cur3[k]}`);
@@ -8400,10 +8458,15 @@ function vDeal(p){
     </tr></thead><tbody id="fbb"></tbody></table></div>
   </div>
   <div class="g3">
-    <div class="c"><p class="lbl">項目がどれだけ埋まっているか</p><div class="kv n">94<small>%</small></div>
-      <div class="mt"><i style="width:94%"></i></div><div class="kd">${D.kpi.fbDone}件×10項目のうち、空欄はわずかです</div></div>
-    <div class="c"><p class="lbl">断られた理由が残っている割合</p><div class="kv n" style="color:var(--or)">100<small>%</small></div>
-      <div class="mt"><i style="width:100%"></i></div><div class="kd">失注${D.lost.reduce((a,b)=>a+b[1],0)}件すべてに理由あり（以前は記録項目そのものがなし）</div></div>
+    ${(()=>{ /* 実データから算出（固定値を出さない）：記録10項目の充足率／失注に理由が残っている割合 */
+      const KEYS=["d","b","c","item","price","lot","react","st","owner","ch"];
+      const fill=FB.length?Math.round(FB.reduce((a,f)=>a+KEYS.filter(k=>f[k]&&f[k]!=="—").length,0)/(FB.length*KEYS.length)*100):null;
+      const lostN=FB.filter(f=>/失注|断られ/.test(String(f.st||""))).length, lostW=FB.filter(f=>/失注|断られ/.test(String(f.st||""))&&(f.why||f.reason)).length;
+      const lostPct=lostN?Math.round(lostW/lostN*100):null;
+      return `<div class="c"><p class="lbl">項目がどれだけ埋まっているか</p><div class="kv n">${fill==null?"—":fill+"<small>%</small>"}</div>
+      <div class="mt"><i style="width:${fill||0}%"></i></div><div class="kd">${FB.length?`${FB.length}件×${KEYS.length}項目のうち、埋まっている割合`:"商談記録が入ると算出されます"}</div></div>
+    <div class="c"><p class="lbl">断られた理由が残っている割合</p><div class="kv n" style="color:var(--or)">${lostPct==null?"—":lostPct+"<small>%</small>"}</div>
+      <div class="mt"><i style="width:${lostPct||0}%"></i></div><div class="kd">${lostN?`失注${lostN}件のうち理由あり${lostW}件`:"失注の記録はまだありません"}</div></div>`; })()}
     ${(()=>{const rep=FB.length-new Set(FB.map(f=>f.b)).size;
       return rep>0
         ?`<div class="c"><p class="lbl">同じ相手との再商談</p><div class="kv n">${rep}<small>社</small></div>
@@ -8583,16 +8646,16 @@ function fbRows(){
   const FB=D.fb, c=$("#fC")?.value||"",r=$("#fR")?.value||"",s=$("#fS")?.value||"";
   const rows=FB.filter(f=>(!c||f.c===c)&&(!r||f.react===r)&&(!s||f.st===s));
   $("#fbb").innerHTML=rows.length?rows.map(f=>`<tr class="clk" data-i="${FB.indexOf(f)}">
-    <td class="n">${f.d.slice(5)}</td><td><b>${esc(f.b)}</b></td><td>${f.c}</td><td>${esc(f.item)}</td>
-    <td class="n">${esc(f.price)}</td><td class="num">${esc(f.lot)}</td><td>${rp(f.react)}</td>
-    <td>${sp(f.st)}</td><td style="color:var(--ink-3)">${esc(f.owner)}</td></tr>`).join("")
+    <td class="n">${String(f.d||"").slice(5)}</td><td><b>${esc(f.b||"")}</b></td><td>${esc(f.c||"")}</td><td>${esc(f.item||D.item||"")}</td>
+    <td class="n">${esc(f.price||"—")}</td><td class="num">${esc(f.lot||"—")}</td><td>${rp(f.react)}</td>
+    <td>${sp(f.st)}</td><td style="color:var(--ink-3)">${esc(f.owner||"")}</td></tr>`).join("")
    :`<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:20px">条件に合う記録はありません</td></tr>`;
   document.querySelectorAll("#fbb tr[data-i]").forEach(tr=>tr.addEventListener("click",()=>openFB(+tr.dataset.i)));
 }
 function openFB(i){
   const FB=D.fb, f=FB[i], same=FB.filter(x=>x.c===f.c).length;
-  openDW(`<h3>${esc(f.b)}</h3><p class="nn" style="margin-bottom:11px">${f.c}／${esc(f.ch)}　${rp(f.react)} ${sp(f.st)}</p>
-   <dl style="margin:0">${[["商談日",f.d],["商品",f.item],["先方の要望",f.spec||"—"],["希望価格",f.price||"—"],
+  openDW(`<h3>${esc(f.b||"")}</h3><p class="nn" style="margin-bottom:11px">${esc(f.c||"")}／${esc(f.ch||"—")}　${rp(f.react)} ${sp(f.st)}</p>
+   <dl style="margin:0">${[["商談日",f.d||"—"],["商品",f.item||D.item||"—"],["先方の要望",f.spec||"—"],["希望価格",f.price||"—"],
      ["数量",f.lot||"—"],["取引条件",f.term||"—"],["担当拠点",f.owner]]
      .map(([k,v])=>`<div class="fld"><dt>${k}</dt><dd>${AT(v)}</dd></div>`).join("")}
    ${f.why?`<div class="fld"><dt>断られた理由</dt><dd style="color:var(--crit)">${AT(f.why)}</dd></div>`:""}</dl>
@@ -8631,9 +8694,9 @@ function vAI(p){
       <div class="c"><h3>AIが見ているもの</h3>
         <p class="nn">他社のデータは混ざりません。貴社のプロジェクトの中だけを見ます。</p>
         <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
-          ${[["商談の記録",`${K.fbDone}件`,94],["規制の調査",`${Object.keys(D.regs).length}か国`,100],
-             ["商品情報・強み","5項目",100],["価格表・寸法",`${D.priceRows.length}SKU`,100],
-             [D.compTitle,`${D.compRows.length}項目`,100],["過去の見積・出荷",`${K.quotes+2}件`,88]]
+          ${[["商談の記録",`${K.fbDone}件`,Math.min(100,Math.round(K.fbDone/Math.max(1,K.fbGoal||42)*100))],["規制の調査",`${Object.keys(D.regs).length}か国`,Object.keys(D.regs).length?100:0],
+             ["商品情報・強み",`${(D.strengths||[]).length}項目`,(D.strengths||[]).length?100:0],["価格表・寸法",`${D.priceRows.length}SKU`,D.priceRows.length?100:0],
+             [D.compTitle,`${D.compRows.length}項目`,D.compRows.length?100:0],["過去の見積・出荷",`見積${K.quotes||0}件・出荷${(D.orders||[]).length}件`,(K.quotes||(D.orders||[]).length)?100:0]]
             .map(([k,v,pc])=>`<div><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(k)}</span>
               <span class="n" style="color:var(--ink-3);white-space:nowrap">${v}</span></div>
               <div class="mt" style="margin-top:3px"><i class="b" style="width:${pc}%"></i></div></div>`).join("")}
@@ -8678,12 +8741,17 @@ async function askFree(q){
   const searching=(typeof WEBON!=="undefined"&&WEBON);
   const bb=pushTo(c,"a",(searching?'<span style="color:var(--ink-3);font-size:11.5px">🌐 Webを検索しています… </span>':"")+'<span class="car"></span>');
   c.scrollTop=1e6;
-  const _mx=typeof shipModsCtx==="function"?shipModsCtx():"";
+  /* 受注の確定内容・添付資料の本文は「接続AIに渡す文脈」としてだけ質問に連結する。
+     内蔵エンジン（未接続）は質問文から意図を判定するため、文脈を連結すると
+     「数量:500袋／単価:US$14.50…」に引きずられて全質問が価格回答になる（v15.10 QAで発覚）→ 未接続時は生の質問だけを渡す */
+  const online=(typeof ppReady==="function"&&ppReady());
+  const _mx=(online&&typeof shipModsCtx==="function")?shipModsCtx():"";
   let q3=_mx?q.trim()+"\n\n"+_mx:q.trim();
-  if(_att&&_att.corpus) q3+=`\n\n=== 添付資料（${_att.name}）の内容 ===\n`+String(_att.corpus).slice(0,12000);
+  if(online&&_att&&_att.corpus) q3+=`\n\n=== 添付資料（${_att.name}）の内容 ===\n`+String(_att.corpus).slice(0,12000);
   if(_att&&typeof aiAttClear==="function") aiAttClear();
-  let r; try{ r=await Promise.resolve(brain(q3,(_att&&_att.att)?{att:_att.att}:undefined)); }
+  let r; try{ r=await Promise.resolve(brain(q3,Object.assign({raw:q.trim()},(_att&&_att.att)?{att:_att.att}:{}))); }
   catch(e){ r={a:"うまく処理できませんでした。もう一度お試しください。",c:"内部エラー"}; }
+  if(!online&&_att&&r&&typeof r.a==="string") r.a+=`<br><span style="font-size:10.5px;color:var(--ink-3)">📎 添付「${esc(_att.name)}」は、AIエンジン未接続のため読み取っていません（管理コンソールで接続すると添付ごと読みます）。</span>`;
   typeOut(bb,T(r.a),T(r.c),c);
 }
 function askAI(i){ const x=D&&D.aiq&&D.aiq[i]; if(x) askFree(x.q); }
@@ -8864,7 +8932,7 @@ function rDoc(k){
    pl:{t:"PACKING LIST（梱包明細書）",no:nno("PL"),rows:R.plRows,
      tot:S.qty.replace(/^[^（]*（/,"").replace(/）$/,""),ex:R.plEx}}[k];
   $("#dO").innerHTML=`<div class="doc"><h4>${d.t}</h4>
-    <div class="dl"><span>No.</span><span class="n">${d.no}</span><span>Date</span><span class="n">2026-07-28</span>
+    <div class="dl"><span>No.</span><span class="n">${d.no}</span><span>Date</span><span class="n">${esc(S.date||S.orderDate||TODAYS)}</span>
       <span>Seller</span><span>${esc(D.coEn)}</span><span>Buyer</span><span>${esc(D.ship.buyer)}, ${esc(D.ship.country)}</span></div>
     <table><thead><tr><th>Description</th><th>Qty</th><th>${pl?"Cartons":"Unit price"}</th><th>${pl?"Weight":"Amount"}</th></tr></thead>
       <tbody>${d.rows.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="num"':""}>${esc(c)}</td>`).join("")}</tr>`).join("")}
@@ -9506,14 +9574,18 @@ function openNotif(){
 }
 function openReport(){
   const K=D.kpi;
-  openDW(`<h3>2026年7月 月次レポート</h3>
+  /* 当月の実績は商談記録の日付から集計する（固定値を出さない） */
+  const ym=String(TODAYS).slice(0,7), FBm=(D.fb||[]).filter(f=>String(f.d||"").slice(0,7)===ym);
+  const mNew=FBm.length, mReact=FBm.filter(f=>f.react).length, mQuo=FBm.filter(f=>/見積提示|サンプル発送|受注/.test(String(f.st||""))).length,
+    mWon=FBm.filter(f=>String(f.st||"")==="受注").length, mLost=FBm.filter(f=>/失注|断られ/.test(String(f.st||""))).length;
+  openDW(`<h3>${ym.replace("-","年")}月 月次レポート</h3>
    <p class="nn" style="margin-bottom:11px">毎月1日に自動でつくられ、決裁者の方へ送られます。定例会を待つ必要はありません。</p>
-   <div class="doc"><h4>この1か月のまとめ（${D.month}ヶ月目 / 全24ヶ月）</h4>
-     <div class="dl"><span>新しい商談</span><span class="n">3件（累計 ${D.funnel[1][1]}件）</span>
-       <span>記録した反応</span><span class="n">3件（累計 ${K.fbDone}件 / 目標${K.fbGoal}件）</span>
-       <span>出した見積</span><span class="n">2件（累計 ${K.quotes}件）</span>
-       <span>受注</span><span class="n">${K.won}件（累計 ${K.won}件）</span>
-       <span>断られた</span><span class="n">1件（累計 ${D.lost.reduce((a,b)=>a+b[1],0)}件）</span></div></div>
+   <div class="doc"><h4>この1か月のまとめ（${D.month||1}ヶ月目 / 全24ヶ月）</h4>
+     <div class="dl"><span>新しい商談</span><span class="n">${mNew}件（累計 ${D.funnel[1][1]}件）</span>
+       <span>記録した反応</span><span class="n">${mReact}件（累計 ${K.fbDone}件 / 目標${K.fbGoal}件）</span>
+       <span>出した見積</span><span class="n">${mQuo}件（累計 ${K.quotes}件）</span>
+       <span>受注</span><span class="n">${mWon}件（累計 ${K.won}件）</span>
+       <span>断られた</span><span class="n">${mLost}件（累計 ${D.lost.reduce((a,b)=>a+b[1],0)}件）</span></div></div>
    <div style="margin-top:11px"><p class="lbl">今月わかったこと</p>
      <p style="font-size:12px;color:var(--ink-2);margin-top:4px">${esc(D.reportNote)}</p></div>
    <div style="margin-top:11px"><p class="lbl">来月やること</p>
@@ -9794,7 +9866,9 @@ function render(){
   if(cur==="up") wireUp();
   if(cur==="task"&&taskTab==="task"){tRows();["tHide","tSt"].forEach(id=>$("#"+id).addEventListener("change",tRows));}
   if(cur==="task"&&taskTab==="apr") document.querySelectorAll("[data-apr]").forEach(b=>
-    b.addEventListener("click",()=>toast("承認しました："+b.dataset.apr)));
+    b.addEventListener("click",()=>{ const a=(D.approvals||[]).find(x=>x.n===b.dataset.apr);   /* 承認の記録を実際に残す（状態・承認者） */
+      if(a){ a.st="承認済"; a.by=(typeof SES!=="undefined"&&SES&&SES.who)||a.who; a.at=TODAYS; }
+      toast("承認しました："+b.dataset.apr); render(); }));
   if(cur==="msg"){mRows();$("#mQ").addEventListener("input",()=>{msgQ=$("#mQ").value;mRows();});
     if(typeof bindMsgComposer==="function") bindMsgComposer();}
   if(cur==="deal"){fbRows();["fC","fR","fS"].forEach(id=>$("#"+id).addEventListener("change",fbRows));}
@@ -9815,7 +9889,7 @@ function render(){
   if(cur==="ship"&&D.ship) shipRender();
   if(cur==="ops"&&opsTab==="reg"){rReg();
     $("#rC").addEventListener("change",rReg);$("#rI").addEventListener("change",rReg);}
-  if(cur==="ops"&&opsTab==="doc"){rDoc("pi");
+  if(cur==="ops"&&opsTab==="doc"&&D.ship&&document.querySelector('[data-doc="pi"]')){rDoc("pi");   /* 出荷案件が無い商品では書類UIが無い＝バインドしない */
     document.querySelectorAll("[data-doc]").forEach(b=>b.addEventListener("click",()=>{
       document.querySelectorAll("[data-doc]").forEach(x=>{x.setAttribute("aria-pressed",String(x===b));
         x.style.background=x===b?"var(--or)":"var(--surface)";x.style.color=x===b?"#fff":"var(--ink-2)";
@@ -9904,10 +9978,11 @@ function resetTen(){
 $("#bell").addEventListener("click",openNotif);
 $("#psw").addEventListener("change",e=>{
   const v=e.target.value;
+  upFile=null;   /* 直前にアップロードしたファイル名を別商品に表示しない */
   if(v==="custom"){ PID="custom"; syncTenant(); }
   else if(v.startsWith("t:")){ switchTen(+v.slice(2)); toast(`「${TEN.item||TEN.file}」に切り替えました`); return; }
   else if(v.startsWith("s2:")){ adoptSample2(v.slice(3)); return; }
-  else { PID=v; D=PRODUCTS[PID]; TEN=tenantFromSample(D); }
+  else { PID=v; D=PRODUCTS[PID]; TEN=tenantFromSample(D); applyTenScalars(); }
   shipStep=0; SHIPQA=[]; FILL.on=false; buildNav(); render(); toast(`${D.cat}／${D.co} に切り替えました`);});
 document.querySelectorAll("[data-close]").forEach(e=>e.addEventListener("click",closeDW));
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDW();});
@@ -9967,7 +10042,7 @@ function dashRateFresh(){
     const dm=String(t).match(/(\d{4})年(\d{1,2})月(\d{1,2})日\s*現在/);
     const d=dm?`${dm[1]}-${String(dm[2]).padStart(2,"0")}-${String(dm[3]).padStart(2,"0")}`:new Date().toISOString().slice(0,10);
     try{ localStorage.setItem("bc20_ttm_v1",JSON.stringify({v:ttm,d,at:new Date().toISOString().slice(0,10)})); }catch(e){}
-    if(typeof render==="function"&&typeof page!=="undefined"&&page==="dash") render();
+    if(typeof render==="function"&&typeof cur!=="undefined"&&cur==="dash") render();   /* ルータ変数は cur */
   }).catch(()=>{});
 }
 
@@ -10072,7 +10147,7 @@ function dashOrders(us){
       dISO:dashDate(S.want)||dashDate(etd&&etd[0])||"",ref:u.ref,src});
   };
   us.forEach(u=>{ const k=u.D&&u.D.kpi; if(u.D&&u.D.ship&&k&&k.won) push(u.D.ship,u,"base"); });
-  if(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS.length){
+  if(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS.length&&(typeof PID==="undefined"||SHIPS._pid===PID)){   /* 別商品で開いた出荷案件を計上しない */
     const au=us.find(x=>x.act);
     if(au) SHIPS.forEach(cs=>{ if(cs&&cs.ship) push(cs.ship,au,"case"); });
   }
@@ -10291,6 +10366,9 @@ function dashFbEdit(ref,fi){
     r.st=$("#dfSt").value; r.react=$("#dfRe").value;
     r.price=($("#dfPr").value||"").trim(); r.why=($("#dfWhy").value||"").trim(); r.note=($("#dfNote").value||"").trim();
     if(u.i>=0&&typeof saveTen==="function") saveTen();
+    /* KPI・ファネル・失注理由・脈あり度を再集計（テナントは D を再生成、集計キャッシュも破棄） */
+    if(u.i>=0&&typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")&&typeof syncTenant==="function") syncTenant();
+    __DU=null;
     closeDW(); toast("商談記録を更新しました"); render();
   };
 }
@@ -10939,10 +11017,11 @@ function vToday(p){
   const ai=todayAIRec(), online=(typeof ppReady==="function"&&ppReady());
   const stale=!ai||ai.date!==TODAYS;
   /* Daily：今日ぶんが無ければ、ページを開いた時点で自動調査（接続時のみ） */
-  if(online&&stale&&!window.__tdBusy&&!window.__tdAuto){
+  /* 失敗した日は自動再実行しない（失敗→再描画→再実行の無限ループでAPI課金が続くのを防ぐ。手動の「今すぐ更新」は可） */
+  if(online&&stale&&!window.__tdBusy&&!window.__tdAuto&&window.__tdFail!==TODAYS+"|"+((typeof D!=="undefined"&&D&&D.item)||"")){
     window.__tdAuto=1;
-    todayGen(false).then(r2=>{ window.__tdAuto=0; if(r2&&typeof cur!=="undefined"&&cur==="today") render(); })
-      .catch(()=>{ window.__tdAuto=0; if(typeof cur!=="undefined"&&cur==="today") render(); });
+    todayGen(false).then(r2=>{ window.__tdAuto=0; if(!r2) window.__tdFail=TODAYS+"|"+((typeof D!=="undefined"&&D&&D.item)||""); if(r2&&typeof cur!=="undefined"&&cur==="today") render(); })
+      .catch(()=>{ window.__tdAuto=0; window.__tdFail=TODAYS+"|"+((typeof D!=="undefined"&&D&&D.item)||""); if(typeof cur!=="undefined"&&cur==="today") render(); });
   }
   const items=todayItems();
   const prC={高:"crit",中:"or",低:"bl"};
@@ -11408,7 +11487,7 @@ brain=function(q){
       r.c=`🌐 Web検索 ${hits.length}件（社内データに該当なし）`;
     } else {
       r.a+=webBlock(hits,mode);
-      r.c+=`／🌐 Web検索 ${hits.length}件${mode==="snap"?"（外部通信が遮断のため内蔵ナレッジ）":""}`;
+      r.c+=`／🌐 Web検索 ${hits.length}件${mode==="snap"?(live.blocked?"（外部通信が遮断のため内蔵ナレッジ）":"（内蔵ナレッジ）"):""}`;
     }
     if(typeof logU==="function") logU("web",String(q).slice(0,42));
     return r;
@@ -11509,7 +11588,7 @@ function llmActive(){
 function llmKeyOf(p){ return (LLM.keys[p]||"").trim(); }
 function llmEpOf(p){ return (LLM.eps[p]||"").trim()||PROV[p].ep; }
 function llmModelOf(p,tier){
-  const t=PLANS[tier==="pro"?"pro":USERPLAN==="lite"?"std":USERPLAN];
+  const t=PLANS[tier==="pro"?"pro":tier==="std"?"std":(USERPLAN==="lite"?"std":USERPLAN)];   /* 呼び出し側がプラン段階を指定したらそれを優先（物流会社スタンダードが荷主プレミアムに引きずられない） */
   if(t&&t.models&&t.models[p]) return t.models[p];
   return (LLM.models[p]||"").trim()||PROV[p].def;
 }
@@ -11589,22 +11668,40 @@ function ppContext(){
     ?TEN.extraQA.map(x=>`Q: ${x.q}\nA: ${x.a}`).join("\n"):"";
   const notes=(typeof TEN!=="undefined"&&TEN&&TEN.aiNotes&&TEN.aiNotes.length)
     ?TEN.aiNotes.join("\n"):"";
-  return `# 会社: ${D.co}（${D.cat}）
+  /* v15.10：AI商社マンが見落とさないよう、登録情報を漏れなく渡す（タスク・受注・確定価格・帳票設定・進出希望国も） */
+  const tasks=(D.tasks||[]); const tOpen=tasks.filter(t=>t.st!=="完了"&&t.st!=="中止");
+  const tOd=tOpen.filter(t=>t.e&&t.e<TODAYS);
+  const taskTxt=tasks.length?`全${tasks.length}件／未完了${tOpen.length}件（期限切れ${tOd.length}件）\n`+tOpen.slice(0,8).map(t=>`・${t.n}（${t.pri||"-"}・期限${t.e||"-"}・${t.st}・${t.who||"-"}）`).join("\n"):"";
+  const orders=(D.orders||[]).slice(0,6).map(o=>`${o.no} ${o.buyer||o.b||""}（${o.country||o.c||""}）${o.jpy||o.total||""}／受注書:${o.od||"-"}／請求書:${o.inv||"-"}／入金:${o.pay||"-"}／承認:${(o.appr&&o.appr.st)||"未承認"}`).join("\n");
+  const ddp=(typeof ddpPxList==="function")?ddpPxList().map(r=>`${r.cty}（${r.city||""}）${r.term}／${r.route}：¥${Number(r.priceJpy||0).toLocaleString()}（1${r.unit} ¥${Number(r.perJpy||0).toLocaleString()}・${r.qty}${r.unit}・利益率${r.margin}%・${r.at}確定）`).join("\n"):"";
+  const corp=(typeof corpProf==="function")?(function(){ const p=corpProf()||{}; const a=[]; if(p.cregno) a.push("適格請求書登録番号:"+p.cregno); if(p.cbank) a.push("振込先:"+p.cbank); if(p.cpay) a.push("支払期日:"+p.cpay); if(p.crecv) a.push("給付受領場所:"+p.crecv); return a.join("／"); })():"";
+  const fx=(typeof ddpFx==="function")?ddpFx():null;
+  return `# 会社: ${D.co}${D.coEn?"（"+D.coEn+"）":""}（${D.cat}）${D.city?"／所在地 "+D.city:""}
 # 商品: ${D.item}${D.itemEn?"（"+D.itemEn+"）":""}／品番 ${D.sku||"-"}／HSコード ${D.hs||"-"}
-強み: ${(D.strengths||[]).map(s=>s[0]).join("、")||"-"}
+強み: ${(D.strengths||[]).map(s=>Array.isArray(s)?s[0]:s).join("、")||"-"}
 MOQ: ${D.moq||"-"}／リードタイム: ${D.lead||"-"}／取引条件: ${D.term||"-"}／支払: ${D.pay||"-"}／仕出港: ${D.pol||"-"}
+産地: ${D.origin||"-"}／認証: ${D.cert||"-"}／賞味期限・保証: ${D.shelf||"-"}／カートン入数: ${D.ctn||"-"}／進出希望国: ${(D.targets||[]).join("、")||"-"}
+為替（TTM）: 1USD=¥${fx?fx.rates.USD:"-"}${fx?(fx.live?"（当日値）":"（参照レート "+fx.at+"）"):""}
 ## 価格表（${(D.priceCols||[]).join(" | ")}）
-${j(D.priceRows,6)||"-"}
+${j(D.priceRows,12)||"-"}
 ## 寸法・重量（${(D.dimCols||[]).join(" | ")}）
-${j(D.dimRows,5)||"-"}
-## ${D.compTitle||"成分・材質"}
-${j(D.compRows,10)||"-"}
+${j(D.dimRows,10)||"-"}
+## ${D.compTitle||"成分・材質"}（${(D.compCols||[]).join(" | ")}）
+${j(D.compRows,40)||"-"}
 ## 規制調査（概算。正式にはHS事前教示で確定）
 ${regs||"-"}
 ## 商談記録（直近）
 ${fb||"（まだ無し）"}
 ## 進行中の出荷
-${ship||"（まだ無し）"}${xa?`
+${ship||"（まだ無し）"}
+## 受注一覧
+${orders||"（まだ無し）"}
+## タスク・進行
+${taskTxt||"（まだ無し）"}
+## 確定済みの現地販売価格（国別・DDP等）
+${ddp||"（まだ確定なし）"}${corp?`
+## 帳票の会社設定
+${corp}`:""}${xa?`
 ## 担当者への追加ヒアリング（AIが質問し、担当者が回答済み）
 ${xa}`:""}${notes?`
 ## AIが資料から読み取った分析メモ
@@ -11808,18 +11905,21 @@ function ppFormat(txt){
 }
 const __brainB4pplx=brain;
 brain=function(q,opts){
-  /* opts.att：チャット欄に添付された画像・PDF（接続AIに原本ごと読ませる）。従来呼び出しは第2引数なしで不変 */
+  /* opts.att：チャット欄に添付された画像・PDF（接続AIに原本ごと読ませる）。従来呼び出しは第2引数なしで不変
+     opts.raw：文脈（受注確定内容・添付本文）を連結する前の質問文。意図判定・DB直接照会・内蔵エンジンへの
+     フォールバックは必ずこちらで行う（連結後の文で判定すると価格回答に偏る） */
+  const q0=(opts&&opts.raw)||q;
   /* バイヤーDBの列挙・件数質問はDB直接照会で即答（接続の有無に関わらず正確） */
-  if(typeof bnAsk==="function"){ const b=bnAsk(q); if(b) return b; }
+  if(typeof bnAsk==="function"){ const b=bnAsk(q0); if(b) return b; }
   /* 物流費・運賃の質問：登録レートがあればDB直接照会で即答。未登録×未接続は正直回答 */
-  if(typeof shipRateAsk==="function"){ const sr=shipRateAsk(q,ppReady()); if(sr) return sr; }
-  if(!ppReady()) return __brainB4pplx(q);
+  if(typeof shipRateAsk==="function"){ const sr=shipRateAsk(q0,ppReady()); if(sr) return sr; }
+  if(!ppReady()) return __brainB4pplx(q0);
   return (async()=>{
     try{
       let q2=q;
-      const bx=typeof bnCtxFor==="function"?bnCtxFor(q):"";
+      const bx=typeof bnCtxFor==="function"?bnCtxFor(q0):"";
       if(bx) q2=q+"\n\n"+bx;
-      const sx=typeof shipRateCtx==="function"?shipRateCtx(q):"";
+      const sx=typeof shipRateCtx==="function"?shipRateCtx(q0):"";
       if(sx) q2=q2+"\n\n"+sx;
       const r=await llmAsk(q2,(opts&&opts.att)?1400:undefined,(opts&&opts.att)?{att:opts.att}:undefined);
       let a=ppFormat(r.txt);
@@ -11838,8 +11938,8 @@ brain=function(q,opts){
         (usedWeb?`／Web情報を参照`:`／Web検索は未使用`)};
     }catch(e){
       /* 全エンジン失敗：物流費質問はレートDBの正直回答を優先してから内蔵へ */
-      const so=typeof shipRateAsk==="function"?shipRateAsk(q,false):null;
-      const r=so||await Promise.resolve(__brainB4pplx(q));
+      const so=typeof shipRateAsk==="function"?shipRateAsk(q0,false):null;
+      const r=so||await Promise.resolve(__brainB4pplx(q0));
       r.c+=`／⚠ ${esc(llmLabel())}接続不可（${esc(String(e.message)).slice(0,80)}）→ ${so?"社内物流レートDB":"内蔵エンジン"}で回答`;
       return r;
     }
@@ -12413,7 +12513,7 @@ function costBind(){
       if(i>=0) CDB.rates[p2].i=i; if(o>=0) CDB.rates[p2].o=o; });
     const wf=parseFloat(cc.querySelector("#cwebfee").value); if(wf>=0) CDB.rates.webFee=wf;
     costSave(); costRepaint(); toast("参考単価を保存しました（概算に即時反映）"); };
-  const ai=cc.querySelector("#costai"); if(ai) ai.onclick=()=>costAdvise();
+  const ai=cc.querySelector("#costai"); if(ai) ai.onclick=async()=>{ if(ai.disabled) return; ai.disabled=true; try{ await costAdvise(); } finally{ ai.disabled=false; } };   /* 連打で二重呼び出し（二重課金）しない */
 }
 
 /* ═══════════ ①② トライアル：ログイン／アカウント発行／管理コンソール ═══════════
@@ -12470,8 +12570,14 @@ function copyTxt(t){
 function saveTen(){ if(!SES||SES.t!=="trial")return;
   try{ if(TEN&&(TEN.src==="upload"||TEN.src==="sample2")&&TENS[TIDX]!==TEN){
       if(TENS.includes(TEN)) TIDX=TENS.indexOf(TEN); else TENS[TIDX]=TEN; }
-    localStorage.setItem("bc20_ten_"+SES.code,
-      JSON.stringify({v:2,list:TENS.filter(t=>t&&(t.src==="upload"||t.src==="sample2")),idx:TIDX})); }catch(e){} }
+    const list=TENS.filter(t=>t&&(t.src==="upload"||t.src==="sample2"));
+    /* 契約書のPDF/画像原本（att＝base64）は保存対象から外す：数MBで localStorage の上限を超えると以後の全保存が止まるため。
+       原本はセッション中のみ保持し、再読み込み後は再アップロードを案内する */
+    const slim=list.map(t=>{ if(!(t.legal&&t.legal.docs&&t.legal.docs.some(d=>d&&d.att))) return t;
+      const c=Object.assign({},t); c.legal=Object.assign({},t.legal,{docs:t.legal.docs.map(d=>{ if(!d||!d.att) return d; const e=Object.assign({},d); delete e.att; e.attDropped=1; return e; })}); return c; });
+    localStorage.setItem("bc20_ten_"+SES.code,JSON.stringify({v:2,list:slim,idx:TIDX})); window.__tenSaveErr=0; }
+  catch(e){ if(!window.__tenSaveErr){ window.__tenSaveErr=1;
+      if(typeof toast==="function") toast("⚠ ブラウザの保存容量を超えたため、この変更を保存できませんでした。📦データを持ち出して整理するか、不要な商品・添付を削除してください"); } } }
 function loadTen(){ if(!SES||SES.t!=="trial")return null;
   try{ const j=JSON.parse(localStorage.getItem("bc20_ten_"+SES.code));
     if(j&&j.v===2&&Array.isArray(j.list)){
@@ -12534,10 +12640,11 @@ function showLogin(){
         if(!a) return err("このコードは登録されていません。入力内容をご確認ください。");
         if(a.st!=="active") return err("このアカウントは無効化されています。STANDAGEの担当までご連絡ください。");
         if(a.expires<NOW()) return err("このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。");
-        SES={t:"trial",code:a.code,who:($("#lg-name").value||"").trim(),role:a.role||""};
+        const who=($("#lg-name").value||"").trim();
+        const mem=(a.members||[]).find(m=>m.name&&m.name===who);
+        if(mem&&mem.st!=="active") return err("このメンバーは停止されています。管理者にご確認ください。");   /* セッション確立前に判定（F5での素通りを防ぐ） */
+        SES={t:"trial",code:a.code,who,role:a.role||""};
         try{sessionStorage.setItem(SKEY,JSON.stringify(SES));}catch(e){}
-        const mem=(a.members||[]).find(m=>m.name&&m.name===SES.who);
-        if(mem&&mem.st!=="active") return err("このメンバーは停止されています。管理者にご確認ください。");
         logU("login",SES.who?`ログイン（${SES.who}${mem?"・招待メンバー":""}）`:"ログイン");
         enterApp(); toast(`ようこそ、${a.co} 様${mem?`（${mem.name} さん）`:""}`);
       };
@@ -13038,24 +13145,34 @@ function fwdAiBind(){
 }
 
 /* ── 見積ロジック（AI物流マン） ── */
+/* 有効期限内のレートだけを候補にする（「有効期限切れは自動で対象外」の表示どおり）。仕向地が空なら採用しない */
+function fwdRateValid(r){ const v=String(r&&r.valid||"").replace(/\//g,"-"); return !v||!/^\d{4}-\d{2}-\d{2}$/.test(v)||v>=TODAYS; }
 function fwdFindRate(pod){
-  const R=FWDB.rates;
+  pod=String(pod||"").trim(); if(!pod) return null;
+  const R=(FWDB.rates||[]).filter(fwdRateValid);
   return R.find(r=>r.pod===pod&&r.mode==="LCL")
     ||R.find(r=>r.pod===pod)
     ||R.find(r=>r.pod.includes(pod)||pod.includes(r.pod))            /* 部分一致（「基隆」⊂「台湾・基隆」等） */
     ||R.find(r=>(r.note||"").includes(pod))
     ||null;
 }
+/* レート単価を円に統一（US$建てのレート表は当日TTMで換算） */
+function fwdRateJpy(rate){ const p=+rate.price||0; if(/US\$|USD|\$/.test(String(rate.cur||""))){ const fx=(typeof ddpFx==="function")?ddpFx().rates.USD:150; return Math.round(p*fx); } return Math.round(p); }
 function fwdQuoteCalc(rate,cbm){
+  const pj=fwdRateJpy(rate), unit=rate.cur+Number(rate.price||0).toLocaleString()+(rate.unit||"");
   if(rate.mode==="COURIER"){
     /* 小包・クーリエ：1個（最小重量帯）基準。THC・書類費は運賃込みが通例 */
-    return {freight:rate.price,thc:0,doc:0,total:rate.price,tt:rate.tt,valid:rate.valid,
-      lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit:rate.cur+rate.price.toLocaleString()+rate.unit,
-      courier:1};
+    return {freight:pj,thc:0,doc:0,total:pj,tt:rate.tt,valid:rate.valid,
+      lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit,courier:1};
   }
-  const freight=Math.round(rate.price*Math.max(1,cbm));
+  /* 運賃の掛け方はモードごと：LCL＝¥/R.T.×CBM、FCL＝コンテナ1本、AIR＝¥/kg×容積重量（1CBM=167kg） */
+  let freight; const c=Math.max(1,+cbm||1);
+  if(/FCL/i.test(rate.mode)) freight=pj;
+  else if(/AIR/i.test(rate.mode)) freight=Math.round(pj*Math.max(1,c*167));
+  else freight=Math.round(pj*c);
   return {freight,thc:FWD_THC,doc:FWD_DOC,total:freight+FWD_THC+FWD_DOC,tt:rate.tt,valid:rate.valid,
-    lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit:rate.cur+rate.price.toLocaleString()+rate.unit};
+    lane:rate.pol+" → "+rate.pod,mode:rate.mode,unit,
+    basis:/FCL/i.test(rate.mode)?"コンテナ1本":/AIR/i.test(rate.mode)?`容積重量${Math.round(c*167)}kg`:`${c}m³`};
 }
 /* 複数の仕向国をまとめて照合：1か国でもレーンがあれば柔軟に提案する */
 function fwdLegLine(l){
@@ -13549,9 +13666,26 @@ async function fwdRatesLLM(src){
       unit:String(x.unit||"/m³"),tt:parseInt(x.tt,10)||10,
       valid:String(x.valid||"2026-12-31"),note:String(x.note||"")}));
 }
+/* レート追加後：「レーン未登録」で止まっていた見積依頼を再評価し、自動で見積を付ける（案内文「レート整備後に自動でお見積」を実装） */
+function fwdReevalPending(){
+  let n=0;
+  (FWDB.reqs||[]).forEach(req=>{
+    if(!Array.isArray(req.legs)) return;
+    let changed=false;
+    req.legs.forEach(l=>{ if(l.ok) return;
+      const pod=(typeof FWD_POD!=="undefined"&&FWD_POD[l.cty])||l.pod||l.cty;
+      const rate=fwdFindRate(pod)||fwdFindRate(l.cty); if(!rate) return;
+      l.ok=1; l.pod=rate.pod; l.quote=fwdQuoteCalc(rate,req.cbm||2); changed=true; n++; });
+    if(changed){ const ok=req.legs.filter(l=>l.ok).length;
+      req.status=ok?(ok<req.legs.length?"一部AI回答":"AI回答済み"):"レーン未登録";
+      req.msgs=(req.msgs||[]).concat([{f:"物",t:`レート表が更新されたため、未登録だったレーンを自動でお見積しました：<br>${req.legs.map(fwdLegLine).join("<br>")}`,at:TODAYS}]); }
+  });
+  return n;
+}
 function fwdRateDone(rs,how,fname){
   FWDB.rates=FWDB.rates.concat(rs);
   fwdHist(`レート取込：${fname||"手入力"}（${rs.length}レーン・${how.replace(/<[^>]+>/g,"")}）`);
+  const re=fwdReevalPending(); if(re) fwdHist(`レート整備により未登録レーン ${re}件を自動見積`);
   fwdSave(); fwdRender();
   const st=$("#fwdupst");
   if(st) st.innerHTML=`<div style="padding:11px 13px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
@@ -13756,6 +13890,10 @@ function shipRateAsk(q,online){
     c:"社内・物流レートDB照会（該当レーンなし・正直回答）"};
 }
 
+/* authBoot() は logic_auth.js 読み込み時点で実行されるため、F5復元では上の enterApp ラッパーより先に荷主用の enterApp が走る。
+   物流会社セッションなら、ここで物流会社モードへ入り直す（荷主向け歓迎パネルも除去） */
+try{ if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.role==="fwd"&&!FWDON){ const w=document.getElementById("welv"); if(w) w.remove(); fwdEnter(); } }catch(e){}
+
 /* ═══════════ 全AI商社マン共通：チャット欄への「画像コピペ貼り付け」と「パネル全体ドラッグ＆ドロップ」 ═══════════
    仕組み：document委任で paste / dragover / drop を受け、イベント地点のパネル（ドロワー#dw → カード.c → 本文#well）
    にある唯一の <input type=file> へ DataTransfer で流し込み、change を発火させる。
@@ -13955,7 +14093,7 @@ function notifCalc(){
     if(rem>0) add("today","🌅",`今日やること：残り${rem}ステップ`,`${its.length}件のタスクにAI実行支援があります`,{pg:"today"},`today:${TODAYS}`);
   }}catch(e){}
   try{
-    const ts=((typeof D!=="undefined"&&D&&D.tasks)||[]).concat((typeof TEN!=="undefined"&&TEN&&TEN.xtasks)||[]);
+    const ts=((typeof D!=="undefined"&&D&&D.tasks)||[]);   /* AI作成タスク（TEN.xtasks）は tenantToD で D.tasks に統合済み＝二重計上しない */
     const od=ts.filter(t=>t.st!=="完了"&&t.st!=="中止"&&t.e&&t.e<TODAYS);
     const sn=ts.filter(t=>t.st!=="完了"&&t.st!=="中止"&&t.e&&t.e>=TODAYS&&t.e<=addDays(TODAYS,3));
     if(od.length) add("task","⏰",`期限切れのタスク ${od.length}件`,`「${(od[0].n||"").slice(0,22)}」ほか`,{pg:"task"},`taskod:${od.length}`);
@@ -13964,8 +14102,10 @@ function notifCalc(){
   try{ const w=ordApprAll().filter(o=>o.appr&&o.appr.st==="承認待ち");
     if(w.length) add("appr","🖋",`承認待ちの受注 ${w.length}件`,"承認が完了するまで注文書・請求書は送付できません",{pg:"ops",pre:"ord"},`appr:${w.length}`);
   }catch(e){}
-  try{ if(typeof D!=="undefined"&&D&&D.ship&&D.ship.no&&!/入金済/.test(D.ship.payStatus||"")){
-    add("pay","💴",`入金待ち：${D.ship.no}`,`${D.ship.buyer}／${D.ship.total}`,{pg:"ops",pre:"ord"},`pay:${D.ship.no}`);
+  try{ if(typeof D!=="undefined"&&D&&D.ship&&D.ship.no){
+    /* 受注一覧に実在する案件だけ通知する（アップロード直後の「想定シナリオ」の出荷は受注0件＝通知しない）。入金状態は受注行の pay 列が正 */
+    const o=ordApprAll().find(x=>x.no===D.ship.no);
+    if(o&&!/入金済/.test(String(o.pay||""))) add("pay","💴",`入金待ち：${D.ship.no}`,`${D.ship.buyer}／${D.ship.total}`,{pg:"ops",pre:"ord"},`pay:${D.ship.no}`);
   }}catch(e){}
   try{ ((typeof TEN!=="undefined"&&TEN&&TEN.dmNotifs)||[]).forEach(n=>
     add("msg","📨",String(n.txt||"新着メッセージ"),"タップしてスレッドを開きます",{dm:String(n.id)},`dm:${n.id}`)); }catch(e){}
@@ -14045,19 +14185,25 @@ function expRows(){
   push("商品情報",["項目","内容"],[["会社名",dd.co],["会社名（英）",dd.coEn],["商品名",dd.item],["商品名（英）",dd.itemEn],
     ["カテゴリ",dd.cat],["HSコード",dd.hs],["産地",dd.origin],["認証",dd.cert],["取引条件",dd.term],["支払条件",dd.pay],
     ["仕出港",dd.pol],["賞味期限・保証",dd.shelf],["強み",(dd.strengths||[]).map(s=>Array.isArray(s)?s.join("："):s).join(" / ")]].map(r=>[r[0],String(r[1]==null?"":r[1])]));
-  if((dd.priceRows||[]).length) push("価格表",["品目","規格","単価","備考"].slice(0,(dd.priceRows[0]||[]).length),dd.priceRows.map(r=>r.map(c=>String(c==null?"":c))));
-  if((dd.dimRows||[]).length) push("寸法・重量",["項目","値","値2","値3"].slice(0,(dd.dimRows[0]||[]).length),dd.dimRows.map(r=>r.map(c=>String(c==null?"":c))));
-  if((dd.compRows||[]).length) push(dd.compTitle||"成分・材質",["項目","内容"].slice(0,(dd.compRows[0]||[]).length),dd.compRows.map(r=>r.map(c=>String(c==null?"":c))));
-  const fbs=((typeof TEN!=="undefined"&&TEN&&TEN.fbx)||[]).concat(dd.fb||[]);
+  /* 見出しは登録されている列名をそのまま使う（元資料の列名と一致させる。列名が無いときだけ汎用見出し） */
+  const hdr=(cols,n,fallback)=>{ const c=(cols||[]).map(x=>String(x==null?"":x)); const out=[]; for(let i=0;i<n;i++) out.push(c[i]||fallback[i]||("列"+(i+1))); return out; };
+  const wid=rows=>Math.max.apply(null,rows.map(r=>(r||[]).length).concat([0]));
+  if((dd.priceRows||[]).length) push("価格表",hdr(dd.priceCols,wid(dd.priceRows),["品目","規格","単価","備考"]),dd.priceRows.map(r=>r.map(c=>String(c==null?"":c))));
+  if((dd.dimRows||[]).length) push("寸法・重量",hdr(dd.dimCols,wid(dd.dimRows),["項目","値","値2","値3"]),dd.dimRows.map(r=>r.map(c=>String(c==null?"":c))));
+  if((dd.compRows||[]).length) push(dd.compTitle||"成分・材質",hdr(dd.compCols,wid(dd.compRows),["項目","内容","基準・備考"]),dd.compRows.map(r=>r.map(c=>String(c==null?"":c))));
+  const fbs=(dd.fb||[]);   /* ユーザー入力の商談記録（TEN.fbx）は tenantToD で D.fb に統合済み＝重複させない */
   if(fbs.length) push("商談記録",["日付","バイヤー","国","ステータス","反応","内容・次アクション","担当"],
     fbs.map(f=>[f.d||"",f.b||"",f.c||"",f.st||"",f.react||"",String(f.note||f.raw||"").slice(0,500),f.owner||""]));
   const mbs=(typeof myBuyers==="function")?myBuyers():[];
   if(mbs.length) push("自社追加バイヤー",["会社名","担当者","国","メール","電話","メモ"],
     mbs.map(b=>[b.co||"",b.who||"",b.cty||"",b.mail||"",b.tel||"",String(b.note||"").slice(0,300)]));
-  const ts=(dd.tasks||[]).concat((typeof TEN!=="undefined"&&TEN&&TEN.xtasks)||[]);
+  const ts=(dd.tasks||[]);   /* TEN.xtasks は D.tasks に統合済み */
   if(ts.length) push("タスク",["タスク","優先度","開始","期限","状態","担当"],ts.map(t=>[t.n||"",t.pri||"",t.s||"",t.e||"",t.st||"",t.who||""]));
-  if(dd.ship&&dd.ship.no) push("受注・出荷",["項目","内容"],[["案件No",dd.ship.no],["バイヤー",dd.ship.buyer],["国",dd.ship.country],
-    ["数量",dd.ship.qty],["単価",dd.ship.unitPrice],["合計",dd.ship.total],["条件",dd.ship.term],["承認状態",(dd.ship.appr&&dd.ship.appr.st)||"未承認"]]);
+  if(dd.ship&&dd.ship.no){ const o=(typeof ordApprAll==="function")?ordApprAll().find(x=>x.no===dd.ship.no):null;   /* 承認状態は受注行（ordApprSet の書き込み先）から */
+    push("受注・出荷",["項目","内容"],[["案件No",dd.ship.no],["バイヤー",dd.ship.buyer],["国",dd.ship.country],
+    ["数量",dd.ship.qty],["単価",dd.ship.unitPrice],["合計",dd.ship.total],["条件",dd.ship.term],["承認状態",(o&&o.appr&&o.appr.st)||"未承認"],["入金",(o&&o.pay)||"—"]]); }
+  if((dd.orders||[]).length) push("受注一覧",["案件No","バイヤー","国","金額","受注書","請求書","入金","期日","状態","承認"],
+    dd.orders.map(o=>[o.no||"",o.buyer||o.b||"",o.country||o.c||"",o.jpy||o.total||"",o.od||"",o.inv||"",o.pay||"",o.due||"",o.st||"",(o.appr&&o.appr.st)||"未承認"]));
   const srcs=((typeof TEN!=="undefined"&&TEN&&TEN.sources)||[]).map(s=>[s.name||"",s.kind||s.via||"",String(s.at||"")]);
   if(srcs.length) push("取り込んだ資料一覧",["ファイル名","種別","取込日"],srcs);
   return S;
@@ -14176,9 +14322,10 @@ function lwParse(text){
   }
   return {src:src||"チャット",msgs:out};
 }
-/* 表示中のメッセージ配列（tenantToDはTEN.msgsを同一参照でDへ渡すため、ここへの追記はテナント保存にも乗る） */
-function lwStore(){ return (typeof D!=="undefined"&&D&&D.msgs)?D.msgs:[]; }
-function lwPersist(){ if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")&&typeof saveTen==="function"){ TEN.msgs=TEN.msgs||lwStore(); saveTen(); } }
+/* 取り込み先はチャット投稿と同じ保存先（msgStore：アップロード／業種サンプルは TEN.msgs、デモ商品は D.msgs）。
+   tenantToD は TEN.msgs を「コピー」で D へ渡すため、D.msgs に足すだけでは次回同期・リロードで消える（v15.10 QAで修正） */
+function lwStore(){ if(typeof msgStore==="function"){ try{ const s=msgStore(); if(Array.isArray(s)) return s; }catch(e){} } return (typeof D!=="undefined"&&D&&D.msgs)?D.msgs:[]; }
+function lwPersist(){ if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ if(typeof syncTenant==="function") syncTenant(); if(typeof saveTen==="function") saveTen(); } }
 async function lwIngest(text,fileName){
   const r=lwParse(text);
   if(!r.msgs.length){ toast("トーク履歴の形式を読み取れませんでした（LINE/WhatsAppのエクスポート.txt、またはコピペに対応）"); return false; }
@@ -14199,7 +14346,7 @@ async function lwIngest(text,fileName){
         body:esc(m.body).replace(/\n/g,"<br>"),mention:[],quote:null,file:null,src:r.src}));
       lwPersist();
       if(typeof logU==="function") logU("upload",r.src+"トーク取込:"+r.msgs.length+"件");
-      closeDW(); if(typeof cur!=="undefined"&&cur==="msg") render();
+      closeDW(); if(typeof render==="function") render();
       toast(`${r.src}のやり取り ${r.msgs.length}件を取り込みました（📱バッジ付き）`); res(true);
     };
   });
@@ -14275,7 +14422,15 @@ async function vfbFile(e){
   try{
     const u8=new Uint8Array(await f.arrayBuffer());
     const r=await entriesCorpus([{name:f.name,u8}]);
-    if(!(r.corpus||"").trim()){ toast("本文を取り出せませんでした（txt/vtt/docx/pdf対応）"); return; }
+    if(!(r.corpus||"").trim()){
+      /* PDF・画像は本文抽出ができないため、接続AIに原本を渡して書き起こす（未接続なら正直に案内） */
+      if(r.att&&typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function"){
+        if(out) out.value="（PDF／画像を読み取り中… 10〜60秒）";
+        try{ const r2=await llmAsk("この資料は海外バイヤーとの商談の議事録・メモです。本文を日本語で忠実に書き起こしてください（要約せず、数字・固有名詞・日付は落とさない）。",1600,{att:r.att,noWeb:1});
+          if(out) out.value=String(r2.txt||"").slice(0,9000); toast(f.name+" を読み取りました。「AIで整理」へ進めます"); }
+        catch(err){ if(out) out.value=""; toast("読み取れませんでした："+String(err&&err.message||err).slice(0,60)); }
+        return; }
+      toast(r.att?"PDF・画像の本文読み取りはAIエンジン接続時に有効です（txt／vtt／docx は今も使えます）":"本文を取り出せませんでした（txt／vtt／docx／pdf 対応）"); return; }
     if(out) out.value=r.corpus.slice(0,9000);
     toast(f.name+" を読み込みました。「AIで整理」へ進めます");
   }catch(err){ toast("読み込めませんでした"); }
@@ -14391,7 +14546,7 @@ function corpDocExtra(k){
   const p=corpProf(), S=(typeof D!=="undefined"&&D&&D.ship)||{};
   if(k==="pl") return "";
   const rows=[
-    ["取引年月日（Transaction Date）","2026-07-28（年を含めて表記）"],
+    ["取引年月日（Transaction Date）",String(S.date||S.orderDate||S.d||TODAYS)],
     ["消費税区分（Tax）","輸出免税取引（消費税 0%）／Export exempt.　※対象外税率（8%・10%）該当なし：¥0"],
     ["適格請求書 登録番号",p.cregno||"未設定（🧾会社設定から登録できます）"],
     ["お振込先（Bank）",p.cbank||"未設定（🧾会社設定から登録できます）"],
@@ -14443,7 +14598,8 @@ render=function(){
     }
     /* バイヤーDB：🧩名寄せ */
     if(cur==="db"&&!document.getElementById("mbMergeBtn")){
-      const h=[...document.querySelectorAll("#well h3")].find(x=>/相手を探す|バイヤー/.test(x.textContent));
+      const hs=[...document.querySelectorAll("#well h3")];
+      const h=hs.find(x=>/相手を探す/.test(x.textContent))||hs.find(x=>/自社.*バイヤー|登録したバイヤー/.test(x.textContent))||hs.find(x=>/バイヤー/.test(x.textContent));
       const dup=mbDupGroups().length;
       if(h) h.insertAdjacentHTML("beforeend",` <button class="btn g" id="mbMergeBtn" style="font-size:10.5px;padding:4px 11px;margin-left:8px" onclick="openMerge()">🧩 名寄せ${dup?`（重複${dup}組）`:""}</button>`);
     }
@@ -14733,7 +14889,7 @@ function openDDP(){
   const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr");
   if(typeof dwChrome==="function") dwChrome();
   ddpFxFetch();
-  const b=document.getElementById("ddpGo"); if(b) b.onclick=()=>ddpRun();
+  const b=document.getElementById("ddpGo"); if(b) b.onclick=async()=>{ if(b.disabled) return; b.disabled=true; try{ await ddpRun(); } finally{ b.disabled=false; } };   /* 連打防止 */
   /* 関税率・付加価値税：仕向地を選んだ時点で参考値を欄に自動表示（手入力があればそれを尊重） */
   const taxFill=()=>{
     const cty=ddpParseCity();
@@ -15283,7 +15439,7 @@ function openFOB(){
     if(!h){ toast("該当する品目が見つかりません（例：ジーンズ／6203）"); return; }
     if(![...sel.options].some(o=>o.value===h)){ const o=document.createElement("option"); o.value=h; o.textContent=h.slice(0,4)+"."+h.slice(4)+"　"+(C.meta[h]||{}).ja; sel.appendChild(o); }
     sel.value=h; fd.value=""; paint(); };
-  document.getElementById("fobGo").onclick=()=>fobRun();
+  const fg=document.getElementById("fobGo"); fg.onclick=async()=>{ if(fg.disabled) return; fg.disabled=true; try{ await fobRun(); } finally{ fg.disabled=false; } };   /* 連打防止 */
   paint();
 }
 function fobRenderStats(hs,kg){
@@ -15318,11 +15474,13 @@ function fobLocal(){
   const base=usdU||(cur?cur.minUsd:null); if(!base) return null;
   const n=(typeof D!=="undefined"&&D&&D.strengths)?D.strengths.length:0;
   const hiCty=S.top.filter(p=>p.upkg).sort((a,b)=>b.upkg-a.upkg)[0];
+  /* 基準が「統計換算の1単位単価」か「自社価格表の下限」かで文言を変える（重量未入力・統計に正味重量なしのときは後者） */
+  const bLbl=usdU?`統計の平均FOB単価（$${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg換算＝1単位 $${usdU.toFixed(2)}）`:`貴社の現行価格表の下限（$${base.toFixed(2)}。統計は重量換算できないため基準にしていません）`;
   const tiers=[
-    {name:"守り（統計平均並み）",usd:base*0.95,why:`統計の平均FOB単価（$${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg換算）の−5%。初回取引・数量獲得を優先する場合。`},
-    {name:"標準（推奨）",usd:Math.max(base*1.15,cur?cur.minUsd:0),why:`統計平均の+15%${cur&&cur.minUsd>base*1.15?"（現行価格表の下限を維持）":""}。${n?`登録済みの強み${n}件で差別化できる水準。`:"強みを登録すると根拠が強まります。"}`},
-    {name:"プレミアム",usd:base*1.35,why:`統計平均の+35%。${hiCty?`高単価市場（${hiCty.name} $${hiCty.upkg.toFixed(2)}/kg）向け。`:""}ブランド・認証・実績を資料の冒頭で示せる場合。`}];
-  const why=[`直近${S.world.y}年の日本の輸出単価は $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg（前年比${S.yoyUpkg==null?"—":((S.yoyUpkg>=0?"+":"")+(S.yoyUpkg*100).toFixed(1)+"%")}）${kg?`＝1単位 $${(S.world.upkg*kg).toFixed(2)}`:""}。`,
+    {name:usdU?"守り（統計平均並み）":"守り（現行下限並み）",usd:base*0.95,why:`${bLbl}の−5%。初回取引・数量獲得を優先する場合。`},
+    {name:"標準（推奨）",usd:Math.max(base*1.15,cur?cur.minUsd:0),why:`${usdU?"統計平均":"現行下限"}の+15%${cur&&usdU&&cur.minUsd>base*1.15?"（現行価格表の下限を維持）":""}。${n?`登録済みの強み${n}件で差別化できる水準。`:"強みを登録すると根拠が強まります。"}`},
+    {name:"プレミアム",usd:base*1.35,why:`${usdU?"統計平均":"現行下限"}の+35%。${hiCty?`高単価市場（${hiCty.name} $${hiCty.upkg.toFixed(2)}/kg）向け。`:""}ブランド・認証・実績を資料の冒頭で示せる場合。`}];
+  const why=[`直近${S.world.y}年の日本の輸出単価は $${S.world.upkg?S.world.upkg.toFixed(2):"—"}/kg（前年比${S.yoyUpkg==null?"—":((S.yoyUpkg>=0?"+":"")+(S.yoyUpkg*100).toFixed(1)+"%")}）${(kg&&S.world.upkg)?`＝1単位 $${(S.world.upkg*kg).toFixed(2)}`:(kg?"（統計に正味重量が無く1単位換算不可）":"（1単位の重量が未入力のため換算不可）")}。`,
     `輸出額上位は ${S.top.slice(0,3).map(p=>p.name).join("・")}（合計シェア${(S.top.slice(0,3).reduce((a,p)=>a+p.share,0)*100).toFixed(0)}%）。`,
     cur?`貴社の現行FOB ${cur.sym}${cur.min.toLocaleString()}〜 は統計換算に対し${usdU?(cur.minUsd/usdU>=1?"+"+((cur.minUsd/usdU-1)*100).toFixed(0)+"%":"−"+((1-cur.minUsd/usdU)*100).toFixed(0)+"%"):"—"}の位置。`:"価格表に単価が無いため、統計だけから提案しています。"];
   return {tiers,why,risks:["HS6桁には規格・等級違いが混在するため、同等品の単価は上下に振れます。","為替（年平均レートで換算）と輸送費の変動で、現地着値は変わります。"]};
