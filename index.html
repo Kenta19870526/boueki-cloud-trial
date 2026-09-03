@@ -404,6 +404,55 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 #guide .gmsg{flex:1;min-width:210px;color:var(--ink);line-height:1.6}
 #guide .gmsg b{color:var(--or-deep)}
 @media (max-width:700px){#guide .gst{display:none}}
+/* ── v15.18：上部バーのAI商社マン常設ボタン ── */
+.btn.gai{background:linear-gradient(135deg,var(--or),#ff7a12);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(248,149,29,.35);padding:6px 14px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn.gai:hover{filter:brightness(1.06)}
+.btn.gai .lv{background:rgba(255,255,255,.22);border-radius:999px;padding:1px 8px;font-size:10px;font-weight:700}
+/* ── v15.18：貿易実務・書類・出荷の流れタブ ── */
+.optabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.optab{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left;cursor:pointer;flex:1 1 150px;min-width:150px;font:inherit;color:var(--ink)}
+.optab i{width:22px;height:22px;border-radius:50%;background:var(--sunk);color:var(--ink-3);font-style:normal;font-weight:800;font-size:11px;display:grid;place-items:center;flex:none}
+.optab b{font-size:12.5px;display:block;line-height:1.25} .optab small{font-size:9.5px;color:var(--ink-3);display:block;line-height:1.3;margin-top:1px}
+.optab:hover{border-color:var(--or)}
+.optab.on{border-color:var(--or);background:var(--or-soft);box-shadow:inset 0 -2px 0 var(--or)}
+.optab.on i{background:var(--or);color:#fff}
+.optab.sub{flex:0 0 auto;min-width:0}
+@media (max-width:700px){.optab small{display:none}.optab{min-width:0;flex:1 1 40%}}
+/* ── v15.18：AI商社マンの成長レベル ── */
+.growwrap{display:grid;grid-template-columns:210px minmax(0,1fr);gap:16px;align-items:start;margin-top:10px}
+@media (max-width:760px){.growwrap{grid-template-columns:1fr}}
+.growring{text-align:center}
+.growring svg{width:186px;height:186px;display:block;margin:0 auto}
+.gseg{fill:none;stroke-width:11}
+.gseg.bg{stroke:var(--sunk)}
+.gseg.fg{transition:stroke-dasharray .9s ease,stroke-width .15s}
+.gseg.fg.hl{stroke-width:15}
+.gmark{stroke:var(--ink);stroke-width:2;stroke-linecap:round}
+.gpct{font-size:26px;font-weight:800;fill:var(--ink);letter-spacing:-.03em}
+.gunit{font-size:12px;font-weight:700;fill:var(--ink-3)}
+.glv{font-size:9.5px;font-weight:700;fill:var(--or-deep)}
+.gtxt{font-size:7px;fill:var(--ink-3)}
+.growlv{margin-top:4px;font-size:10.5px;color:var(--ink-2);line-height:1.6}
+.growlv b{display:block;font-size:13px;color:var(--ink)}
+.gladder{display:flex;gap:4px;margin-top:8px;font-size:9.5px}
+.gladder span{flex:1;text-align:center;padding:4px 2px;border-radius:6px;background:var(--sunk);color:var(--ink-3);font-weight:700;line-height:1.3}
+.gladder span i{display:block;font-style:normal;font-size:8.5px;font-weight:600;opacity:.8}
+.gladder span.on{background:var(--or-soft);color:var(--or-deep)}
+.gladder span.cur{background:var(--or);color:#fff;box-shadow:var(--sh-2)}
+.growcat{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);margin-bottom:6px}
+.growcat>summary{list-style:none;display:grid;grid-template-columns:24px minmax(0,1fr) 120px 44px;gap:8px;align-items:center;padding:7px 10px;cursor:pointer}
+.growcat>summary::-webkit-details-marker{display:none}
+.growcat .gic{font-size:15px;text-align:center}
+.growcat .gnm b{font-size:12px;display:block} .growcat .gnm small{font-size:9.5px;color:var(--ink-3)}
+.growcat .gbar{height:7px;border-radius:4px;background:var(--sunk);overflow:hidden;display:block}
+.growcat .gbar i{display:block;height:100%;border-radius:4px;transition:width .6s ease}
+.growcat .gpc{text-align:right;font-weight:700;font-size:12px}
+.growcat[open]>summary{background:var(--surface-2);border-bottom:1px solid var(--line-2)}
+.growcat:hover{border-color:var(--or)}
+.growcat .gdt{padding:8px 10px 10px;font-size:11px;color:var(--ink-2);line-height:1.65}
+.growlog{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--ink-2)}
+.growlog span{background:var(--surface-2);border:1px solid var(--line-2);border-radius:999px;padding:2px 9px}
+@media (max-width:700px){.growcat>summary{grid-template-columns:24px minmax(0,1fr) 44px}.growcat .gbar{display:none}}
 
 .pg-ft{max-width:1440px;margin:22px auto 0;font-size:10.5px;color:var(--ink-3);line-height:1.75;padding:0 2px 30px}
 .pg-ft b{color:var(--ink-2)}
@@ -1856,7 +1905,7 @@ function fillAnswer(v){
   if(k==="hs"&&TEN.hsGuess&&TEN._hsNote)
     note=`<br>商品名から<b>${TEN.hs}</b>（${TEN._hsNote[0][1]}）と推定しました。正式な分類は税関の事前教示で確定できます。`;
   if(k==="targets"&&TEN.targets.length)
-    note=`<br><b>${TEN.targets.length}か国</b>の規制調査を開始しました。関税率と必要書類は「貿易実務・書類」で確認できます。`;
+    note=`<br><b>${TEN.targets.length}か国</b>の規制調査を開始しました。関税率と必要書類は「貿易実務・書類・出荷」で確認できます。`;
   if(k==="dimRows") note="<br>これで<b>運送会社への見積依頼</b>ができるようになりました。";
   if(k==="priceRows") note="<br>これで<b>見積書・請求書の自動作成</b>ができるようになりました。";
   if(k==="strengths") note="<br>AIが商談準備の答えを作るとき、ここを根拠として引用します。";
@@ -3565,7 +3614,7 @@ function fillCommit(v){
   if(k==="hs"&&TEN.hsGuess&&TEN._hsNote)
     note=`<br>商品名から<b>${TEN.hs}</b>（${TEN._hsNote[0][1]}）と推定しました。正式な分類は税関の事前教示で確定できます。`;
   if(k==="targets"&&TEN.targets.length)
-    note=`<br><b>${TEN.targets.length}か国</b>の規制調査を開始しました。関税率と必要書類は「貿易実務・書類」で確認できます。`;
+    note=`<br><b>${TEN.targets.length}か国</b>の規制調査を開始しました。関税率と必要書類は「貿易実務・書類・出荷」で確認できます。`;
   if(k==="dimRows") note="<br>これで<b>運送会社への見積依頼</b>ができるようになりました。";
   if(k==="priceRows") note="<br>これで<b>見積書・請求書の自動作成</b>ができるようになりました。";
   if(k==="strengths") note="<br>AIが商談準備の答えを作るとき、ここを根拠として引用します。";
@@ -7224,13 +7273,13 @@ const PAGES=[
   ic:'<rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/><path d="M7 9h6M7 12h4"/>'},
  {id:"task",ly:"②",nm:"タスク・進行",grp:"業務を回す",nw:1,
   ic:'<path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>'},
- {id:"ops",ly:"②",nm:"貿易実務・書類",grp:"業務を回す",
+ {id:"ops",ly:"②",nm:"貿易実務・書類・出荷",grp:"業務を回す",
   ic:'<path d="M14 3v5h5"/><path d="M19 8v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8z"/><path d="M8 13h8M8 17h5"/>'},
  {id:"legal",ly:"②⑤",nm:"契約書関連",grp:"業務を回す",nw:1,
   ic:'<path d="M12 3l7 3v5c0 4.5-3 8.4-7 10-4-1.6-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'},
- {id:"ai",ly:"⑤",nm:"AI商社マン",grp:"自走する",nw:1,
+ {id:"ai",ly:"⑤",nm:"AI商社マン",grp:"自走する",nw:1,hide:1,
   ic:'<path d="M12 3v2.6M5.6 5.6l1.9 1.9M3 12h2.6M5.6 18.4l1.9-1.9M12 21v-2.6M18.4 18.4l-1.9-1.9M21 12h-2.6M18.4 5.6l-1.9 1.9"/><circle cx="12" cy="12" r="3"/>'},
- {id:"ship",ly:"②⑤",nm:"出荷を進める",grp:"自走する",nw:1,
+ {id:"ship",ly:"②⑤",nm:"出荷を進める",grp:"自走する",nw:1,hide:1,
   ic:'<path d="M3 16V9l9-5 9 5v7"/><path d="M3 16l9 5 9-5"/><path d="M12 11v10"/>'},
  {id:"msg",ly:"④",nm:"やりとり",grp:"外とつながる",nw:1,
   ic:'<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4h.5a8.4 8.4 0 0 1 8 8z"/>'},
@@ -7341,7 +7390,8 @@ function openProdFind(){
 }
 function buildNav(){
   let h="",lg=null;
-  PAGES.forEach(p=>{ if(p.grp!==lg){lg=p.grp;h+=`<div class="ngrp">${p.grp}</div>`;}
+  PAGES.forEach(p=>{ if(p.hide) return;   /* v15.18：AI商社マンは上部バーの常設ボタン、出荷は「貿易実務・書類・出荷」のタブへ統合（機能はそのまま） */
+    if(p.grp!==lg){lg=p.grp;h+=`<div class="ngrp">${p.grp}</div>`;}
     const lock=!PID&&!p.free;
     h+=`<button class="nb" data-p="${p.id}" ${lock?"disabled":""} ${p.id===cur?'aria-current="page"':""}
       ${lock?'title="商品情報を登録すると使えるようになります"':""}>
@@ -8216,7 +8266,7 @@ function shipStepDigest(i,S){
     `${esc(shipShort(S.buyer))}（${esc(S.country)}）／${esc(S.qty)}／単価 ${esc(S.unitPrice)}・合計 ${esc(S.total)}／${esc(S.term)}／${esc(S.pay||"T/T 30日")}／着荷 ${esc(S.want)}${ex?"／"+esc(ex):""}`,
     `${esc(S.pol||"神戸港")} → ${esc(S.pod||S.country)}／フォワーダー3社＋<b>貿易クラウド内の物流会社にAI見積</b>（下の依頼内容ブロックから）`,
     `届いた見積を金額・日数・実績で比較して1社を選定`,
-    `PI・CI・PLを自動作成（「貿易実務・書類」で確認できます）`,
+    `PI・CI・PLを自動作成（「貿易実務・書類・出荷」で確認できます）`,
     `通関業者・銀行・保険会社へデータを連携`,
     `出荷予定を登録し、バイヤーと共有`,
     `完了`][i]||"";
@@ -8309,8 +8359,11 @@ function openStepEdit(i){
   if(typeof dwChrome==="function") dwChrome();
 }
 function vShip(p){
-  if(!D.ship) return ph(p,"<b>この画面でできること：</b>受注が決まったあとの手続きを、AIとの会話だけで終わらせます。")+
-    `<div class="c"><h3>まだ出荷のシナリオを組めません</h3>
+  /* v15.18：出荷は「貿易実務・書類・出荷」の出荷タブに統合。単独IDで呼ばれても同じ本体を表示する */
+  return ph(p,"<b>この画面でできること：</b>受注が決まったあとの手続きを、AIと会話するだけで最後まで終わらせます。運送会社への見積依頼、書類づくり、関係先へのデータ送信まで全部です。")+vShipBody();
+}
+function vShipBody(){
+  if(!D.ship) return `<div class="c"><h3>まだ出荷のシナリオを組めません</h3>
      <p class="nn" style="margin-top:6px">運送会社への見積依頼と船積書類の作成には、少なくとも<b>価格表・寸法／重量・進出希望国</b>の3つが必要です。</p>
      <div class="g3" style="margin-top:11px">${[["価格表","priceRows"],["寸法・重量","dimRows"],["進出希望国","targets"]]
        .map(([n,k])=>{const ok=TEN&&has(TEN[k]);return `<div style="padding:11px 12px;border:1px solid var(--line);border-radius:var(--r2);
@@ -8320,8 +8373,7 @@ function vShip(p){
        <button class="btn g" onclick="openAskAI()">🤖 AIに聞いてみる</button></div></div>`;
   shipEnsure();
   const S=D.ship, ST=shipSteps();
-  return ph(p,"<b>この画面でできること：</b>受注が決まったあとの手続きを、AIと会話するだけで最後まで終わらせます。運送会社への見積依頼、書類づくり、関係先へのデータ送信まで全部です。複数の相手先は<b>案件タブ（最大4件）</b>で並行して進められます。",
-    `<button class="btn g" onclick="shipStep=0;SHIPQA=[];render()">この案件を最初から</button>`)+`
+  return `<p class="nn" style="margin:-2px 0 10px">受注が決まったあとの手続きを、<b>AI商社マンと会話するだけ</b>で進めます。物流会社へのAI見積（相見積・推奨）、書類づくり、関係先への連携まで。複数の相手先は<b>案件タブ（最大4件）</b>で並行できます。</p>
   <div class="c" style="margin-bottom:11px;padding:9px 13px">
     <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center">
       <span class="lbl" style="margin:0 4px 0 0">案件</span>
@@ -8330,6 +8382,7 @@ function vShip(p){
           title="${esc(cs.ship.buyer)}">${esc(cs.ship.no)}｜${esc(cs.ship.country)}｜${(i===SHIPA?shipStep:cs.step||0)+1}/${ST.length}</button>
         ${i>0?`<button class="btn g" style="padding:5px 7px;font-size:11px;border-radius:0 8px 8px 0;border-left:0" data-shipx="${i}" title="この案件をタブから外す（保存されます）">✕</button>`:""}</span>`).join("")}
       <button class="btn g" style="padding:5px 11px;font-size:11px;flex:none" onclick="openShipNew()">＋ 新しい案件</button>
+      <button class="btn g" style="padding:5px 11px;font-size:11px;flex:none" onclick="shipStep=0;SHIPQA=[];render()" title="この案件のステップを最初に戻します">↺ 最初から</button>
       <span style="position:relative;flex:1;min-width:180px;max-width:320px">
         <input class="sel" id="shipsq" placeholder="🔍 案件を検索（番号・国・相手先）" autocomplete="off"
           style="width:100%;box-sizing:border-box;padding:6px 11px;font-size:12px;min-height:32px">
@@ -8707,7 +8760,8 @@ function openFB(i){
 function vAI(p){
   const K=D.kpi;
   return ph(p,"<b>この画面でできること：</b>たまったデータに、ふつうの日本語で質問できます。答えには<b>必ず「何件の記録から出したか」</b>が付くので、新人の方でも根拠を確認しながら使えます。",
-    `<button class="btn" onclick="go('ship')">実務をまかせる →</button>`)+
+    `<button class="btn" onclick="go('ship')">出荷を進める →</button>`)+
+  (typeof aiLevelCard==="function"?aiLevelCard():"")+
   (typeof planCardHtml==="function"?planCardHtml():"")+`
   <div class="g2" style="align-items:start">
     <div class="c">
@@ -8807,13 +8861,16 @@ async function askShip(q){
 /* ═════════ 貿易実務 ═════════ */
 function vOps(p){
   const S=D.ship;
-  const tabs=[["reg","規制を調べる"],["doc","書類をつくる"],["file","この案件の書類"],["ord","受注・請求・入金"]];
-  const head=ph(p,"<b>この画面でできること：</b>送り先ごとの決まりごとを調べ、書類をつくり、この案件の書類と入金までを1か所で管理します。")+
-    `<div class="rw" style="gap:3px;margin-bottom:11px">${tabs.map(([k,n])=>
-      `<button class="btn ${opsTab===k?"":"g"}" onclick="opsTab='${k}';render()">${n}</button>`).join("")}</div>`;
+  /* v15.18：貿易実務・書類・出荷＝「調べる → つくる → 出荷する → 受注・請求・入金」の流れ＋この案件の書類一覧 */
+  const tabs=[["reg","1","規制を調べる","送り先の決まりごと・関税・必要書類"],["doc","2","書類をつくる","発注書の取り込み・PI／CI／PL・S/I"],
+    ["ship","3","出荷を進める","物流AI見積・仮押さえ・出荷手続き"],["ord","4","受注・請求・入金","受注書・請求書・入金の管理"],["file","","この案件の書類","作成した書類の一覧"]];
+  const head=ph(p,"<b>この画面でできること：</b>送り先の決まりごとを調べ、書類をつくり、物流会社への見積から出荷・入金までを、この1画面の流れで進めます。")+
+    `<div class="optabs" role="tablist">${tabs.map(([k,n,t,d])=>
+      `<button class="optab ${opsTab===k?"on":""} ${n?"":"sub"}" role="tab" aria-selected="${opsTab===k}" onclick="opsTab='${k}';render()"><i>${n||"📁"}</i><span><b>${t}</b><small>${d}</small></span></button>`).join("")}</div>`;
   if(opsTab==="file") return head+vDocs();
   if(opsTab==="ord")  return head+vOrders();
   if(opsTab==="doc")  return head+vOpsDoc();
+  if(opsTab==="ship") return head+vShipBody();
   return head+vOpsReg();
 }
 function vOpsReg(){
@@ -9886,6 +9943,7 @@ function srcsBind(){
 }
 /* ═════════ ルーティング ═════════ */
 function render(){
+  if(cur==="ship"){ cur="ops"; opsTab="ship"; }   /* v15.18：出荷は「貿易実務・書類・出荷」の出荷タブ（旧リンク・復元にも対応） */
   const p=PAGES.find(x=>x.id===cur);
   if(!p){cur="up";return render();}   /* ビルド差分等で存在しないページIDが来ても白画面にしない */
   if(!PID && !p.free){cur="up";return render();}
@@ -9922,7 +9980,7 @@ function render(){
     pushTo($("#chat"),"a",`こんにちは。${esc(D.co)}さん専用のAIです。<br><b>${esc(D.item)}</b>について、
       <b>商品マスタ（価格${(D.priceRows||[]).length}行・寸法${(D.dimRows||[]).length}行）／${esc(D.compTitle||"成分表")} ${(D.compRows||[]).length}項目／規制調査 ${Object.keys(D.regs||{}).length}か国／商談記録 ${(D.fb||[]).length}件</b>
       を読み込んでいます。下の入力欄から自由に質問してください。`);}
-  if(cur==="ship"&&D.ship) shipRender();
+  if(cur==="ops"&&opsTab==="ship"&&D.ship) shipRender();
   if(cur==="ops"&&opsTab==="reg"){rReg();
     $("#rC").addEventListener("change",rReg);$("#rI").addEventListener("change",rReg);}
   if(cur==="ops"&&opsTab==="doc"&&D.ship&&document.querySelector('[data-doc="pi"]')){rDoc("pi");   /* 出荷案件が無い商品では書類UIが無い＝バインドしない */
@@ -9980,11 +10038,11 @@ function guideState(){
     const s=scoreOf(TEN);
     if(s.missing.length) return {n:2,msg:`充足度 <b>${s.pct}%</b> — あと<b>${s.missing.length}項目</b>で、書類作成・運賃見積まで全部が動きます。`,
       cta:"AIと埋める",go:()=>{ cur="up"; buildNav(); if(!FILL.on) fillStart(); else render(); scrollTo({top:0}); }};
-    return {n:3,msg:"<b>準備完了です。</b>何でもAIに聞けます。出荷の流れも体験できます。",
-      cta:"AIに質問する",go:()=>openAskAI(),cta2:"出荷を体験",go2:()=>go("ship")};
+    return {n:3,msg:"<b>準備完了です。</b>AI商社マンに何でも聞けます。出荷の手続きもそのまま進められます。",
+      cta:"出荷を進める",go:()=>go("ship")};
   }
-  return {n:3,msg:"サンプルで体験中です。AIへの質問・出荷の体験のほか、自社の資料でも試せます。",
-    cta:"AIに質問する",go:()=>openAskAI(),cta2:"出荷を体験",go2:()=>go("ship")};
+  return {n:3,msg:"サンプルで体験中です。AI商社マンへの質問・出荷の手続きのほか、自社の資料でも試せます。",
+    cta:"出荷を進める",go:()=>go("ship")};
 }
 function updateGuide(){
   const g=$("#guide"); if(!g) return;
@@ -9994,7 +10052,8 @@ function updateGuide(){
   g.hidden=false;
   g.innerHTML=`${chip(1,"資料を登録")}<span style="color:var(--ink-3)">›</span>${chip(2,"足りない情報を埋める")}<span style="color:var(--ink-3)">›</span>${chip(3,"AIと一緒に使う")}
     <span class="gmsg">${st.msg}</span>
-    ${st.cta?`<button class="btn" id="gcta" style="padding:5px 12px">${st.cta}</button>`:""}
+    ${PID&&typeof aiLevelChipBtn==="function"?aiLevelChipBtn():""}
+    ${st.cta?`<button class="btn ${PID?"g":""}" id="gcta" style="padding:5px 12px">${st.cta}</button>`:""}
     ${st.cta2?`<button class="btn g" id="gcta2" style="padding:5px 12px">${st.cta2}</button>`:""}`;
   const b=$("#gcta"); if(b) b.onclick=st.go;
   const b2=$("#gcta2"); if(b2) b2.onclick=st.go2;
@@ -11157,10 +11216,10 @@ function todayStepsOf(x){
     sc.missing.slice(0,13).forEach(f=>add("m_"+f.k,f.n+" を登録する",{auto:1,ok:false,go:"up",goNm:"商品情報を登録"}));
     add("req","不足分を担当者へ依頼する",{go:"msg",goNm:"やりとり"});
   } else if(M(/規制|HS|INCI|事前教示|認証|証明/)){
-    add("hs","HSコードを確定する",{auto:1,ok:!!(typeof D!=="undefined"&&D&&D.hs),go:"ops",goNm:"貿易実務・書類",pre:"reg"});
+    add("hs","HSコードを確定する",{auto:1,ok:!!(typeof D!=="undefined"&&D&&D.hs),go:"ops",goNm:"貿易実務・書類・出荷",pre:"reg"});
     add("comp",((typeof D!=="undefined"&&D&&D.compTitle)||"成分表・材質表")+" を揃える",{auto:1,ok:((typeof D!=="undefined"&&D&&D.compRows)||[]).length>=5,go:"up",goNm:"商品情報を登録"});
-    add("reg","送り先国の規制を確認する",{go:"ops",goNm:"貿易実務・書類（規制）",pre:"reg"});
-    add("docs","必要書類・証明書をリスト化する",{go:"ops",goNm:"貿易実務・書類"});
+    add("reg","送り先国の規制を確認する",{go:"ops",goNm:"貿易実務・書類・出荷（規制）",pre:"reg"});
+    add("docs","必要書類・証明書をリスト化する",{go:"ops",goNm:"貿易実務・書類・出荷"});
   } else if(M(/提案|候補|バイヤー|英語|外国語|営業資料/)){
     add("tgt","進出したい国を決める",{auto:1,ok:!!((t0&&t0.targets&&t0.targets.length)||(typeof D!=="undefined"&&D&&Object.keys(D.regs||{}).length)),go:"up",goNm:"商品情報を登録"});
     let deckOK=false; try{ deckOK=(typeof deckMissReq==="function")&&deckMissReq().length===0; }catch(e){}
@@ -11183,7 +11242,7 @@ function todayStepsOf(x){
   } else if(M(/出荷|見積|輸送|運賃|船積/)){
     add("ship","出荷ステップを進める",{auto:1,ok:!!(typeof D!=="undefined"&&D&&D.ship&&D.ship.no),go:"ship",goNm:"出荷を進める"});
     add("fwd","物流会社にAI見積を出す",{go:"ship",goNm:"出荷を進める"});
-    add("doc","必要書類を作成する",{go:"ops",goNm:"貿易実務・書類"});
+    add("doc","必要書類を作成する",{go:"ops",goNm:"貿易実務・書類・出荷"});
   } else {
     add("plan","現状と論点をAI商社マンと整理する",{});
     add("act","必要な資料・情報を集めて添付する",{});
@@ -11196,7 +11255,7 @@ function todayProg(x){ const s=todayStepsOf(x); return {done:s.filter(z=>z.ok).l
 /* タスク→左サイドバーの対応機能（あればジャンプボタンを出す） */
 function todayGoOf(x){
   const T=(x.t||"")+"｜"+(x.d||"");
-  const map=[[/規制|HS|INCI|事前教示/,"ops","貿易実務・書類","reg"],
+  const map=[[/規制|HS|INCI|事前教示/,"ops","貿易実務・書類・出荷","reg"],
     [/英語|外国語|営業資料/,"deck","外国語 営業資料",""],
     [/バイヤー|提案|候補/,"db","バイヤーDB・拠点",""],
     [/仕様|価格|MOQ|収集|未登録|充足/,"up","商品情報を登録",""],
@@ -12560,7 +12619,7 @@ const AKEY="bc20_trial_v1", SKEY="bc20_ses_v1", DAY=864e5;
 const NOW=()=>Date.now();
 let ADB=null, SES=null, __lastScr=null, admIssued=null;
 const SCN={up:"商品情報を登録",dash:"ダッシュボード",item:"商品情報",deal:"商談・バイヤー",
- task:"タスク・進行",ops:"貿易実務・書類",ai:"AI商社マン",ship:"出荷を進める",msg:"やりとり",db:"バイヤーDB・拠点"};
+ task:"タスク・進行",ops:"貿易実務・書類・出荷",ai:"AI商社マン",ship:"出荷を進める",msg:"やりとり",db:"バイヤーDB・拠点"};
 
 function emptyU(){return {logins:0,uploads:0,aiQ:0,webQ:0,fills:0,screens:{},lastActive:0,first:0,events:[]};}
 function aSeed(){
@@ -15666,6 +15725,127 @@ function ddpToFb(){
   toast("商談・バイヤーのメモに保存しました");
 }
 
+/* ═══════════ v15.18：AI商社マンの成長レベル（「一人前」までの進捗） ═══════════
+   貿易クラウド全体で入力・取り込まれた情報（商品・規制・Web検索・商談フィードバック・実務・資料）をAI商社マンが学び、
+   貴社専用の「一人前」（＝貴社の貿易開拓に本当の意味で伴走できる状態。このゲージで 90% 以上）へ育つ進捗を可視化する。
+   採点は6分野の加重合計（内蔵ロジック・再現可能・根拠を明示）。おまかせ貿易の「2年で42商談」コミットは
+   「商談フィードバックからの学び」分野の満点条件。上部バーのボタンにも現在のレベルを常時表示する。 */
+const GROW_FB_GOAL=42, GROW_PRO=90;
+const GROW_STAGES=[[0,"見習い"],[25,"駆け出し"],[50,"中堅"],[75,"ベテラン候補"],[GROW_PRO,"一人前"]];
+const GROW_COL={product:"var(--or)",market:"var(--bl)",fb:"var(--good)",dialog:"#9B6BD6",practice:"#2AA7A0",data:"#8A97A6"};
+function growUsage(){
+  try{ if(typeof acct==="function"&&typeof SES!=="undefined"&&SES&&SES.t==="trial"){ const u=acct().usage; if(u) return u; } }catch(e){}
+  return {logins:0,uploads:0,aiQ:0,webQ:0,fills:0,screens:{},events:[]};
+}
+function growN(v,target){ return Math.max(0,Math.min(100,Math.round((+v||0)/target*100))); }
+/* 6分野の採点：{pct, lv, stage, to(一人前まで), cats[], events[]} */
+function aiLevel(){
+  const d=(typeof D!=="undefined"&&D)||{}, t=(typeof TEN!=="undefined"&&TEN)||null, u=growUsage(), K=d.kpi||{};
+  const cnt=a=>Array.isArray(a)?a.length:0, ev=Array.isArray(u.events)?u.events:[];
+  const evN=re=>ev.filter(e=>re.test(String(e[2]||""))).length;
+  /* ① 商品の理解：充足度（登録テナント）＋強み・AIの気づき */
+  let fill=0; try{ if(t&&typeof scoreOf==="function") fill=Math.round(scoreOf(t).pct||0); }catch(e){}
+  if(!t){ const parts=[cnt(d.priceRows)>0,cnt(d.dimRows)>0,cnt(d.compRows)>0,cnt(d.strengths)>0,!!d.hs,Object.keys(d.regs||{}).length>0]; fill=Math.round(parts.filter(Boolean).length/parts.length*100); }
+  const strengths=cnt(d.strengths), aiNotes=cnt(t&&t.aiNotes);
+  const c1={k:"product",nm:"商品の理解",ic:"📦",w:20,pct:Math.min(100,Math.round(fill*0.85+Math.min(15,strengths*3+aiNotes*2))),
+    detail:`充足度 ${fill}%／価格表 ${cnt(d.priceRows)}行・寸法 ${cnt(d.dimRows)}行・${esc(d.compTitle||"成分表")} ${cnt(d.compRows)}項目／強み ${strengths}件${aiNotes?"／AIの気づき "+aiNotes+"件":""}／${d.hs?"HS "+esc(d.hs):"HSコード未確定"}`,
+    how:"商品情報を登録・追記するほど、価格・仕様・強みの答えが正確になります。",next:fill<100?{t:"足りない情報を埋める",go:"up"}:strengths<3?{t:"強みを追加する",go:"item"}:null};
+  /* ② 市場・規制の知識：規制調査した国数・Web検索・通関統計／価格分析の利用 */
+  const regs=Object.keys(d.regs||{}).length, web=+u.webQ||0, stats=evN(/通関統計|推奨FOB|DDP|価格設定|競合|市場/);
+  const c2={k:"market",nm:"市場・規制の知識",ic:"🌐",w:15,pct:Math.round(growN(regs,4)*0.5+growN(web,12)*0.3+growN(stats,6)*0.2),
+    detail:`規制調査 ${regs}か国（目安4か国）／Web検索 ${web}回（目安12回）／通関統計・価格分析 ${stats}回（目安6回）`,
+    how:"送り先の規制・関税、Web検索での最新情報、通関統計での相場感が、提案の根拠になります。",
+    next:regs<4?{t:"送り先の規制を調べる",go:"ops",pre:"reg"}:web<12?{t:"Web検索ONで質問する",go:"ai"}:stats<6?{t:"通関統計で相場を見る",go:"item"}:null};
+  /* ③ 商談フィードバックからの学び：2年42商談コミットが満点条件。反応「高」・受注で加点 */
+  const fb=(K.fbDone!==undefined&&K.fbDone!==null)?+K.fbDone:cnt(d.fb), hot=+K.hot||0, won=+K.won||0;
+  const c3={k:"fb",nm:"商談フィードバックからの学び",ic:"🤝",w:25,pct:Math.min(100,Math.round(growN(fb,GROW_FB_GOAL)*0.85+(won?15:hot?8:0))),
+    detail:`商談記録 ${fb}／${GROW_FB_GOAL}件（おまかせ貿易の2年コミット）／反応「高」${hot}件／受注 ${won}件`,
+    how:"海外バイヤーの反応・断られた理由・価格感を学ぶほど、次の提案と売り先の当たりが良くなります。",
+    next:fb<GROW_FB_GOAL?{t:"商談フィードバックを記録する",go:"deal"}:null};
+  /* ④ 対話による学習：質問数と使った画面の幅 */
+  const aiQ=+u.aiQ||0, scr=Object.keys(u.screens||{}).length;
+  const c4={k:"dialog",nm:"対話による学習",ic:"💬",w:15,pct:Math.round(growN(aiQ,120)*0.7+growN(scr,10)*0.3),
+    detail:`AI商社マンへの質問 ${aiQ}回（目安120回）／使った画面 ${scr}種類（目安10）`,
+    how:"質問と指示のたびに、貴社の言い回し・優先順位・判断基準を学びます。",next:aiQ<120?{t:"AI商社マンに質問する",go:"ai"}:null};
+  /* ⑤ 実務の経験：見積・受注・出荷手続き・発注書案件・AI見積・契約書・完了タスク */
+  const ships=(typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS:[];
+  const shipAct=ships.length, shipDone=ships.filter(s=>(s.step||0)>=6).length;
+  const po=cnt(t&&t.poCases), legal=cnt(t&&t.legal), orders=cnt(d.orders), quotes=+K.quotes||0;
+  const fwdReq=(typeof FWDB!=="undefined"&&FWDB&&Array.isArray(FWDB.reqs))?FWDB.reqs.filter(r=>r.co===(d.co||"")).length:0;
+  const tasksDone=cnt((d.tasks||[]).filter(x=>/完了|済/.test(String(x.st||""))));
+  const exp=quotes+orders*2+shipDone*2+shipAct+po+fwdReq+legal+Math.min(5,tasksDone);
+  const c5={k:"practice",nm:"実務の経験",ic:"🚢",w:15,pct:growN(exp,16),
+    detail:`見積 ${quotes}件／受注・出荷 ${orders}件／出荷手続き ${shipAct}案件（完了 ${shipDone}）／発注書案件 ${po}件／物流AI見積 ${fwdReq}件／契約書 ${legal}件／完了タスク ${tasksDone}件`,
+    how:"見積・書類・出荷・物流見積を実際に回すほど、手続きの段取りと注意点を身につけます。",next:shipAct<2?{t:"出荷を進める",go:"ship"}:po<1?{t:"発注書を取り込んで書類をつくる",go:"ops",pre:"doc"}:null};
+  /* ⑥ 資料・データの蓄積：アップロード回数と取り込んだ資料・添付 */
+  const uploads=+u.uploads||0, srcN=cnt(t&&t.sources)+cnt(t&&t.xdocs)+cnt(d.docs);
+  const c6={k:"data",nm:"資料・データの蓄積",ic:"🗂",w:10,pct:Math.round(growN(uploads,6)*0.5+growN(srcN,8)*0.5),
+    detail:`アップロード ${uploads}回（目安6回）／取り込んだ資料・添付 ${srcN}件（目安8件）`,
+    how:"規格書・カタログ・契約書・メールを取り込むほど、根拠つきで答えられる範囲が広がります。",next:srcN<8?{t:"資料を追加で取り込む",go:"srcs"}:null};
+  const cats=[c1,c2,c3,c4,c5,c6];
+  const pct=Math.max(0,Math.min(100,Math.round(cats.reduce((a,c)=>a+c.pct*c.w/100,0))));
+  let lvIdx=0; GROW_STAGES.forEach((s,i)=>{ if(pct>=s[0]) lvIdx=i; });
+  const nextTh=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][0]:null;
+  return {pct,lv:lvIdx+1,lvIdx,stage:GROW_STAGES[lvIdx][1],nextStage:GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][1]:null,nextTh,to:Math.max(0,GROW_PRO-pct),pro:pct>=GROW_PRO,cats,events:ev.slice(0,6)};
+}
+/* 上部バー：どの画面からでもAI商社マンへ（現在のレベルを併記） */
+function aiLevelChipBtn(){
+  let L=null; try{ L=aiLevel(); }catch(e){ return `<button class="btn gai" onclick="go('ai')">🤖 AI商社マンに聞く</button>`; }
+  return `<button class="btn gai" id="gai" onclick="go('ai')" title="AI商社マンの画面へ（成長レベル ${L.pct}%・${L.stage}）">🤖 AI商社マンに聞く <span class="lv">Lv.${L.lv} ${esc(L.stage)}・${L.pct}%</span></button>`;
+}
+function growGo(id,pre){ if(pre&&typeof opsTab!=="undefined"){ opsTab=pre; } go(id); }
+function growRefresh(){ render(); toast("成長レベルを再計算しました"); }
+const GROW_EVIC={login:"🔑",upload:"📄",ai:"💬",web:"🌐",fill:"✍️",screen:"🧭",member:"👥",fwd:"🚚"};
+function aiLevelCard(){
+  const L=aiLevel(); const C=2*Math.PI*50; let off=0;
+  const segs=L.cats.map(c=>{ const len=C*c.w/100, gap=2.2, fill=Math.max(0,(len-gap)*c.pct/100);
+    const bg=`<circle class="gseg bg" data-k="${c.k}" cx="60" cy="60" r="50" stroke-dasharray="${(len-gap).toFixed(2)} ${(C-len+gap).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
+    const fg=`<circle class="gseg fg" data-k="${c.k}" cx="60" cy="60" r="50" style="stroke:${GROW_COL[c.k]}" stroke-dasharray="0 ${C.toFixed(2)}" data-fill="${fill.toFixed(2)}" data-rest="${(C-fill).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"><title>${esc(c.nm)} ${c.pct}%（配点${c.w}）</title></circle>`;
+    off+=len; return bg+fg; }).join("");
+  const a=(GROW_PRO/100*360-90)*Math.PI/180, mx1=60+43*Math.cos(a), my1=60+43*Math.sin(a), mx2=60+57*Math.cos(a), my2=60+57*Math.sin(a);
+  const ring=`<svg viewBox="0 0 120 120" role="img" aria-label="AI商社マンの成長レベル ${L.pct}%">
+      <g transform="rotate(-90 60 60)">${segs}</g>
+      <line class="gmark" x1="${mx1.toFixed(1)}" y1="${my1.toFixed(1)}" x2="${mx2.toFixed(1)}" y2="${my2.toFixed(1)}"/>
+      <text class="gpct" x="60" y="58" text-anchor="middle">${L.pct}<tspan class="gunit">%</tspan></text>
+      <text class="glv" x="60" y="73" text-anchor="middle">Lv.${L.lv} ${esc(L.stage)}</text>
+      <text class="gtxt" x="60" y="84" text-anchor="middle">${L.pro?"一人前に到達":"一人前ライン "+GROW_PRO+"%"}</text></svg>`;
+  const cats=L.cats.map(c=>`<details class="growcat" data-k="${c.k}">
+      <summary><span class="gic">${c.ic}</span><span class="gnm"><b>${esc(c.nm)}</b><small>配点 ${c.w}点・寄与 ${Math.round(c.pct*c.w/100)}点</small></span><span class="gbar"><i style="width:${c.pct}%;background:${GROW_COL[c.k]}"></i></span><span class="gpc n">${c.pct}%</span></summary>
+      <div class="gdt"><b style="color:var(--ink)">いまの根拠：</b>${c.detail}<br><span style="color:var(--ink-3)">${esc(c.how)}</span>
+        ${c.next?`<div class="rw" style="margin-top:6px;gap:6px;align-items:center"><span style="font-size:10.5px;color:var(--or-deep);font-weight:700">次の一手</span><button class="btn g" style="padding:3px 10px;font-size:10.5px" onclick="growGo('${c.next.go}','${c.next.pre||""}')">${esc(c.next.t)} →</button></div>`
+                :`<div style="margin-top:5px;color:var(--good);font-weight:700">✓ この分野は満点です</div>`}</div></details>`).join("");
+  const ladder=`<div class="gladder">${GROW_STAGES.map((s,i)=>`<span class="${L.pct>=s[0]?"on":""} ${i===L.lvIdx?"cur":""}"><i>${s[0]}%〜</i>${s[1]}</span>`).join("")}</div>`;
+  const f2=t=>{ const dd=new Date(t); return `${dd.getMonth()+1}/${dd.getDate()}`; };
+  const log=L.events.length?L.events.map(e=>`<span title="${esc(String(e[2]||""))}">${GROW_EVIC[e[1]]||"•"} ${f2(e[0])} ${esc(String(e[2]||e[1]||"")).slice(0,26)}</span>`).join("")
+    :`<span>まだ記録はありません。質問・資料の取り込み・商談記録のたびに、ここに積み上がります。</span>`;
+  return `<div class="c grow" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+      <div><h3>🤖 AI商社マンの成長レベル <span class="nt">この版で新規</span></h3>
+        <p class="nn">貿易クラウドに入力・取り込まれた情報、Web検索、商談フィードバック、実務の経験をAI商社マンが学び、<b>貴社専用の「一人前」</b>へ育ちます。一人前＝貴社の貿易開拓に本当の意味で伴走できる状態（このゲージで <b>${GROW_PRO}% 以上</b>）。分野をクリックすると根拠と次の一手が見えます。</p></div>
+      <button class="btn g" style="flex:none" onclick="growRefresh()">↻ 再計算</button></div>
+    <div class="growwrap">
+      <div class="growring">${ring}
+        <div class="growlv"><b>${L.pro?"🎉 一人前に到達しました":`一人前まで あと ${L.to} pt`}</b>${L.nextStage?`次の段階「${esc(L.nextStage)}」まで あと ${Math.max(0,L.nextTh-L.pct)} pt`:"最上位の段階です"}</div>
+        ${ladder}</div>
+      <div class="growcats">${cats}</div></div>
+    <p class="lbl" style="margin-top:10px">最近の成長の記録</p>
+    <div class="growlog">${log}</div>
+    <p class="nn" style="margin-top:7px">採点は内蔵ロジック（6分野の加重合計・根拠を明示）で、AIエンジンの接続有無にかかわらず同じ基準です。数値はこのアカウントの利用記録と登録データから算出しています。</p>
+  </div>`;
+}
+/* ゲージのアニメーションと、分野にマウスを乗せたときの該当セグメント強調 */
+function growAnimate(){
+  const segs=[...document.querySelectorAll(".gseg.fg[data-fill]")]; if(!segs.length) return;
+  setTimeout(()=>{ segs.forEach(el=>el.setAttribute("stroke-dasharray",el.dataset.fill+" "+el.dataset.rest)); },40);
+  document.querySelectorAll(".growcat").forEach(dt=>{
+    const k=dt.dataset.k;
+    dt.addEventListener("mouseenter",()=>document.querySelectorAll(`.gseg.fg[data-k="${k}"]`).forEach(s=>s.classList.add("hl")));
+    dt.addEventListener("mouseleave",()=>document.querySelectorAll(`.gseg.fg[data-k="${k}"]`).forEach(s=>s.classList.remove("hl")));
+  });
+}
+if(typeof render==="function"){ const __renderGrow=render;
+  render=function(){ const r=__renderGrow.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="ai") growAnimate(); }catch(e){} return r; }; }
+
 /* 通関統計エクスプローラー（公開版）内蔵スナップショット — build_cs.py が公開URLから自動取得して生成（手で編集しない）
    供給源: https://kenta19870526.github.io/standage-trade-dashboard/index.html
    取得: 2026-09-03T04:26:26Z / Last-Modified: Thu, 03 Sep 2026 04:18:23 GMT / 品目 1016（実データ 940） */
@@ -16428,7 +16608,7 @@ function poFill(k,tgt,v){
   poPersist(c); if(typeof saveTen==="function") saveTen(); render(); toast("反映しました：書類にも即時反映されます");
 }
 
-/* ── ワークベンチ（貿易実務・書類 › 書類をつくる） ── */
+/* ── ワークベンチ（貿易実務・書類・出荷 › 書類をつくる） ── */
 function poWorkbenchHtml(){
   const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null; const po=c&&c.po;
   const cases=(SHIPS||[]).map((x,i)=>({x,i})).filter(o=>o.x&&o.x.ship);
@@ -16776,7 +16956,7 @@ async function poFwdAsk(q){
 if(typeof shipSteps==="function"){ const __shipStepsPO=shipSteps;
   shipSteps=function(){ const st=__shipStepsPO();
     try{ const c=SHIPS&&SHIPS[SHIPA];
-      if(st[3]&&st[3].art){ st[3].art.b+=`<div class="rw" style="margin-top:8px;gap:6px"><button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="opsTab='doc';go('ops')">✎ 書類を確認・編集する（貿易実務・書類）</button>${c&&c.po?"":`<button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="opsTab='doc';go('ops')">📥 バイヤーの発注書から作り直す</button>`}</div>`; }
+      if(st[3]&&st[3].art){ st[3].art.b+=`<div class="rw" style="margin-top:8px;gap:6px"><button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="opsTab='doc';go('ops')">✎ 書類を確認・編集する（貿易実務・書類・出荷）</button>${c&&c.po?"":`<button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="opsTab='doc';go('ops')">📥 バイヤーの発注書から作り直す</button>`}</div>`; }
       if(c&&c.po&&st[1]&&st[1].art){ st[1].art.b+=`<div class="rw" style="margin-top:8px"><button class="btn g" style="padding:4px 10px;font-size:10.5px" onclick="openFwdConsult()">🚚 AI物流マンに出荷を相談</button></div>`; }
     }catch(e){} return st; };
 }
@@ -16816,7 +16996,7 @@ vDocs=function(){
 };
 if(typeof vSrcs==="function"){ const __vSrcsPO=vSrcs;
   vSrcs=function(p){ const h=__vSrcsPO(p);
-    const note=`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)"><div class="rw" style="justify-content:space-between;gap:8px"><div><b style="font-size:12px">📄 書類（PI／CI／PL・発注書・契約書・添付）は「貿易実務・書類 › この案件の書類」にあります</b>
+    const note=`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)"><div class="rw" style="justify-content:space-between;gap:8px"><div><b style="font-size:12px">📄 書類（PI／CI／PL・発注書・契約書・添付）は「貿易実務・書類・出荷 › この案件の書類」にあります</b>
       <p class="nn" style="margin-top:3px">ここは<b>AI商社マンが回答の根拠に使う情報源</b>の一覧です。発注書は書類として記録されると同時に、AIが参照できるようここにも登録されます（役割が違うため両方に表示）。</p></div>
       <button class="btn g" style="flex:none" onclick="opsTab='file';go('ops')">この案件の書類を開く</button></div></div>`;
     const i=h.indexOf('<div class="g2" style="align-items:start">'); return i>=0?h.slice(0,i)+note+h.slice(i):h+note; };
@@ -17023,7 +17203,7 @@ if(typeof enterApp==="function"){ const __enterAppNav=enterApp;
     const o=navLoad(); const isTrial=(typeof SES!=="undefined"&&SES&&SES.t==="trial");
     if(isTrial&&!(SES.role==="fwd")) navRestorePid(o);
     __enterAppNav.apply(this,arguments);
-    if(isTrial&&!(SES.role==="fwd")&&navRestoreCur(o)){ if(typeof buildNav==="function") buildNav(); __renderNav(); scrollTo({top:0}); }
+    if(isTrial&&!(SES.role==="fwd")&&navRestoreCur(o)){ if(typeof buildNav==="function") buildNav(); render(); scrollTo({top:0}); }
   }; }
 if(typeof fwdEnter==="function"){ const __fwdEnterNav=fwdEnter;
   fwdEnter=function(){ const o=navLoad(); if(o&&o.fwdCur&&typeof fwdCur!=="undefined") fwdCur=o.fwdCur; __fwdEnterNav.apply(this,arguments); }; }
