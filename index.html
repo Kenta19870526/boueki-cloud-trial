@@ -8780,11 +8780,11 @@ function vAI(p){
     </div>
     <div class="stk">
       <div class="c"><h3>AIが見ているもの</h3>
-        <p class="nn">他社のデータは混ざりません。貴社のプロジェクトの中だけを見ます。</p>
+        <p class="nn">他社のデータは混ざりません。貴社のプロジェクトの中だけを見ます。通関統計・物流のAI見積・出荷／発注書案件・契約書・営業資料・やりとり・取り込んだ資料も参照します。</p>
         <div style="margin-top:9px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
-          ${[["商談の記録",`${K.fbDone}件`,Math.min(100,Math.round(K.fbDone/Math.max(1,K.fbGoal||42)*100))],["規制の調査",`${Object.keys(D.regs).length}か国`,Object.keys(D.regs).length?100:0],
+          ${(typeof kbSeen==="function"?kbSeen(K):[["商談の記録",`${K.fbDone}件`,Math.min(100,Math.round(K.fbDone/Math.max(1,K.fbGoal||42)*100))],["規制の調査",`${Object.keys(D.regs).length}か国`,Object.keys(D.regs).length?100:0],
              ["商品情報・強み",`${(D.strengths||[]).length}項目`,(D.strengths||[]).length?100:0],["価格表・寸法",`${D.priceRows.length}SKU`,D.priceRows.length?100:0],
-             [D.compTitle,`${D.compRows.length}項目`,D.compRows.length?100:0],["過去の見積・出荷",`見積${K.quotes||0}件・出荷${(D.orders||[]).length}件`,(K.quotes||(D.orders||[]).length)?100:0]]
+             [D.compTitle,`${D.compRows.length}項目`,D.compRows.length?100:0],["過去の見積・出荷",`見積${K.quotes||0}件・出荷${(D.orders||[]).length}件`,(K.quotes||(D.orders||[]).length)?100:0]])
             .map(([k,v,pc])=>`<div><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(k)}</span>
               <span class="n" style="color:var(--ink-3);white-space:nowrap">${v}</span></div>
               <div class="mt" style="margin-top:3px"><i class="b" style="width:${pc}%"></i></div></div>`).join("")}
@@ -17214,6 +17214,221 @@ try{ const o=navLoad();
   if(typeof FWDON!=="undefined"&&FWDON&&o&&o.fwdCur&&typeof fwdCur!=="undefined"&&o.fwdCur!==fwdCur){ fwdCur=o.fwdCur; if(typeof fwdNav==="function") fwdNav(); if(typeof fwdRender==="function") fwdRender(); }
   const trialRestored=(typeof enterApp==="function"&&typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.role!=="fwd"&&!document.body.classList.contains("locked"));
   if(typeof enterApp!=="function"||trialRestored){ const okP=navRestorePid(o); if(okP||(o&&o.cur)){ if(navRestoreCur(o)||okP){ if(typeof buildNav==="function") buildNav(); if(typeof render==="function") render(); } } } }catch(e){}
+
+/* ═══════════ v15.19：AI商社マンの知識台帳（貿易クラウド内の全連携データを回答の根拠にする） ═══════════
+   目的：貿易クラウドに取り込んだ／連携したすべての情報を、AI商社マン（接続AI・内蔵エンジンの両方）が参照できるようにする。
+   ・kbCtx()  … 接続AIに渡す社内データ（ppContext）へ追加する知識ブロック（通関統計・物流レートとAI見積・出荷案件・発注書案件・
+                契約書・営業資料・やりとり・添付・商談KPI・今日やること・推奨FOB・成長レベル・同アカウントの他商品）。
+   ・kbAsk(q) … 内蔵エンジン／接続AIの前段で、データから直接・確実に答えられる質問（通関統計など）に即答する。
+   ・kbSeen() … 「AIが見ているもの」パネル用の一覧（件数と充足）。
+   誤情報ゼロ：統計は内蔵スナップショットの版・出典を必ず添え、無い情報は「未登録」と明示する。 */
+const KB_ALIAS={"アメリカ":["アメリカ","米国"],"米国":["アメリカ","米国"],"イギリス":["イギリス","英国"],"英国":["イギリス","英国"],"韓国":["韓国","大韓民国"],"中国":["中国","中華人民共和国"],
+  "UAE":["アラブ首長国連邦","UAE","ＵＡＥ"],"ドバイ":["アラブ首長国連邦","UAE"],"オーストラリア":["オーストラリア","豪州"],"豪州":["オーストラリア","豪州"],"オランダ":["オランダ"],"ベトナム":["ベトナム","ヴィエトナム"],
+  "台湾":["台湾"],"香港":["香港"],"シンガポール":["シンガポール"],"タイ":["タイ"],"マレーシア":["マレーシア"],"フィリピン":["フィリピン"],"インドネシア":["インドネシア"],"インド":["インド"],"フランス":["フランス"],"ドイツ":["ドイツ"],"カナダ":["カナダ"],"メキシコ":["メキシコ"],"ブラジル":["ブラジル"]};
+function kbCty(name){ const n=String(name||"").trim(); return KB_ALIAS[n]||(n?[n]:[]); }
+function kbNum(v,d){ v=+v||0; return v.toLocaleString(undefined,{maximumFractionDigits:d||0}); }
+function kbM(v){ v=+v||0; return v>=1e9?"$"+(v/1e9).toFixed(2)+"B":v>=1e6?"$"+(v/1e6).toFixed(1)+"M":v>=1e3?"$"+(v/1e3).toFixed(0)+"K":"$"+Math.round(v); }
+function kbYr(y){ return String(y).replace(/^(\d{4})H1$/,"$1年上期（暫定）").replace(/^(\d{4})H2$/,"$1年下期（暫定）").replace(/^(\d{4})$/,"$1年"); }
+/* ── 通関統計（内蔵エクスプローラーのスナップショット）を、この商品のHSで要約 ── */
+function kbStats(hsIn,flow){
+  if(typeof csData!=="function") return null; const C=csData(); if(!C) return null;
+  const F=flow==="M"?"M":"X";
+  const hs0=hsIn?csHs6(hsIn):csHs6((typeof D!=="undefined"&&D&&D.hs)||"");
+  const f=csFind(hs0); const hs=f.hs; if(!hs) return {hs:"",cands:f.cands||[],hs0};
+  const d=C.raw[hs]; if(!d||!d.annual) return {hs:"",cands:f.cands||[],hs0};
+  const ys=Object.keys(d.annual).sort().filter(y=>d.annual[y]&&d.annual[y][F]&&d.annual[y][F][0]>0);
+  if(!ys.length) return {hs,meta:C.meta[hs]||{},series:[],hs0,exact:f.exact};
+  const unit=C.unit[d.qty_unit_code]||"";
+  const series=ys.map((y,i)=>{ const r=d.annual[y][F]; const p=i?d.annual[ys[i-1]][F]:null;
+    return {y,value:r[0],qty:r[1],nw:r[2],upkg:(r[0]&&r[2])?r[0]/r[2]:null,upunit:(r[0]&&r[1])?r[0]/r[1]:null,yoy:(p&&p[0])?r[0]/p[0]-1:null,partial:/H[12]$/.test(y)}; });
+  const full=series.filter(s=>!s.partial); const latest=full[full.length-1]||series[series.length-1];
+  const y=latest.y;
+  const pr=((d.partners&&d.partners[y])||[]).filter(r=>r[1]===F&&r[0]!==0&&r[2]>0)
+    .map(r=>({code:r[0],name:C.partner[r[0]]||("国"+r[0]),value:r[2],qty:r[3],nw:r[4],upkg:(r[2]&&r[4])?r[2]/r[4]:null,upunit:(r[2]&&r[3])?r[2]/r[3]:null,share:latest.value?r[2]/latest.value:0}))
+    .sort((a,b)=>b.value-a.value);
+  /* 前年の相手国別（伸び率用） */
+  const py=full[full.length-2]?full[full.length-2].y:null;
+  const prevMap={}; if(py) ((d.partners&&d.partners[py])||[]).forEach(r=>{ if(r[1]===F) prevMap[r[0]]=r[2]; });
+  pr.forEach(p=>{ p.yoy=(prevMap[p.code])?p.value/prevMap[p.code]-1:null; });
+  const fx=C.fx[y]||C.fx[String(y).slice(0,4)]||150;
+  return {hs,meta:C.meta[hs]||{},unit,series,latest,partners:pr,top:pr.slice(0,8),fx,flow:F,hs0,exact:f.exact,ver:(typeof CS_META!=="undefined"&&CS_META)?CS_META:null};
+}
+function kbStatsPartner(S,cty){ if(!S||!S.partners) return null; const names=kbCty(cty); return S.partners.find(p=>names.some(n=>String(p.name).includes(n)))||null; }
+function kbStatsText(){
+  const dd=(typeof D!=="undefined"&&D)||{}; const S=kbStats("", "X"); if(!S) return "";
+  if(!S.hs) return `## 通関統計（内蔵エクスプローラー）\n商品のHSコード ${dd.hs||"未登録"} に対応する統計品目が見つからない${S.cands&&S.cands.length?"（候補："+S.cands.slice(0,5).map(c=>c.hs+" "+c.ja).join("、")+"）":""}。HSコードを確定すると統計を参照できる。`;
+  const ver=S.ver?`スナップショット ${String(S.ver.fetched||"").slice(0,10)}版・品目${S.ver.hs}`:"内蔵";
+  const rows=S.series.map(s=>`${kbYr(s.y)}：輸出額 ${kbM(s.value)}${s.qty?"／数量 "+kbNum(s.qty)+(S.unit||""):""}${s.nw?"／正味 "+kbNum(s.nw/1000)+"t":""}${s.upkg?"／$"+s.upkg.toFixed(2)+"/kg":""}${s.yoy!=null?"／前年比 "+(s.yoy>=0?"+":"")+(s.yoy*100).toFixed(1)+"%":""}`).join("\n");
+  const top=S.top.map((p,i)=>`${i+1}. ${p.name} ${kbM(p.value)}（シェア${(p.share*100).toFixed(1)}%${p.nw?"・"+kbNum(p.nw/1000)+"t":""}${p.upkg?"・$"+p.upkg.toFixed(2)+"/kg":""}${p.yoy!=null?"・前年比"+(p.yoy>=0?"+":"")+(p.yoy*100).toFixed(0)+"%":""}）`).join("\n");
+  const tg=(dd.targets||[]).map(c=>{ const p=kbStatsPartner(S,c); return p?`${c}：${kbM(p.value)}（シェア${(p.share*100).toFixed(1)}%・順位${S.partners.indexOf(p)+1}位${p.upkg?"・$"+p.upkg.toFixed(2)+"/kg":""}${p.yoy!=null?"・前年比"+(p.yoy>=0?"+":"")+(p.yoy*100).toFixed(0)+"%":""}）`:`${c}：${S.latest.y}年の輸出実績なし（統計上）`; }).join("\n");
+  const M=kbStats("","M"); const imp=(M&&M.hs&&M.latest)?`日本の輸入（参考）${kbYr(M.latest.y)}：${kbM(M.latest.value)}`:"";
+  return `## 通関統計（日本→世界 輸出・HS ${S.hs.slice(0,4)}.${S.hs.slice(4)} ${S.meta.ja||""}${S.meta.en?" / "+S.meta.en:""}${S.exact?"":"※商品のHS "+(dd.hs||"")+" に最も近い統計品目"}・${ver}・出典 UN Comtrade／財務省貿易統計・FOB建て・為替 ${S.latest.y}年 1USD=¥${S.fx}）
+${rows}
+### 上位仕向国（${kbYr(S.latest.y)}・輸出額順）
+${top||"（相手国別データなし）"}
+${tg?`### 進出希望国の実績（${kbYr(S.latest.y)}）\n${tg}`:""}
+${imp}
+※HS6桁の同一分類には規格違いの品も含まれる。金額はUSD（FOB）。年次で「暫定」は速報値。「商品情報 › 通関統計エクスプローラー」で全品目・年別・輸入側も確認できる。`;
+}
+/* 通関統計の質問に、データから直接・確実に答える（接続の有無に関わらず） */
+const KB_STATS_RE=/通関統計|輸出統計|貿易統計|輸出実績|輸出額|輸出金額|輸出数量|輸入統計|輸入額|輸入数量|統計(?!エクスプローラ)|comtrade|仕向国|輸出先(?:国)?(?:の)?(?:上位|ランキング|トップ)|どこの国に(?:多く)?輸出|市場規模/i;
+function kbStatsAsk(q){
+  const s=String(q||""); if(!KB_STATS_RE.test(s)) return null;
+  if(/推奨FOB|FOB.*(推奨|提案)/.test(s)) return null;
+  const dd=(typeof D!=="undefined"&&D)||{}; const flow=/輸入/.test(s)&&!/輸出/.test(s)?"M":"X";
+  const S=kbStats("",flow);
+  if(!S) return {a:"通関統計のデータがこの版に内蔵されていません。「商品情報 › 通関統計エクスプローラー」から最新版を取得してください。",c:"根拠：通関統計 未内蔵"};
+  if(!S.hs) return {a:`この商品のHSコード <b>${esc(dd.hs||"未登録")}</b> に対応する統計品目が見つかりません。${S.cands&&S.cands.length?"近い品目："+S.cands.slice(0,5).map(c=>`${c.hs.slice(0,4)}.${c.hs.slice(4)} ${esc(c.ja)}`).join("／")+"。":""}「商品情報」でHSコードを確定すると、輸出額・数量・上位国を即答できます。`,c:"根拠：通関統計エクスプローラー（内蔵）・HS未一致"};
+  const fl=flow==="M"?"輸入":"輸出"; const L=S.latest;
+  const cty=(typeof pickCountry==="function")?pickCountry(s):"";
+  const P=cty?kbStatsPartner(S,cty):null;
+  const yoyTxt=v=>v==null?"—":`<span style="color:${v>=0?"var(--good)":"var(--crit)"}">${v>=0?"+":""}${(v*100).toFixed(1)}%</span>`;
+  const head=`<b>HS ${S.hs.slice(0,4)}.${S.hs.slice(4)} ${esc(S.meta.ja||"")}</b>${S.meta.en?` <span style="color:var(--ink-3)">${esc(S.meta.en)}</span>`:""}${S.exact?"":`<br><span style="color:var(--warn)">※商品のHS ${esc(dd.hs||"")} に最も近い統計品目で答えています</span>`}<br>
+    <b>${kbYr(L.y)}の日本の${fl}</b>：<b>${kbM(L.value)}</b>（約¥${kbNum(L.value*S.fx/1e8,1)}億・1USD=¥${S.fx}）${L.qty?`／数量 <b>${kbNum(L.qty)} ${esc(S.unit||"")}</b>`:""}${L.nw?`／正味 ${kbNum(L.nw/1000)}t`:""}${L.upkg?`／平均単価 $${L.upkg.toFixed(2)}/kg`:""}／前年比 ${yoyTxt(L.yoy)}`;
+  const trend=`<div class="tw" style="margin-top:8px;max-height:260px"><table><thead><tr><th>年</th><th class="num">${fl}額</th><th class="num">数量</th><th class="num">正味 t</th><th class="num">$/kg</th><th class="num">前年比</th></tr></thead><tbody>
+    ${S.series.map(r=>`<tr><td class="n">${esc(kbYr(r.y))}</td><td class="num n">${kbM(r.value)}</td><td class="num n">${r.qty?kbNum(r.qty)+" "+esc(S.unit||""):"—"}</td><td class="num n">${r.nw?kbNum(r.nw/1000):"—"}</td><td class="num n">${r.upkg?"$"+r.upkg.toFixed(2):"—"}</td><td class="num n">${yoyTxt(r.yoy)}</td></tr>`).join("")}</tbody></table></div>`;
+  const top=S.top.length?`<p class="lbl" style="margin-top:8px">上位${fl==="輸出"?"仕向国":"仕入国"}（${esc(kbYr(L.y))}・${fl}額順）</p><div class="tw" style="max-height:260px"><table><thead><tr><th>#</th><th>国</th><th class="num">${fl}額</th><th class="num">シェア</th><th class="num">正味 t</th><th class="num">$/kg</th><th class="num">前年比</th></tr></thead><tbody>
+    ${S.top.map((p,i)=>`<tr ${P&&p===P?'style="background:var(--or-soft)"':""}><td class="n">${i+1}</td><td>${esc(p.name)}</td><td class="num n">${kbM(p.value)}</td><td class="num n">${(p.share*100).toFixed(1)}%</td><td class="num n">${p.nw?kbNum(p.nw/1000):"—"}</td><td class="num n">${p.upkg?"$"+p.upkg.toFixed(2):"—"}</td><td class="num n">${yoyTxt(p.yoy)}</td></tr>`).join("")}</tbody></table></div>`:"";
+  const ctyTxt=cty?(P?`<p style="margin-top:8px"><b>${esc(cty)}向け（${esc(kbYr(L.y))}）</b>：${kbM(P.value)}（シェア ${(P.share*100).toFixed(1)}%・${S.partners.indexOf(P)+1}位${P.nw?"・正味 "+kbNum(P.nw/1000)+"t":""}${P.upkg?"・$"+P.upkg.toFixed(2)+"/kg":""}）、前年比 ${yoyTxt(P.yoy)}。</p>`
+      :`<p style="margin-top:8px"><b>${esc(cty)}向け</b>は ${esc(kbYr(L.y))} の${fl}実績が統計上ありません（相手国別データに該当なし）。</p>`):"";
+  const tg=(dd.targets||[]).filter(c=>!cty||c!==cty).map(c=>{ const p=kbStatsPartner(S,c); return p?`${esc(c)} ${kbM(p.value)}（${(p.share*100).toFixed(1)}%・${S.partners.indexOf(p)+1}位）`:`${esc(c)} 実績なし`; });
+  const ver=S.ver?`内蔵 ${String(S.ver.fetched||"").slice(0,10)}版・品目${S.ver.hs}`:"内蔵";
+  return {a:head+trend+top+ctyTxt+(tg.length?`<p style="margin-top:6px;font-size:11px;color:var(--ink-2)">進出希望国の実績：${tg.join("／")}</p>`:"")
+    +`<p class="nn" style="margin-top:7px">出典：UN Comtrade（日本の計数は財務省貿易統計）・HS6桁・FOB建て。同一分類には規格違いの品も含まれるため<b>実勢の目安</b>です。「暫定」は速報値。詳細は「商品情報 › 画面内で統計を開く」（通関統計エクスプローラー）へ。${typeof openFOB==="function"?"単価を自社の価格と比べるなら「推奨FOB」を使ってください。":""}</p>`,
+    c:`根拠：通関統計エクスプローラー（${ver}・HS ${S.hs}）／${(typeof llmLabel==="function"&&typeof ppReady==="function"&&ppReady())?"データ直接照会（AIの推測なし）":"内蔵エンジン・データ直接照会"}`};
+}
+/* ── 物流：登録レート・AI見積依頼（相見積・推奨・仮押さえ）・情勢メモ ── */
+function kbLogi(){
+  if(typeof FWDB==="undefined"||!FWDB){ try{ if(typeof fwdLoad==="function") fwdLoad(); }catch(e){} }
+  if(typeof FWDB==="undefined"||!FWDB) return "";
+  const dd=(typeof D!=="undefined"&&D)||{}; const co=(typeof TEN!=="undefined"&&TEN&&TEN.co)||dd.co||"";
+  const cos=(typeof fwdCos==="function")?fwdCos():[]; const rates=(FWDB.rates||[]);
+  const mine=(FWDB.reqs||[]).filter(r=>r.co===co).slice(0,6);
+  const req=mine.map(r=>`・${r.d} ${r.id}${r.requote?"（再見積）":""} ${r.pol}→${r.cty}／${r.cbm}m³ ${r.mode}${r.etd?"／希望納期 "+r.etd:""}／状況 ${(typeof fwdReqStatus==="function")?fwdReqStatus(r):r.status}\n`+
+    (r.legs||[]).map(l=>l.ok?`　- ${l.cty}：${(l.offers||[]).length>1?(l.offers.length+"社回答 ")+l.offers.map(o=>o.co+" ¥"+o.quote.total.toLocaleString()+"・"+o.rate.tt+"日").join("、")+"／AI物流マンの推奨 "+l.rec+"／選択 "+(l.sel||l.co):"1社 "+(l.co||"")+" ¥"+l.quote.total.toLocaleString()+"・約"+l.quote.tt+"日"}${l.hold?"／仮押さえ済み（"+(l.holdCo||l.sel||"")+"・"+(l.holdAt||"")+"）":""}`:`　- ${l.cty}：レーン未登録`).join("\n")).join("\n");
+  const situ=(FWDB.situ||[]).slice(0,4).map(x=>`・${x.reg}：${x.t}${x.delay?"（+"+x.delay+"日）":""}`).join("\n");
+  return `## 物流（貿易クラウド内の物流会社・AI物流マン）
+参加物流会社 ${cos.length}社（${cos.join("・")}）／登録レート ${rates.length}本（区間・形態・運賃・所要日数・有効期限。運賃の質問には登録レートから即答）
+### 当社のAI見積依頼（${mine.length}件${(FWDB.reqs||[]).filter(r=>r.co===co).length>6?"・直近6件":""}）
+${req||"（まだ依頼なし。出荷を進める › AI見積を依頼 で相見積が取れる）"}
+${situ?`### 物流会社が登録した情勢メモ\n${situ}`:""}`;
+}
+/* ── 出荷案件（全案件）・承認 ── */
+function kbCases(){
+  const dd=(typeof D!=="undefined"&&D)||{}; if(typeof shipEnsure==="function"){ try{ shipEnsure(); }catch(e){} }
+  const S=(typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS:[]; if(!S.length&&!(dd.approvals||[]).length) return "";
+  let ST=null; try{ ST=(typeof shipSteps==="function"&&dd.ship)?shipSteps():null; }catch(e){}
+  const rows=S.slice(0,8).map((c,i)=>{ const s=c.ship||{}; const st=(i===(typeof SHIPA!=="undefined"?SHIPA:0))?(typeof shipStep!=="undefined"?shipStep:c.step||0):(c.step||0);
+    const mods=c.mods?Object.values(c.mods).filter(m=>m&&m.note).map(m=>m.note).slice(0,2):[];
+    return `・${s.no} ${s.buyer}（${s.country}）${s.qty||""}／${s.term||""}／希望着荷 ${s.want||""}／ステップ ${st+1}${ST?"/"+ST.length+"（"+(ST[st]?ST[st].t:"")+"）":""}${c.open===false?"／タブ外（保管中）":""}${s.poNo?"／発注書 "+s.poNo:""}${mods.length?"／指示："+mods.join("；"):""}`; }).join("\n");
+  const ap=(dd.approvals||[]).slice(0,6).map(a=>`・${a.n}：${a.st||"未承認"}${a.by?"（"+a.by+(a.at?"・"+a.at:"")+"）":""}`).join("\n");
+  return `## 出荷案件（${S.length}件）\n${rows||"（なし）"}${ap?`\n### 承認\n${ap}`:""}`;
+}
+/* ── 発注書案件（取り込んだPOと船積書類の状態） ── */
+function kbPO(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; const L=(t&&Array.isArray(t.poCases))?t.poCases:[]; if(!L.length) return "";
+  const rows=L.slice(0,6).map(c=>{ const s=c.ship||{}, po=c.po||{}, j=po.parsed||{}; const items=(j.items||[]);
+    let gaps=[]; try{ if(typeof poGaps==="function") gaps=poGaps(c).filter(x=>!x.ok).map(x=>x.label); }catch(e){}
+    return `・案件 ${s.no}／発注書 ${s.poNo||"—"}（${po.at||""}）${s.buyer}（${s.country}）／明細 ${items.length}行 合計 ${s.total||""}／${s.term||""}／納期 ${s.want||""}／書類 ${(s.docs||[]).map(d=>Array.isArray(d)?d[0]:d).join("・")||"—"}${gaps.length?"／不足情報："+gaps.join("・"):"／不足情報なし"}${po.shared?"／物流会社へ共有済（"+po.shared.reqId+"）":""}${po.research?"／規制調査済（"+String(po.research.at||"")+"）":""}`; }).join("\n");
+  return `## 発注書（PO）案件と船積書類（${L.length}件）\n${rows}`;
+}
+/* ── 契約書関連・営業資料・やりとり・添付 ── */
+function kbObj(o,keys,max,depth){ depth=depth||0; if(o==null) return "";
+  if(Array.isArray(o)) return o.filter(x=>x!=null&&x!=="").map(x=>typeof x==="object"?kbObj(x,keys,max,depth+1):String(x)).join(" | ").slice(0,max||200);
+  if(typeof o!=="object") return String(o).replace(/<[^>]+>/g,"").replace(/\s+/g," ").slice(0,max||200);
+  const ks=keys.filter(k=>o[k]!=null&&o[k]!=="");
+  return ks.map(k=>{ const v=o[k]; if(typeof v==="object") return depth<1?kbObj(v,keys.concat(["summary","verdict","risk","risks","score","issues","points","title"]),200,depth+1):""; return String(v).replace(/<[^>]+>/g,"").replace(/\s+/g," ").slice(0,140); }).filter(Boolean).join("／").slice(0,max||300); }
+function kbLegal(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; const L=(t&&t.legal&&Array.isArray(t.legal.docs))?t.legal.docs:[]; if(!L.length) return "";
+  return `## 契約書関連（${L.length}件）\n`+L.slice(0,5).map(x=>"・"+kbObj(x,["name","title","file","kind","type","party","at","d","date","st","status","verdict","risk","summary","note"],320)).join("\n");
+}
+function kbDeck(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; if(!t) return ""; const m=t.deckMeta||{}; const ks=Object.keys(m); if(!ks.length) return "";
+  return `## 外国語 営業資料\n`+ks.slice(0,6).map(k=>"・"+k+"："+kbObj(m[k],["lang","title","at","d","pages","n","st","status","note"],200)).join("\n");
+}
+function kbMsgs(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; const dd=(typeof D!=="undefined"&&D)||{};
+  const L=(t&&Array.isArray(t.msgs)&&t.msgs.length)?t.msgs:(Array.isArray(dd.msgs)?dd.msgs:[]); if(!L.length) return "";
+  return `## やりとり（バイヤー・関係先との連絡 ${L.length}件・新しい順）\n`+L.slice(0,6).map(x=>"・"+kbObj(x,["d","at","date","from","f","to","who","subj","subject","title","t","txt","body","text","note"],260)).join("\n");
+}
+function kbXdocs(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; const L=(t&&Array.isArray(t.xdocs))?t.xdocs:[]; if(!L.length) return "";
+  return `## 添付・受け取った書類（${L.length}件）\n`+L.slice(0,8).map(x=>"・"+kbObj(x,["name","kind","d","at","note","from","txt"],220)).join("\n");
+}
+/* ── 商談KPI・ファネル・失注理由・国別・脈あり度 ── */
+function kbKpi(){
+  const dd=(typeof D!=="undefined"&&D)||{}; const K=dd.kpi||{}; const fb=(dd.fb||[]);
+  if(!fb.length&&!(K.fbDone)) return "";
+  const fun=(dd.funnel||[]).map(x=>`${x[0]} ${x[1]}`).join("→"); const lost=(dd.lost||[]).slice(0,4).map(x=>`${x[0]} ${x[1]}件`).join("、");
+  const byc=(dd.byc||[]).slice(0,6).map(x=>`${x[0]} ${x[1]}件`).join("、"); const hot=(dd.hotList||[]).slice(0,5).map(x=>`${x[0]}（${x[1]}）${x[2]}%`).join("、");
+  const more=fb.length>8?fb.slice(8,20).map(f=>`${f.d} ${f.b}（${f.c}）${f.st||""}${f.react?"・反応"+f.react:""}`).join("／"):"";
+  return `## 商談KPI（この商品）\n商談記録 ${K.fbDone!=null?K.fbDone:fb.length}件／目標 ${K.fbGoal||42}件（おまかせ貿易 2年コミット）／バイヤー数 ${K.buyers||"-"}／反応「高」${K.hot||0}／見積提示 ${K.quotes||0}／受注 ${K.won||0}${fun?"\nファネル："+fun:""}${lost?"\n失注理由："+lost:""}${byc?"\n国別商談数："+byc:""}${hot?"\n脈あり度："+hot:""}${more?"\n9件目以降の商談記録（要約）："+more:""}`;
+}
+function kbPlan(){
+  const dd=(typeof D!=="undefined"&&D)||{}; const td=(dd.today||[]).slice(0,4).map(x=>"・"+x[0]+"（"+x[1]+"）").join("\n"); const p=(dd.plan30||[]).slice(0,4).map(x=>"・"+x[0]+" "+x[1]).join("\n");
+  if(!td&&!p) return ""; return `## 今日やること・30日計画（AIの提案）\n${td}${p?"\n30日計画：\n"+p:""}`;
+}
+function kbFob(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; const L=(typeof window!=="undefined")?window.__fobLast:null; const fi=t&&t.fobIn;
+  if(!L&&!fi) return ""; const tiers=L&&L.tiers?L.tiers.map(x=>`${x.name} $${(+x.usd||0).toFixed(2)}`).join("／"):"";
+  return `## 推奨FOB Japan Price（通関統計ベースの算出）\n${fi?"入力："+kbObj(fi,["hs","kg","cur","item","at"],160)+"\n":""}${tiers?"提案："+tiers:"（未算出。商品情報 › 推奨FOB で算出できる）"}${L&&L.gap?"／統計との乖離 "+Math.round(L.gap.pct*100)+"%":""}`;
+}
+function kbGrow(){
+  if(typeof aiLevel!=="function") return ""; let L=null; try{ L=aiLevel(); }catch(e){ return ""; }
+  return `## AI商社マンの成長レベル\n${L.pct}%（Lv.${L.lv} ${L.stage}・一人前ライン${typeof GROW_PRO!=="undefined"?GROW_PRO:90}%まで あと${L.to}pt）／分野：${L.cats.map(c=>c.nm+" "+c.pct+"%").join("、")}／次の一手：${L.cats.filter(c=>c.next).slice(0,3).map(c=>c.next.t).join("、")||"—"}`;
+}
+function kbProducts(){
+  const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS:[]; if(T.length<2) return "";
+  const cur=(typeof TIDX!=="undefined")?TIDX:-1;
+  return `## 同じアカウントの他の商品（${T.length-1}件・質問で指定があれば切り替えて答える）\n`+T.map((t,i)=>i===cur?null:`・${t.item||t.file||"（無題）"}（${t.co||""}）商談 ${(t.fbx||[]).length}件／進出希望 ${(t.targets||[]).join("・")||"-"}`).filter(Boolean).slice(0,10).join("\n");
+}
+/* ── 全部まとめて（接続AI用） ── */
+function kbCtx(){
+  const parts=[]; const add=(f,cap)=>{ try{ const s=f(); if(s) parts.push(String(s).slice(0,cap)); }catch(e){} };
+  add(kbStatsText,2600); add(kbLogi,2200); add(kbCases,1400); add(kbPO,1400); add(kbKpi,1200); add(kbLegal,900); add(kbDeck,500); add(kbMsgs,1200); add(kbXdocs,700); add(kbFob,500); add(kbPlan,600); add(kbGrow,500); add(kbProducts,600);
+  if(!parts.length) return "";
+  return `\n=== 貿易クラウド内の連携データ（AI商社マンが参照できる情報。回答の根拠にしてよい。無いものは「未登録」と答える） ===\n`+parts.join("\n\n");
+}
+/* ── 「AIが見ているもの」一覧 ── */
+function kbSeen(K){
+  const dd=(typeof D!=="undefined"&&D)||{}; K=K||dd.kpi||{}; const t=(typeof TEN!=="undefined"&&TEN)||null; const cnt=a=>Array.isArray(a)?a.length:0;
+  const S=kbStats("","X"); const stOk=!!(S&&S.hs);
+  let fwdN=0, rateN=0; try{ if(typeof FWDB!=="undefined"&&FWDB){ fwdN=(FWDB.reqs||[]).filter(r=>r.co===((t&&t.co)||dd.co)).length; rateN=(FWDB.rates||[]).length; } }catch(e){}
+  const ships=(typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS.length:(dd.ship?1:0);
+  const src=cnt(t&&t.sources), xd=cnt(t&&t.xdocs), po=cnt(t&&t.poCases), lg=cnt(t&&t.legal&&t.legal.docs), ms=cnt(t&&t.msgs)||cnt(dd.msgs), dk=t&&t.deckMeta?Object.keys(t.deckMeta).length:0;
+  const pc=(n,goal)=>Math.min(100,Math.round(n/goal*100));
+  return [["商談の記録",`${K.fbDone||0}件`,Math.min(100,Math.round((K.fbDone||0)/Math.max(1,K.fbGoal||42)*100))],
+    ["規制の調査",`${Object.keys(dd.regs||{}).length}か国`,Object.keys(dd.regs||{}).length?100:0],
+    ["商品情報・強み",`${cnt(dd.strengths)}項目`,cnt(dd.strengths)?100:0],["価格表・寸法",`${cnt(dd.priceRows)}SKU`,cnt(dd.priceRows)?100:0],
+    [dd.compTitle||"成分表",`${cnt(dd.compRows)}項目`,cnt(dd.compRows)?100:0],
+    ["通関統計（輸出額・数量・上位国）",stOk?`HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}・${S.series.length}年分`:"HS未一致",stOk?100:0],
+    ["取り込んだ情報・添付",`${src}件・添付${xd}件`,pc(src+xd,4)],
+    ["物流レート・AI見積",`レート${rateN}本・依頼${fwdN}件`,rateN?(fwdN?100:60):0],
+    ["出荷案件・発注書案件",`出荷${ships}件・PO${po}件`,ships||po?100:0],
+    ["過去の見積・出荷",`見積${K.quotes||0}件・出荷${cnt(dd.orders)}件`,(K.quotes||cnt(dd.orders))?100:0],
+    ["契約書・営業資料・やりとり",`契約${lg}・資料${dk}・やりとり${ms}`,pc(lg+dk+ms,3)]];
+}
+/* ── 内蔵エンジン／前段の直接回答 ── */
+function kbAsk(q){
+  const s=String(q||""); const dd=(typeof D!=="undefined"&&D)||null; if(!dd) return null;
+  const st=kbStatsAsk(s); if(st) return st;
+  const wrap=(title,txt,c)=>({a:`<b>${esc(title)}</b><br>`+esc(txt).replace(/\n/g,"<br>"),c});
+  if(/何を(見て|参照|把握|学習)|参照できる|見ている(情報|データ)|知っている情報|どんな(情報|データ)を/.test(s)){
+    const rows=kbSeen(); return {a:`AI商社マンがいま参照できる情報です：<br>`+rows.map(r=>`・${esc(r[0])}：<b>${esc(r[1])}</b>`).join("<br>")+`<br><span style="color:var(--ink-3)">このほか、取り込んだ資料の原文・受注・タスク・現地販売価格・為替も根拠に使います。</span>`,c:"根拠：貿易クラウド内の連携データ一覧"}; }
+  if(!(typeof ppReady==="function"&&ppReady())){
+    if(/発注書|PO案件|ＰＯ/.test(s)){ const t=kbPO(); return t?wrap("発注書案件の状況",t.replace(/^##[^\n]*\n/,""),"根拠：発注書案件（取り込み済み）"):{a:"発注書の取り込みはまだありません。「貿易実務・書類・出荷 › 書類をつくる › 発注書を取り込む」から始められます。",c:"根拠：発注書案件 0件"}; }
+    if(/契約書|契約の|NDA|秘密保持|販売店契約/.test(s)){ const t=kbLegal(); return t?wrap("契約書関連",t.replace(/^##[^\n]*\n/,""),"根拠：契約書関連（登録済み）"):{a:"契約書の登録はまだありません。「契約書関連」からアップロードすると内容を参照できます。",c:"根拠：契約書 0件"}; }
+    if(/営業資料|プレゼン資料|外国語の資料|カタログ/.test(s)){ const t=kbDeck(); return t?wrap("外国語 営業資料",t.replace(/^##[^\n]*\n/,""),"根拠：営業資料（生成済み）"):{a:"外国語の営業資料はまだ作成していません。「外国語 営業資料」から生成できます。",c:"根拠：営業資料 0件"}; }
+    if(/やりとり|メール|連絡(履歴|の記録)|返信/.test(s)){ const t=kbMsgs(); return t?wrap("やりとり（直近）",t.replace(/^##[^\n]*\n/,""),"根拠：やりとり（記録）"):{a:"やりとりの記録はまだありません。「やりとり」に投稿・取り込みすると参照できます。",c:"根拠：やりとり 0件"}; }
+    if(/出荷案件|案件の状況|進行中の案件|案件は/.test(s)){ const t=kbCases(); return t?wrap("出荷案件",t.replace(/^##[^\n]*\n/,""),"根拠：出荷案件（登録済み）"):{a:"出荷案件はまだありません。「貿易実務・書類・出荷 › 出荷を進める」から始められます。",c:"根拠：出荷案件 0件"}; }
+    if(/成長|レベル|一人前|育っ/.test(s)&&typeof aiLevel==="function"){ const L=aiLevel(); return {a:`AI商社マンの成長レベルは <b>${L.pct}%（Lv.${L.lv} ${esc(L.stage)}）</b>、一人前ライン${typeof GROW_PRO!=="undefined"?GROW_PRO:90}%まで あと ${L.to} pt です。<br>${L.cats.map(c=>`・${esc(c.nm)} ${c.pct}%${c.next?"（次の一手："+esc(c.next.t)+"）":""}`).join("<br>")}`,c:"根拠：成長レベル（内蔵の採点ロジック）"}; }
+  }
+  return null;
+}
+/* ── 接続AIのコンテキストと質問前段に組み込む ── */
+if(typeof ppContext==="function"){ const __ppCtxKB=ppContext; ppContext=function(){ const base=__ppCtxKB.apply(this,arguments); try{ return base+kbCtx(); }catch(e){ return base; } }; }
+if(typeof brain==="function"){ const __brainKB=brain; brain=function(q,opts){ try{ const q0=(opts&&opts.raw)||q; const k=kbAsk(q0); if(k) return k; }catch(e){} return __brainKB.apply(this,arguments); }; }
+if(typeof SUG!=="undefined"&&Array.isArray(SUG)){ if(!SUG.some(x=>/通関統計/.test(x))) SUG.push("通関統計で輸出額・数量・上位国は？"); if(!SUG.some(x=>/AI見積/.test(x))) SUG.push("物流のAI見積・仮押さえの状況は？"); }
 
 /* ═══════════ v15.15：クラウド同期（別のPC・ブラウザ・スマホでも同じ状態）＋同時ログイン制御（PC1台＋スマホ1台） ═══════════
    ・保存先＝STANDAGE管理のバックエンド（Google Apps Script 版 sync_gas.js。接続先は配布版に埋め込む BC20_SYNC_URL）。
