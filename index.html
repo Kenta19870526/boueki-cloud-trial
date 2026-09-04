@@ -422,6 +422,7 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 .btn.gai{background:linear-gradient(135deg,var(--or),#ff7a12);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(248,149,29,.35);padding:6px 14px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
 .btn.gai:hover{filter:brightness(1.06)}
 .btn.gai .lv{background:rgba(255,255,255,.22);border-radius:999px;padding:1px 8px;font-size:10px;font-weight:700}
+.btn.gai .lvs{font-size:9.5px;font-weight:600;opacity:.9;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ── v15.18：貿易実務・書類・出荷の流れタブ ── */
 .optabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .optab{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);text-align:left;cursor:pointer;flex:1 1 150px;min-width:150px;font:inherit;color:var(--ink)}
@@ -15772,8 +15773,11 @@ function growUsage(){
 }
 function growN(v,target){ return Math.max(0,Math.min(100,Math.round((+v||0)/target*100))); }
 /* 6分野の採点：{pct, lv, stage, to(一人前まで), cats[], events[]} */
-function aiLevel(){
-  const d=(typeof D!=="undefined"&&D)||{}, t=(typeof TEN!=="undefined"&&TEN)||null, u=growUsage(), K=d.kpi||{};
+function aiLevel(){ return aiLevelFor(); }
+/* 任意の商品（d）・登録テナント（t）で採点する。引数なしなら表示中の商品 */
+function aiLevelFor(d,t){
+  const curD=(typeof D!=="undefined"&&D)||null;
+  d=d||curD||{}; t=(t===undefined)?((d===curD&&typeof TEN!=="undefined")?TEN:null):t; const u=growUsage(), K=d.kpi||{};
   const cnt=a=>Array.isArray(a)?a.length:0, ev=Array.isArray(u.events)?u.events:[];
   const evN=re=>ev.filter(e=>re.test(String(e[2]||""))).length;
   /* ① 商品の理解：充足度（登録テナント）＋強み・AIの気づき */
@@ -15801,7 +15805,7 @@ function aiLevel(){
     detail:`AI商社マンへの質問 ${aiQ}回（目安120回）／使った画面 ${scr}種類（目安10）`,
     how:"質問と指示のたびに、貴社の言い回し・優先順位・判断基準を学びます。",next:aiQ<120?{t:"AI商社マンに質問する",go:"ai"}:null};
   /* ⑤ 実務の経験：見積・受注・出荷手続き・発注書案件・AI見積・契約書・完了タスク */
-  const ships=(typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS:[];
+  const ships=(d===curD&&typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS:(d.ship?[{ship:d.ship,step:0}]:[]);
   const shipAct=ships.length, shipDone=ships.filter(s=>(s.step||0)>=6).length;
   const po=cnt(t&&t.poCases), legal=cnt(t&&t.legal), orders=cnt(d.orders), quotes=+K.quotes||0;
   const fwdReq=(typeof FWDB!=="undefined"&&FWDB&&Array.isArray(FWDB.reqs))?FWDB.reqs.filter(r=>r.co===(d.co||"")).length:0;
@@ -15822,9 +15826,24 @@ function aiLevel(){
   return {pct,lv:lvIdx+1,lvIdx,stage:GROW_STAGES[lvIdx][1],nextStage:GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][1]:null,nextTh,to:Math.max(0,GROW_PRO-pct),pro:pct>=GROW_PRO,cats,events:ev.slice(0,6)};
 }
 /* 上部バー：どの画面からでもAI商社マンへ（現在のレベルを併記） */
+/* ダッシュボードの集計範囲（会社・商品・グループ）に合わせた成長レベル。複数商品なら各商品の採点を平均する */
+function aiLevelScope(){
+  if(typeof cur==="undefined"||cur!=="dash"||typeof dashScopeUnits!=="function") return null;
+  let us=[]; try{ us=dashScopeUnits(); }catch(e){ return null; } if(!us||!us.length) return null;
+  const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS:[];
+  const Ls=us.map(u=>{ try{ return aiLevelFor(u.D,(u.i>=0&&T[u.i])?T[u.i]:null); }catch(e){ return null; } }).filter(Boolean);
+  if(!Ls.length) return null;
+  const name=(typeof dashScopeName==="function")?dashScopeName():"";
+  if(Ls.length===1) return Object.assign({},Ls[0],{scope:name,n:1});
+  const avg=a=>Math.round(a.reduce((s,x)=>s+x,0)/a.length);
+  const pct=avg(Ls.map(L=>L.pct)); let lvIdx=0; GROW_STAGES.forEach((s,i)=>{ if(pct>=s[0]) lvIdx=i; });
+  const cats=Ls[0].cats.map((c,i)=>Object.assign({},c,{pct:avg(Ls.map(L=>L.cats[i].pct))}));
+  return {pct,lv:lvIdx+1,lvIdx,stage:GROW_STAGES[lvIdx][1],to:Math.max(0,GROW_PRO-pct),pro:pct>=GROW_PRO,cats,scope:name,n:Ls.length};
+}
 function aiLevelChipBtn(){
-  let L=null; try{ L=aiLevel(); }catch(e){ return `<button class="btn gai" onclick="go('ai')">🤖 AI商社マンに聞く</button>`; }
-  return `<button class="btn gai" id="gai" onclick="go('ai')" title="AI商社マンの画面へ（成長レベル ${L.pct}%・${L.stage}）">🤖 AI商社マンに聞く <span class="lv">Lv.${L.lv} ${esc(L.stage)}・${L.pct}%</span></button>`;
+  let L=null; try{ L=aiLevelScope()||aiLevel(); }catch(e){ return `<button class="btn gai" onclick="go('ai')">🤖 AI商社マンに聞く</button>`; }
+  const sc=L.scope?`<span class="lvs">${esc(String(L.scope).slice(0,14))}${L.n>1?"・"+L.n+"商品平均":""}</span>`:"";
+  return `<button class="btn gai" id="gai" onclick="go('ai')" title="AI商社マンの画面へ（成長レベル ${L.pct}%・${L.stage}${L.scope?"・集計範囲 "+esc(L.scope)+(L.n>1?"の"+L.n+"商品平均":""):""}）">🤖 AI商社マンに聞く <span class="lv">Lv.${L.lv} ${esc(L.stage)}・${L.pct}%</span>${sc}</button>`;
 }
 function growGo(id,pre){ if(pre&&typeof opsTab!=="undefined"){ opsTab=pre; } go(id); }
 function growRefresh(){ render(); toast("成長レベルを再計算しました"); }
