@@ -404,6 +404,20 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 #guide .gmsg{flex:1;min-width:210px;color:var(--ink);line-height:1.6}
 #guide .gmsg b{color:var(--or-deep)}
 @media (max-width:700px){#guide .gst{display:none}}
+/* ── v15.20：トライアル管理 ── */
+.admkpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:11px}
+.admkpi .kpi{font:inherit;text-align:left;width:100%;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;color:var(--ink)}
+.admkpi .kpi:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--or)}
+.admgrid2{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:11px;align-items:stretch}
+@media (max-width:900px){.admgrid2{grid-template-columns:1fr}}
+.admform{display:flex;flex-direction:column;gap:7px}
+.admform .sel{width:100%;box-sizing:border-box}
+.acfilt{display:inline-flex;gap:4px;flex-wrap:wrap}
+.acfilt .q{padding:5px 10px;font-size:11px}
+.acfilt .q.on{background:var(--or);color:#fff;border-color:var(--or)}
+#synccard code{display:inline-block;max-width:100%;overflow-wrap:anywhere}
+.flash{animation:flashc 1.2s ease}
+@keyframes flashc{0%{box-shadow:0 0 0 0 rgba(248,149,29,.6)}100%{box-shadow:0 0 0 12px rgba(248,149,29,0)}}
 /* ── v15.18：上部バーのAI商社マン常設ボタン ── */
 .btn.gai{background:linear-gradient(135deg,var(--or),#ff7a12);border-color:transparent;color:#fff;box-shadow:0 2px 8px rgba(248,149,29,.35);padding:6px 14px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
 .btn.gai:hover{filter:brightness(1.06)}
@@ -12826,49 +12840,59 @@ function showWelcome(){
 function renderAdmin(){
   const A=ADB.accounts, tot=k=>A.reduce((s,a)=>s+(a.usage[k]||0),0);
   const act=A.filter(a=>a.st==="active"&&a.expires>NOW()).length;
+  const mxAi=Math.max(1,...A.map(a=>(a.usage&&a.usage.aiQ)||0));
   well.innerHTML=`
   <div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🔒 STANDAGE管理者のみ</span></div>
     <h1>トライアル管理</h1>
     <p class="cando"><b>この画面でできること：</b>トライアルアカウントの発行・無効化と、お客様の利用状況の確認。お客様の画面には表示されません。</p></div>
     <div class="rw"><button class="btn g" id="adm-demo">デモ画面を開く</button></div></div>
 
-  <div class="g4" style="margin-bottom:11px">
-    ${[["発行済みアカウント",A.length+"<small>件</small>","うち有効 "+act+"件"],
-       ["累計ログイン",tot("logins")+"<small>回</small>","全アカウント合計"],
-       ["商品データの解析",tot("uploads")+"<small>件</small>","アップロードされた実ファイル"],
-       ["AIへの質問",tot("aiQ")+"<small>回</small>","うち 🌐Web検索 "+tot("webQ")+"回"]]
-      .map(([l,v,d])=>`<div class="c"><p class="lbl">${l}</p><div class="kv n">${v}</div><div class="kd">${d}</div></div>`).join("")}
+  <div class="admkpi" id="admkpi">
+    ${[["発行済みアカウント",A.length+"<small>件</small>","うち有効 "+act+"件","accounts"],
+       ["累計ログイン",tot("logins")+"<small>回</small>","全アカウント合計","admspark"],
+       ["商品データの解析",tot("uploads")+"<small>件</small>","アップロードされた実ファイル","accounts"],
+       ["AIへの質問",tot("aiQ")+"<small>回</small>","うち 🌐Web検索 "+tot("webQ")+"回","admaislot"],
+       ["7日以内に利用",A.filter(a=>a.usage&&a.usage.lastActive&&NOW()-a.usage.lastActive<7*DAY).length+"<small>件</small>","直近1週間のアクティブ","accounts"],
+       ["クラウド同期",(typeof syncOn==="function"&&syncOn())?"有効":"未設定","端末管理・台帳の共有","syncslot"]]
+      .map(([l,v,d,j])=>`<button class="c kpi" data-jump="${j}" title="クリックで該当セクションへ"><p class="lbl">${l}</p><div class="kv n">${v}</div><div class="kd">${d}</div></button>`).join("")}
   </div>
-
-  <div class="c" style="margin-bottom:11px">
-    <h3>新しいトライアルアカウントを発行する</h3>
-    <p class="nn">コードとページのURLをお客様に渡すだけで、その場でトライアルを始められます。</p>
-    <div class="rw" style="margin-top:10px">
-      <input class="sel" id="nc" placeholder="会社名（例：株式会社◯◯）" style="flex:2;min-width:180px">
-      <input class="sel" id="nw" placeholder="ご担当者名" style="flex:1;min-width:110px">
-      <select class="sel" id="nrole" title="物流会社を選ぶと、レート管理・AI物流マンの見積対応画面になります">
-        <option value="">荷主（標準）</option><option value="fwd">🚚 物流会社（フォワーダー）</option></select>
-      <select class="sel" id="nd"><option value="7">7日間</option><option value="14" selected>14日間</option>
-        <option value="30">30日間</option><option value="90">90日間</option></select>
-      <label style="font-size:11.5px;display:flex;align-items:center;gap:5px">
-        <input type="checkbox" id="nweb" checked> 🌐 Web検索を許可</label>
-      <button class="btn" id="nissue">発行する</button></div>
-    <div style="margin-top:10px" ${admIssued?"":"hidden"}>
-      ${admIssued?`<div style="padding:12px 14px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
-        <b style="color:var(--good)">発行しました。</b>このコードをお客様にお渡しください。<br>
-        <span class="acode" style="font-size:20px">${admIssued}</span>
-        <button class="btn g" style="margin-left:10px;padding:4px 11px" id="ncopy">コードをコピー</button></div>`:""}</div>
+  <div class="c" id="admspark" style="margin-bottom:11px"></div>
+  <div class="admgrid2" style="margin-bottom:11px">
+    <div id="syncslot"></div>
+    <div class="c" id="issue">
+      <h3>新しいトライアルアカウントを発行する</h3>
+      <p class="nn">コードとページのURLをお客様に渡すだけで、その場でトライアルを始められます。</p>
+      <div class="admform" style="margin-top:10px">
+        <input class="sel" id="nc" placeholder="会社名（例：株式会社◯◯）">
+        <input class="sel" id="nw" placeholder="ご担当者名">
+        <div class="rw" style="gap:6px">
+          <select class="sel" id="nrole" style="flex:1;min-width:0" title="物流会社を選ぶと、レート管理・AI物流マンの見積対応画面になります">
+            <option value="">荷主（標準）</option><option value="fwd">🚚 物流会社（フォワーダー）</option></select>
+          <select class="sel" id="nd" style="flex:1;min-width:0"><option value="7">7日間</option><option value="14" selected>14日間</option>
+            <option value="30">30日間</option><option value="90">90日間</option></select></div>
+        <div class="rw" style="justify-content:space-between;align-items:center;gap:8px">
+          <label style="font-size:11.5px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="nweb" checked> 🌐 Web検索を許可</label>
+          <button class="btn" id="nissue">発行する</button></div></div>
+      <div style="margin-top:10px" ${admIssued?"":"hidden"}>
+        ${admIssued?`<div style="padding:12px 14px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
+          <b style="color:var(--good)">発行しました。</b>このコードをお客様にお渡しください。<br>
+          <span class="acode" style="font-size:20px">${admIssued}</span>
+          <button class="btn g" style="margin-left:10px;padding:4px 11px" id="ncopy">コードをコピー</button></div>`:""}</div>
+    </div>
   </div>
+  <div id="admaislot"></div>
 
   ${typeof ppCardHtml==="function"?ppCardHtml():""}
 
   ${typeof costCardHtml==="function"?costCardHtml():""}
 
-  <div class="c" style="margin-bottom:11px">
-    <div class="rw" style="justify-content:space-between">
-      <div><h3>アカウント一覧と利用状況</h3>
-        <p class="nn">行の「詳細」で、画面別の利用回数と行動の時系列が見られます。</p></div>
-      <span class="p lo">この端末のブラウザに保存（製品版ではクラウドで一元管理）</span></div>
+  <div class="c" id="accounts" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+      <div><h3>アカウント一覧と利用状況 <span class="n" id="accnt" style="color:var(--ink-3);font-weight:400"></span></h3>
+        <p class="nn">行の「詳細」で、画面別の利用回数と行動の時系列が見られます。${(typeof syncOn==="function"&&syncOn())?"台帳はクラウド同期サーバーにも送られます。":"この端末のブラウザに保存（製品版ではクラウドで一元管理）。"}</p></div>
+      <div class="rw" style="gap:6px;flex-wrap:wrap">
+        <input class="sel" id="acq" placeholder="🔍 コード・会社名で絞り込み" style="min-width:190px">
+        <span class="acfilt">${[["all","すべて"],["active","有効"],["expired","期限切れ"],["disabled","無効"],["fwd","物流会社"]].map(([k,n])=>`<button class="q ${k==="all"?"on":""}" data-acf="${k}">${n}</button>`).join("")}</span></div></div>
     <div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>
       <th>コード</th><th>会社・担当</th><th>状態</th><th>期限</th><th>🌐Web</th>
       <th class="num">ログイン</th><th class="num">解析</th><th class="num">AI質問</th><th>最終利用</th><th></th>
@@ -12877,7 +12901,7 @@ function renderAdmin(){
       const stc=a.st!=="active"?'<span class="p no">無効</span>'
         :a.expires<NOW()?'<span class="p mid">期限切れ</span>':'<span class="p hi">有効</span>';
       const mems=(a.members||[]).length;
-      return `<tr>
+      return `<tr data-st="${a.st!=="active"?"disabled":a.expires<NOW()?"expired":"active"}" data-role="${a.role||""}" data-q="${esc(String(a.code+" "+a.co+" "+(a.who||"")).toLowerCase())}">
       <td><span class="acode">${a.code}</span><br><span style="font-size:9.5px;color:var(--ink-3)">発行 ${fdate(a.created)}</span></td>
       <td><b>${esc(a.co)}</b>${a.role==="fwd"?' <span class="p on" style="font-size:8.5px">🚚 物流</span>':""}<br>
         <span style="font-size:10px;color:var(--ink-3)">${esc(a.who||"—")}${mems?`　<span class="p or" style="font-size:8.5px;padding:1px 6px" title="やりとり画面から招待されたメンバー（リアルタイム反映）">👥 ${mems}名</span>`:""}</span></td>
@@ -12885,7 +12909,7 @@ function renderAdmin(){
       <td class="n">${fdate(a.expires)}<br><span style="font-size:10px;color:var(--ink-3)">${a.expires>NOW()?"残り"+dleft(a)+"日":"—"}</span></td>
       <td>${a.web!==false?'<span class="p on">許可</span>':'<span class="p lo">停止</span>'}</td>
       <td class="num">${u.logins}</td><td class="num">${u.uploads}</td>
-      <td class="num">${u.aiQ}<span style="color:var(--ink-3);font-size:10px">（🌐${u.webQ}）</span></td>
+      <td class="num">${u.aiQ}<span style="color:var(--ink-3);font-size:10px">（🌐${u.webQ}）</span><div class="mt" style="margin-top:3px;width:64px;margin-left:auto"><i style="width:${Math.round((u.aiQ||0)/mxAi*100)}%"></i></div></td>
       <td class="n" style="font-size:10.5px;color:var(--ink-3)">${u.lastActive?fdate2(u.lastActive):"未利用"}</td>
       <td><div class="rw" style="gap:4px;flex-wrap:nowrap">
         <button class="btn g" data-tgl="${a.code}" style="padding:3px 9px;font-size:10.5px">${a.st==="active"?"無効化":"有効化"}</button>
@@ -17230,11 +17254,13 @@ function kbNum(v,d){ v=+v||0; return v.toLocaleString(undefined,{maximumFraction
 function kbM(v){ v=+v||0; return v>=1e9?"$"+(v/1e9).toFixed(2)+"B":v>=1e6?"$"+(v/1e6).toFixed(1)+"M":v>=1e3?"$"+(v/1e3).toFixed(0)+"K":"$"+Math.round(v); }
 function kbYr(y){ return String(y).replace(/^(\d{4})H1$/,"$1年上期（暫定）").replace(/^(\d{4})H2$/,"$1年下期（暫定）").replace(/^(\d{4})$/,"$1年"); }
 /* ── 通関統計（内蔵エクスプローラーのスナップショット）を、この商品のHSで要約 ── */
-function kbStats(hsIn,flow){
+function kbStats(hsIn,flow,q){
   if(typeof csData!=="function") return null; const C=csData(); if(!C) return null;
   const F=flow==="M"?"M":"X";
-  const hs0=hsIn?csHs6(hsIn):csHs6((typeof D!=="undefined"&&D&&D.hs)||"");
-  const f=csFind(hs0); const hs=f.hs; if(!hs) return {hs:"",cands:f.cands||[],hs0};
+  let hs0=hsIn?csHs6(hsIn):csHs6((typeof D!=="undefined"&&D&&D.hs)||"");
+  /* 質問に別の品名があればそちら（例：物流会社が「サバの輸出は？」）。商品のHSが無いときも品名で探す */
+  const g=q?kbStatsGuess(q):null; if(g&&(!hs0||g.len>=2&&csFind(hs0).hs!==g.hs&&!(typeof D!=="undefined"&&D&&String(D.item||"").includes(g.ja.split(/[・（）]/)[0])))) hs0=g.hs;
+  const f=csFind(hs0); const hs=f.hs; if(!hs) return {hs:"",cands:f.cands||[],hs0,guess:g};
   const d=C.raw[hs]; if(!d||!d.annual) return {hs:"",cands:f.cands||[],hs0};
   const ys=Object.keys(d.annual).sort().filter(y=>d.annual[y]&&d.annual[y][F]&&d.annual[y][F][0]>0);
   if(!ys.length) return {hs,meta:C.meta[hs]||{},series:[],hs0,exact:f.exact};
@@ -17252,6 +17278,17 @@ function kbStats(hsIn,flow){
   pr.forEach(p=>{ p.yoy=(prevMap[p.code])?p.value/prevMap[p.code]-1:null; });
   const fx=C.fx[y]||C.fx[String(y).slice(0,4)]||150;
   return {hs,meta:C.meta[hs]||{},unit,series,latest,partners:pr,top:pr.slice(0,8),fx,flow:F,hs0,exact:f.exact,ver:(typeof CS_META!=="undefined"&&CS_META)?CS_META:null};
+}
+const KB_SYN={"日本酒":"清酒","お酒":"清酒","抹茶":"緑茶","お茶":"茶","鯖":"さば","サバ":"さば","鰹":"かつお","カツオ":"かつお","鰤":"ぶり","ブリ":"ぶり","帆立":"ほたて","ホタテ":"ほたて","化粧品":"化粧","醤油":"しょうゆ","味噌":"みそ","ウィスキー":"ウイスキー","焼酎":"蒸留酒","コメ":"米","和牛":"牛肉","ベアリング":"軸受"};
+/* 質問文に含まれる品名から統計品目を探す（HS_META の和名の区切り語・同義語で照合。データのある品目を優先） */
+function kbStatsGuess(q){
+  if(typeof csData!=="function") return null; const C=csData(); if(!C||!C.meta) return null; const s=String(q||""); if(!s) return null;
+  const out=[];
+  Object.entries(C.meta).forEach(([hs,m])=>{ const ja=String(m.ja||""); let best=0;
+    ja.split(/[・（）()／/、,\s]+/).filter(x=>x.length>=2).forEach(sg=>{ if(s.includes(sg)&&sg.length>best) best=sg.length; });
+    if(!best){ for(const k in KB_SYN){ if(s.includes(k)&&ja.includes(KB_SYN[k])&&k.length>best) best=k.length; } }
+    if(best){ let v=0; try{ const an=(C.raw[hs]||{}).annual||{}; Object.keys(an).forEach(y=>{ const x=an[y]&&an[y].X; if(x&&x[0]>v&&!/H[12]$/.test(y)) v=x[0]; }); }catch(e){} out.push({hs,len:best,has:csHas(hs)?1:0,ja,v}); } });
+  if(!out.length) return null; out.sort((a,b)=>b.has-a.has||b.len-a.len||b.v-a.v||a.hs.localeCompare(b.hs)); return out[0];
 }
 function kbStatsPartner(S,cty){ if(!S||!S.partners) return null; const names=kbCty(cty); return S.partners.find(p=>names.some(n=>String(p.name).includes(n)))||null; }
 function kbStatsText(){
@@ -17272,13 +17309,14 @@ ${imp}
 }
 /* 通関統計の質問に、データから直接・確実に答える（接続の有無に関わらず） */
 const KB_STATS_RE=/通関統計|輸出統計|貿易統計|輸出実績|輸出額|輸出金額|輸出数量|輸入統計|輸入額|輸入数量|統計(?!エクスプローラ)|comtrade|仕向国|輸出先(?:国)?(?:の)?(?:上位|ランキング|トップ)|どこの国に(?:多く)?輸出|市場規模/i;
-function kbStatsAsk(q){
-  const s=String(q||""); if(!KB_STATS_RE.test(s)) return null;
+function kbStatsAsk(q,opts){
+  opts=opts||{}; const s=String(q||""); if(!KB_STATS_RE.test(s)) return null;
   if(/推奨FOB|FOB.*(推奨|提案)/.test(s)) return null;
   const dd=(typeof D!=="undefined"&&D)||{}; const flow=/輸入/.test(s)&&!/輸出/.test(s)?"M":"X";
-  const S=kbStats("",flow);
+  if(opts.free&&!dd.hs&&!kbStatsGuess(s)) return {a:"どの品目の統計かを品名かHSコードで教えてください（例：「日本酒の輸出統計は？」「HS 0303 の輸出額は？」）。内蔵の通関統計は"+((typeof CS_META!=="undefined"&&CS_META)?CS_META.hs+"品目":"多数の品目")+"に対応しています。",c:"根拠：通関統計エクスプローラー（内蔵）"};
+  const S=kbStats("",flow,s);
   if(!S) return {a:"通関統計のデータがこの版に内蔵されていません。「商品情報 › 通関統計エクスプローラー」から最新版を取得してください。",c:"根拠：通関統計 未内蔵"};
-  if(!S.hs) return {a:`この商品のHSコード <b>${esc(dd.hs||"未登録")}</b> に対応する統計品目が見つかりません。${S.cands&&S.cands.length?"近い品目："+S.cands.slice(0,5).map(c=>`${c.hs.slice(0,4)}.${c.hs.slice(4)} ${esc(c.ja)}`).join("／")+"。":""}「商品情報」でHSコードを確定すると、輸出額・数量・上位国を即答できます。`,c:"根拠：通関統計エクスプローラー（内蔵）・HS未一致"};
+  if(!S.hs) return {a:`${dd.hs?"この商品のHSコード <b>"+esc(dd.hs)+"</b>":"質問の品名"} に対応する統計品目が見つかりません。${S.cands&&S.cands.length?"近い品目："+S.cands.slice(0,5).map(c=>`${c.hs.slice(0,4)}.${c.hs.slice(4)} ${esc(c.ja)}`).join("／")+"。":""}「商品情報」でHSコードを確定すると、輸出額・数量・上位国を即答できます。`,c:"根拠：通関統計エクスプローラー（内蔵）・HS未一致"};
   const fl=flow==="M"?"輸入":"輸出"; const L=S.latest;
   const cty=(typeof pickCountry==="function")?pickCountry(s):"";
   const P=cty?kbStatsPartner(S,cty):null;
@@ -17694,12 +17732,12 @@ function syncLoginLine(){
 new MutationObserver(()=>{ try{ syncLoginLine(); }catch(e){} }).observe(document.body,{childList:true,subtree:true});
 function syncAdminCardHtml(){
   const on=syncOn(); const dev=syncDev();
-  return `<div class="c" id="synccard" style="margin-bottom:11px">
+  return `<div class="c" id="synccard" style="margin-bottom:0;height:100%;box-sizing:border-box">
     <div class="rw" style="justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
       <div><h3>☁ クラウド同期・端末管理 <span class="p ${on?"hi":"lo"}" style="font-size:9.5px">${on?"有効":"未設定"}</span></h3>
-        <p class="nn">${on?`接続先：<code style="font-size:10px">${esc(SYNC.url.replace(/^https?:\/\//,"").slice(0,70))}</code>（${esc(SYNC.cfgSrc)}）。お客様の商品・商談・書類・案件は<b>アクセスコードで暗号化</b>して預けます（サーバー側でも読めません）。APIキーは同期しません。`
+        <p class="nn">${on?`接続先：<code style="font-size:10px;word-break:break-all">${esc(SYNC.url.replace(/^https?:\/\//,""))}</code>（${esc(SYNC.cfgSrc)}）<button class="btn g" style="padding:1px 7px;font-size:9.5px;margin-left:4px" onclick="copyTxt(SYNC.url)">URLをコピー</button>。お客様の商品・商談・書類・案件は<b>アクセスコードで暗号化</b>して預けます（サーバー側でも読めません）。APIキーは同期しません。`
           :"未設定のため、各端末のブラウザにだけ保存されます。バックエンド（Google Apps Script：sync_gas.js）を配置し、そのURLを配布版に設定すると、別のPC・ブラウザ・スマホでも同じ状態になり、同時ログイン（PC1台＋スマホ1台）の制御が働きます。"}</p></div>
-      <div class="rw" style="gap:6px;flex:none">${on?`<button class="btn g" style="font-size:11px" id="synctest">接続テスト</button><button class="btn g" style="font-size:11px" id="syncpush">台帳をサーバーへ送る</button><button class="btn" style="font-size:11px" id="syncget">利用状況・端末を取得</button>`:""}</div></div>
+      <div class="rw" style="gap:6px;flex-wrap:wrap">${on?`<button class="btn g" style="font-size:11px" id="synctest">接続テスト</button><button class="btn g" style="font-size:11px" id="syncpush">台帳をサーバーへ送る</button><button class="btn" style="font-size:11px" id="syncget">利用状況・端末を取得</button>`:""}</div></div>
     <div id="syncout" style="margin-top:8px"></div>
     <details class="fwdx" style="margin-top:8px"><summary>接続先URLをこの端末で上書き（テスト・移行用）</summary><div>
       <div class="rw" style="gap:6px;margin-top:6px"><input class="sel" id="syncurl" placeholder="https://script.google.com/macros/s/…/exec" value="${esc((()=>{try{return localStorage.getItem("bc20_sync_url")||""}catch(e){return ""}})())}" style="flex:1;min-width:0">
@@ -17751,7 +17789,8 @@ if(typeof dashSet==="function"){ const __dashSetSync=dashSet; dashSet=function(k
 /* 管理コンソールにカードを差し込む */
 if(typeof renderAdmin==="function"){ const __renderAdminSync=renderAdmin;
   renderAdmin=function(){ __renderAdminSync();
-    try{ const well=document.getElementById("well"); if(well&&!document.getElementById("synccard")){ const first=well.querySelector(".c"); if(first) first.insertAdjacentHTML("beforebegin",syncAdminCardHtml()); else well.insertAdjacentHTML("afterbegin",syncAdminCardHtml()); syncAdminBind(); } }catch(e){} }; }
+    try{ const well=document.getElementById("well"); if(well&&!document.getElementById("synccard")){ const slot=document.getElementById("syncslot"); const grid=well.querySelector(".admkpi,.g4");
+        if(slot) slot.innerHTML=syncAdminCardHtml(); else if(grid) grid.insertAdjacentHTML("beforebegin",syncAdminCardHtml()); else well.insertAdjacentHTML("afterbegin",syncAdminCardHtml()); syncAdminBind(); } }catch(e){} }; }
 /* 管理者が台帳を変えたら（発行・無効化・延長）サーバーへも反映 */
 if(typeof asave==="function"){ const __asave2=asave; asave=function(){ const r=__asave2.apply(this,arguments); try{ if(SES&&SES.t==="admin"&&syncOn()){ clearTimeout(SYNC.admT); SYNC.admT=setTimeout(()=>{ syncAdminPush().catch(()=>{}); },2000); } }catch(e){} return r; }; }
 setTimeout(()=>{ try{ syncLoginLine(); }catch(e){} },300);
@@ -17760,5 +17799,169 @@ setTimeout(()=>{ try{ syncLoginLine(); }catch(e){} },300);
 try{ if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&!SYNC.started&&syncOn()){
   syncStart().then(r=>{ if(r&&r.ok===false){ syncKicked(null,r.reason==="unknown"?"":r.reason); return; }
     if(r&&r.ok&&!r.skip){ syncReloadState(); } }).catch(()=>{}); } }catch(e){}
+
+/* ═══════════ v15.20：管理者AIアシスタント／トライアル管理のインタラクティブ化／AI物流マンの参照範囲拡張 ═══════════
+   ・管理コンソール：KPIタイル（クリックで該当セクションへ）・14日間の利用推移・アカウント絞り込み・
+     「管理者AIアシスタント」（発行済みアカウント・利用状況・同期サーバーの端末・AIエンジン設定とコスト・物流会社の登録・
+     通関統計の版を根拠に回答。接続AIがあればそれも使う）。
+   ・AI物流マン：fwdContext に「見積依頼ごとの相見積・推奨・仮押さえ・荷主から共有された貨物情報・情勢メモ・相談履歴・
+     アカウント利用状況・外部連携（為替・通関統計の版・同期）」を追加。統計の質問は品名から品目を探して即答。 */
+let ADMCHAT=[];
+function admOnline(){ try{ return typeof llmActive==="function"&&llmActive().length>0&&typeof llmAsk==="function"; }catch(e){ return false; } }
+function admAccRow(a){
+  const u=a.usage||{}; const top=Object.entries(u.screens||{}).sort((x,y)=>y[1]-x[1]).slice(0,3).map(x=>((typeof SCN!=="undefined"&&SCN[x[0]])||x[0])+x[1]).join("・");
+  const ev=(u.events||[]).slice(0,3).map(e=>String(e[2]||e[1]||"")).join("；");
+  const st=a.st!=="active"?"無効":a.expires<NOW()?"期限切れ":"有効";
+  return `${a.code}｜${a.co}${a.role==="fwd"?"（物流会社）":""}｜${st}｜期限 ${fdate(a.expires)}（${a.expires>NOW()?"残り"+dleft(a)+"日":"切れ"}）｜Web検索 ${a.web!==false?"許可":"停止"}｜ログイン${u.logins||0}・解析${u.uploads||0}・AI質問${u.aiQ||0}（Web${u.webQ||0}）・充足回答${u.fills||0}｜最終 ${u.lastActive?fdate2(u.lastActive):"未利用"}${top?"｜画面 "+top:""}${(a.members||[]).length?"｜メンバー"+a.members.length+"名":""}${ev?"｜最近："+ev:""}`;
+}
+function admContext(){
+  const A=(typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]; const tot=k=>A.reduce((s,a)=>s+((a.usage||{})[k]||0),0);
+  const act=A.filter(a=>a.st==="active"&&a.expires>NOW()); const act7=A.filter(a=>a.usage&&a.usage.lastActive&&NOW()-a.usage.lastActive<7*DAY);
+  let llm="未接続"; try{ const act2=llmActive(); if(act2.length) llm=act2.map(p=>(PROV[p]&&PROV[p].short||p)+"（標準 "+llmModelOf(p,"std")+"／上位 "+llmModelOf(p,"pro")+"）").join("、")+"／利用プラン "+((typeof PLANS!=="undefined"&&PLANS[USERPLAN])?PLANS[USERPLAN].nm:USERPLAN); }catch(e){}
+  let cost=""; try{ if(typeof costAggText==="function") cost=String(costAggText()||"").replace(/<[^>]+>/g,"").slice(0,900); }catch(e){}
+  let sync="未設定（各端末のブラウザにだけ保存）"; try{ if(typeof syncOn==="function"&&syncOn()){ sync=`有効／接続先 ${String(SYNC.url||"").replace(/^https?:\/\//,"").slice(0,60)}（${SYNC.cfgSrc||""}）`; const d=SYNC.admData; if(d){ const S=d.sessions||{}; const rows=A.map(a=>{ const s=S[a._kid]||{}; const n=k=>Object.keys((s[k]||{}).ids||{}).length; return (n("pc")||n("mobile"))?`${a.code}：PC${n("pc")}台・スマホ${n("mobile")}台`:null; }).filter(Boolean); sync+=`／サーバー取得 ${fdate2(SYNC.admAt||NOW())}：登録台帳 ${(d.accounts||[]).length}件、ログイン中 ${rows.join("、")||"なし"}${d.pwDefault?"、⚠管理者パスワードが初期値":""}`; } else sync+="／端末の状況は「利用状況・端末を取得」で取得（未取得）"; } }catch(e){}
+  let cs="未内蔵"; try{ if(typeof CS_META!=="undefined"&&CS_META) cs=`品目${CS_META.hs}（実データ${CS_META.withData}）・取得 ${String(CS_META.fetched||"").slice(0,10)}・供給源 ${String(CS_META.src||"").replace(/^https?:\/\//,"")}`; }catch(e){}
+  let fwd=""; try{ if(typeof fwdLoad==="function"){ fwdLoad(); const cos=(typeof fwdCos==="function")?fwdCos():[]; fwd=`参加物流会社 ${cos.length}社（${cos.join("・")}）／登録レート ${(FWDB.rates||[]).length}本／見積依頼 ${(FWDB.reqs||[]).length}件（仮押さえ ${(FWDB.reqs||[]).filter(r=>/仮押さえ/.test(typeof fwdReqStatus==="function"?fwdReqStatus(r):r.status||"")).length}件）／情勢メモ ${(FWDB.situ||[]).length}件`; } }catch(e){}
+  return `# 貿易クラウド2.0 管理コンソール（STANDAGE管理者）
+## 集計
+発行済み ${A.length}件（有効 ${act.length}・期限切れ ${A.filter(a=>a.st==="active"&&a.expires<=NOW()).length}・無効 ${A.filter(a=>a.st!=="active").length}・物流会社 ${A.filter(a=>a.role==="fwd").length}）／7日以内に利用 ${act7.length}件／累計ログイン ${tot("logins")}回・解析 ${tot("uploads")}件・AI質問 ${tot("aiQ")}回（Web検索 ${tot("webQ")}回）・充足回答 ${tot("fills")}回
+## アカウント（発行順）
+${A.map(admAccRow).join("\n")||"（なし）"}
+## AIエンジン設定（管理者が管理コンソールで接続。APIキーはこの端末のブラウザにだけ保存）
+${llm}
+${cost?"## APIコスト（管理コンソールの集計）\n"+cost:""}
+## クラウド同期・端末管理
+${sync}
+## 通関統計エクスプローラー（内蔵スナップショット）
+${cs}
+${fwd?"## 物流会社（AI物流マン）\n"+fwd:""}
+## この端末
+${(typeof syncDev==="function")?(function(){ const d=syncDev(); return d.name+"（ID "+d.id+"）"; })():""}`;
+}
+function admBrain(q){
+  const s=String(q||""); const A=(typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]; const base="根拠：管理コンソールの台帳・利用記録（この端末）";
+  const tbl=(rows,cols)=>`<div class="tw" style="margin-top:6px;max-height:260px"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const stOf=a=>a.st!=="active"?"無効":a.expires<NOW()?"期限切れ":"有効";
+  if(typeof kbStatsAsk==="function"&&/通関統計|輸出統計|貿易統計|輸出額|輸出数量|輸入額|統計/.test(s)){ const k=kbStatsAsk(s,{free:1}); if(k) return k; }
+  if(/期限|残り|切れ|更新/.test(s)){ const L=A.filter(a=>a.st==="active").sort((x,y)=>x.expires-y.expires);
+    return {a:`有効期限の近い順です（有効化中のアカウント ${L.length}件）：`+tbl(L.slice(0,10).map(a=>[`<span class="acode">${esc(a.code)}</span>`,esc(a.co),fdate(a.expires),a.expires>NOW()?"残り"+dleft(a)+"日":'<span class="p mid">期限切れ</span>',(a.usage&&a.usage.lastActive)?fdate2(a.usage.lastActive):"未利用"]),["コード","会社","期限","残り","最終利用"])+`<p class="nn" style="margin-top:5px">延長は一覧の「無効化→有効化」で+14日、または再発行で日数を選べます。</p>`,c:base}; }
+  if(/よく使|利用状況|アクティブ|ランキング|上位|多い|一番/.test(s)){ const L=A.slice().sort((x,y)=>((y.usage||{}).aiQ||0)+((y.usage||{}).logins||0)-(((x.usage||{}).aiQ||0)+((x.usage||{}).logins||0)));
+    const act7=A.filter(a=>a.usage&&a.usage.lastActive&&NOW()-a.usage.lastActive<7*DAY).length;
+    return {a:`利用の多い順です（7日以内に利用があったのは <b>${act7}件</b>）：`+tbl(L.slice(0,10).map(a=>{ const u=a.usage||{}; return [`<span class="acode">${esc(a.code)}</span>`,esc(a.co)+(a.role==="fwd"?" 🚚":""),String(u.logins||0),String(u.uploads||0),`${u.aiQ||0}（🌐${u.webQ||0}）`,u.lastActive?fdate2(u.lastActive):"未利用",stOf(a)]; }),["コード","会社","ログイン","解析","AI質問","最終利用","状態"]),c:base}; }
+  if(/無効|停止|使えない|止まっ/.test(s)){ const L=A.filter(a=>a.st!=="active"||a.expires<=NOW());
+    return {a:L.length?`無効・期限切れのアカウント ${L.length}件：`+tbl(L.map(a=>[`<span class="acode">${esc(a.code)}</span>`,esc(a.co),stOf(a),fdate(a.expires)]),["コード","会社","状態","期限"]):"無効・期限切れのアカウントはありません。",c:base}; }
+  if(/web検索|Web検索|ウェブ/i.test(s)){ const on=A.filter(a=>a.web!==false).length; const tot=A.reduce((x,a)=>x+((a.usage||{}).webQ||0),0);
+    return {a:`Web検索を許可しているアカウントは <b>${on}/${A.length}件</b>、Web検索の累計は <b>${tot}回</b> です。`+tbl(A.filter(a=>(a.usage||{}).webQ).sort((x,y)=>y.usage.webQ-x.usage.webQ).slice(0,8).map(a=>[`<span class="acode">${esc(a.code)}</span>`,esc(a.co),String(a.usage.webQ),a.web!==false?"許可":"停止"]),["コード","会社","Web検索","設定"]),c:base}; }
+  if(/同期|端末|サーバー|ログイン中|スマホ|強制/.test(s)){ const on=typeof syncOn==="function"&&syncOn(); const d=(typeof SYNC!=="undefined")?SYNC.admData:null;
+    if(!on) return {a:"クラウド同期は<b>未設定</b>です。各端末のブラウザにだけ保存されています。バックエンド（Apps Script）のURLを配布版に設定すると、別端末でも同じ状態になり、同時ログイン制御が働きます。",c:"根拠：同期設定（この端末）"};
+    if(!d) return {a:`クラウド同期は<b>有効</b>（接続先 ${esc(String(SYNC.url||"").replace(/^https?:\/\//,"").slice(0,60))}）。端末の状況はまだサーバーから取得していません。<button class="btn g" style="padding:3px 10px;font-size:10.5px" onclick="admFetchSync()">サーバーから取得して答える</button>`,c:"根拠：同期設定（この端末）／サーバー未取得"};
+    const S=d.sessions||{}; const rows=A.map(a=>{ const ss=S[a._kid]||{}; const cell=k=>{ const r=ss[k]; if(!r||!r.ids) return "—"; return Object.values(r.ids).map(x=>esc(x.name||"")+"（"+new Date(x.at||0).toLocaleString()+"）").join("<br>"); }; return [`<span class="acode">${esc(a.code)}</span>`,esc(a.co),cell("pc"),cell("mobile")]; });
+    return {a:`サーバー取得（${fdate2(SYNC.admAt||NOW())}）：台帳 ${(d.accounts||[]).length}件${d.pwDefault?"、<b style='color:var(--crit)'>管理者パスワードが初期値です</b>":""}。ログイン中の端末：`+tbl(rows,["コード","会社","PC","スマホ"])+`<p class="nn" style="margin-top:5px">強制ログアウトは「☁ クラウド同期・端末管理 › 利用状況・端末を取得」の一覧から行えます。</p>`,c:"根拠：同期サーバー（admin_get）"}; }
+  if(/エンジン|モデル|接続|API|プラン/.test(s)){ let act2=[]; try{ act2=llmActive(); }catch(e){}
+    return {a:act2.length?`接続中のAIエンジン：`+act2.map(p=>`・<b>${esc((PROV[p]&&PROV[p].short)||p)}</b>：標準 ${esc(llmModelOf(p,"std"))}／上位 ${esc(llmModelOf(p,"pro"))}`).join("<br>")+`<br>質問の内容（Web検索・PDF読取・複雑な判断）に応じて自動で使い分けます。利用プラン：${esc((typeof PLANS!=="undefined"&&PLANS[USERPLAN])?PLANS[USERPLAN].nm:USERPLAN)}。`:"AIエンジンは未接続です（内蔵エンジンで稼働）。下の「AIエンジン設定」でAPIキーを登録すると、実AIが回答・資料読み取り・Web検索を行います。",c:"根拠：AIエンジン設定（この端末）"}; }
+  if(/コスト|費用|料金|課金|予算/.test(s)){ let t=""; try{ if(typeof costAggText==="function") t=String(costAggText()||""); }catch(e){}
+    return {a:t?`<b>APIコストの集計</b><br>${t.replace(/\n/g,"<br>")}<p class="nn" style="margin-top:5px">詳細は下の「APIコスト」カード（期間・アカウント別）で確認できます。</p>`:"APIコストの記録はまだありません。接続AIを使い始めると、呼び出しごとにトークンと概算費用を記録します。",c:"根拠：APIコスト記録（この端末）"}; }
+  if(/物流|フォワーダー|レート|AI物流/.test(s)){ let t=""; try{ if(typeof fwdLoad==="function"){ fwdLoad(); const cos=(typeof fwdCos==="function")?fwdCos():[]; t=`参加物流会社 <b>${cos.length}社</b>（${cos.map(esc).join("・")}）／登録レート <b>${(FWDB.rates||[]).length}本</b>／見積依頼 <b>${(FWDB.reqs||[]).length}件</b>／情勢メモ ${(FWDB.situ||[]).length}件。体験用アカウント FWD-2026 でログインすると物流会社側の画面（レート管理・相見積・AI推奨）を確認できます。`; } }catch(e){}
+    return {a:t||"物流会社のデータはこの端末にありません。",c:"根拠：物流データ（bc20_fwd_v1）"}; }
+  if(/統計|エクスプローラ/.test(s)){ return {a:(typeof CS_META!=="undefined"&&CS_META)?`通関統計エクスプローラーの内蔵版は <b>${CS_META.hs}品目（実データ ${CS_META.withData}）</b>、取得 ${esc(String(CS_META.fetched||"").slice(0,10))}。公開URLが更新されると起動時の自動確認（30分に1回）で最新版に切り替わります。品目別の数値は「◯◯の輸出額は？」のように聞いてください。`:"通関統計は内蔵されていません。",c:"根拠：内蔵スナップショットのメタ情報"}; }
+  const tot=k=>A.reduce((x,a)=>x+((a.usage||{})[k]||0),0);
+  return {a:`管理者AIアシスタントです。管理コンソールの全データ（台帳 ${A.length}件・累計ログイン ${tot("logins")}回・AI質問 ${tot("aiQ")}回・同期サーバー・AIエンジン設定・APIコスト・物流会社・通関統計の版）を見ています。<br>例：「期限が近いアカウントは？」「よく使われているアカウントは？」「ログイン中の端末は？」「今月のAPIコストは？」「日本酒の輸出統計は？」`,c:base};
+}
+async function admFetchSync(){ try{ toast("サーバーから取得しています…"); const r=await syncAdminGet(); SYNC.admData=r; SYNC.admAt=Date.now(); admSend("ログイン中の端末は？"); }catch(e){ toast("取得できません："+String(e&&e.message||e).slice(0,60)); } }
+async function admSend(v){
+  v=String(v||"").trim(); if(!v) return; const c=document.getElementById("admchat"); if(!c) return;
+  ADMCHAT.push({w:"u",h:esc(v)}); admChatPaint();
+  let r=null;
+  const direct=/期限|残り|切れ|よく使|利用状況|アクティブ|ランキング|無効|停止|同期|端末|サーバー|ログイン中|コスト|費用|料金|通関統計|輸出額|輸出数量|統計/.test(v);
+  if(admOnline()&&!direct){
+    try{ const rr=await llmAsk(v,900,{noWeb:1,timeout:60000,sys:`あなたは株式会社STANDAGEの「貿易クラウド2.0」管理コンソールのAIアシスタント。以下の管理データだけを根拠に、日本語で簡潔に（結論から）答える。数値・日付はデータのまま。無いことは「記録なし」と正直に言う。\n=== 管理データ ===\n${admContext()}`});
+      r={a:(typeof ppFormat==="function")?ppFormat(rr.txt):esc(rr.txt),c:`エンジン：${esc(rr.provNm||"接続AI")} ${esc(rr.model||"")}／管理データを注入済み`}; }
+    catch(e){ r=admBrain(v); r.c+="／⚠ 接続AIに接続できず内蔵で回答"; }
+  } else r=admBrain(v);
+  ADMCHAT.push({w:"a",h:r.a+`<div class="ci">${r.c}</div>`}); ADMCHAT=ADMCHAT.slice(-30); admChatPaint();
+}
+function admChatPaint(){ const c=document.getElementById("admchat"); if(!c) return; c.innerHTML=ADMCHAT.length?ADMCHAT.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av"${m.w==="a"?' style="background:var(--bl);color:#fff"':""}>${m.w==="u"?"管":"AI"}</span><div class="bb">${m.h}</div></div>`).join(""):`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">管理者AIアシスタントです。発行済みアカウント・利用状況・同期サーバーの端末・AIエンジン設定とコスト・物流会社・通関統計の版を見ています。下の質問例からどうぞ。</div></div>`; c.scrollTop=c.scrollHeight; }
+function admAiCardHtml(){
+  const Q=["期限が7日以内のアカウントは？","よく使われているアカウントは？","ログイン中の端末は？","AIエンジンの接続状況は？","今月のAPIコストは？","物流会社の登録状況は？","日本酒の輸出統計は？"];
+  return `<div class="c" id="admai" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+      <div><h3>🤖 管理者AIアシスタント <span class="nt">この版で新規</span></h3>
+        <p class="nn">発行済みアカウント・利用状況・端末（同期サーバー）・AIエンジン設定とコスト・物流会社の登録・通関統計まで、管理コンソールの全データを根拠に答えます。数値の質問はデータから直接、自由な質問は接続AIが答えます。</p></div>
+      <span class="p ${admOnline()?"on":"lo"}" style="flex:none">${admOnline()?"接続AI＋内蔵":"内蔵エンジン"}</span></div>
+    <div class="chat" id="admchat" style="max-height:340px;margin-top:8px"></div>
+    <div class="qb" style="margin-top:8px">${Q.map(x=>`<button class="q" data-admq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <div class="rw" style="margin-top:7px;gap:6px"><input class="sel" id="admq" placeholder="管理データについて自由に質問（Enterで送信）" style="flex:1;min-width:0"><button class="btn" id="admgo">質問する</button></div>
+  </div>`;
+}
+/* 14日間の利用推移（全アカウントの記録から） */
+function admSparkHtml(){
+  const A=(typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]; const days=[]; const t0=new Date(); t0.setHours(0,0,0,0);
+  for(let i=13;i>=0;i--){ const d=new Date(t0.getTime()-i*DAY); days.push({k:d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(),lbl:(d.getMonth()+1)+"/"+d.getDate(),login:0,ai:0,web:0,upload:0}); }
+  const idx={}; days.forEach((d,i)=>idx[d.k]=i);
+  A.forEach(a=>(a.usage&&a.usage.events||[]).forEach(e=>{ const d=new Date(+e[0]||0); const k=d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate(); const i=idx[k]; if(i==null) return; const t=e[1]; if(t==="login") days[i].login++; else if(t==="ai") days[i].ai++; else if(t==="web") days[i].web++; else if(t==="upload") days[i].upload++; }));
+  const mx=Math.max(1,...days.map(d=>d.login+d.ai+d.web+d.upload)); const W=days.length*34, H=64;
+  const bars=days.map((d,i)=>{ const x=i*34+4; let y=H-8; const seg=(v,col,nm)=>{ if(!v) return ""; const h=v/mx*(H-16); y-=h; return `<rect x="${x}" y="${y.toFixed(1)}" width="24" height="${h.toFixed(1)}" rx="2" fill="${col}"><title>${d.lbl} ${nm} ${v}</title></rect>`; };
+    return seg(d.login,"var(--ink-3)","ログイン")+seg(d.upload,"var(--good)","解析")+seg(d.ai,"var(--or)","AI質問")+seg(d.web,"var(--bl)","Web検索")+`<text x="${x+12}" y="${H-1}" text-anchor="middle" font-size="7" fill="var(--ink-3)">${d.lbl}</text>`; }).join("");
+  const tot=days.reduce((s,d)=>s+d.login+d.ai+d.web+d.upload,0);
+  return `<div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
+      <div><h3>利用の推移（直近14日・全アカウント）</h3><p class="nn">${tot?`この14日間の記録 ${tot}件。棒にマウスを乗せると内訳が見えます。`:"まだ記録がありません。お客様が使い始めると、ここに日別の推移が出ます。"}</p></div>
+      <span style="font-size:10px;color:var(--ink-3)">■<span style="color:var(--or)">■</span> AI質問　<span style="color:var(--bl)">■</span> Web検索　<span style="color:var(--good)">■</span> 解析　■ ログイン</span></div>
+    <div style="overflow-x:auto;margin-top:6px"><svg viewBox="0 0 ${W} ${H}" style="width:${W}px;height:${H}px;display:block">${bars}</svg></div>`;
+}
+function admBindExtras(){
+  const well=document.getElementById("well"); if(!well) return;
+  const sp=document.getElementById("admspark"); if(sp&&!sp.dataset.on){ sp.dataset.on=1; sp.innerHTML=admSparkHtml(); }
+  const slot=document.getElementById("admaislot"); if(slot&&!document.getElementById("admai")){ slot.innerHTML=admAiCardHtml(); admChatPaint();
+    const go=()=>{ const i=document.getElementById("admq"); const v=(i.value||"").trim(); if(!v) return; i.value=""; admSend(v); };
+    document.getElementById("admgo").onclick=go; document.getElementById("admq").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } };
+    slot.querySelectorAll("[data-admq]").forEach(b=>b.addEventListener("click",()=>admSend(b.dataset.admq))); }
+  well.querySelectorAll("[data-jump]").forEach(b=>b.onclick=()=>{ const t=document.getElementById(b.dataset.jump); if(t){ t.scrollIntoView({behavior:"smooth",block:"start"}); t.classList.add("flash"); setTimeout(()=>t.classList.remove("flash"),1200); if(b.dataset.jump==="admaislot"){ const i=document.getElementById("admq"); if(i) i.focus(); } } });
+  const rows=[...well.querySelectorAll("tr[data-st]")]; const q=document.getElementById("acq"); const chips=[...well.querySelectorAll("[data-acf]")];
+  if(rows.length){ let f="all"; const apply=()=>{ const s=(q&&q.value||"").trim().toLowerCase(); let n=0; rows.forEach(tr=>{ const ok=(f==="all"||(f==="fwd"?tr.dataset.role==="fwd":tr.dataset.st===f))&&(!s||(tr.dataset.q||"").includes(s)); tr.hidden=!ok; if(ok) n++; }); const c=document.getElementById("accnt"); if(c) c.textContent=n+"/"+rows.length+"件"; };
+    chips.forEach(b=>b.onclick=()=>{ f=b.dataset.acf; chips.forEach(x=>x.classList.toggle("on",x===b)); apply(); }); if(q) q.addEventListener("input",apply); apply(); }
+}
+if(typeof renderAdmin==="function"){ const __renderAdminKB=renderAdmin; renderAdmin=function(){ __renderAdminKB.apply(this,arguments); try{ admBindExtras(); }catch(e){} }; }
+if(typeof syncAdminGet==="function"){ const __syncAdminGetKB=syncAdminGet; syncAdminGet=async function(){ const r=await __syncAdminGetKB.apply(this,arguments); try{ SYNC.admData=r; SYNC.admAt=Date.now(); }catch(e){} return r; }; }
+/* ── AI物流マン：参照範囲の拡張 ── */
+function fwdKbCtx(){
+  if(typeof FWDB==="undefined"||!FWDB) return "";
+  const cos=(typeof fwdCos==="function")?fwdCos():[]; const me=(typeof fwdCo==="function")?fwdCo():(FWDB.profile||{}).co;
+  const reqs=(FWDB.reqs||[]).slice(0,8).map(r=>`・${r.d} ${r.id}${r.requote?"（再見積・元 "+r.parentId+"）":""} 荷主 ${r.co}／${r.pol}→${r.cty}／${r.item}・${r.cbm}m³ ${r.mode}／${r.term||""}${r.etd?"／希望納期 "+r.etd:""}${r.toCo?"／指名 "+r.toCo:""}${r.note?"／要望："+r.note:""}${r.cargo?"／貨物："+r.cargo:""}${r.poNo?"／発注書 "+r.poNo:""}${(r.docs||[]).length?"／書類："+r.docs.join("・"):""}／状況 ${(typeof fwdReqStatus==="function")?fwdReqStatus(r):r.status}\n`+
+    (r.legs||[]).map(l=>l.ok?`　- ${l.cty}（${l.quote.lane}・${l.quote.mode}）${(l.offers||[]).length>1?l.offers.length+"社："+l.offers.map(o=>o.co+" ¥"+o.quote.total.toLocaleString()+"・"+o.rate.tt+"日・総合"+o.score+(o.co===l.rec?"（推奨）":"")).join("、")+"／荷主の選択 "+(l.sel||l.co):(l.co||me)+" ¥"+l.quote.total.toLocaleString()+"・約"+l.quote.tt+"日"}${l.hold?"／仮押さえ済み（"+(l.holdCo||l.sel||"")+"・"+(l.holdAt||"")+"）":""}${(l.recWhy||[]).length?"／推奨理由："+l.recWhy.slice(0,2).join("；"):""}`:`　- ${l.cty}：レーン未登録`).join("\n")).join("\n");
+  const situ=(FWDB.situ||[]).map(x=>`・${x.reg}：${x.t}${x.delay?"（+"+x.delay+"日）":""}${x.risk?"・逼迫":""}（${x.d}・${x.co||""}）`).join("\n");
+  const chat=(FWDB.chat||[]).slice(-6).map(m=>(m.w==="u"?"Q：":"A：")+String(m.t||"").replace(/<[^>]+>/g,"").replace(/\s+/g," ").slice(0,140)).join("\n");
+  let usage=""; try{ if(typeof acct==="function"&&typeof SES!=="undefined"&&SES&&SES.role==="fwd"){ const a=acct(); const u=a.usage||{}; usage=`${a.co}／期限 ${fdate(a.expires)}（残り${dleft(a)}日）／ログイン${u.logins||0}・AI質問${u.aiQ||0}・レート取込${(u.events||[]).filter(e=>/レート取込/.test(String(e[2]||""))).length}回`; } }catch(e){}
+  let fx=""; try{ if(typeof ddpFx==="function"){ const f=ddpFx(); fx=`1USD=¥${f.rates.USD}${f.live?"（当日値）":"（参照 "+f.at+"）"}`; } }catch(e){}
+  let cs=""; try{ if(typeof CS_META!=="undefined"&&CS_META) cs=`内蔵 ${CS_META.hs}品目・${String(CS_META.fetched||"").slice(0,10)}版（品名で「◯◯の輸出統計は？」と聞くと即答）`; }catch(e){}
+  let sync=""; try{ if(typeof syncOn==="function") sync=syncOn()?"有効（荷主と物流会社で共有・別端末でも同じ状態）":"未設定（この端末のみ）"; }catch(e){}
+  return `## 自社の設定
+物流会社 ${me}／AI物流マンのプラン ${(typeof FWDPLAN!=="undefined")?FWDPLAN:"-"}／参加物流会社 ${cos.length}社（${cos.join("・")}）／相見積の推奨ロジック＝価格60・所要25・有効期限15・納期NG−40・形態違い−15・逼迫区間は最速に加点
+## 見積依頼の詳細（相見積・推奨・荷主の選択・仮押さえ・荷主から共有された貨物情報。直近${Math.min(8,(FWDB.reqs||[]).length)}件）
+${reqs||"（依頼なし）"}
+## 情勢メモ（自社・他社が登録）
+${situ||"（登録なし。内蔵の一般傾向は推奨計算に自動反映）"}
+## AI物流マンとの相談履歴（直近）
+${chat||"（なし）"}
+## 外部連携・アカウント
+${usage?"アカウント："+usage+"\n":""}${fx?"為替："+fx+"\n":""}${cs?"通関統計："+cs+"\n":""}${sync?"クラウド同期："+sync:""}`;
+}
+function fwdKbAsk(q){
+  const s=String(q||""); if(typeof FWDB==="undefined"||!FWDB) return null;
+  if(typeof kbStatsAsk==="function"&&/通関統計|輸出統計|貿易統計|輸出額|輸出数量|輸入額|輸入統計|統計/.test(s)){ const k=kbStatsAsk(s,{free:1}); if(k) return k; }
+  if(/情勢|混雑|逼迫|遅延|紅海|スト/.test(s)){ const L=(FWDB.situ||[]); const B=(typeof FWD_SITU!=="undefined")?FWD_SITU:[];
+    return {a:`<b>情勢メモ</b>（登録 ${L.length}件・内蔵 ${B.length}件）：<br>`+(L.map(x=>`・<b>${esc(x.reg)}</b>：${esc(x.t)}${x.delay?"（+"+x.delay+"日）":""}${x.risk?' <span class="p mid" style="font-size:8.5px">逼迫</span>':""}（${esc(x.d)}）`).join("<br>")||"登録メモはありません。")+`<br><span style="color:var(--ink-3)">内蔵の一般傾向：${B.map(x=>esc(x.reg.split("|")[0])+"ほか（+"+x.delay+"日）").join("／")}。「相見積・AI推奨」画面で登録・削除できます。</span>`,c:"根拠：情勢メモ（登録＋内蔵）"}; }
+  if(/仮押さえ|相見積|推奨|依頼(の|は)|RQ-/i.test(s)){ const m=s.match(/RQ-[A-Z0-9]{5,8}/i); const L=m?(FWDB.reqs||[]).filter(r=>r.id.toUpperCase()===m[0].toUpperCase()):(FWDB.reqs||[]).slice(0,5); if(!L.length) return {a:"該当する見積依頼がありません。",c:"根拠：見積依頼 0件"};
+    return {a:L.map(r=>`<b>${esc(r.id)}</b> ${esc(r.d)} ${esc(r.co)}／${esc(r.pol)}→${esc(r.cty)}／${r.cbm}m³ ${esc(r.mode)}／${esc((typeof fwdReqStatus==="function")?fwdReqStatus(r):r.status)}<br>`+(r.legs||[]).map(l=>l.ok?`　・${esc(l.cty)}：${(l.offers||[]).length>1?l.offers.length+"社（推奨 <b>"+esc(l.rec)+"</b>・荷主の選択 "+esc(l.sel||l.co)+"）":esc(l.co||"")}　¥${l.quote.total.toLocaleString()}／約${l.quote.tt}日${l.hold?' <span class="p hi" style="font-size:8.5px">仮押さえ '+esc(l.holdCo||l.sel||"")+'</span>':""}`:`　・${esc(l.cty)}：レーン未登録`).join("<br>")).join("<br><br>")+`<p class="nn" style="margin-top:5px">詳細は受信箱の「交渉記録」で確認できます。</p>`,c:"根拠：見積依頼（相見積・推奨・仮押さえの記録）"}; }
+  if(/何を(見て|参照|把握)|参照できる|見ている(情報|データ)/.test(s)){ const cos=(typeof fwdCos==="function")?fwdCos():[]; return {a:`AI物流マンが参照しているもの：<br>・レート表 ${(FWDB.rates||[]).length}本（${cos.length}社）<br>・見積依頼 ${(FWDB.reqs||[]).length}件（相見積・推奨・仮押さえ・荷主の貨物情報）<br>・情勢メモ ${(FWDB.situ||[]).length}件＋内蔵の一般傾向<br>・操作履歴 ${(FWDB.hist||[]).length}件・相談履歴 ${(FWDB.chat||[]).length}件<br>・外部連携：為替（TTM）・通関統計（${(typeof CS_META!=="undefined"&&CS_META)?CS_META.hs+"品目":"—"}）・クラウド同期`,c:"根拠：物流データと外部連携の一覧"}; }
+  return null;
+}
+if(typeof fwdContext==="function"){ const __fwdCtxKB=fwdContext; fwdContext=function(){ const b=__fwdCtxKB.apply(this,arguments); try{ return b+"\n"+fwdKbCtx(); }catch(e){ return b; } }; }
+if(typeof fwdBrain==="function"){ const __fwdBrainKB=fwdBrain; fwdBrain=function(q){ try{ const k=fwdKbAsk(q); if(k) return k; }catch(e){} return __fwdBrainKB.apply(this,arguments); }; }
+if(typeof fwdAsk==="function"){ const __fwdAskKB=fwdAsk;
+  fwdAsk=async function(v){
+    const s=String(v||"").trim(); let k=null; try{ if(/通関統計|輸出統計|貿易統計|輸出額|輸出数量|輸入額|輸入統計|統計/.test(s)&&typeof kbStatsAsk==="function") k=kbStatsAsk(s,{free:1}); }catch(e){}
+    if(!k) return __fwdAskKB.apply(this,arguments);
+    FWDB.chat=FWDB.chat||[]; FWDB.chat.push({w:"u",t:esc(s),ts:Date.now()}); FWDB.chat.push({w:"a",t:k.a+`<div style="margin-top:6px;font-size:9.5px;color:var(--ink-3)">${k.c}</div>`,ts:Date.now()}); FWDB.chat=FWDB.chat.slice(-60); fwdSave();
+    if(typeof logU==="function") logU("fwd","AI物流マンに質問:"+s.slice(0,30)); fwdRender(); }; }
 
 </script>
