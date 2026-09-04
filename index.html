@@ -10157,8 +10157,10 @@ function dashRateFresh(){
 
 /* ── スコープ状態 ── */
 let DASH={grp:"",co:"",cat:"",pr:"",from:"",to:"",
-  cur:(function(){try{return localStorage.getItem("bc20_dashcur")||"JPY"}catch(e){return "JPY"}})()};
+  cur:(function(){try{return localStorage.getItem("bc20_dashcur")||"JPY"}catch(e){return "JPY"}})(),
+  demo:(function(){try{return localStorage.getItem("bc20_dashdemo")!=="0"}catch(e){return true}})()};   /* v15.21：デモ企業（デモ商材・業種サンプル）を集計に含める */
 function dashSet(k,v){
+  if(k==="demo"){ DASH.demo=(v!=="0"&&v!==false); try{ localStorage.setItem("bc20_dashdemo",DASH.demo?"1":"0"); }catch(e){} DASH.co=""; DASH.cat=""; DASH.pr=""; render(); return; }
   DASH[k]=v||"";
   if(k==="grp"){ DASH.co=""; DASH.cat=""; DASH.pr=""; }
   if(k==="co"){ DASH.cat=""; DASH.pr=""; }
@@ -10175,27 +10177,32 @@ function dashDeptSave(a){ try{ localStorage.setItem("bc20_dept_v1",JSON.stringif
 /* ── 集計単位（登録商品ごと）。TENS登録があればそれを、無ければデモ3商材を使う ── */
 let __DU=null,__DUsig="";
 function dashUnits(){
-  let sig="";
-  if(typeof TENS!=="undefined"&&TENS.length)
-    sig="T:"+TIDX+":"+TENS.map(t=>(t.co||"")+"|"+(t.item||"")+"|"+(t.cat||"")).join(";");
-  else sig="K:"+(typeof PID!=="undefined"?PID:"");
+  /* v15.21：集計単位＝アップロード済み商品（TENS）＋デモ商材3社（PRODUCTS）＋業種サンプル5社（SAMPLES2）。
+     デモ企業は「デモ企業を含める」でON/OFF。TENS に取り込み済みの同じデモ・サンプルは重複させない */
+  const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS:[];
+  const sig="T:"+(typeof TIDX!=="undefined"?TIDX:"")+":"+(typeof PID!=="undefined"?PID:"")+":"+(DASH.demo!==false?1:0)+":"+T.map(t=>(t.co||"")+"|"+(t.item||"")+"|"+(t.cat||"")+"|"+(t.src||"")+"|"+(t.catKey||"")).join(";");
   if(__DU&&__DUsig===sig) return __DU;
-  const out=[];
-  if(typeof TENS!=="undefined"&&TENS.length){
-    TENS.forEach((t,i)=>{
-      let d;
-      if(t.src==="sample"&&typeof PRODUCTS!=="undefined"&&PRODUCTS[t.catKey]) d=PRODUCTS[t.catKey];
-      else if(i===TIDX&&typeof D!=="undefined"&&D&&D.key==="custom") d=D;
-      else d=tenantToD(t);
-      out.push({ref:"t:"+i,i,co:tenCoOf(t),cat:t.cat||"未分類",item:t.item||t.file||"（商品名 未登録）",D:d,act:i===TIDX});
-    });
-  } else if(typeof PRODUCTS!=="undefined"){
-    ["food","cosme","parts"].forEach(k=>{ const d=PRODUCTS[k]; if(!d) return;
-      out.push({ref:"k:"+k,i:-1,co:d.co,cat:d.cat,item:d.item,D:d,act:(typeof PID!=="undefined"&&PID===k)});
-    });
-  } else if(typeof D!=="undefined"&&D){ out.push({ref:"cur",i:-1,co:D.co,cat:D.cat,item:D.item,D,act:true}); }
+  const out=[], seen=new Set();
+  T.forEach((t,i)=>{
+    let d;
+    if(t.src==="sample"&&typeof PRODUCTS!=="undefined"&&PRODUCTS[t.catKey]) d=PRODUCTS[t.catKey];
+    else if(i===TIDX&&typeof D!=="undefined"&&D&&D.key==="custom") d=D;
+    else d=tenantToD(t);
+    out.push({ref:"t:"+i,i,co:tenCoOf(t),cat:t.cat||"未分類",item:t.item||t.file||"（商品名 未登録）",D:d,act:(i===TIDX&&(typeof PID==="undefined"||PID==="custom")),kind:t.src==="sample"?"demo":t.src==="sample2"?"s2":"up"});
+    if(t.src==="sample") seen.add("k:"+t.catKey); if(t.src==="sample2") seen.add("s2:"+(t.catKey||""));
+  });
+  if(DASH.demo!==false){
+    if(typeof PRODUCTS!=="undefined") ["food","cosme","parts"].forEach(k=>{ const d=PRODUCTS[k]; if(!d||seen.has("k:"+k)) return;
+      out.push({ref:"k:"+k,i:-1,co:d.co,cat:d.cat,item:d.item,D:d,act:(typeof PID!=="undefined"&&PID===k),kind:"demo"}); });
+    if(typeof SAMPLES2!=="undefined"&&typeof tenantFromSample2==="function") Object.values(SAMPLES2).forEach(x=>{ if(seen.has("s2:"+x.key)) return;
+      let d=null; try{ d=tenantToD(tenantFromSample2(x)); }catch(e){} if(!d) return;
+      out.push({ref:"s2:"+x.key,i:-1,co:x.co,cat:x.cat,item:x.item,D:d,act:false,kind:"s2"}); });
+  }
+  if(!out.length&&typeof D!=="undefined"&&D) out.push({ref:"cur",i:-1,co:D.co,cat:D.cat,item:D.item,D,act:true,kind:"up"});
   __DU=out; __DUsig=sig; return out;
 }
+function dashKindOfCo(co){ const u=dashUnits().find(x=>x.co===co); return u?u.kind:"up"; }
+function dashCoLabel(co){ const k=dashKindOfCo(co); return co+(k==="demo"?"（デモ）":k==="s2"?"（サンプル）":""); }
 function dashUnitByRef(ref){ return dashUnits().find(u=>u.ref===ref)||null; }
 function dashScopeUnits(){
   let u=dashUnits();
@@ -10333,18 +10340,19 @@ function dashBar(){
   const crumb=(DASH.grp||DASH.co||DASH.cat||DASH.pr)
     ?`全社 ${DASH.grp?"› "+esc(dashDepts().find(x=>String(x.id)===String(DASH.grp))?.name||""):""} ${DASH.co?"› "+esc(DASH.co):""} ${DASH.cat?"› "+esc(DASH.cat):""} ${DASH.pr?"› "+esc((dashUnitByRef(DASH.pr)||{}).item||""):""}　<button class="btn g" style="padding:2px 9px;font-size:10.5px" onclick="DASH.grp='';DASH.co='';DASH.cat='';DASH.pr='';render()">全社に戻す</button>`
     :(single?`${esc(act.co||"")}${act.item?" › "+esc(act.item):""}　<span style="color:var(--ink-3)">登録商品はこの1件です。商品が増えると会社・カテゴリ・商品で絞り込めます</span>`
-            :`全社（${cos.length}社・${all.length}商品）　<span style="color:var(--ink-3)">会社・カテゴリ・商品・期間で絞り込めます</span>`);
+            :`全社（${cos.length}社・${all.length}商品${(function(){ const n=all.filter(u=>u.kind!=="up").length; return n?"・うちデモ企業 "+n+"商品":""; })()}）　<span style="color:var(--ink-3)">会社・カテゴリ・商品・期間で絞り込めます</span>`);
   return `<div class="c dscope" style="margin-bottom:11px">
     <div class="dsh">
       <div class="dst"><span class="dsk">📊 集計範囲（いま見ている範囲）</span><b class="dsn">${esc(dashScopeName())}</b><span class="dsp">${crumb}</span></div>
       <div class="dsf">
         ${depts.length?sel("全部署","部署・部門",depts.map(g2=>[g2.id,g2.name]),DASH.grp,"grp"):""}
-        ${(skipCo||single)?"":sel("全社","会社",cos2.map(c=>[c,c]),DASH.co,"co")}
+        ${(skipCo||single)?"":sel("全社","会社",cos2.map(c=>[c,dashCoLabel(c)]),DASH.co,"co")}
         ${single?"":sel("全カテゴリ","カテゴリ",cats.map(c=>[c,c]),DASH.cat,"cat")}
-        ${single?"":sel("全商品","商品",prods.map(u=>[u.ref,u.item+"（"+u.co+"）"]),DASH.pr,"pr")}
+        ${single?"":sel("全商品","商品",prods.map(u=>[u.ref,u.item+"（"+u.co+(u.kind==="demo"?"・デモ":u.kind==="s2"?"・サンプル":"")+"）"]),DASH.pr,"pr")}
         <label class="dsl">期間<input type="date" class="sel" style="max-width:150px" value="${esc(DASH.from)}" onchange="dashSet('from',this.value)">〜<input type="date" class="sel" style="max-width:150px" value="${esc(DASH.to)}" onchange="dashSet('to',this.value)"></label>
         ${(DASH.from||DASH.to)?`<button class="btn g" style="padding:5px 10px;font-size:11px" onclick="dashClearRange()">期間クリア</button>`:""}
         <button class="btn g" style="padding:5px 10px;font-size:11px" onclick="openDashGroups()">⚙ 部署・部門グループ</button>
+        <label class="dsl" title="デモ商材3社と業種サンプル5社（すべて架空）を集計に含めるかどうか。OFFにするとアップロードした貴社データだけになります" style="cursor:pointer"><input type="checkbox" ${DASH.demo!==false?"checked":""} onchange="dashSet('demo',this.checked?'1':'0')"> デモ企業を含める</label>
       </div>
     </div>
   </div>`;
@@ -12841,6 +12849,7 @@ function renderAdmin(){
   const A=ADB.accounts, tot=k=>A.reduce((s,a)=>s+(a.usage[k]||0),0);
   const act=A.filter(a=>a.st==="active"&&a.expires>NOW()).length;
   const mxAi=Math.max(1,...A.map(a=>(a.usage&&a.usage.aiQ)||0));
+  const syncOK=(function(){ try{ return typeof syncOn==="function"&&syncOn(); }catch(e){ return false; } })();   /* F5復元時は logic_sync.js 未初期化（TDZ）のため try で守る */
   well.innerHTML=`
   <div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🔒 STANDAGE管理者のみ</span></div>
     <h1>トライアル管理</h1>
@@ -12853,7 +12862,7 @@ function renderAdmin(){
        ["商品データの解析",tot("uploads")+"<small>件</small>","アップロードされた実ファイル","accounts"],
        ["AIへの質問",tot("aiQ")+"<small>回</small>","うち 🌐Web検索 "+tot("webQ")+"回","admaislot"],
        ["7日以内に利用",A.filter(a=>a.usage&&a.usage.lastActive&&NOW()-a.usage.lastActive<7*DAY).length+"<small>件</small>","直近1週間のアクティブ","accounts"],
-       ["クラウド同期",(typeof syncOn==="function"&&syncOn())?"有効":"未設定","端末管理・台帳の共有","syncslot"]]
+       ["クラウド同期",syncOK?"有効":"未設定","端末管理・台帳の共有","syncslot"]]
       .map(([l,v,d,j])=>`<button class="c kpi" data-jump="${j}" title="クリックで該当セクションへ"><p class="lbl">${l}</p><div class="kv n">${v}</div><div class="kd">${d}</div></button>`).join("")}
   </div>
   <div class="c" id="admspark" style="margin-bottom:11px"></div>
@@ -12889,7 +12898,7 @@ function renderAdmin(){
   <div class="c" id="accounts" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
       <div><h3>アカウント一覧と利用状況 <span class="n" id="accnt" style="color:var(--ink-3);font-weight:400"></span></h3>
-        <p class="nn">行の「詳細」で、画面別の利用回数と行動の時系列が見られます。${(typeof syncOn==="function"&&syncOn())?"台帳はクラウド同期サーバーにも送られます。":"この端末のブラウザに保存（製品版ではクラウドで一元管理）。"}</p></div>
+        <p class="nn">行の「詳細」で、画面別の利用回数と行動の時系列が見られます。${syncOK?"台帳はクラウド同期サーバーにも送られます。":"この端末のブラウザに保存（製品版ではクラウドで一元管理）。"}</p></div>
       <div class="rw" style="gap:6px;flex-wrap:wrap">
         <input class="sel" id="acq" placeholder="🔍 コード・会社名で絞り込み" style="min-width:190px">
         <span class="acfilt">${[["all","すべて"],["active","有効"],["expired","期限切れ"],["disabled","無効"],["fwd","物流会社"]].map(([k,n])=>`<button class="q ${k==="all"?"on":""}" data-acf="${k}">${n}</button>`).join("")}</span></div></div>
@@ -17963,5 +17972,8 @@ if(typeof fwdAsk==="function"){ const __fwdAskKB=fwdAsk;
     if(!k) return __fwdAskKB.apply(this,arguments);
     FWDB.chat=FWDB.chat||[]; FWDB.chat.push({w:"u",t:esc(s),ts:Date.now()}); FWDB.chat.push({w:"a",t:k.a+`<div style="margin-top:6px;font-size:9.5px;color:var(--ink-3)">${k.c}</div>`,ts:Date.now()}); FWDB.chat=FWDB.chat.slice(-60); fwdSave();
     if(typeof logU==="function") logU("fwd","AI物流マンに質問:"+s.slice(0,30)); fwdRender(); }; }
+
+/* F5 restore: authBoot() runs when logic_auth.js loads, before the renderAdmin wrappers (sync card / admin AI) exist -> re-render once here */
+try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm"&&document.getElementById("admkpi")&&!document.getElementById("admai")) renderAdmin(); }catch(e){}
 
 </script>
