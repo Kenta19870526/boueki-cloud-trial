@@ -15841,9 +15841,9 @@ function aiLevelScope(){
   return {pct,lv:lvIdx+1,lvIdx,stage:GROW_STAGES[lvIdx][1],to:Math.max(0,GROW_PRO-pct),pro:pct>=GROW_PRO,cats,scope:name,n:Ls.length};
 }
 function aiLevelChipBtn(){
-  let L=null; try{ L=aiLevelScope()||aiLevel(); }catch(e){ return `<button class="btn gai" onclick="go('ai')">🤖 AI商社マンに聞く</button>`; }
+  let L=null; try{ L=aiLevelScope()||aiLevel(); }catch(e){ return `<button class="btn gai" onclick="growGoAI()">🤖 AI商社マンに聞く</button>`; }
   const sc=L.scope?`<span class="lvs">${esc(String(L.scope).slice(0,14))}${L.n>1?"・"+L.n+"商品平均":""}</span>`:"";
-  return `<button class="btn gai" id="gai" onclick="go('ai')" title="AI商社マンの画面へ（成長レベル ${L.pct}%・${L.stage}${L.scope?"・集計範囲 "+esc(L.scope)+(L.n>1?"の"+L.n+"商品平均":""):""}）">🤖 AI商社マンに聞く <span class="lv">Lv.${L.lv} ${esc(L.stage)}・${L.pct}%</span>${sc}</button>`;
+  return `<button class="btn gai" id="gai" onclick="growGoAI()" title="AI商社マンの画面へ（成長レベル ${L.pct}%・${L.stage}${L.scope?"・集計範囲 "+esc(L.scope)+(L.n>1?"の"+L.n+"商品平均":""):""}）">🤖 AI商社マンに聞く <span class="lv">Lv.${L.lv} ${esc(L.stage)}・${L.pct}%</span>${sc}</button>`;
 }
 function growGo(id,pre){ if(pre&&typeof opsTab!=="undefined"){ opsTab=pre; } go(id); }
 function growRefresh(){ render(); toast("成長レベルを再計算しました"); }
@@ -15897,6 +15897,31 @@ function growAnimate(){
 }
 if(typeof render==="function"){ const __renderGrow=render;
   render=function(){ const r=__renderGrow.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="ai") growAnimate(); }catch(e){} return r; }; }
+
+/* Top-bar button: on the dashboard, first switch the current product to the aggregation scope
+   (first product of the selected company / the selected product), then open the AI page.
+   Without this the AI page kept showing the previously selected product (v15.21c). */
+function growSwitchTo(ref){
+  let v=String(ref||""); if(!v||v==="cur") return false;
+  if(v.startsWith("k:")) v=v.slice(2);
+  const sel=document.getElementById("psw");
+  if(sel&&[...sel.options].some(o=>o.value===v)){ sel.value=v; sel.dispatchEvent(new Event("change")); return true; }
+  try{
+    if(v.startsWith("t:")&&typeof switchTen==="function"){ switchTen(+v.slice(2)); return true; }
+    if(v.startsWith("s2:")&&typeof adoptSample2==="function"){ adoptSample2(v.slice(3)); return true; }
+    if(typeof PRODUCTS!=="undefined"&&PRODUCTS[v]){ PID=v; D=PRODUCTS[PID]; if(typeof tenantFromSample==="function") TEN=tenantFromSample(D); if(typeof applyTenScalars==="function") applyTenScalars(); if(typeof buildNav==="function") buildNav(); return true; }
+  }catch(e){}
+  return false;
+}
+function growGoAI(){
+  try{
+    if(typeof cur!=="undefined"&&cur==="dash"&&typeof dashScopeUnits==="function"){
+      const us=dashScopeUnits()||[];
+      if(us.length&&!us.some(u=>u.act)) growSwitchTo(us[0].ref);
+    }
+  }catch(e){}
+  go("ai");
+}
 
 /* 通関統計エクスプローラー（公開版）内蔵スナップショット — build_cs.py が公開URLから自動取得して生成（手で編集しない）
    供給源: https://kenta19870526.github.io/standage-trade-dashboard/index.html
