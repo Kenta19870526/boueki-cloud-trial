@@ -404,6 +404,39 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 #guide .gmsg{flex:1;min-width:210px;color:var(--ink);line-height:1.6}
 #guide .gmsg b{color:var(--or-deep)}
 @media (max-width:700px){#guide .gst{display:none}}
+/* ── v15.22：全画面共通のUX層 ── */
+#well.uxin{animation:uxin .22s ease}
+@keyframes uxin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.tw table thead th{position:sticky;top:0;background:var(--surface-2);z-index:1}
+.tw table tbody tr:nth-child(even) td{background:color-mix(in srgb,var(--sunk) 55%,transparent)}
+.tw table tbody tr:hover td{background:var(--or-soft)}
+.tw table th.uxs{cursor:pointer;user-select:none;white-space:nowrap}
+.tw table th.uxs::after{content:"⇅";margin-left:4px;font-size:9px;color:var(--ink-3);opacity:.55}
+.tw table th.uxs[data-dir="asc"]::after{content:"↑";opacity:1;color:var(--or)}
+.tw table th.uxs[data-dir="desc"]::after{content:"↓";opacity:1;color:var(--or)}
+.c[onclick]{transition:transform .12s,box-shadow .12s,border-color .12s}
+.c[onclick]:hover{transform:translateY(-1px);box-shadow:var(--sh-2);border-color:var(--or)}
+.btn:active{transform:translateY(1px)}
+.btn,.q,.nb,.optab{transition:background .12s,border-color .12s,color .12s,box-shadow .12s}
+:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+#uxtop{position:fixed;right:18px;bottom:22px;z-index:55;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);box-shadow:var(--sh-2);cursor:pointer;display:none;font-size:16px;font-weight:700}
+#uxtop.on{display:block} #uxtop:hover{border-color:var(--or);color:var(--or-deep)}
+#uxpal{position:fixed;inset:0;z-index:70;background:rgba(20,26,34,.42);display:none;align-items:flex-start;justify-content:center;padding-top:12vh}
+#uxpal.on{display:flex}
+#uxpal .box{width:min(640px,92vw);background:var(--surface);border-radius:12px;box-shadow:var(--pop);overflow:hidden;border:1px solid var(--line)}
+#uxpal input{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line);padding:13px 16px;font-size:14px;background:var(--surface);color:var(--ink);font:inherit}
+#uxpal .list{max-height:52vh;overflow-y:auto}
+#uxpal .it{display:flex;gap:10px;align-items:center;padding:9px 16px;cursor:pointer;font-size:12.5px;border-bottom:1px solid var(--line-2)}
+#uxpal .it small{color:var(--ink-3);margin-left:auto;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+#uxpal .it.on,#uxpal .it:hover{background:var(--or-soft)}
+#uxpal .grp{font-size:9.5px;font-weight:700;color:var(--ink-3);padding:7px 16px 2px;letter-spacing:.06em}
+#uxpal .ft{padding:6px 16px;font-size:10px;color:var(--ink-3);border-top:1px solid var(--line-2)}
+.uxchips{display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center}
+.uxchips .q,.uxfb .q{padding:4px 9px;font-size:10.5px}
+.uxfb .acfilt .q.on{background:var(--or);color:#fff;border-color:var(--or)}
+.optab i.ok{background:var(--good);color:#fff}
+.uxhint{font-size:9.5px;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){#well.uxin{animation:none}.c[onclick]{transition:none}}
 /* ── v15.20：トライアル管理 ── */
 .admkpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin-bottom:11px}
 .admkpi .kpi{font:inherit;text-align:left;width:100%;cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;color:var(--ink)}
@@ -18019,5 +18052,157 @@ if(typeof fwdAsk==="function"){ const __fwdAskKB=fwdAsk;
 
 /* F5 restore: authBoot() runs when logic_auth.js loads, before the renderAdmin wrappers (sync card / admin AI) exist -> re-render once here */
 try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm"&&document.getElementById("admkpi")&&!document.getElementById("admai")) renderAdmin(); }catch(e){}
+
+/* ═══════════ v15.22：全画面共通のUX層（荷主・管理者・物流会社） ═══════════
+   ・表：見出しクリックで並べ替え（数値・金額・日付・文字を自動判定）、縞・行ハイライト・見出しの固定
+   ・数字：KPIタイルの数値をカウントアップ（画面切替・集計範囲の変更時。reduced-motion では無効）
+   ・画面切替のフェード、右下の「↑ 上へ」ボタン
+   ・Ctrl+K（⌘K）のコマンドパレット：画面・商品・操作を検索して移動
+   ・ダッシュボードの期間プリセット（今月／先月／直近90日／今年）
+   ・貿易実務・書類・出荷の流れタブに完了バッジ（✓）
+   ・物流会社モード：見積受信箱・レート表の絞り込み（検索＋状態チップ）
+   既存の機能・文言は変えず、後付けで動く（各モジュールのラッパー） */
+const UX={last:"",force:0,pal:null,palIdx:0};
+const uxReduce=()=>{ try{ return matchMedia("(prefers-reduced-motion: reduce)").matches; }catch(e){ return false; } };
+/* ── 表の並べ替え（イベント委譲・再バインド不要） ── */
+function uxSortInit(){
+  document.querySelectorAll("#well .tw table, #pn .tw table").forEach(t=>{
+    if(t.dataset.uxs||t.hasAttribute("data-nosort")) return;
+    const th=t.tHead&&t.tHead.rows[0]; const tb=t.tBodies[0]; if(!th||!tb||tb.rows.length<2) return;
+    const n=th.cells.length; if([...tb.rows].some(r=>r.cells.length!==n||[...r.cells].some(c=>c.colSpan>1))) return;
+    t.dataset.uxs=1; [...th.cells].forEach(c=>{ if(String(c.textContent||"").trim()) c.classList.add("uxs"); });
+  });
+}
+function uxNum(s){ s=String(s||"").replace(/[,¥$￥]/g,"").replace(/約|件|社|回|本|日|個|%/g,"").trim(); const m=s.match(/-?\d+(?:\.\d+)?/); return m?parseFloat(m[0]):null; }
+function uxSort(th){
+  const t=th.closest("table"), tb=t.tBodies[0], idx=[...th.parentNode.cells].indexOf(th); if(!tb||idx<0) return;
+  const dir=th.dataset.dir==="asc"?"desc":"asc"; [...th.parentNode.cells].forEach(c=>{ delete c.dataset.dir; }); th.dataset.dir=dir;
+  const rows=[...tb.rows]; const val=r=>(r.cells[idx]?r.cells[idx].textContent:"").trim();
+  const nums=rows.map(r=>uxNum(val(r))); const numeric=nums.filter(x=>x!==null).length>=rows.length*0.6;
+  const keyed=rows.map((r,i)=>({r,i,n:nums[i],s:val(r)}));
+  keyed.sort((a,b)=>{ let c=0; if(numeric){ const x=a.n==null?-Infinity:a.n, y=b.n==null?-Infinity:b.n; c=x-y; } else c=a.s.localeCompare(b.s,"ja"); if(!c) c=a.i-b.i; return dir==="asc"?c:-c; });
+  keyed.forEach(k=>tb.appendChild(k.r));
+  if(typeof toast==="function") toast(`「${th.textContent.trim().slice(0,12)}」で${dir==="asc"?"昇順":"降順"}に並べ替えました`);
+}
+document.addEventListener("click",e=>{ const th=e.target.closest&&e.target.closest(".tw table thead th.uxs"); if(!th||e.target.closest("button,a,input,select")) return; uxSort(th); });
+/* ── 表の絞り込みバー（[data-uxq] 検索 ＋ [data-uxf] チップ） ── */
+function uxApplyFilter(card){
+  if(!card) return; const inp=card.querySelector("[data-uxq]"); const q=String(inp&&inp.value||"").trim().toLowerCase();
+  const on=card.querySelector("[data-uxf].on"); const kw=(on&&on.dataset.kw)?new RegExp(on.dataset.kw):null;
+  const tb=card.querySelector("table tbody"); if(!tb) return; let n=0;
+  [...tb.rows].forEach(tr=>{ const t=tr.textContent||""; const ok=(!q||t.toLowerCase().includes(q))&&(!kw||kw.test(t)); tr.hidden=!ok; if(ok) n++; });
+  const c=card.querySelector("[data-uxn]"); if(c) c.textContent=`${n}/${tb.rows.length}件`;
+}
+function uxBindFilters(){
+  document.querySelectorAll("[data-uxq]:not([data-b])").forEach(i=>{ i.dataset.b=1; i.addEventListener("input",()=>uxApplyFilter(i.closest(".c"))); });
+  document.querySelectorAll("[data-uxf]:not([data-b])").forEach(b=>{ b.dataset.b=1; b.addEventListener("click",()=>{ b.parentElement.querySelectorAll("[data-uxf]").forEach(x=>x.classList.toggle("on",x===b)); uxApplyFilter(b.closest(".c")); }); });
+  document.querySelectorAll(".c:has([data-uxq]), .c:has([data-uxf])").forEach(c=>{ if(!c.dataset.uxn0){ c.dataset.uxn0=1; uxApplyFilter(c); } });
+}
+function uxFilterBar(id,ph,chips){
+  return `<div class="rw uxfb" style="margin-top:8px;gap:6px;flex-wrap:wrap;align-items:center"><input class="sel" data-uxq="${id}" placeholder="${ph}" style="min-width:210px;flex:1 1 210px">
+    <span class="acfilt">${chips.map(([n,kw],i)=>`<button class="q ${i?"":"on"}" data-uxf="${id}" data-kw="${kw}">${n}</button>`).join("")}</span><span class="n" data-uxn style="font-size:10.5px;color:var(--ink-3)"></span></div>`;
+}
+/* ── KPIのカウントアップ ── */
+function uxCountUp(){
+  if(uxReduce()) return;
+  document.querySelectorAll("#well .kv.n").forEach(el=>{
+    const tn=el.firstChild; if(!tn||tn.nodeType!==3) return;
+    const m=tn.nodeValue.match(/^(\s*[^\d\s-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/); if(!m) return;
+    const target=parseFloat(m[2].replace(/,/g,"")); if(!isFinite(target)||target===0) return;
+    const dec=(m[2].split(".")[1]||"").length, comma=m[2].includes(","), orig=tn.nodeValue, t0=performance.now(), dur=520;
+    const step=now=>{ const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3); let v=target*e; let s=dec?v.toFixed(dec):Math.round(v).toString(); if(comma) s=Number(s).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec}); tn.nodeValue=m[1]+s+m[3]; if(p<1) requestAnimationFrame(step); else tn.nodeValue=orig; };
+    requestAnimationFrame(step);
+  });
+}
+/* ── 画面切替のフェード・上へ戻る ── */
+function uxFade(){ const w=document.getElementById("well"); if(!w||uxReduce()) return; w.classList.remove("uxin"); void w.offsetWidth; w.classList.add("uxin"); }
+function uxTopBtn(){
+  let b=document.getElementById("uxtop");
+  if(!b){ b=document.createElement("button"); b.id="uxtop"; b.title="ページの先頭へ"; b.textContent="↑"; b.onclick=()=>scrollTo({top:0,behavior:uxReduce()?"auto":"smooth"}); document.body.appendChild(b);
+    addEventListener("scroll",()=>{ b.classList.toggle("on",scrollY>600); },{passive:true}); }
+}
+/* ── コマンドパレット（Ctrl+K／⌘K） ── */
+function uxPalItems(q){
+  const items=[]; q=String(q||"").trim().toLowerCase();
+  const isFwd=(typeof FWDON!=="undefined"&&FWDON), isAdm=(typeof SES!=="undefined"&&SES&&SES.t==="admin"), hasP=(typeof PID!=="undefined"&&PID);
+  if(isAdm) items.push({g:"画面",t:"トライアル管理（管理コンソール）",ic:"🔒",run:()=>{ cur="adm"; buildNav(); render(); }});
+  if(isFwd){ [["finbox","見積受信箱"],["frates","物流レート管理"],["fagg","相見積・AI推奨"],["fai","AI物流マンに相談"]].forEach(([id,nm])=>items.push({g:"画面",t:nm,sub:"物流会社モード",ic:"🚚",run:()=>{ fwdCur=id; fwdNav(); fwdRender(); }})); }
+  else if(typeof PAGES!=="undefined"){
+    PAGES.filter(p=>!p.hide&&(p.free||hasP)).forEach(p=>items.push({g:"画面",t:p.nm,sub:p.grp,ic:"📄",run:()=>go(p.id)}));
+    if(hasP){ items.push({g:"画面",t:"AI商社マン",sub:"成長レベル・相談",ic:"🤖",run:()=>go("ai")});
+      items.push({g:"操作",t:"出荷を進める",sub:"貿易実務・書類・出荷 › 出荷",ic:"🚢",run:()=>go("ship")});
+      if(typeof openAskAI==="function") items.push({g:"操作",t:"AIに質問（画面はそのまま・右パネル）",ic:"💬",run:()=>openAskAI()});
+      if(typeof openCustoms==="function") items.push({g:"操作",t:"通関統計エクスプローラーを開く",ic:"📊",run:()=>openCustoms()});
+      if(typeof openFOB==="function") items.push({g:"操作",t:"推奨FOB Japan Price を算出",ic:"💹",run:()=>openFOB()});
+      if(typeof fwdRequest==="function") items.push({g:"操作",t:"物流会社にAI見積を依頼（相見積）",ic:"🚚",run:()=>fwdRequest()});
+      if(typeof prodIndex==="function"){ try{ prodIndex().forEach(o=>items.push({g:"商品",t:o.label,sub:(o.co||"")+"・"+(o.sub||""),ic:"📦",run:()=>{ const s=document.getElementById("psw"); if(s){ s.value=o.v; s.dispatchEvent(new Event("change")); } }})); }catch(e){} } }
+  }
+  if(!q) return items;
+  return items.filter(i=>(i.t+" "+(i.sub||"")+" "+i.g).toLowerCase().includes(q));
+}
+function uxPalOpen(){
+  let p=document.getElementById("uxpal");
+  if(!p){ p=document.createElement("div"); p.id="uxpal"; p.innerHTML=`<div class="box" role="dialog" aria-label="検索して移動"><input id="uxpq" placeholder="画面・商品・操作を検索（例：ダッシュボード／抹茶／AI見積）" autocomplete="off"><div class="list" id="uxpl"></div><div class="ft">↑↓ で選択・Enter で移動・Esc で閉じる　｜　Ctrl+K（⌘K）でいつでも開けます</div></div>`;
+    document.body.appendChild(p); p.addEventListener("click",e=>{ if(e.target===p) uxPalClose(); });
+    const inp=p.querySelector("#uxpq"); inp.addEventListener("input",()=>{ UX.palIdx=0; uxPalPaint(); });
+    inp.addEventListener("keydown",e=>{ const L=p.querySelectorAll(".it"); if(e.key==="ArrowDown"){ e.preventDefault(); UX.palIdx=Math.min(L.length-1,UX.palIdx+1); uxPalPaint(); } else if(e.key==="ArrowUp"){ e.preventDefault(); UX.palIdx=Math.max(0,UX.palIdx-1); uxPalPaint(); } else if(e.key==="Enter"){ e.preventDefault(); const it=p.querySelectorAll(".it")[UX.palIdx]; if(it) it.click(); } else if(e.key==="Escape"){ uxPalClose(); } }); }
+  p.classList.add("on"); const inp=p.querySelector("#uxpq"); inp.value=""; UX.palIdx=0; uxPalPaint(); setTimeout(()=>inp.focus(),0);
+}
+function uxPalClose(){ const p=document.getElementById("uxpal"); if(p) p.classList.remove("on"); }
+function uxPalPaint(){
+  const p=document.getElementById("uxpal"); if(!p) return; const q=p.querySelector("#uxpq").value; const items=uxPalItems(q).slice(0,40); UX.palItems=items;
+  let g=""; p.querySelector("#uxpl").innerHTML=items.length?items.map((it,i)=>(it.g!==g?(g=it.g,`<div class="grp">${esc(it.g)}</div>`):"")+`<div class="it ${i===UX.palIdx?"on":""}" data-i="${i}"><span>${it.ic||"•"}</span><span>${esc(it.t)}</span>${it.sub?`<small>${esc(it.sub)}</small>`:""}</div>`).join(""):`<div class="it" style="color:var(--ink-3)">該当がありません</div>`;
+  p.querySelectorAll(".it[data-i]").forEach(el=>el.onclick=()=>{ const it=UX.palItems[+el.dataset.i]; uxPalClose(); try{ it.run(); }catch(e){} });
+  const on=p.querySelector(".it.on"); if(on&&on.scrollIntoView) on.scrollIntoView({block:"nearest"});
+}
+document.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&!e.altKey&&String(e.key).toLowerCase()==="k"){ e.preventDefault(); const p=document.getElementById("uxpal"); if(p&&p.classList.contains("on")) uxPalClose(); else uxPalOpen(); } });
+/* ── ダッシュボードの期間プリセット ── */
+function uxPeriod(k){
+  if(typeof DASH==="undefined") return; const t=new Date(); const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  let f,to=t;
+  if(k==="m0") f=new Date(t.getFullYear(),t.getMonth(),1);
+  else if(k==="m1"){ f=new Date(t.getFullYear(),t.getMonth()-1,1); to=new Date(t.getFullYear(),t.getMonth(),0); }
+  else if(k==="d90"){ f=new Date(t.getTime()-90*864e5); }
+  else if(k==="y0") f=new Date(t.getFullYear(),0,1);
+  else { DASH.from=""; DASH.to=""; UX.force=1; render(); return; }
+  DASH.from=iso(f); DASH.to=iso(to); UX.force=1; render();
+}
+if(typeof dashBar==="function"){ const __dashBarUX=dashBar;
+  dashBar=function(){ let h=__dashBarUX.apply(this,arguments);
+    try{ const chips=`<span class="uxchips" title="期間をすばやく切り替え">${[["今月","m0"],["先月","m1"],["直近90日","d90"],["今年","y0"]].map(([n,k])=>`<button class="q" onclick="uxPeriod('${k}')">${n}</button>`).join("")}</span>`;
+      h=h.replace(/(<label class="dsl">期間[\s\S]*?<\/label>)/,"$1"+chips); }catch(e){}
+    return h; }; }
+if(typeof dashSet==="function"){ const __dashSetUX=dashSet; dashSet=function(){ UX.force=1; return __dashSetUX.apply(this,arguments); }; }
+/* ── 貿易実務・書類・出荷：流れタブの完了バッジ ── */
+if(typeof vOps==="function"){ const __vOpsUX=vOps;
+  vOps=function(p){ let h=__vOpsUX.apply(this,arguments);
+    try{ const dd=(typeof D!=="undefined"&&D)||{}; const t=(typeof TEN!=="undefined"&&TEN)||null; const S=(typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS:[];
+      const done={reg:Object.keys(dd.regs||{}).length>0, doc:!!((t&&t.poCases&&t.poCases.length)||S.some(c=>(c.step||0)>=3)), ship:!!((typeof shipStep!=="undefined"&&shipStep>0)||S.some(c=>(c.step||0)>0)), ord:(dd.orders||[]).length>0};
+      Object.keys(done).forEach(k=>{ if(!done[k]) return; h=h.replace(new RegExp("(onclick=\"opsTab='"+k+"';render\\(\\)\"><i)(>)([^<]*)(</i>)"),'$1 class="ok" title="この段階は着手済みです"$2✓$4'); }); }catch(e){}
+    return h; }; }
+/* ── 物流会社モード：受信箱・レート表の絞り込み ── */
+if(typeof fwdInboxHtml==="function"){ const __fwdInboxUX=fwdInboxHtml;
+  fwdInboxHtml=function(){ let h=__fwdInboxUX.apply(this,arguments);
+    try{ const bar=uxFilterBar("inbox","🔍 依頼No・荷主・国・貨物で絞り込み",[["すべて",""],["仮押さえ","仮押さえ"],["AI回答済み","AI回答済み|一部AI回答"],["レーン未登録","レーン未登録"],["再見積","再見積"]]);
+      h=h.replace('<div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>\n      <th>受信日</th>',bar+'<div class="tw" style="margin-top:8px;max-height:none"><table><thead><tr>\n      <th>受信日</th>'); }catch(e){}
+    return h; }; }
+if(typeof fwdRatesHtml==="function"){ const __fwdRatesUX=fwdRatesHtml;
+  fwdRatesHtml=function(){ let h=__fwdRatesUX.apply(this,arguments);
+    try{ const bar=uxFilterBar("rates","🔍 会社・港・備考で絞り込み",[["すべて",""],["LCL","LCL"],["FCL","FCL"],["航空","AIR"],["小包","COURIER"]]);
+      h=h.replace('<div class="tw" style="margin-top:10px;max-height:360px"><table><thead><tr>\n        <th>物流会社</th>',bar+'<div class="tw" style="margin-top:8px;max-height:360px"><table><thead><tr>\n        <th>物流会社</th>'); }catch(e){}
+    return h; }; }
+/* ── 描画後の共通処理 ── */
+function uxAfterRender(kind){
+  const key=kind+":"+(typeof cur!=="undefined"?cur:"")+":"+(typeof fwdCur!=="undefined"?fwdCur:"")+":"+(typeof opsTab!=="undefined"?opsTab:"")+":"+(typeof PID!=="undefined"?PID:"");
+  const changed=key!==UX.last; UX.last=key;
+  try{ if(changed||UX.force){ uxFade(); uxCountUp(); } }catch(e){} UX.force=0;
+  try{ uxSortInit(); uxBindFilters(); uxTopBtn(); }catch(e){}
+}
+if(typeof render==="function"){ const __renderUX=render; render=function(){ const r=__renderUX.apply(this,arguments); uxAfterRender("r"); return r; }; }
+if(typeof fwdRender==="function"){ const __fwdRenderUX=fwdRender; fwdRender=function(){ const r=__fwdRenderUX.apply(this,arguments); uxAfterRender("f"); return r; }; }
+if(typeof renderAdmin==="function"){ const __renderAdminUX=renderAdmin; renderAdmin=function(){ const r=__renderAdminUX.apply(this,arguments); uxAfterRender("a"); return r; }; }
+if(typeof buildNav==="function"){ const __buildNavUX=buildNav; buildNav=function(){ const r=__buildNavUX.apply(this,arguments); try{ const f=document.getElementById("sft"); if(f&&!f.querySelector(".uxhint")) f.insertAdjacentHTML("beforeend",'<br><span class="uxhint">⌨ Ctrl+K：画面・商品・操作を検索して移動</span>'); }catch(e){} return r; }; }
+/* 既に描画済みの画面（読込時）にも適用 */
+try{ uxAfterRender("boot"); const f=document.getElementById("sft"); if(f&&!f.querySelector(".uxhint")) f.insertAdjacentHTML("beforeend",'<br><span class="uxhint">⌨ Ctrl+K：画面・商品・操作を検索して移動</span>'); }catch(e){}
 
 </script>
