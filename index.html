@@ -18287,7 +18287,7 @@ function ux2SecNav(){
   const well=document.getElementById("well"); if(!well) return; const old=document.getElementById("uxsec"); if(old) old.remove();
   const cards=[...well.querySelectorAll(":scope > .c, :scope > .g2 > .c, :scope > .admgrid2 > .c, :scope > div > .c")].filter(c=>c.querySelector("h3")&&c.getBoundingClientRect().height>60);
   const items=[]; const seen=new Set();
-  cards.forEach((c,i)=>{ const h=c.querySelector("h3"); let t=(h.textContent||"").replace(/\s+/g," ").replace(/この版で(新規|強化)/g,"").replace(/^[^\p{L}\p{N}]+/u,"").trim(); t=t.replace(/\s*\d+(件|社|本|レーン|商品)\s*$/,"").slice(0,22); if(!t||seen.has(t)) return; seen.add(t); if(!c.id) c.id="sec-"+i; items.push({id:c.id,t}); });
+  cards.forEach((c,i)=>{ const h=c.querySelector("h3"); let t=((h.childNodes[0]&&h.childNodes[0].nodeType===3&&h.childNodes[0].nodeValue.trim())?h.childNodes[0].nodeValue:(h.textContent||"")).replace(/\s+/g," ").replace(/この版で(新規|強化)/g,"").replace(/^[^\p{L}\p{N}]+/u,"").trim(); t=t.replace(/\s*\d+(件|社|本|レーン|商品)\s*$/,"").slice(0,22); try{ if(typeof I18N!=="undefined"&&I18N.lang!=="ja"&&typeof i18nStr==="function"){ const tt=i18nStr(t,I18N.dict[I18N.lang]); if(tt) t=tt; } }catch(e){} if(!t||seen.has(t)) return; seen.add(t); if(!c.id) c.id="sec-"+i; items.push({id:c.id,t}); });
   if(items.length<3) return;
   const bar=document.createElement("div"); bar.id="uxsec"; bar.innerHTML=`<span class="uxsl">このページの内容</span>${items.map(it=>`<button class="uxsc" data-sec="${it.id}">${it.t}</button>`).join("")}`;
   well.insertAdjacentElement("afterbegin",bar);
@@ -18438,7 +18438,7 @@ I18N.pat=[
 const I18N_SKIP=/^(SCRIPT|STYLE|TEXTAREA|CODE|PRE|SVG|svg)$/;
 function i18nStr(s,d){
   const k=String(s).trim(); if(!k||/^[\d\s.,%¥$\-–—/()（）:：]*$/.test(k)) return null;
-  const hit=v=>{ if(d[v]) return d[v]; for(const p of I18N.pat){ const m=v.match(p.re); if(m){ const out=p[I18N.lang]; if(!out) return null; return typeof out==="function"?out(m,d):out.replace(/\$(\d)/g,(x,i)=>m[+i]); } } return null; };
+  const hit=v=>{ if(d[v]) return d[v]; for(const p of I18N.pat){ const m=v.match(p.re); if(m){ const out=p[I18N.lang]; if(!out) continue; const r=typeof out==="function"?out(m,d):out.replace(/\$(\d)/g,(x,i)=>m[+i]); if(r!=null) return r; } } return null; };
   let t=hit(k);
   if(t==null){ const m=k.match(/^([^\p{L}\p{N}]+)([\s\S]*?)([：:]?)$/u); if(m&&m[2]){ const t2=hit(m[2]); if(t2!=null) t=m[1]+t2+(m[3]?":":""); } }
   if(t==null){ const m=k.match(/^([\s\S]*?)([：:])$/); if(m&&m[1]){ const t2=hit(m[1]); if(t2!=null) t=t2+":"; } }
@@ -18489,5 +18489,644 @@ if(typeof llmSysPrompt==="function"){ const __sysI=llmSysPrompt; llmSysPrompt=fu
 if(typeof llmAsk==="function"){ const __askI=llmAsk; llmAsk=async function(q,maxTok,opts){ if(I18N.lang!=="ja"&&opts&&opts.sys){ opts=Object.assign({},opts,{sys:String(opts.sys)+"\n\n"+I18N_INSTR[I18N.lang]}); } return __askI.apply(this,[q,maxTok,opts]); }; }
 /* 起動時 */
 try{ document.documentElement.setAttribute("data-lang",I18N.lang); if(I18N.lang!=="ja"){ document.documentElement.lang=I18N.lang==="zh"?"zh-Hans":I18N.lang; i18nApply(document.body); } i18nLoginSel(); const ls=document.getElementById("lang"); if(ls) ls.value=I18N.lang; }catch(e){}
+
+/* v15.23b 翻訳辞書（追加分）1/4：ダッシュボード・商品情報を登録・今日やること
+   I18N_ROWS2 = 文字列単位 [ja,en,zh,es]／I18N_EL_ROWS = 段落単位（同じインラインタグ構成）／I18N_PAT2 = 数字入り定型 */
+const I18N_ROWS2=[]; const I18N_EL_ROWS=[]; const I18N_PAT2=[];
+I18N_ROWS2.push(
+/* 国名 */
+["香港","Hong Kong","香港","Hong Kong"],["台湾","Taiwan","台湾","Taiwán"],["アメリカ","United States","美国","Estados Unidos"],["シンガポール","Singapore","新加坡","Singapur"],
+["タイ","Thailand","泰国","Tailandia"],["ベトナム","Vietnam","越南","Vietnam"],["中国","China","中国","China"],["フランス","France","法国","Francia"],
+["マレーシア","Malaysia","马来西亚","Malasia"],["韓国","South Korea","韩国","Corea del Sur"],["イギリス","United Kingdom","英国","Reino Unido"],["オーストラリア","Australia","澳大利亚","Australia"],
+["インドネシア","Indonesia","印度尼西亚","Indonesia"],["ケニア","Kenya","肯尼亚","Kenia"],["タンザニア","Tanzania","坦桑尼亚","Tanzania"],["モンゴル","Mongolia","蒙古","Mongolia"],
+["エジプト","Egypt","埃及","Egipto"],["サウジアラビア","Saudi Arabia","沙特阿拉伯","Arabia Saudita"],["日本","Japan","日本","Japón"],["ドイツ","Germany","德国","Alemania"],
+["フィリピン","Philippines","菲律宾","Filipinas"],["インド","India","印度","India"],["カナダ","Canada","加拿大","Canadá"],["メキシコ","Mexico","墨西哥","México"],
+/* ダッシュボード */
+["会社・カテゴリ・商品・期間で絞り込めます","Filter by company, category, product and period","可按公司・类别・商品・期间筛选","Filtra por empresa, categoría, producto y periodo"],
+["開く ▸","Open ▸","打开 ▸","Abrir ▸"],
+["🔍 クリックで内訳・編集 ▸","🔍 Click for details / edit ▸","🔍 点击查看明细・编辑 ▸","🔍 Clic para detalle / editar ▸"],
+["🔍 クリックで相手一覧 ▸","🔍 Click for buyer list ▸","🔍 点击查看对象列表 ▸","🔍 Clic para ver compradores ▸"],
+["🔍 クリックで案件一覧 ▸","🔍 Click for deal list ▸","🔍 点击查看案件列表 ▸","🔍 Clic para ver operaciones ▸"],
+["🔍 クリックで受注内訳 ▸","🔍 Click for order details ▸","🔍 点击查看订单明细 ▸","🔍 Clic para detalle de pedidos ▸"],
+["🔍 クリックで金額の内訳 ▸","🔍 Click for amount breakdown ▸","🔍 点击查看金额明细 ▸","🔍 Clic para desglose de importes ▸"],
+["うち手応えのある相手","of which promising buyers","其中有意向的对象","de ellos, compradores con interés"],
+["合計","Total","合计","Total"],["（確度加味","(weighted","（按确度加权","(ponderado"],
+["ここを上げるほど、2年後に残る財産が増えます。","The higher this is, the more you will have built after two years.","这个比例越高，两年后留下的资产越多。","Cuanto más alto, más patrimonio tendrás en dos años."],
+["現行版から統合","Carried over from the current version","由现行版整合","Integrado de la versión actual"],
+["現行の貿易クラウドの「進捗」を、この版でも標準機能として持っています。","The “Progress” view of the current Trade Cloud is a standard feature in this version too.","现行贸易云的“进度”功能在本版中同样作为标准功能保留。","El “Progreso” del Trade Cloud actual también es función estándar en esta versión."],
+["タスクを開く","Open tasks","打开任务","Abrir tareas"],["残タスク数","Remaining tasks","剩余任务数","Tareas pendientes"],
+["未着手","Not started","未开始","Sin iniciar"],["対応中","In progress","进行中","En curso"],["中止","Cancelled","已中止","Cancelada"],["完了","Done","已完成","Completada"],
+["開始が遅れている","Started late","开始延迟","Inicio retrasado"],["1週間以内が期限","Due within a week","一周内到期","Vence en una semana"],["作業期間中","Within work period","工作期间中","En periodo de trabajo"],
+["以前は記録していませんでした。理由がたまると、次に何を直せばいいかが決まります。","These were never recorded before. Once reasons accumulate, you know what to fix next.","以前从未记录。原因积累起来，就能决定下一步该改什么。","Antes no se registraba. Cuando se acumulan motivos, sabes qué corregir."],
+["たまったデータからAIが優先順位をつけています。","The AI prioritizes based on the data collected so far.","AI根据积累的数据排定优先级。","La IA prioriza según los datos acumulados."],
+["AIからのひとこと","A word from the AI","AI的一句话","Nota de la IA"],
+/* 商品情報を登録 */
+["登録済みの商品","Registered products","已登记的商品","Productos registrados"],
+["新しい資料は","New documents are","新资料将","Los documentos nuevos se"],["別の商品として追加","added as a separate product","作为另一商品添加","añaden como otro producto"],
+["ダッシュボードへ","To dashboard","前往仪表板","Ir al panel"],["削除してやり直す","Delete and start over","删除后重新开始","Eliminar y empezar de nuevo"],
+["またはクリックしてファイルを選択","or click to choose files","或点击选择文件","o haz clic para elegir archivos"],
+["☁ Google Drive／OneDrive／WebページのURLから取り込む","☁ Import from a Google Drive / OneDrive / web page URL","☁ 从Google Drive／OneDrive／网页URL导入","☁ Importar desde URL de Google Drive / OneDrive / web"],
+["取り込む","Import","导入","Importar"],
+["デモ商材のExcelはお渡しできます。商談の場で、実際にドラッグして読み込ませてください。","We can provide the demo Excel files. Drag one in during a sales meeting to show a live import.","可提供演示商品的Excel文件，商谈时请实际拖入体验读取。","Podemos entregar los Excel de demostración. Arrástralos en una reunión para mostrar la carga."],
+["アップロードすると、何が起きるのか","What happens after you upload","上传后会发生什么","Qué ocurre al subir"],
+["980万円は「貿易クラウドを使える状態にするための構築費用」です。その出発点がこの登録です。","The ¥9.8M is the “setup cost to make Trade Cloud usable”. This registration is where it starts.","980万日元是“让贸易云可用的构建费用”，起点就是这次登记。","Los ¥9,8M son el “coste de construcción para poder usar Trade Cloud”. Este registro es el punto de partida."],
+["商品マスタができる","A product master is created","生成商品主数据","Se crea el maestro de productos"],
+["品番・寸法・重量・単価が構造化され、書類の自動作成に使われます","Part numbers, dimensions, weights and prices are structured and used to auto-generate documents","品号・尺寸・重量・单价被结构化，用于自动生成单证","Códigos, medidas, pesos y precios se estructuran y sirven para generar documentos"],
+["HSコードが決まる","The HS code is determined","确定HS编码","Se determina el código HS"],
+["商品の分類から関税率と必要書類が自動で判定されます","Tariff rates and required documents are determined automatically from the classification","根据商品分类自动判定关税率和所需单证","Aranceles y documentos requeridos se determinan según la clasificación"],
+["規制の調査が始まる","Regulatory research begins","开始法规调查","Comienza la investigación regulatoria"],
+["仕向国ごとの認証・届出をSTANDAGEが調べ、ここに蓄積します","STANDAGE researches certifications and filings per destination and stores them here","STANDAGE调查各目的国的认证・申报并在此积累","STANDAGE investiga certificaciones y trámites por destino y los guarda aquí"],
+["AI商社マンが育つ","The AI Trade Agent grows","AI商社专员不断成长","El agente comercial IA crece"],
+["商談の記録が積み上がるほど、この商品専用の判断ができるようになります","The more meeting records accumulate, the better its product-specific judgment becomes","商谈记录越多，就越能针对该商品做出判断","Cuantos más registros de reuniones, mejor juzga sobre este producto"],
+/* 今日やること */
+["優先度高","High priority","优先级高","Prioridad alta"],["優先度中","Medium priority","优先级中","Prioridad media"],["優先度低","Low priority","优先级低","Prioridad baja"],
+["根拠：データ","Basis: data","依据：数据","Base: datos"],["根拠：Web","Basis: web","依据：网络","Base: web"],
+["🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸","🤖 Click to run with the AI Trade Agent (chat, attachments OK) ▸","🤖 点击与AI商社专员一起执行（可聊天・附件） ▸","🤖 Clic para ejecutar con la IA (chat y adjuntos) ▸"],
+["Web検索で確認できませんでした。","Could not be verified by web search.","无法通过网络搜索确认。","No se pudo verificar por búsqueda web."]
+);
+I18N_EL_ROWS.push(
+["<b>この画面でわかること：</b>いま海外でどこまで進んでいるか。上の集計範囲で<b>全社→部署→会社→カテゴリ→商品</b>と掘り下げられ、数字をクリックすると内訳（どの会社・どの受注か）まで見られます。<b>📊 AI分析</b>に頼むと、転換率・相関などお好みの切り口で集計し、グラフ・Excel・PPTXレポート・共有リンクまで作れます。",
+ "<b>What this page shows:</b> How far you have come overseas. Drill down with the scope above from <b>all companies → department → company → category → product</b>, and click any number to see the breakdown (which company, which order). Ask <b>📊 AI analysis</b> to aggregate by conversion rate, correlation or any angle you like, and produce charts, Excel, PPTX reports and share links.",
+ "<b>本页可见：</b>目前海外进展到了哪一步。通过上方的统计范围可按<b>全公司→部门→公司→类别→商品</b>逐级下钻，点击数字可查看明细（哪家公司・哪笔订单）。交给<b>📊 AI分析</b>，可按转化率・相关性等任意角度汇总，并生成图表・Excel・PPTX报告・分享链接。",
+ "<b>Qué muestra esta página:</b> hasta dónde has llegado en el exterior. Con el alcance superior profundizas de <b>todas las empresas → departamento → empresa → categoría → producto</b>, y al pulsar una cifra ves el desglose (qué empresa, qué pedido). Pide a <b>📊 Análisis IA</b> que agregue por conversión, correlación o el enfoque que quieras y genere gráficos, Excel, informes PPTX y enlaces."],
+["左から右へ、相手に接触してから受注に至るまでの流れです。<b>各段の数字をクリック</b>すると該当する相手が見られます。",
+ "Left to right: the flow from first contact to order. <b>Click the number at each stage</b> to see the buyers involved.",
+ "从左到右是从接触对象到获得订单的流程。<b>点击各阶段的数字</b>可查看对应的对象。",
+ "De izquierda a derecha, el flujo desde el primer contacto hasta el pedido. <b>Pulsa la cifra de cada etapa</b> para ver los compradores."],
+["商談記録の件数です。<b>国名をクリック</b>すると、その国の相手が見られます。",
+ "Number of meeting records. <b>Click a country</b> to see the buyers there.",
+ "商谈记录数量。<b>点击国名</b>可查看该国的对象。",
+ "Número de registros de reuniones. <b>Pulsa un país</b> para ver sus compradores."],
+["<b>AIからのひとこと</b><br>必要な情報はすべて揃っています。ここからは<b>商談の記録を貯める段階</b>です。2年で42件が目標です。",
+ "<b>A word from the AI</b><br>All required information is in place. From here it is the <b>stage of accumulating meeting records</b>. The target is 42 in two years.",
+ "<b>AI的一句话</b><br>所需信息已全部齐备。接下来是<b>积累商谈记录的阶段</b>，目标是两年42件。",
+ "<b>Nota de la IA</b><br>Toda la información necesaria está lista. Ahora toca <b>acumular registros de reuniones</b>: el objetivo son 42 en dos años."],
+["<b>すべての項目が揃っています。</b>この下から別の資料に差し替えることもできます。 <br>🤖 管理者がAIエンジン（ChatGPT／Gemini／Claude／Perplexity）を接続すると、AIが資料を読み直して<b>追加ヒアリング</b>も行えます。",
+ "<b>All fields are complete.</b> You can also replace the documents below. <br>🤖 Once the administrator connects an AI engine (ChatGPT / Gemini / Claude / Perplexity), the AI re-reads the documents and can run <b>follow-up questions</b>.",
+ "<b>所有项目已齐备。</b>也可以在下方替换为其他资料。 <br>🤖 管理员接入AI引擎（ChatGPT／Gemini／Claude／Perplexity）后，AI会重新读取资料并进行<b>补充询问</b>。",
+ "<b>Todos los campos están completos.</b> También puedes sustituir los documentos abajo. <br>🤖 Cuando el administrador conecte un motor IA (ChatGPT / Gemini / Claude / Perplexity), la IA relee los documentos y puede hacer <b>preguntas adicionales</b>."],
+["<b>ここから始まります。</b>お手元の商品資料をアップロードすると、貿易クラウドがその商材専用の環境をつくります。以降のすべての画面が、この情報をもとに動きます。",
+ "<b>It starts here.</b> Upload your product documents and Trade Cloud builds an environment dedicated to that product. Every screen from here on runs on this information.",
+ "<b>从这里开始。</b>上传您手头的商品资料，贸易云会为该商品搭建专属环境。之后的所有页面都基于这些信息运行。",
+ "<b>Empieza aquí.</b> Sube los documentos de tu producto y Trade Cloud crea un entorno dedicado a ese producto. Todas las pantallas posteriores funcionan con esta información."],
+["<b>Excel・CSV・Word・PowerPoint・PDF・画像（PNG/JPEG）・Zip</b>に対応。①商品情報 ②価格表・寸法 ③成分表・素材表 の3種類がそろうと、AIが最も正確に働きます。<br> <span><b>Zipは中の資料をまとめて読み込み、1つの商品資料一式として統合</b>します（PCのフォルダごと取り込みたいときに）。PDF・画像の高精度読み取りは、管理者がAIエンジンを接続している場合に有効です。</span>",
+ "<b>Excel, CSV, Word, PowerPoint, PDF, images (PNG/JPEG) and Zip</b> are supported. The AI works best when all three are present: ① product info, ② price list & dimensions, ③ ingredients / materials.<br> <span><b>A Zip is read as a whole and merged into one product document set</b> (handy for importing an entire folder). High-accuracy reading of PDFs and images requires an AI engine connected by the administrator.</span>",
+ "支持<b>Excel・CSV・Word・PowerPoint・PDF・图片（PNG/JPEG）・Zip</b>。①商品信息 ②价格表・尺寸 ③成分表・材质表 三类齐全时，AI最为准确。<br> <span><b>Zip会整体读取并合并为一套商品资料</b>（适合整个文件夹导入）。PDF・图片的高精度读取需要管理员接入AI引擎。</span>",
+ "Compatible con <b>Excel, CSV, Word, PowerPoint, PDF, imágenes (PNG/JPEG) y Zip</b>. La IA es más precisa con los tres tipos: ① información del producto, ② lista de precios y medidas, ③ ingredientes / materiales.<br> <span><b>Un Zip se lee completo y se fusiona en un conjunto de documentos del producto</b> (útil para importar una carpeta). La lectura precisa de PDF e imágenes requiere un motor IA conectado por el administrador.</span>"],
+["複数ファイルは<b>Zipにまとめて</b>どうぞ。中身を全部読み込みます",
+ "For multiple files, <b>bundle them in a Zip</b>. Everything inside is read",
+ "多个文件请<b>打包为Zip</b>，内容会全部读取",
+ "Si son varios archivos, <b>agrúpalos en un Zip</b>. Se lee todo el contenido"],
+["<b>フォルダのURLもOK</b>：中のExcel・Word・PDF・画像などを最大15件まで自動で読み込み、1つの商品資料一式に統合します（画像はAIが内容を読取り）。Googleドキュメント／スプレッドシート／スライドのURLもそのまま読めます。<b>一般のWebページ（自社サイトの商品ページ・ECの商品ページ・カタログPDFの直リンクなど）も本文を読み取って取り込めます。</b>",
+ "<b>Folder URLs work too</b>: up to 15 Excel, Word, PDF and image files inside are read automatically and merged into one product document set (the AI reads image content). Google Docs / Sheets / Slides URLs can be read directly. <b>Ordinary web pages (your product page, an e-commerce listing, a direct link to a catalog PDF) can also be imported by reading their text.</b>",
+ "<b>文件夹URL也可以</b>：自动读取其中最多15个Excel・Word・PDF・图片等文件，并合并为一套商品资料（图片由AI读取内容）。Google文档／表格／幻灯片的URL也可直接读取。<b>普通网页（自家网站商品页・电商商品页・目录PDF直链等）也可读取正文导入。</b>",
+ "<b>También sirven URLs de carpetas</b>: se leen automáticamente hasta 15 archivos Excel, Word, PDF e imágenes y se fusionan en un conjunto (la IA lee el contenido de las imágenes). Las URLs de Google Docs / Sheets / Slides se leen directamente. <b>Las páginas web normales (tu página de producto, una ficha de e-commerce, un enlace directo a un PDF de catálogo) también se importan leyendo su texto.</b>"],
+["<b>デモ商材（2年分のデータ入り）</b>：商談記録・受注・出荷まで貯まった「完成形」を見られます。",
+ "<b>Demo products (with 2 years of data)</b>: see the “finished state” with meeting records, orders and shipments already accumulated.",
+ "<b>演示商品（含2年数据）</b>：可查看已积累商谈记录・订单・出货的“完成形态”。",
+ "<b>Productos de demostración (con 2 años de datos)</b>: muestran el “estado final” con reuniones, pedidos y envíos acumulados."],
+["<b>業種サンプル（1日目の状態から）</b>：貴社と同じ業種で、導入直後の立ち上がり方を体験できます。",
+ "<b>Industry samples (from day one)</b>: experience how a company in your industry gets started right after onboarding.",
+ "<b>行业样例（从第1天的状态开始）</b>：体验与贵公司相同行业在导入初期的启动方式。",
+ "<b>Ejemplos por sector (desde el día uno)</b>: vive cómo arranca una empresa de tu sector recién implantada."],
+["<b>この画面でできること：</b>いま表示中の商品（<b>上の切替メニューと連動</b>）について、AI商社マンが<b>毎日</b>、貿易クラウドの最新データ（商談・受注・タスク・出荷）と<b>Web検索によるこの会社の海外展開・最新動向の調査</b>をかけ直し、貿易取引の成功に向けた「今日やること」を提案します。",
+ "<b>What you can do here:</b> For the product shown (<b>linked to the switch menu above</b>), the AI Trade Agent re-runs, <b>every day</b>, the latest Trade Cloud data (meetings, orders, tasks, shipments) and <b>web research on this company’s overseas expansion and latest news</b>, then proposes “today’s tasks” toward a successful trade.",
+ "<b>本页可做：</b>针对当前显示的商品（<b>与上方切换菜单联动</b>），AI商社专员<b>每天</b>重新结合贸易云最新数据（商谈・订单・任务・出货）和<b>对该公司海外拓展・最新动向的网络调查</b>，提出有助于贸易成功的“今日待办”。",
+ "<b>Qué puedes hacer aquí:</b> para el producto mostrado (<b>vinculado al menú superior</b>), el agente IA vuelve a analizar <b>cada día</b> los datos más recientes (reuniones, pedidos, tareas, envíos) y <b>la investigación web sobre la expansión y novedades de esta empresa</b>, y propone las “tareas de hoy” para cerrar la operación."],
+["⚠ AIエンジン未接続のため、<b>登録データからの基本提案のみ</b>を表示しています。管理者が管理コンソールでAIを接続すると、Web検索を含むDaily調査が有効になります。",
+ "⚠ No AI engine is connected, so only <b>basic proposals from registered data</b> are shown. Once the administrator connects an AI in the admin console, daily research including web search is enabled.",
+ "⚠ 未接入AI引擎，目前仅显示<b>基于登记数据的基本建议</b>。管理员在管理控制台接入AI后，将启用包含网络搜索的每日调查。",
+ "⚠ No hay motor IA conectado, así que solo se muestran <b>propuestas básicas a partir de los datos registrados</b>. Cuando el administrador conecte una IA en la consola, se activará la investigación diaria con búsqueda web."],
+["提案は<b>日付が変わって最初にこのページを開いたとき</b>に自動で作り直されます。上の商品切替メニューで商品を替えると、その商品の「今日やること」に切り替わります。",
+ "Proposals are rebuilt automatically <b>the first time you open this page on a new day</b>. Switch the product in the menu above to see that product’s “today’s tasks”.",
+ "建议会在<b>新的一天首次打开本页时</b>自动重新生成。在上方切换商品后，会显示该商品的“今日待办”。",
+ "Las propuestas se regeneran <b>la primera vez que abres esta página cada día</b>. Cambia el producto en el menú superior para ver sus “tareas de hoy”."]
+);
+I18N_PAT2.push(
+ {re:/^\/ (\d+)件$/,en:"/ $1",zh:"/ $1件",es:"/ $1"},
+ {re:/^件 \/ (\d+)件$/,en:" / $1",zh:"件 / $1件",es:" / $1"},
+ {re:/^(\d+) \/ (\d+)件$/,en:"$1 / $2",zh:"$1 / $2件",es:"$1 / $2"},
+ {re:/^(\d+)件$/,en:"$1",zh:"$1件",es:"$1"},
+ {re:/^(\d+)社$/,en:"$1 cos.",zh:"$1家",es:"$1 empresas"},
+ {re:/^／(\d+)か国$/,en:" / $1 countries",zh:"／$1个国家",es:" / $1 países"},
+ {re:/^(\d+)か国$/,en:"$1 countries",zh:"$1个国家",es:"$1 países"},
+ {re:/^(\d+)項目$/,en:"$1 items",zh:"$1项",es:"$1 campos"},
+ {re:/^商談したうち反応を記録できたのは(\d+)%。$/,en:"Feedback was recorded for $1% of meetings.",zh:"商谈中记录了反应的比例为$1%。",es:"Se registró la reacción en el $1% de las reuniones."},
+ {re:/^≒US\$([\d,]+)／Invoice書類と同一ソース$/,en:"≈ US$$1 / same source as the Invoice",zh:"≒US$$1／与Invoice单证同一来源",es:"≈ US$$1 / misma fuente que la factura"},
+ {re:/^参照レート ([\d.]+)円\/US\$（(.+?)・([\d-]+)・参照値）$/,en:"Reference rate ¥$1/US$ ($2 · $3 · reference)",zh:"参考汇率 $1日元/US$（$2・$3・参考值）",es:"Tipo de referencia ¥$1/US$ ($2 · $3 · referencia)"},
+ {re:/^サプライヤー (\d+)\/(\d+)社$/,en:"Suppliers $1/$2",zh:"供应商 $1/$2家",es:"Proveedores $1/$2"},
+ {re:/^この会社の商品 (\d+)\/(\d+)件$/,en:"Products of this company $1/$2",zh:"该公司商品 $1/$2件",es:"Productos de esta empresa $1/$2"},
+ {re:/^（あと(\d+)件）$/,en:"($1 more)",zh:"（还可添加$1个）",es:"($1 más)"},
+ {re:/^他(\d+)社は上部の切替メニュー／🔍検索で$/,en:"Other $1 companies: use the switch menu above or 🔍 search",zh:"其他$1家公司请使用上方切换菜单／🔍搜索",es:"Las otras $1 empresas: menú superior o 🔍 búsqueda"},
+ {re:/^業種サンプル：(.+)$/,en:"Industry sample: $1",zh:"行业样例：$1",es:"Ejemplo de sector: $1"},
+ {re:/^📌 (.+)｜今日やること$/,en:"📌 $1 | Today's tasks",zh:"📌 $1｜今日待办",es:"📌 $1 | Tareas de hoy"},
+ {re:/^🏢 (.+) · 最終調査$/,en:"🏢 $1 · Last research",zh:"🏢 $1 · 最近调查",es:"🏢 $1 · Última investigación"},
+ {re:/^（AI自動選択（(\d+)社）・データ全体＋Web検索・毎日自動更新）$/,en:"(AI auto-selected ($1 cos.) · all data + web search · refreshed daily)",zh:"（AI自动选择（$1家）・全部数据＋网络搜索・每日自动更新）",es:"(selección automática IA ($1) · todos los datos + web · actualización diaria)"},
+ {re:/^進捗 (\d+)\/(\d+)$/,en:"Progress $1/$2",zh:"进度 $1/$2",es:"Progreso $1/$2"},
+ {re:/^▸ やるべきタスク一覧（(\d+)件・残り(\d+)）$/,en:"▸ Task list ($1 · $2 left)",zh:"▸ 待办任务列表（$1项・剩余$2）",es:"▸ Lista de tareas ($1 · quedan $2)"},
+ {re:/^🔗 「(.+)」で進める$/,en:(m,d)=>"🔗 Continue in “"+(d[m[1]]||m[1])+"”",zh:(m,d)=>"🔗 在“"+(d[m[1]]||m[1])+"”中推进",es:(m,d)=>"🔗 Continuar en “"+(d[m[1]]||m[1])+"”"},
+ {re:/^🌐 Web調査メモ（([\d-]+)・(.+?)の海外展開・最新動向）$/,en:"🌐 Web research memo ($1 · $2: overseas expansion & latest news)",zh:"🌐 网络调查备忘（$1・$2的海外拓展・最新动向）",es:"🌐 Memo de investigación web ($1 · $2: expansión y novedades)"}
+);
+
+/* v15.23b 翻訳辞書（追加分）2/4：商品情報・取り込んだ情報・商談記録・営業資料 */
+I18N_ROWS2.push(
+/* 商品情報 */
+["🧹 データ健全性チェック","🧹 Data health check","🧹 数据健全性检查","🧹 Revisión de datos"],
+["構造化できた項目","Structured fields","已结构化的项目","Campos estructurados"],["項目","items","项目","campos"],
+["調査済みの仕向国","Researched destinations","已调查的目的国","Destinos investigados"],
+["関税率と必要書類を紐付け済み","Tariff rates and required documents linked","已关联关税率与所需单证","Aranceles y documentos vinculados"],
+["AIが使える状態か","Is the AI ready to work?","AI是否可用","¿La IA está lista?"],
+["書類の自動作成・規制判定・商談準備に使えます","Ready for document generation, regulatory checks and meeting prep","可用于自动制作单证・法规判定・商谈准备","Lista para documentos, normativa y preparación de reuniones"],
+["① 商品情報・強み","① Product info & strengths","① 商品信息・优势","① Información y fortalezas"],
+["② 価格表・寸法","② Price list & dimensions","② 价格表・尺寸","② Precios y medidas"],
+["③ 車両情報表","③ Vehicle spec sheet","③ 车辆信息表","③ Ficha del vehículo"],
+["③ 成分表・分析表","③ Ingredients & analysis","③ 成分表・分析表","③ Ingredientes y análisis"],
+["③ 成分表・素材表","③ Ingredients / materials","③ 成分表・材质表","③ Ingredientes / materiales"],
+["③ 全成分表（INCI）・規制対応","③ Full ingredients (INCI) & compliance","③ 全成分表（INCI）・法规对应","③ Ingredientes (INCI) y normativa"],
+["③ 材質・素材表／環境規制対応","③ Materials & environmental compliance","③ 材质表／环境法规对应","③ Materiales y normativa ambiental"],
+["🤖 AIで強みを充実","🤖 Enrich strengths with AI","🤖 用AI充实优势","🤖 Enriquecer fortalezas con IA"],
+["海外のバイヤーに「なぜこれを選ぶのか」を説明するための材料です。AIはここを引用して商談準備の答えを作ります。各カードの ✎ で編集、🗑 で削除できます。","Material for explaining to overseas buyers “why choose this”. The AI quotes it when preparing for meetings. Use ✎ on each card to edit and 🗑 to delete.","用于向海外买家说明“为什么选择它”的素材。AI会引用这里来准备商谈答案。各卡片可用 ✎ 编辑、🗑 删除。","Material para explicar a los compradores “por qué elegirlo”. La IA lo cita al preparar reuniones. Usa ✎ para editar y 🗑 para borrar."],
+["🚚 現地販売価格をAI商社マンと試算","🚚 Estimate local selling price with the AI","🚚 与AI商社专员试算当地售价","🚚 Estimar precio local con la IA"],
+["シート②から","From sheet ②","来自表②","De la hoja ②"],["シート③から","From sheet ③","来自表③","De la hoja ③"],
+["単価(FOB)","Unit price (FOB)","单价(FOB)","Precio unitario (FOB)"],["備考","Notes","备注","Notas"],["寸法・重量","Dimensions & weight","尺寸・重量","Medidas y peso"],
+["数値","Value","数值","Valor"],["内容","Details","内容","Contenido"],["全長×全幅×全高","L × W × H","全长×全宽×全高","Largo × ancho × alto"],
+["車両重量","Vehicle weight","车辆重量","Peso del vehículo"],["積載","Loading","装载","Carga"],["型式","Model code","型号","Modelo"],["排気量","Displacement","排量","Cilindrada"],
+["燃料","Fuel","燃料","Combustible"],["走行距離","Mileage","行驶里程","Kilometraje"],["修復歴","Repair history","修复历史","Historial de reparación"],["登録","Registration","登记","Registro"],["ハンドル","Steering","方向盘","Volante"],
+["走行距離帯","Mileage band","里程区间","Rango de kilometraje"],
+["✎ 表を編集","✎ Edit table","✎ 编辑表格","✎ Editar tabla"],
+["各国の規制に合っているかを判定する土台です。車両状態・検査結果・年式がここに入ります。","The basis for checking compliance with each country's rules. Vehicle condition, inspection results and model year go here.","用于判断是否符合各国法规的基础。车况・检测结果・年式记录在此。","Base para comprobar la normativa de cada país. Aquí van estado, inspección y año del vehículo."],
+["日本の貿易統計（HSコード別の輸出実績）と連携し、","Linked with Japan's trade statistics (exports by HS code) and used for ","与日本贸易统计（按HS编码的出口实绩）联动，用于","Vinculado a las estadísticas de comercio de Japón (exportaciones por código HS), se usa para "],
+["海外向け価格設定","overseas pricing","海外定价","fijar precios de exportación"],["と"," and ","和"," y "],["競合調査","competitor research","竞争调查","estudio de competencia"],
+["に使います。この商品のHSコード：",". This product's HS code: ","。本商品的HS编码：",". Código HS de este producto: "],
+["・商品名で自動連携します。"," · auto-linked by product name.","・按商品名自动联动。"," · vinculado automáticamente por nombre."],
+["進出希望国","Target country","目标国家","País objetivo"],["卸単価（最安帯）","Wholesale price (lowest tier)","批发单价（最低档）","Precio mayorista (tramo más bajo)"],
+["関税込み概算","Est. incl. duty","含税概算","Estimado con arancel"],["価格設定の使い方","How to use for pricing","定价用法","Uso para fijar precios"],
+["統計の平均輸出単価（同HS・同国向け）と比べて高ければ、強みの根拠を営業資料で先回り","If higher than the statistical average export price (same HS, same country), justify the premium in your sales deck","若高于统计平均出口单价（同HS・同国），请在销售资料中先说明优势依据","Si supera el precio medio estadístico (mismo HS y país), justifica la diferencia en el material de ventas"],
+["AIはこの資料をこう理解しました","How the AI understood these documents","AI对资料的理解","Así entendió la IA los documentos"],
+["アップロードした3種類の資料から、AIが自動でまとめた要約です。","A summary the AI compiled automatically from the three uploaded documents.","AI根据上传的3类资料自动生成的摘要。","Resumen que la IA elaboró a partir de los tres documentos subidos."],
+/* 取り込んだ情報 */
+["📄 書類（PI／CI／PL・発注書・契約書・添付）は「貿易実務・書類・出荷 › この案件の書類」にあります","📄 Documents (PI / CI / PL, purchase orders, contracts, attachments) are under “Trade ops · Docs · Shipping › Documents of this case”","📄 单证（PI／CI／PL・订购单・合同・附件）在“贸易实务・单证・出货 › 本案件的单证”中","📄 Los documentos (PI / CI / PL, órdenes, contratos, adjuntos) están en “Operaciones · Documentos · Envío › Documentos del caso”"],
+["この案件の書類を開く","Open this case's documents","打开本案件的单证","Abrir documentos del caso"],["ソースを追加","Add a source","添加来源","Añadir fuente"],
+["☁ URLから追加（Google Document／Slide／Sheet・Drive／OneDriveのファイル・フォルダ）","☁ Add from URL (Google Docs / Slides / Sheets, Drive / OneDrive files and folders)","☁ 从URL添加（Google文档／幻灯片／表格・Drive／OneDrive文件・文件夹）","☁ Añadir desde URL (Google Docs / Slides / Sheets, archivos y carpetas de Drive / OneDrive)"],
+["参照ソース","Reference sources","参考来源","Fuentes de referencia"],
+["✓を外したソースは、AI商社マンの回答の根拠から除外されます（データは残ります）。名前をクリックで中身を確認、✎で名前を変更。","Unchecked sources are excluded from the AI's evidence (the data stays). Click a name to view it, ✎ to rename.","取消✓的来源将不再作为AI回答依据（数据保留）。点击名称查看内容，✎ 可重命名。","Las fuentes sin ✓ quedan fuera de la evidencia de la IA (los datos se conservan). Pulsa el nombre para verla y ✎ para renombrar."],
+["まだソースがありません。左から追加するか、「商品情報を登録」でZip／フォルダURLを取り込むと、ここに一覧されます。","No sources yet. Add one on the left, or import a Zip / folder URL in “Register product” and it will be listed here.","尚无来源。可在左侧添加，或在“登记商品信息”中导入Zip／文件夹URL，即会在此列出。","Aún no hay fuentes. Añade una a la izquierda o importa un Zip / URL de carpeta en “Registrar producto” y aparecerá aquí."],
+/* 商談記録 */
+["以前との違いを見る","See what changed","查看与以前的差异","Ver qué cambió"],["CSV / API で書き出す","Export via CSV / API","导出CSV / API","Exportar por CSV / API"],
+["🎙 音声・議事録から自動登録","🎙 Auto-register from audio / minutes","🎙 从语音・会议记录自动登记","🎙 Registro automático desde audio / actas"],
+["行をクリックすると、記録されている内容がすべて開きます。","Click a row to open everything recorded.","点击行可展开全部记录内容。","Pulsa una fila para abrir todo lo registrado."],
+["ここに貯まる42件が、2年後にAIを動かす燃料になります。","The 42 records collected here become the fuel that drives the AI two years from now.","这里积累的42件记录，将成为两年后驱动AI的燃料。","Los 42 registros acumulados aquí serán el combustible de la IA dentro de dos años."],
+["まだ商談の記録がありません。","No meeting records yet.","尚无商谈记录。","Aún no hay registros de reuniones."],
+["項目がどれだけ埋まっているか","Field completeness","项目填写完整度","Completitud de campos"],["商談記録が入ると算出されます","Calculated once records exist","有商谈记录后计算","Se calcula cuando haya registros"],
+["断られた理由が残っている割合","Share with a rejection reason","记录了拒绝理由的比例","Con motivo de rechazo"],["失注の記録はまだありません","No lost deals recorded yet","尚无失单记录","Aún no hay operaciones perdidas"],
+["記録がある国の数","Countries with records","有记录的国家数","Países con registros"],
+["どの国で反応があったかが、思い込みではなく数字で分かります","Shows, in numbers rather than assumptions, which countries responded","用数字而非猜测了解哪些国家有反应","Muestra con cifras, no suposiciones, qué países respondieron"],
+/* 営業資料 */
+["元データを確認する","Check source data","查看原始数据","Ver datos de origen"],["🧹 データを点検","🧹 Inspect data","🧹 检查数据","🧹 Revisar datos"],
+["納品レベルチェック","Delivery-level check","交付级别检查","Control de nivel de entrega"],
+["揃うまで生成ボタンはロックされます（中途半端な資料を出さないため）。AI商社マンが一緒に埋めます。","The generate button stays locked until complete (to avoid a half-finished deck). The AI Trade Agent helps fill the gaps.","信息齐全前生成按钮将保持锁定（避免输出不完整的资料）。AI商社专员会协助补齐。","El botón de generar queda bloqueado hasta completar (para no entregar material a medias). La IA ayuda a rellenar."],
+["英文商品名","English product name","英文商品名","Nombre del producto en inglés"],["英文社名","English company name","英文公司名","Nombre de la empresa en inglés"],
+["キャッチコピー・タグライン","Tagline","广告语・标语","Eslogan"],["商品の強み（3件以上）","Product strengths (3+)","商品优势（3项以上）","Fortalezas (3 o más)"],
+["規格・成分 or 梱包寸法","Specs / ingredients or packing dimensions","规格・成分 或 包装尺寸","Especificaciones / ingredientes o medidas de embalaje"],
+["価格表 or 取引条件（MOQ等）","Price list or trade terms (MOQ etc.)","价格表 或 交易条件（MOQ等）","Lista de precios o condiciones (MOQ, etc.)"],
+["ターゲット国（1か国以上）","Target countries (1+)","目标国家（1国以上）","Países objetivo (1 o más)"],
+["会社・ブランドロゴ（必須）","Company / brand logo (required)","公司・品牌Logo（必填）","Logo de empresa / marca (obligatorio)"],
+["納品品質の商品写真（1枚以上）（必須）","Delivery-quality product photo (1+) (required)","交付级商品照片（1张以上）（必填）","Foto de producto de calidad (1 o más) (obligatorio)"],
+["連絡先（担当者・メール等）（必須）","Contact (person, email) (required)","联系方式（负责人・邮箱等）（必填）","Contacto (persona, email) (obligatorio)"],
+["ミッション・ブランドコンセプト","Mission / brand concept","使命・品牌理念","Misión / concepto de marca"],
+["会社プロフィール（設立・代表など）","Company profile (founded, CEO, etc.)","公司简介（成立・代表等）","Perfil de empresa (fundación, CEO, etc.)"],
+["使い方（ステップ）","How to use (steps)","使用方法（步骤）","Modo de uso (pasos)"],
+["会社・ブランドロゴ","Company / brand logo","公司・品牌Logo","Logo de empresa / marca"],
+["：下の「ロゴ・商品写真」から設定（公式サイトから自動取得も可）",": set it under “Logo & product photos” below (can also be fetched from the official site)","：在下方“Logo・商品照片”中设置（也可从官网自动获取）",": configúralo en “Logo y fotos” abajo (también se puede obtener del sitio oficial)"],
+["納品品質の商品写真（1枚以上）","Delivery-quality product photo (1+)","交付级商品照片（1张以上）","Foto de producto de calidad (1 o más)"],
+["：アップロード または 🏠公式サイトから取得",": upload, or 🏠 fetch from the official site","：上传 或 🏠从官网获取",": súbela o 🏠 obtenla del sitio oficial"],
+["連絡先（担当者・メール等）","Contact (person, email)","联系方式（负责人・邮箱等）","Contacto (persona, email)"],
+["：AI商社マンと仕上げる で入力",": enter it via “Finish with the AI”","：在“与AI商社专员完成”中输入",": introdúcelo en “Terminar con la IA”"],
+["ロゴ・商品写真（資料に実際に埋め込み）","Logo & product photos (embedded in the deck)","Logo・商品照片（实际嵌入资料）","Logo y fotos (incrustados en el material)"],
+["🌐 Webで画像を探す（候補から選択）","🌐 Find images on the web (pick from candidates)","🌐 在网络上查找图片（从候选中选择）","🌐 Buscar imágenes en la web (elegir candidatas)"],
+["🏠 公式サイトから画像を取得","🏠 Fetch images from the official site","🏠 从官网获取图片","🏠 Obtener imágenes del sitio oficial"],
+["⚡ 公式サイトで資料を強化（コピー・特徴・画像を自動取込）","⚡ Enrich the deck from the official site (copy, features, images)","⚡ 用官网强化资料（自动导入文案・特点・图片）","⚡ Enriquecer con el sitio oficial (textos, características, imágenes)"],
+["キャッチコピー・ブランド紹介・特徴・ラインアップ・使い方・画像を、サイトからまとめて取り込みます。","Imports the tagline, brand intro, features, line-up, usage and images from the site in one go.","一次性从网站导入广告语・品牌介绍・特点・产品线・用法・图片。","Importa de una vez eslogan, presentación, características, gama, uso e imágenes del sitio."],
+["🎨 ブランドカラー","🎨 Brand colors","🎨 品牌色","🎨 Colores de marca"],["画像から再抽出","Re-extract from images","从图片重新提取","Volver a extraer de las imágenes"],
+["🧹 重複写真を整理","🧹 Remove duplicate photos","🧹 整理重复照片","🧹 Quitar fotos duplicadas"],["ロゴ","Logo","Logo","Logo"],
+["AI翻訳：未接続（見出しのみ各言語）","AI translation: not connected (headings only)","AI翻译：未接入（仅标题多语言）","Traducción IA: no conectada (solo títulos)"],
+["生成はロック中：","Generation locked:","生成已锁定：","Generación bloqueada:"],["納品レベルまで残り","Remaining to delivery level: ","距交付级别还差","Falta para el nivel de entrega: "],
+["出力形式について","About output formats","关于输出格式","Formatos de salida"],
+["そのままダウンロード。写真枠に製品写真を入れて完成です。","Download as is. Drop your product photos into the frames and it is done.","直接下载。在照片框中放入产品照片即可完成。","Descárgalo tal cual. Pon tus fotos en los marcos y listo."],
+["Googleスライド","Google Slides","Google幻灯片","Google Slides"],
+["PPTXをGoogleドライブへアップロード →「アプリで開く」→ Googleスライドで変換できます。","Upload the PPTX to Google Drive → “Open with” → convert in Google Slides.","将PPTX上传到Google云端硬盘 →“使用应用打开”→ 用Google幻灯片转换。","Sube el PPTX a Google Drive → “Abrir con” → conviértelo en Google Slides."],
+["中国語は2種類","Two kinds of Chinese","中文有两种","Dos variantes de chino"],
+["簡体字（中国本土向け）と繁体字（台湾・香港向け）を分けて生成します。","Generated separately in Simplified (mainland China) and Traditional (Taiwan, Hong Kong).","分别生成简体（面向中国大陆）和繁体（面向台湾・香港）。","Se genera por separado en simplificado (China continental) y tradicional (Taiwán, Hong Kong)."]
+);
+I18N_EL_ROWS.push(
+["<b>この画面でわかること：</b>アップロードした資料が、どう構造化されたか。ここが埋まっているほど、AIの答えと書類の自動作成が正確になります。",
+ "<b>What this page shows:</b> How your uploaded documents were structured. The more complete this is, the more accurate the AI's answers and auto-generated documents.",
+ "<b>本页可见：</b>上传的资料是如何被结构化的。这里越完整，AI的回答和单证自动生成就越准确。",
+ "<b>Qué muestra esta página:</b> cómo se estructuraron los documentos subidos. Cuanto más completo, más precisas serán las respuestas de la IA y los documentos automáticos."],
+["見積書・請求書・梱包明細は、この表から自動で作られます。<span>MOQ</span>や数量帯があるので、AIは「その数量ならいくらか」を即答できます。",
+ "Quotations, invoices and packing lists are generated from this table. With <span>MOQ</span> and quantity tiers, the AI can answer “how much for that quantity” instantly.",
+ "报价单・发票・装箱单由此表自动生成。因为有<span>MOQ</span>和数量档，AI可即时回答“该数量的价格”。",
+ "Cotizaciones, facturas y listas de empaque se generan desde esta tabla. Con <span>MOQ</span> y tramos de cantidad, la IA responde al instante “cuánto por esa cantidad”."],
+["統計側で同じHSコードの<b>国別数量・平均単価の推移</b>を確認し、AIの分析と突き合わせるのがおすすめです。",
+ "We recommend checking the <b>quantity and average unit price trend by country</b> for the same HS code in the statistics and comparing it with the AI's analysis.",
+ "建议在统计中查看同一HS编码的<b>各国数量・平均单价走势</b>，并与AI分析对照。",
+ "Recomendamos revisar en las estadísticas la <b>evolución de cantidad y precio medio por país</b> del mismo código HS y contrastarla con el análisis de la IA."],
+["<b>この画面でできること：</b>AI商社マンが参照する情報源を、ここで一元管理します。追加・削除に加えて、<b>✓の付け外しで「どのソースを根拠に使うか」をあなたが選べます</b>（NotebookLMのソース選択と同じ考え方）。",
+ "<b>What you can do here:</b> Manage in one place the sources the AI Trade Agent refers to. Besides adding and removing, <b>you choose which sources count as evidence by ticking ✓</b> (same idea as source selection in NotebookLM).",
+ "<b>本页可做：</b>统一管理AI商社专员参考的信息来源。除了添加・删除，<b>还可通过勾选✓选择“以哪些来源为依据”</b>（与NotebookLM的来源选择思路相同）。",
+ "<b>Qué puedes hacer aquí:</b> gestionar en un solo lugar las fuentes que consulta el agente IA. Además de añadir y quitar, <b>eliges con ✓ qué fuentes sirven de evidencia</b> (como la selección de fuentes de NotebookLM)."],
+["ここは<b>AI商社マンが回答の根拠に使う情報源</b>の一覧です。発注書は書類として記録されると同時に、AIが参照できるようここにも登録されます（役割が違うため両方に表示）。",
+ "This is the list of <b>sources the AI Trade Agent uses as evidence</b>. Purchase orders are recorded as documents and also registered here so the AI can reference them (shown in both places because the roles differ).",
+ "这里是<b>AI商社专员回答时所依据的信息来源</b>列表。订购单在记录为单证的同时也会登记于此供AI参考（因用途不同而两处显示）。",
+ "Lista de <b>fuentes que el agente IA usa como evidencia</b>. Las órdenes de compra se registran como documentos y también aquí para que la IA las consulte (aparecen en ambos sitios por su distinto papel)."],
+["PDF・Excel・PowerPoint・Word・CSV・画像・<b>Zip（中身をまとめて）</b>に対応。ここにドラッグ＆ドロップでもOK。",
+ "Supports PDF, Excel, PowerPoint, Word, CSV, images and <b>Zip (contents read together)</b>. Drag & drop here works too.",
+ "支持PDF・Excel・PowerPoint・Word・CSV・图片・<b>Zip（整体读取）</b>。也可直接拖放到这里。",
+ "Admite PDF, Excel, PowerPoint, Word, CSV, imágenes y <b>Zip (contenido leído junto)</b>. También puedes arrastrar y soltar aquí."],
+["<b>この画面でわかること：</b>海外の相手と話した内容が、決まった項目で残っています。価格・数量・条件、そして断られた理由まで。ここが埋まっているほど、AIが賢くなります。<b>貴社ご自身でもその場で記録できます。</b>",
+ "<b>What this page shows:</b> What was discussed with overseas buyers, kept in fixed fields: price, quantity, terms, and even why you were turned down. The more this fills up, the smarter the AI gets. <b>You can record it yourself on the spot.</b>",
+ "<b>本页可见：</b>与海外对象的谈话内容按固定项目保存：价格・数量・条件，乃至被拒绝的理由。这里越充实，AI越聪明。<b>贵公司也可当场自行记录。</b>",
+ "<b>Qué muestra esta página:</b> lo hablado con compradores extranjeros, en campos fijos: precio, cantidad, condiciones e incluso el motivo del rechazo. Cuanto más se llene, más inteligente será la IA. <b>Puedes registrarlo tú mismo al momento.</b>"],
+["<b>この画面でできること：</b>登録済みの商品情報（強み・価格・規格・規制）をまるごと使って、<b>海外バイヤー向けの営業資料を1クリックで生成</b>します。表紙・目次・会社紹介・ラインアップ・強み・規格・市場・価格・物流・認証・コンタクトを<b>情報が揃ったぶんだけ</b>組みます（枚数は内容次第・空欄ページは作りません）。<b>配色はロゴ・写真から抽出した貴社ブランドカラー</b>。<b>納品レベルの情報が揃うまで生成はロック</b>され、不足はAI商社マンが一緒に埋めます。",
+ "<b>What you can do here:</b> Use all registered product information (strengths, prices, specs, regulations) to <b>generate a sales deck for overseas buyers in one click</b>. Cover, contents, company intro, line-up, strengths, specs, market, prices, logistics, certifications and contact are built <b>only as far as the information exists</b> (page count depends on content; no blank pages). <b>Colors are your brand colors extracted from the logo and photos</b>. <b>Generation stays locked until delivery-level information is complete</b>, and the AI Trade Agent helps fill the gaps.",
+ "<b>本页可做：</b>完整利用已登记的商品信息（优势・价格・规格・法规），<b>一键生成面向海外买家的销售资料</b>。封面・目录・公司介绍・产品线・优势・规格・市场・价格・物流・认证・联系方式<b>按信息齐备程度</b>组成（页数取决于内容，不生成空白页）。<b>配色为从Logo・照片提取的贵公司品牌色</b>。<b>信息达到交付级别前生成保持锁定</b>，缺失部分由AI商社专员协助补齐。",
+ "<b>Qué puedes hacer aquí:</b> usar toda la información registrada (fortalezas, precios, especificaciones, normativa) para <b>generar en un clic un material de ventas para compradores extranjeros</b>. Portada, índice, empresa, gama, fortalezas, especificaciones, mercado, precios, logística, certificaciones y contacto se montan <b>solo con la información disponible</b> (sin páginas vacías). <b>Los colores son los de tu marca, extraídos del logo y las fotos</b>. <b>La generación queda bloqueada hasta tener información de nivel de entrega</b>, y la IA ayuda a completarla."],
+["ここに設定した画像が、表紙・ラインアップ・規格・ギャラリーページに<b>そのまま差し込まれた完成版PPTX</b>になります（写真は<b>最大10枚</b>）。",
+ "The images set here go straight into the cover, line-up, specs and gallery pages of the <b>finished PPTX</b> (up to <b>10 photos</b>).",
+ "此处设置的图片将直接嵌入封面・产品线・规格・图库页，生成<b>完成版PPTX</b>（照片<b>最多10张</b>）。",
+ "Las imágenes configuradas aquí se insertan directamente en portada, gama, especificaciones y galería del <b>PPTX final</b> (hasta <b>10 fotos</b>)."],
+["公式サイトの画像は<b>貴社が掲載許可をお持ちの前提</b>で採用できます（候補を提示→選択→AI検査）。",
+ "Images from the official site can be used <b>on the assumption that you hold the rights to publish them</b> (candidates shown → you select → AI check).",
+ "官网图片可在<b>贵公司拥有刊登许可的前提下</b>采用（提示候选→选择→AI检查）。",
+ "Las imágenes del sitio oficial se pueden usar <b>si tienes permiso para publicarlas</b> (candidatas → selección → revisión IA)."],
+["未設定＝標準配色。<b>ロゴか写真を設定すると自動で抽出</b>します（ここで手動指定もできます）。",
+ "Not set = default colors. <b>Set a logo or photo and they are extracted automatically</b> (you can also pick them manually here).",
+ "未设置＝标准配色。<b>设置Logo或照片后自动提取</b>（也可在此手动指定）。",
+ "Sin configurar = colores estándar. <b>Al poner un logo o una foto se extraen automáticamente</b> (también puedes elegirlos aquí)."],
+["🌐Web検索は<b>商品名・社名で正確に照合</b>し、<b>候補を提示→お客様が確認して採用</b>する方式です（勝手に挿入しません）。採用時は接続中のAIが画像を検査し、<b>誤った画像はブロック</b>。見つからない場合は正直に「見つかりませんでした」と表示します（出典：Wikimedia Commons／Openverse）。",
+ "🌐 Web search <b>matches precisely by product and company name</b> and <b>shows candidates for you to confirm</b> (nothing is inserted automatically). On adoption the connected AI inspects the image and <b>blocks wrong ones</b>. If nothing is found it honestly says “not found” (sources: Wikimedia Commons / Openverse).",
+ "🌐网络搜索<b>按商品名・公司名精确匹配</b>，采用<b>提示候选→客户确认后采用</b>的方式（不会擅自插入）。采用时由接入的AI检查图片，<b>拦截错误图片</b>。找不到时如实显示“未找到”（来源：Wikimedia Commons／Openverse）。",
+ "🌐 La búsqueda web <b>coteja con precisión por nombre de producto y empresa</b> y <b>muestra candidatas para que las confirmes</b> (no inserta nada por su cuenta). Al adoptar una, la IA conectada la revisa y <b>bloquea las erróneas</b>. Si no encuentra nada, lo dice con claridad (fuentes: Wikimedia Commons / Openverse)."],
+["💡 生成後にPowerPointで自由に編集できます。数値・認証などの根拠は貿易クラウドの登録データそのままなので、<b>資料と実データがズレません</b>。",
+ "💡 After generation you can edit freely in PowerPoint. Figures and certifications come straight from Trade Cloud data, so <b>the deck never drifts from the real data</b>.",
+ "💡 生成后可在PowerPoint中自由编辑。数值・认证等依据直接来自贸易云的登记数据，<b>资料与实际数据不会不一致</b>。",
+ "💡 Tras generarlo puedes editarlo libremente en PowerPoint. Cifras y certificaciones salen de los datos de Trade Cloud, así que <b>el material nunca se desvía de los datos reales</b>."]
+);
+I18N_PAT2.push(
+ {re:/^📄 (.+) から自動抽出$/,en:"📄 Auto-extracted from $1",zh:"📄 从 $1 自动提取",es:"📄 Extraído automáticamente de $1"},
+ {re:/^(.+) から取り込み$/,en:"Imported from $1",zh:"从 $1 导入",es:"Importado de $1"},
+ {re:/^強み(\d+)・価格(\d+)・寸法(\d+)・成分(\d+)$/,en:"Strengths $1 · Prices $2 · Dimensions $3 · Ingredients $4",zh:"优势$1・价格$2・尺寸$3・成分$4",es:"Fortalezas $1 · Precios $2 · Medidas $3 · Ingredientes $4"},
+ {re:/^(\d+)\/(\d+) 件をAIが参照中$/,en:"AI is using $1/$2",zh:"AI正在参考 $1/$2 项",es:"La IA usa $1/$2"},
+ {re:/^(\d+)件中 (\d+)件を表示$/,en:"Showing $2 of $1",zh:"显示 $1 件中的 $2 件",es:"Mostrando $2 de $1"},
+ {re:/^納品可能なレベルに必要な情報が、あと(\d+)項目足りません。$/,en:"$1 more item(s) are needed to reach delivery level.",zh:"距交付级别还缺$1项信息。",es:"Faltan $1 elementos para el nivel de entrega."},
+ {re:/^🤖 AI商社マンと埋める（必須 残り(\d+)件）$/,en:"🤖 Fill in with the AI (required: $1 left)",zh:"🤖 与AI商社专员补齐（必填 剩余$1项）",es:"🤖 Completar con la IA (obligatorios: quedan $1)"},
+ {re:/^商品写真(\d+)$/,en:"Product photo $1",zh:"商品照片$1",es:"Foto de producto $1"},
+ {re:/^資料に入る内容（(.+)）$/,en:"What goes into the deck ($1)",zh:"资料包含的内容（$1）",es:"Contenido del material ($1)"},
+ {re:/^強み(\d+)件・価格表(\d+)行・(.+?)(\d+)項目・規制(\d+)か国ぶんを自動レイアウトします。写真枠はプレースホルダー（PowerPoint上で貴社の製品写真に差し替え）です。$/,en:"Auto-lays out $1 strengths, $2 price rows, $4 spec items ($3) and regulations for $5 countries. Photo frames are placeholders (replace with your photos in PowerPoint).",zh:"自动排版优势$1项・价格表$2行・$3$4项・法规$5国。照片框为占位符（请在PowerPoint中替换为贵公司产品照片）。",es:"Maqueta automáticamente $1 fortalezas, $2 filas de precios, $4 datos ($3) y normativa de $5 países. Los marcos de foto son marcadores (sustitúyelos en PowerPoint)."}
+);
+
+/* v15.23b 翻訳辞書（追加分）3/4：タスク・貿易実務・書類・出荷・契約書 */
+I18N_ROWS2.push(
+/* タスク */
+["ガントチャート を隠す","Hide Gantt chart","隐藏甘特图","Ocultar Gantt"],["ガントチャート を表示","Show Gantt chart","显示甘特图","Mostrar Gantt"],
+["AIにタスクを作らせる","Let the AI create tasks","让AI创建任务","Que la IA cree tareas"],
+["期限切れのタスク","Overdue tasks","已逾期的任务","Tareas vencidas"],["問題ありません","All good","没有问题","Sin problemas"],
+["開始が遅れているタスク","Tasks started late","开始延迟的任务","Tareas con inicio retrasado"],["1週間以内が期限のタスク","Tasks due within a week","一周内到期的任务","Tareas que vencen en una semana"],
+["作業期間中のタスク","Tasks in work period","工作期间中的任务","Tareas en periodo de trabajo"],["終了済みタスクを非表示","Hide finished tasks","隐藏已结束任务","Ocultar tareas terminadas"],
+["タスク名","Task","任务名","Tarea"],["優先度","Priority","优先级","Prioridad"],["開始日","Start","开始日","Inicio"],["終了日","End","结束日","Fin"],["ステータス","Status","状态","Estado"],
+["この案件で起きたこと","What happened in this case","本案件的动态","Qué ha pasado en este caso"],
+["誰が・いつ・何をしたかが自動で残ります。担当が代わっても経緯を追えます。","Who did what, and when, is recorded automatically. The history stays even if the person in charge changes.","自动记录谁・何时・做了什么。即使负责人更换也能追溯经过。","Quién hizo qué y cuándo queda registrado automáticamente. El historial se conserva aunque cambie el responsable."],
+["商品情報をアップロードしました","Product information uploaded","已上传商品信息","Información del producto subida"],
+["タスクはどこから生まれたか","Where tasks come from","任务从何而来","De dónde salen las tareas"],
+["現行版は空のタスクを手で作る形でした。この版では、たまったデータからAIが作ります。","In the current version you created empty tasks by hand. In this version the AI creates them from the data collected.","现行版需要手动创建空任务。本版中由AI根据积累的数据创建。","En la versión actual creabas tareas vacías a mano. En esta, la IA las crea a partir de los datos."],
+["断られた理由から","From rejection reasons","来自被拒绝的理由","De los motivos de rechazo"],["失注の原因を解消するタスクを自動生成","Auto-generates tasks to remove the causes of lost deals","自动生成消除失单原因的任务","Genera tareas para eliminar las causas de pérdida"],
+["規制調査の警告から","From regulatory warnings","来自法规调查的警告","De las alertas regulatorias"],["未対応の認証・届出をタスク化","Turns pending certifications and filings into tasks","将未处理的认证・申报转为任务","Convierte certificaciones y trámites pendientes en tareas"],
+["受注の確定から","From confirmed orders","来自确定的订单","De los pedidos confirmados"],["出荷手続きの子タスクを一括生成","Generates shipping subtasks in bulk","批量生成出货手续的子任务","Genera en bloque las subtareas de envío"],
+["定例会の日程から","From regular meeting dates","来自例会日程","De las reuniones periódicas"],["資料準備のタスクを前倒しで生成","Creates preparation tasks ahead of time","提前生成资料准备任务","Crea tareas de preparación con antelación"],
+["毎月","Monthly","每月","Mensual"],
+/* 貿易実務・書類・出荷 */
+["案件数は無制限（タブ表示は4件・外した案件は🔍から再開）","Unlimited cases (4 shown as tabs; reopen removed ones via 🔍)","案件数量不限（标签显示4个・移除的案件可从🔍重新打开）","Casos ilimitados (4 en pestañas; los quitados se reabren con 🔍)"],
+["いまどこ？","Where am I?","当前位置？","¿Dónde estoy?"],
+["受注の内容を確認","Confirm order details","确认订单内容","Confirmar el pedido"],["運送会社に見積を頼む","Request freight quotes","向货运公司询价","Pedir cotizaciones de flete"],
+["見積を比べる","Compare quotes","比较报价","Comparar cotizaciones"],["船積書類をつくる","Prepare shipping documents","制作装运单证","Preparar documentos de embarque"],
+["データを連携する","Sync data","联动数据","Sincronizar datos"],["予定を登録する","Register the schedule","登记日程","Registrar el calendario"],
+["依頼した見積はここに残ります（パネルを閉じても消えません）。「開く」で交渉記録・国ごとの仮押さえ・再見積へ進めます。複数社の回答がある国は、AI物流マンの推奨と相見積もり一覧から自分で選べます。","Requested quotes stay here (even after closing the panel). “Open” takes you to negotiation notes, per-country holds and re-quotes. Where several forwarders replied, choose yourself from the AI Logistics pick and the comparison list.","已发出的询价保留在这里（关闭面板也不会消失）。点“打开”可进入谈判记录・各国暂订・重新询价。有多家回复的国家，可根据AI物流专员推荐和比价列表自行选择。","Las cotizaciones pedidas se conservan aquí (aunque cierres el panel). “Abrir” lleva a notas de negociación, reservas por país y recotización. Si respondieron varias empresas, elige entre la recomendación IA y la lista comparativa."],
+["まだ依頼がありません。「＋ 新しくAI見積を依頼」で、貿易クラウド内の物流会社（AI物流マン）へ見積を出せます。","No requests yet. Use “＋ New AI quote request” to ask the forwarders inside Trade Cloud (AI Logistics) for quotes.","尚无询价。通过“＋ 新建AI询价”可向贸易云内的物流公司（AI物流专员）询价。","Aún no hay solicitudes. Con “＋ Nueva cotización IA” pides presupuesto a los transitarios de Trade Cloud (IA logística)."],
+["**太字**・*斜体*・「- 」箇条書き・改行OK","**bold** · *italic* · “- ” bullets · line breaks OK","**粗体**・*斜体*・“- ”项目符号・可换行","**negrita** · *cursiva* · viñetas “- ” · saltos de línea"],
+["この運送会社で大丈夫？","Is this forwarder OK?","这家货运公司可以吗？","¿Este transitario está bien?"],["書類は何が必要？","Which documents are needed?","需要哪些单证？","¿Qué documentos hacen falta?"],
+["いつ届きますか？","When will it arrive?","什么时候到？","¿Cuándo llegará?"],["入金はいつ？","When is payment due?","什么时候收款？","¿Cuándo se cobra?"],
+["✎ 受注内容を編集・追加","✎ Edit / add order details","✎ 编辑・补充订单内容","✎ Editar / añadir datos del pedido"],["✎ このステップを編集","✎ Edit this step","✎ 编辑此步骤","✎ Editar este paso"],
+["案件番号","Case no.","案件编号","N.º de caso"],["お相手","Buyer","对方","Comprador"],["単価","Unit price","单价","Precio unitario"],["支払","Payment","付款","Pago"],["希望着荷","Requested arrival","希望到货","Llegada deseada"],
+["手入力がゼロになるのは、すでに情報がたまっているからです。","Zero manual entry, because the information is already there.","之所以无需手动输入，是因为信息已经积累完毕。","Cero entrada manual, porque la información ya está acumulada."],
+["（記録はこれから）","(to be recorded)","（待记录）","(por registrar)"],["商品マスタ（シート②）","Product master (sheet ②)","商品主数据（表②）","Maestro de productos (hoja ②)"],
+["重量・箱サイズ・単価","Weight, carton size, unit price","重量・箱尺寸・单价","Peso, caja y precio"],["車両情報表（シート③）","Vehicle spec sheet (sheet ③)","车辆信息表（表③）","Ficha del vehículo (hoja ③)"],
+["成分・アレルゲン","Ingredients & allergens","成分・过敏原","Ingredientes y alérgenos"],["必要書類・関税率","Required documents & tariff rate","所需单证・关税率","Documentos y arancel"],
+["会社情報","Company info","公司信息","Datos de la empresa"],["住所・輸出者登録番号","Address & exporter registration no.","地址・出口商登记号","Dirección y n.º de exportador"],
+/* 契約書 */
+["① AI法務に相談する","① Ask AI Legal","① 咨询AI法务","① Consultar a IA Legal"],["📎 ファイル添付","📎 Attach file","📎 添加附件","📎 Adjuntar archivo"],
+["② ひな型が来ない → AI法務が起草","② No draft from the buyer → AI Legal drafts one","② 对方不提供模板 → AI法务起草","② Sin borrador del comprador → IA Legal lo redacta"],
+["まだ直接メッセージでやり取り中のBuyerがいません。","No buyers in direct message conversation yet.","尚无正在直接通讯的买家。","Aún no hay compradores con mensajes directos."],
+["まずは「バイヤーDB・拠点」から気になるバイヤーに直接連絡し、返信のやり取りを始めてください。","Start by contacting a buyer directly from “Buyer DB & bases” and get a conversation going.","请先从“买家数据库・据点”直接联系感兴趣的买家，开始往来沟通。","Empieza contactando a un comprador desde “BD de compradores y bases” y mantén la conversación."],
+["バイヤーDB・拠点を開く","Open Buyer DB & bases","打开买家数据库・据点","Abrir BD de compradores y bases"],
+["③ 契約書をチェックに出す","③ Submit a contract for review","③ 提交合同审查","③ Enviar un contrato a revisión"],
+["ここに契約書ファイルをドラッグ＆ドロップ","Drag & drop contract files here","将合同文件拖放到这里","Arrastra aquí los archivos del contrato"],
+["またはクリックしてファイルを選択（複数可）","or click to choose files (multiple OK)","或点击选择文件（可多个）","o haz clic para elegir archivos (varios)"],
+["Google ドキュメント／スライドのURLから取り込む","Import from a Google Docs / Slides URL","从Google文档／幻灯片URL导入","Importar desde URL de Google Docs / Slides"],
+["※ AIレビューは法的助言（弁護士業務）ではなく、社内検討のための参考情報です。重要な契約は締結前に弁護士のリーガルチェックを受けてください。","※ The AI review is not legal advice (attorney services) but reference information for internal review. Have important contracts checked by a lawyer before signing.","※ AI审查并非法律意见（律师业务），仅为内部讨论的参考信息。重要合同签署前请由律师进行法律审查。","※ La revisión IA no es asesoría legal, sino información de referencia interna. Haz revisar los contratos importantes por un abogado antes de firmar."]
+);
+I18N_EL_ROWS.push(
+["<b>この画面でわかること：</b>いま何が終わっていて、何が遅れているか。棒グラフ（ガントチャート）で、いつまでに何をするかが一目で分かります。",
+ "<b>What this page shows:</b> What is done and what is behind. The bar chart (Gantt) shows at a glance what to do by when.",
+ "<b>本页可见：</b>目前哪些已完成、哪些延迟。通过条形图（甘特图）一眼看出何时该做什么。",
+ "<b>Qué muestra esta página:</b> qué está hecho y qué va con retraso. El diagrama de Gantt muestra de un vistazo qué hacer y para cuándo."],
+["<b>現行版との違い</b><br> 現行の貿易クラウドには「タスクプリセット」（定型テンプレート）がありますが、<b>どのテンプレートを使うかは人が選ぶ</b>必要がありました。 この版では、失注理由・規制の警告・受注データから<b>AIが必要なタスクを提案</b>します。",
+ "<b>Difference from the current version</b><br> The current Trade Cloud has “task presets” (fixed templates), but <b>a person had to choose which template to use</b>. In this version <b>the AI proposes the tasks needed</b> from rejection reasons, regulatory warnings and order data.",
+ "<b>与现行版的区别</b><br> 现行贸易云有“任务预设”（固定模板），但<b>需要由人来选择使用哪个模板</b>。本版中<b>AI根据失单原因・法规警告・订单数据提出所需任务</b>。",
+ "<b>Diferencia con la versión actual</b><br> El Trade Cloud actual tiene “plantillas de tareas”, pero <b>alguien debía elegir cuál usar</b>. En esta versión <b>la IA propone las tareas necesarias</b> a partir de rechazos, alertas regulatorias y pedidos."],
+["<b>この画面でできること：</b>送り先の決まりごとを調べ、書類をつくり、物流会社への見積から出荷・入金までを、この1画面の流れで進めます。",
+ "<b>What you can do here:</b> Research the destination's rules, prepare documents, and go from freight quotes to shipment and payment, all in this one flow.",
+ "<b>本页可做：</b>调查目的地规定、制作单证，从向物流公司询价到出货・收款，都在这一页面的流程中完成。",
+ "<b>Qué puedes hacer aquí:</b> investigar las normas del destino, preparar documentos y avanzar desde la cotización de flete hasta el envío y el cobro, todo en este flujo."],
+["受注が決まったあとの手続きを、<b>AI商社マンと会話するだけ</b>で進めます。物流会社へのAI見積（相見積・推奨）、書類づくり、関係先への連携まで。複数の相手先は<b>案件タブ（最大4件）</b>で並行できます。",
+ "Handle everything after the order <b>just by talking with the AI Trade Agent</b>: AI freight quotes (comparison and recommendation), documents, and sharing with partners. Run several buyers in parallel with <b>case tabs (up to 4)</b>.",
+ "订单确定后的手续<b>只需与AI商社专员对话</b>即可推进：向物流公司AI询价（比价・推荐）、制作单证、与相关方联动。多个对象可通过<b>案件标签（最多4个）</b>并行处理。",
+ "Gestiona todo lo posterior al pedido <b>solo conversando con el agente IA</b>: cotizaciones de flete (comparación y recomendación), documentos y coordinación con terceros. Lleva varios compradores en paralelo con <b>pestañas de caso (hasta 4)</b>."],
+["各ステップの大事な内容はここに集約されます（見出しクリックで開閉）。<b>編集できるのは現在のステップだけ</b>。進んだステップは、物流会社との整合を保つため確定されます。",
+ "The key content of each step is collected here (click a heading to expand). <b>Only the current step can be edited</b>; completed steps are locked to stay consistent with the forwarder.",
+ "各步骤的重要内容汇总于此（点击标题展开／收起）。<b>只能编辑当前步骤</b>；已推进的步骤为保持与物流公司一致而固定。",
+ "El contenido clave de cada paso se reúne aquí (pulsa el título para abrir). <b>Solo se puede editar el paso actual</b>; los anteriores quedan fijados para mantener la coherencia con el transitario."],
+["<b>この画面でできること：</b>相手から届いた契約書をAI法務（AI商社マン・法務担当）がチェックし、<b>修正履歴＋修正の意図コメント付き</b>の修正版をWord／Google Document形式で出力。ひな型が無い場合は、やり取り中のBuyer向けにAIがドラフトを起草します。",
+ "<b>What you can do here:</b> AI Legal (the AI Trade Agent's legal role) reviews contracts received from the other party and outputs a revised version <b>with tracked changes and comments explaining each edit</b> in Word / Google Docs format. With no template, the AI drafts one for the buyer you are talking to.",
+ "<b>本页可做：</b>由AI法务（AI商社专员・法务担当）审查对方发来的合同，输出<b>带修订记录＋修改意图批注</b>的修订版（Word／Google文档格式）。没有模板时，AI会为正在沟通的买家起草草案。",
+ "<b>Qué puedes hacer aquí:</b> IA Legal (el rol jurídico del agente IA) revisa el contrato recibido y entrega una versión corregida <b>con control de cambios y comentarios sobre cada modificación</b> en Word / Google Docs. Si no hay plantilla, la IA redacta un borrador para el comprador con quien hablas."],
+["<b>⚠ AIエンジン未接続です。</b> <span>契約書のAIレビュー・自動起草には、管理コンソール→AIエンジンでの接続（有償プラン）が必要です。接続すると、この画面のすべての機能が使えます。</span>",
+ "<b>⚠ No AI engine connected.</b> <span>AI contract review and drafting require a connection under Admin console → AI engine (paid plan). Once connected, every feature on this page is available.</span>",
+ "<b>⚠ 未接入AI引擎。</b> <span>合同的AI审查・自动起草需要在管理控制台→AI引擎中接入（付费套餐）。接入后本页全部功能可用。</span>",
+ "<b>⚠ Sin motor IA conectado.</b> <span>La revisión y redacción IA de contratos requieren conexión en Consola → Motor IA (plan de pago). Al conectar, todas las funciones de esta página quedan disponibles.</span>"],
+["「この条項はどういう意味？」「独占権を求められたらどうする？」など、契約まわりを何でも。 <b>Buyerとのやり取りの全文・商談記録・案件状況・アップロード済み契約書</b>を読み込んだ上で回答します。 契約書などのファイルを<b>下の入力欄にドラッグ＆ドロップ</b>（または📎）すると、その中身についても質問できます。",
+ "Ask anything about contracts: “What does this clause mean?”, “What if they demand exclusivity?”. Answers are based on <b>the full message history with the buyer, meeting records, case status and uploaded contracts</b>. <b>Drag & drop a contract into the input box below</b> (or use 📎) to ask about its contents.",
+ "“这一条款是什么意思？”“被要求独家权怎么办？”等合同相关问题都可以问。AI会读取<b>与买家的全部沟通记录・商谈记录・案件状况・已上传合同</b>后回答。将合同等文件<b>拖放到下方输入框</b>（或📎），即可就其内容提问。",
+ "Pregunta lo que quieras sobre contratos: “¿Qué significa esta cláusula?”, “¿Y si piden exclusividad?”. Responde tras leer <b>todos los mensajes con el comprador, los registros de reuniones, el estado del caso y los contratos subidos</b>. <b>Arrastra un contrato al cuadro inferior</b> (o 📎) para preguntar sobre su contenido."],
+["相手からドラフトが上がってこない場合、<b>直接メッセージでやり取りのあるBuyerに限定</b>して、 やり取りの全文とBuyer概要・登録商品データを理解した上で、AI法務が契約書ドラフト（英文）を起草します。",
+ "If the other party does not send a draft, AI Legal drafts an English contract, <b>limited to buyers you have exchanged direct messages with</b>, after understanding the full conversation, the buyer profile and your registered product data.",
+ "对方不提供草案时，<b>仅限有直接通讯往来的买家</b>，AI法务在理解全部沟通内容・买家概要・登记商品数据后，起草英文合同草案。",
+ "Si la otra parte no envía un borrador, IA Legal redacta un contrato en inglés, <b>solo para compradores con mensajes directos</b>, tras entender toda la conversación, el perfil del comprador y los datos de tu producto."],
+["<b>相手方や自社にてひな型をお持ちの場合。</b>対応形式：PDF / Word / Excel / PowerPoint / 画像（JPEG・PNG）/ CSV・テキスト。 AI法務が全文を読み、ユーザー側に不利な項目・欠落条項を洗い出します。",
+ "<b>When you or the other party already have a template.</b> Formats: PDF / Word / Excel / PowerPoint / images (JPEG, PNG) / CSV, text. AI Legal reads the full text and flags unfavorable terms and missing clauses.",
+ "<b>对方或本公司已有模板时。</b>支持格式：PDF / Word / Excel / PowerPoint / 图片（JPEG・PNG）/ CSV・文本。AI法务通读全文，找出对用户不利的条款和缺失条款。",
+ "<b>Cuando tú o la otra parte ya tenéis una plantilla.</b> Formatos: PDF / Word / Excel / PowerPoint / imágenes (JPEG, PNG) / CSV, texto. IA Legal lee todo el texto y señala cláusulas desfavorables o ausentes."]
+);
+I18N_PAT2.push(
+ {re:/^タスク（(\d+)）$/,en:"Tasks ($1)",zh:"任务（$1）",es:"Tareas ($1)"},
+ {re:/^承認タスク（(\d+)）$/,en:"Approval tasks ($1)",zh:"审批任务（$1）",es:"Tareas de aprobación ($1)"},
+ {re:/^(\d+)月$/,en:(m)=>["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[1]-1]||m[0],zh:"$1月",es:(m)=>["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][+m[1]-1]||m[0]},
+ {re:/^(.+)の規制調査$/,en:(m,d)=>"Regulatory research: "+(d[m[1]]||m[1]),zh:(m,d)=>(d[m[1]]||m[1])+"法规调查",es:(m,d)=>"Normativa: "+(d[m[1]]||m[1])},
+ {re:/^オレンジの縦線が今日（(.+?)）です。親タスクの下に、細かい手順が子タスクとしてぶら下がります。$/,en:"The orange line marks today ($1). Detailed steps hang under each parent task as subtasks.",zh:"橙色竖线为今天（$1）。父任务下挂有作为子任务的详细步骤。",es:"La línea naranja es hoy ($1). Los pasos detallados cuelgan de cada tarea principal como subtareas."},
+ {re:/^([\d-]+) 現在$/,en:"as of $1",zh:"截至 $1",es:"a $1"},
+ {re:/^(.+)（(\d+)シート）$/,en:"$1 ($2 sheets)",zh:"$1（$2个工作表）",es:"$1 ($2 hojas)"},
+ {re:/^ステップ (\d+) \/ (\d+)[　 ]+(.+)$/,en:(m,d)=>"Step "+m[1]+" / "+m[2]+" · "+(d[m[3].trim()]||m[3]),zh:(m,d)=>"步骤 "+m[1]+" / "+m[2]+"・"+(d[m[3].trim()]||m[3]),es:(m,d)=>"Paso "+m[1]+" / "+m[2]+" · "+(d[m[3].trim()]||m[3])},
+ {re:/^ステップ (\d+)$/,en:"Step $1",zh:"步骤 $1",es:"Paso $1"},
+ {re:/^案件 ([A-Z0-9][A-Z0-9-]+)$/,en:"Case $1",zh:"案件 $1",es:"Caso $1"},
+ {re:/^(.+) へ進む →$/,en:(m,d)=>"Go to: "+(d[m[1]]||m[1])+" →",zh:(m,d)=>"前往："+(d[m[1]]||m[1])+" →",es:(m,d)=>"Ir a: "+(d[m[1]]||m[1])+" →"},
+ {re:/^規制調査（(.+)）$/,en:(m,d)=>"Regulatory research ("+(d[m[1]]||m[1])+")",zh:(m,d)=>"法规调查（"+(d[m[1]]||m[1])+"）",es:(m,d)=>"Normativa ("+(d[m[1]]||m[1])+")"}
+);
+
+/* v15.23b 翻訳辞書（追加分）4/4：AI商社マン・やりとり・バイヤーDB・拠点 */
+I18N_ROWS2.push(
+/* AI商社マン */
+["いまの根拠","Current evidence","当前依据","Evidencia actual"],["この分野は満点です","Full marks in this area","该领域已满分","Puntuación máxima en esta área"],["次の一手","Next move","下一步","Siguiente paso"],
+["商品情報を登録・追記するほど、価格・仕様・強みの答えが正確になります。","The more product information you register and add, the more accurate answers on price, specs and strengths become.","登记・补充的商品信息越多，价格・规格・优势的回答越准确。","Cuanta más información de producto registres, más precisas serán las respuestas sobre precio, especificaciones y fortalezas."],
+["送り先の規制・関税、Web検索での最新情報、通関統計での相場感が、提案の根拠になります。","Destination regulations and tariffs, the latest web information and customs statistics form the basis of proposals.","目的地法规・关税、网络搜索的最新信息、海关统计的行情，都是建议的依据。","Normativa y aranceles del destino, información web reciente y estadísticas aduaneras sustentan las propuestas."],
+["Web検索ONで質問する →","Ask with web search ON →","开启网络搜索提问 →","Preguntar con búsqueda web →"],
+["海外バイヤーの反応・断られた理由・価格感を学ぶほど、次の提案と売り先の当たりが良くなります。","The more it learns from buyer reactions, rejection reasons and price expectations, the better its next proposals and target picks.","越多学习海外买家的反应・拒绝理由・价格感受，下次的建议和目标客户就越准。","Cuanto más aprende de reacciones, rechazos y expectativas de precio, mejores serán sus propuestas y objetivos."],
+["商談フィードバックを記録する →","Record buyer feedback →","记录商谈反馈 →","Registrar comentarios →"],
+["質問と指示のたびに、貴社の言い回し・優先順位・判断基準を学びます。","With every question and instruction it learns your wording, priorities and decision criteria.","每次提问和指示，都会学习贵公司的表达方式・优先级・判断标准。","Con cada pregunta e instrucción aprende tu forma de expresarte, prioridades y criterios."],
+["AI商社マンに質問する →","Ask the AI Trade Agent →","向AI商社专员提问 →","Preguntar al agente IA →"],
+["見積・書類・出荷・物流見積を実際に回すほど、手続きの段取りと注意点を身につけます。","The more quotes, documents, shipments and freight quotes it actually handles, the better it learns procedures and pitfalls.","实际处理的报价・单证・出货・物流询价越多，越能掌握手续流程和注意点。","Cuantas más cotizaciones, documentos, envíos y fletes gestiona, mejor domina los procedimientos y sus riesgos."],
+["規格書・カタログ・契約書・メールを取り込むほど、根拠つきで答えられる範囲が広がります。","The more specs, catalogs, contracts and emails you import, the wider the range it can answer with evidence.","导入的规格书・目录・合同・邮件越多，能有据回答的范围越广。","Cuantas más especificaciones, catálogos, contratos y correos importes, más podrá responder con evidencia."],
+["資料を追加で取り込む →","Import more documents →","导入更多资料 →","Importar más documentos →"],
+["採点は内蔵ロジック（6分野の加重合計・根拠を明示）で、AIエンジンの接続有無にかかわらず同じ基準です。数値はこのアカウントの利用記録と登録データから算出しています。","Scoring uses built-in logic (weighted sum of 6 areas with explicit evidence) and is the same whether or not an AI engine is connected. Figures come from this account's usage history and registered data.","评分采用内置逻辑（6个领域加权合计・明示依据），无论是否接入AI引擎标准相同。数值根据本账户的使用记录和登记数据计算。","La puntuación usa una lógica interna (suma ponderada de 6 áreas con evidencia explícita), igual con o sin motor IA. Las cifras salen del uso de esta cuenta y de los datos registrados."],
+["月額利用料に含む","Included in the monthly fee","包含在月费中","Incluido en la cuota mensual"],["内蔵エンジン","Built-in engine","内置引擎","Motor integrado"],
+["登録データからの即答。外部AIは使いません（外部AI費用ゼロ）","Instant answers from registered data. No external AI (zero external AI cost)","基于登记数据即时回答。不使用外部AI（外部AI费用为零）","Respuestas inmediatas con los datos registrados. Sin IA externa (coste cero)"],
+["高速AIモデル（sonar）","Fast AI model (sonar)","高速AI模型（sonar）","Modelo IA rápido (sonar)"],
+["実AIが回答・資料読み取り。日常利用向けの速度重視モデル","A real AI answers and reads documents. Speed-oriented model for daily use","真实AI回答・读取资料。面向日常使用的速度优先模型","Una IA real responde y lee documentos. Modelo rápido para el día a día"],
+["最上位AIモデル（sonar-pro）","Top AI model (sonar-pro)","最高级AI模型（sonar-pro）","Modelo IA superior (sonar-pro)"],
+["最高精度。HS判別・規制判断・外国語資料の生成に","Highest accuracy. For HS classification, regulatory judgment and foreign-language documents","最高精度。适合HS判定・法规判断・外语资料生成","Máxima precisión. Para clasificación HS, normativa y documentos en otros idiomas"],
+["⚠ このプランの実AIは、管理者が管理コンソールでAIエンジン（APIキー）を接続すると有効になります。それまでは内蔵エンジンで回答します。","⚠ The real AI of this plan is enabled once the administrator connects an AI engine (API key) in the admin console. Until then the built-in engine answers.","⚠ 本套餐的真实AI在管理员于管理控制台接入AI引擎（API密钥）后生效。在此之前由内置引擎回答。","⚠ La IA real de este plan se activa cuando el administrador conecta un motor IA (clave API) en la consola. Hasta entonces responde el motor integrado."],
+["他社のデータは混ざりません。貴社のプロジェクトの中だけを見ます。通関統計・物流のAI見積・出荷／発注書案件・契約書・営業資料・やりとり・取り込んだ資料も参照します。","No other company's data is mixed in; it looks only inside your project. It also references customs statistics, AI freight quotes, shipment / PO cases, contracts, sales decks, messages and imported documents.","不会混入其他公司的数据，只查看贵公司的项目。同时参考海关统计・物流AI询价・出货／订购单案件・合同・销售资料・沟通记录・导入的资料。","No se mezclan datos de otras empresas; solo mira dentro de tu proyecto. También consulta estadísticas aduaneras, cotizaciones IA, casos de envío / órdenes, contratos, material de ventas, mensajes y documentos importados."],
+["車両情報表","Vehicle spec sheet","车辆信息表","Ficha del vehículo"],
+["記録の内容から、受注できそうな確率を推定しています。","Estimates the probability of winning an order from the recorded content.","根据记录内容推算获得订单的概率。","Estima la probabilidad de conseguir el pedido a partir de lo registrado."],
+/* やりとり */
+["この案件のやりとり","Messages for this case","本案件的沟通","Mensajes de este caso"],["共有のみ","Shared only","仅共享","Solo compartidos"],["社内のみ","Internal only","仅内部","Solo internos"],
+["貴社のメンバーだけ","Your members only","仅贵公司成员","Solo tu equipo"],["共有","Shared","共享","Compartido"],["STANDAGEと海外拠点にも見える","Visible to STANDAGE and overseas bases","STANDAGE和海外据点也可见","Visible para STANDAGE y las bases"],
+["AI商社マンがその場で回答","AI Trade Agent answers on the spot","AI商社专员当场回答","El agente IA responde al momento"],["可視範囲","Visibility","可见范围","Visibilidad"],
+["AIが要約したやりとり","AI summary of the conversation","AI总结的沟通","Resumen IA de la conversación"],
+["長いスレッドを読み返さなくても、決まったこと・宿題がわかります。","See decisions and to-dos without re-reading a long thread.","无需重读长对话，即可了解已决定事项和待办。","Ve decisiones y pendientes sin releer un hilo largo."],
+["まだやりとりがありません。STANDAGEの担当がついたら、ここに記録が残っていきます。","No messages yet. Once a STANDAGE contact is assigned, the record builds up here.","尚无沟通记录。STANDAGE负责人接手后，记录将在此累积。","Aún no hay mensajes. Cuando se asigne un responsable de STANDAGE, el registro crecerá aquí."],
+["この案件のメンバー","Members of this case","本案件的成员","Miembros de este caso"],["＋ メンバーを招待","＋ Invite a member","＋ 邀请成员","＋ Invitar miembro"],
+["誰が見えるかは、投稿ごとの可視範囲で決まります。","Who can see what is decided by each post's visibility.","谁能看到取决于每条帖子的可见范围。","Quién ve cada mensaje depende de su visibilidad."],
+["（登録した担当者）","(registered contact)","（已登记的负责人）","(contacto registrado)"],["貴社","Your company","贵公司","Tu empresa"],["貴社データ専用","Dedicated to your data","贵公司数据专用","Solo con tus datos"],
+["通知はアプリの中に集約","Notifications live inside the app","通知集中在应用内","Notificaciones dentro de la app"],["改善","Improved","改进","Mejorado"],
+["NPSで最も多かった不満が「通知が届かない・遅い」でした。","The most common NPS complaint was “notifications don't arrive or are late”.","NPS中最多的不满是“通知收不到・太慢”。","La queja más frecuente en el NPS era “las notificaciones no llegan o llegan tarde”."],
+["現行版","Current version","现行版","Versión actual"],["メール通知に依存。届かない・遅れる・埋もれる。","Relies on email notifications: they fail, arrive late or get buried.","依赖邮件通知：收不到・延迟・被淹没。","Depende del correo: no llega, se retrasa o se pierde."],
+["この版","This version","本版","Esta versión"],
+["アプリ内に集約し、右上に未読数を表示。@メンションは別枠で最上位に。メールは補助に降格。","Collected in the app with an unread count at top right. @mentions get their own top slot. Email becomes a backup.","集中在应用内，右上角显示未读数。@提及单独置顶。邮件降为辅助。","Todo en la app, con contador de no leídos arriba a la derecha. Las @menciones tienen su propio espacio. El correo pasa a ser apoyo."],
+/* バイヤーDB・拠点 */
+["中古車・車両","Used cars & vehicles","二手车・车辆","Vehículos usados"],["食品","Food","食品","Alimentos"],["美容・健康","Beauty & health","美容・健康","Belleza y salud"],
+["工業部品","Industrial parts","工业零部件","Piezas industriales"],["酒類","Alcoholic beverages","酒类","Bebidas alcohólicas"],["日用雑貨","Daily goods","日用杂货","Artículos del hogar"],
+["アパレル","Apparel","服装","Moda"],["医療・衛生用品","Medical & hygiene","医疗・卫生用品","Sanitario e higiene"],["化粧品","Cosmetics","化妆品","Cosméticos"],["中古車","Used cars","二手车","Coches usados"],
+["登録バイヤー総数","Registered buyers","登记买家总数","Compradores registrados"],["今週の新規追加","Added this week","本周新增","Añadidos esta semana"],
+["貴社の商材カテゴリを取扱う相手","Buyers handling your product category","经营贵公司商品类别的对象","Compradores de tu categoría"],
+["依頼への着手","Time to start on a request","开始处理委托","Inicio de una solicitud"],["時間","hours","小时","horas"],["現地拠点が現地時間で対応","Local bases respond in local time","当地据点按当地时间处理","Las bases responden en hora local"],
+["新しく追加されたバイヤー","Newly added buyers","新增的买家","Compradores añadidos"],["週次の新規追加（直近8週）","Weekly additions (last 8 weeks)","每周新增（最近8周）","Altas semanales (últimas 8 semanas)"],
+["追加日","Added","添加日","Fecha de alta"],["取扱・関心","Handles / interests","经营・关注","Actividad / interés"],["規模","Size","规模","Tamaño"],["名寄せ","Deduplicate","合并重复","Deduplicar"],
+["国・カテゴリ・脈あり度で絞り込めます。「実績」＝貿易クラウド上で成立させた取引の件数です。","Filter by country, category and interest level. “Track record” = number of deals closed on Trade Cloud.","可按国家・类别・意向度筛选。“实绩”＝在贸易云上达成的交易数量。","Filtra por país, categoría e interés. “Historial” = operaciones cerradas en Trade Cloud."],
+["＋ Buyerを追加（自社開拓）","＋ Add a buyer (your own lead)","＋ 添加买家（自主开拓）","＋ Añadir comprador (propio)"],
+["脈あり","Interest","有意向","Interés"],["実績","Track record","实绩","Historial"],
+["現地のSTANDAGEネットワーク","STANDAGE's local network","STANDAGE当地网络","Red local de STANDAGE"],["✎ 拠点を管理","✎ Manage bases","✎ 管理据点","✎ Gestionar bases"],
+["この拠点に依頼する","Request this base","委托该据点","Solicitar a esta base"],["拠点長","Base manager","据点负责人","Responsable de base"],["FS（現地商談）","FS (local sales)","FS（当地商谈）","FS (ventas locales)"],
+["メンバー情報はトライアル用の見本表示です。","Member information shown is sample data for the trial.","成员信息为试用版示例。","La información de miembros es un ejemplo para la prueba."],
+["直接連絡","Contact directly","直接联系","Contactar directamente"],["拠点に依頼","Ask a base","委托据点","Solicitar a una base"]
+);
+I18N_EL_ROWS.push(
+["<b>この画面でできること：</b>たまったデータに、ふつうの日本語で質問できます。答えには<b>必ず「何件の記録から出したか」</b>が付くので、新人の方でも根拠を確認しながら使えます。",
+ "<b>What you can do here:</b> Ask questions about your data in plain language. Every answer <b>states how many records it was drawn from</b>, so even newcomers can check the evidence as they go.",
+ "<b>本页可做：</b>用日常语言向积累的数据提问。每个回答都<b>注明“依据多少条记录”</b>，新人也能边确认依据边使用。",
+ "<b>Qué puedes hacer aquí:</b> preguntar a tus datos en lenguaje natural. Cada respuesta <b>indica de cuántos registros procede</b>, así que hasta un principiante puede comprobar la evidencia."],
+["貿易クラウドに入力・取り込まれた情報、Web検索、商談フィードバック、実務の経験をAI商社マンが学び、<b>貴社専用の「一人前」</b>へ育ちます。一人前＝貴社の貿易開拓に本当の意味で伴走できる状態（このゲージで <b>90% 以上</b>）。分野をクリックすると根拠と次の一手が見えます。",
+ "The AI Trade Agent learns from everything entered or imported into Trade Cloud, web searches, buyer feedback and hands-on work, growing into <b>a full-fledged agent dedicated to your company</b>. Full-fledged = able to truly accompany your trade development (<b>90% or more</b> on this gauge). Click an area to see the evidence and the next move.",
+ "AI商社专员学习录入・导入贸易云的信息、网络搜索、商谈反馈和实务经验，成长为<b>贵公司专属的“独当一面”</b>。独当一面＝能真正陪伴贵公司开拓贸易的状态（此仪表<b>90%以上</b>）。点击领域可查看依据和下一步。",
+ "El agente IA aprende de todo lo introducido o importado en Trade Cloud, las búsquedas web, los comentarios de compradores y la práctica, hasta ser <b>un experto dedicado a tu empresa</b>. Experto = capaz de acompañar de verdad tu expansión comercial (<b>90% o más</b> en este indicador). Pulsa un área para ver la evidencia y el siguiente paso."],
+["プランに応じて、AIの賢さと<b>貿易クラウドの月額利用料</b>が変わります。トライアル中は無料で切り替えて比較できます。",
+ "The AI's capability and <b>the monthly Trade Cloud fee</b> depend on the plan. During the trial you can switch and compare for free.",
+ "AI的能力和<b>贸易云的月费</b>随套餐而异。试用期间可免费切换比较。",
+ "La capacidad de la IA y <b>la cuota mensual de Trade Cloud</b> dependen del plan. Durante la prueba puedes cambiar y comparar gratis."],
+["回答は<b>登録されている情報だけ</b>から組み立てます。答えの下に必ず根拠が付きます。",
+ "Answers are built <b>only from registered information</b>. The evidence always appears below the answer.",
+ "回答<b>仅基于已登记的信息</b>组成。答案下方必附依据。",
+ "Las respuestas se construyen <b>solo con la información registrada</b>. La evidencia aparece siempre debajo."],
+["この割合が高いほど答えが正確になります。<b>これが「使える状態」の中身です。</b>",
+ "The higher this ratio, the more accurate the answers. <b>This is what “ready to use” means.</b>",
+ "该比例越高，回答越准确。<b>这就是“可用状态”的内涵。</b>",
+ "Cuanto mayor es esta proporción, más precisas son las respuestas. <b>Esto es lo que significa “listo para usar”.</b>"],
+["商談が始まると、相手ごとの「受注できそうな確率」がここに並びます。<br>まずはAIに質問して、売り先の当たりをつけましょう。",
+ "Once meetings begin, the “probability of winning” for each buyer is listed here.<br>Start by asking the AI to narrow down where to sell.",
+ "商谈开始后，各对象的“获得订单概率”将在此排列。<br>先向AI提问，锁定销售目标吧。",
+ "Cuando empiecen las reuniones, aquí verás la “probabilidad de pedido” por comprador.<br>Empieza preguntando a la IA dónde vender."],
+["<b>この画面でできること：</b>STANDAGEの担当者・海外拠点・AI商社マンと、この案件のことだけを1か所で話せます。<b>誰に見えるか</b>は1つの切替で決まります。",
+ "<b>What you can do here:</b> Talk about this case, and only this case, in one place with your STANDAGE contact, overseas bases and the AI Trade Agent. <b>Who can see it</b> is set with a single switch.",
+ "<b>本页可做：</b>与STANDAGE负责人・海外据点・AI商社专员在一处只谈本案件。<b>谁可见</b>由一个开关决定。",
+ "<b>Qué puedes hacer aquí:</b> hablar solo de este caso, en un único lugar, con tu contacto de STANDAGE, las bases y el agente IA. <b>Quién lo ve</b> se decide con un solo interruptor."],
+["まだやりとりがありません。<br><b>下の入力欄から最初のメッセージを送ってみてください。</b>",
+ "No messages yet.<br><b>Send the first one from the box below.</b>",
+ "尚无沟通记录。<br><b>请从下方输入框发送第一条消息。</b>",
+ "Aún no hay mensajes.<br><b>Envía el primero desde el cuadro inferior.</b>"],
+["トライアル環境のため、STANDAGE担当への実際の送信・通知は行われません（製品版では通知されます）。 「🤖 AIに質問」を選ぶと、<b>AI商社マンがその場で回答</b>します。投稿はこの端末に保存され、次回ログイン時も残ります。",
+ "In the trial, nothing is actually sent to or notified to the STANDAGE contact (the product version does notify). Choose “🤖 Ask AI” and <b>the AI Trade Agent answers on the spot</b>. Posts are saved on this device and remain at your next login.",
+ "试用环境下不会实际发送・通知STANDAGE负责人（正式版会通知）。选择“🤖 向AI提问”，<b>AI商社专员会当场回答</b>。帖子保存在本设备，下次登录仍会保留。",
+ "En la prueba no se envía ni notifica nada al contacto de STANDAGE (la versión final sí). Elige “🤖 Preguntar a la IA” y <b>el agente IA responde al momento</b>. Los mensajes se guardan en este dispositivo y siguen ahí al volver a entrar."],
+["招待したメンバーは<b>同じアクセスコード＋ご本人の氏名</b>でログインすると、その方の名前で投稿されます。 招待・停止は<b>STANDAGEのマスター管理画面にリアルタイムに反映</b>されます。製品版では招待メールが自動送信されます。",
+ "Invited members log in with <b>the same access code plus their own name</b>, and their posts appear under that name. Invitations and suspensions are <b>reflected in real time in STANDAGE's master admin console</b>. The product version sends invitation emails automatically.",
+ "受邀成员用<b>相同访问码＋本人姓名</b>登录后，将以其名义发帖。邀请・停用会<b>实时反映到STANDAGE的主管理界面</b>。正式版会自动发送邀请邮件。",
+ "Los miembros invitados entran con <b>el mismo código de acceso más su nombre</b>, y publican con ese nombre. Invitaciones y bajas se <b>reflejan en tiempo real en la consola maestra de STANDAGE</b>. La versión final envía el correo de invitación automáticamente."],
+["直近2週間の追加分です。名称・連絡先は<b>正式契約後に開示</b>されます。",
+ "Buyers added in the last two weeks. Names and contact details are <b>disclosed after a formal contract</b>.",
+ "最近两周新增的买家。名称・联系方式将在<b>正式签约后公开</b>。",
+ "Compradores añadidos en las dos últimas semanas. Nombres y contactos se <b>revelan tras el contrato formal</b>."],
+["🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。<br> <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。 <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。",
+ "🔒 Buyer names and contacts are <b>disclosed after a formal contract</b> (the trial shows business type, country and track record only).<br> <b>“Contact directly” = free</b>: Trade Cloud relays your message anonymously (you write and negotiate; 🤖 AI drafts available). <b>“Ask a base” = extra fee</b>: local members approach and negotiate on your behalf.",
+ "🔒 买家名称・联系方式将在<b>正式签约后公开</b>（试用版仅显示业态・国家・实绩）。<br> <b>“直接联系”＝免费</b>：由贸易云中转匿名送达（文案・谈判由您自行进行，🤖有AI草稿）。 <b>“委托据点”＝另行收费</b>：当地成员代为接触・商谈。",
+ "🔒 Nombres y contactos se <b>revelan tras el contrato formal</b> (en la prueba solo tipo de negocio, país e historial).<br> <b>“Contactar directamente” = gratis</b>: Trade Cloud entrega tu mensaje de forma anónima (tú redactas y negocias; 🤖 hay borradores IA). <b>“Solicitar a una base” = coste adicional</b>: el equipo local contacta y negocia por ti."],
+["2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。ピンを押すかプルダウンで<b>拠点メンバーのプロフィール</b>が見られます。",
+ "14 bases by FY2029. Local people working in the local language and time zone. Click a pin or use the dropdown to see <b>base member profiles</b>.",
+ "到2029年度扩展至14个据点。当地人员以当地语言和时间行动。点击图钉或下拉菜单可查看<b>据点成员简介</b>。",
+ "14 bases para el ejercicio 2029. Personal local que trabaja en su idioma y horario. Pulsa un pin o usa el desplegable para ver <b>los perfiles de cada base</b>."],
+["＋−ボタンかマウスホイールで拡大・ドラッグで移動（国の形にマウスを乗せると国名が出ます）。<span>緑</span>＝開設済み／<span>オレンジ</span>＝2027年度に開設予定／青＝2028〜29年度に順次開設。",
+ "Zoom with the ＋− buttons or mouse wheel, drag to move (hover a country to see its name). <span>Green</span> = open / <span>Orange</span> = opening in FY2027 / Blue = opening FY2028–29.",
+ "用＋−按钮或滚轮缩放・拖动移动（鼠标悬停在国家上显示国名）。<span>绿色</span>＝已开设／<span>橙色</span>＝2027年度开设／蓝色＝2028〜29年度陆续开设。",
+ "Amplía con ＋− o la rueda del ratón y arrastra para mover (pasa el cursor por un país para ver su nombre). <span>Verde</span> = abierta / <span>Naranja</span> = apertura en 2027 / Azul = 2028–29."],
+["※拠点への依頼（引き合い開拓・商談代行）は<b>別途費用</b>（稼働費・成果報酬）が発生します。費用をかけずに始めるなら、左の一覧から<b>「直接連絡」</b>をどうぞ。",
+ "※ Requests to a base (lead generation, negotiation on your behalf) incur <b>extra fees</b> (time-based and success fees). To start without cost, use <b>“Contact directly”</b> from the list on the left.",
+ "※ 委托据点（开拓询盘・代理商谈）将<b>另行收费</b>（工时费・成功报酬）。若想零成本开始，请从左侧列表使用<b>“直接联系”</b>。",
+ "※ Las solicitudes a una base (captación, negociación) tienen <b>coste adicional</b> (por dedicación y por éxito). Para empezar sin coste, usa <b>“Contactar directamente”</b> en la lista de la izquierda."],
+["<b>バイヤーはどう増えるのか</b><br> 海外拠点の開拓営業・国際展示会・既存バイヤーからの紹介・貿易クラウド経由の引き合いの4経路で、 <b>毎週リストに追加</b>されます。追加のたびに、貴社カテゴリに合う相手はこの画面に反映されます。",
+ "<b>How the buyer list grows</b><br> Through four routes — prospecting by overseas bases, international trade fairs, referrals from existing buyers, and inquiries via Trade Cloud — buyers are <b>added to the list every week</b>. Each time, those matching your category appear on this screen.",
+ "<b>买家如何增加</b><br> 通过海外据点的开拓营销・国际展会・现有买家介绍・经由贸易云的询盘四条渠道，<b>每周添加到列表</b>。每次添加时，符合贵公司类别的对象都会反映在本页面。",
+ "<b>Cómo crece la lista de compradores</b><br> Por cuatro vías — prospección de las bases, ferias internacionales, referencias de compradores actuales y consultas vía Trade Cloud — se <b>añaden compradores cada semana</b>. Los que encajan con tu categoría aparecen en esta pantalla."]
+);
+I18N_PAT2.push(
+ {re:/^次の段階「(.+?)」まで あと (\d+) pt$/,en:(m,d)=>m[2]+" pt to the next stage “"+(d[m[1]]||m[1])+"”",zh:(m,d)=>"距下一阶段“"+(d[m[1]]||m[1])+"”还差 "+m[2]+" pt",es:(m,d)=>m[2]+" pt para la siguiente etapa “"+(d[m[1]]||m[1])+"”"},
+ {re:/^配点 (\d+)点・寄与 (\d+)点$/,en:"Weight $1 · Contribution $2",zh:"配分$1分・贡献$2分",es:"Peso $1 · Aporte $2"},
+ {re:/^🔑 (\d+\/\d+) ログイン$/,en:"🔑 Login $1",zh:"🔑 $1 登录",es:"🔑 Inicio de sesión $1"},
+ {re:/^＋(\d+)万円\/月$/,en:(m)=>"+¥"+(m[1]*10000).toLocaleString("en-US")+"/mo",zh:"＋$1万日元/月",es:(m)=>"+¥"+(m[1]*10000).toLocaleString("en-US")+"/mes"},
+ {re:/^(.+) 専用$/,en:"For $1 only",zh:"$1 专用",es:"Solo para $1"},
+ {re:/^HS ([\d.]+)・(\d+)年分$/,en:"HS $1 · $2 years",zh:"HS $1・$2年",es:"HS $1 · $2 años"},
+ {re:/^(\d+)件・添付(\d+)件$/,en:"$1 · $2 attachments",zh:"$1件・附件$2件",es:"$1 · $2 adjuntos"},
+ {re:/^レート(\d+)本・依頼(\d+)件$/,en:"$1 rates · $2 requests",zh:"费率$1条・询价$2件",es:"$1 tarifas · $2 solicitudes"},
+ {re:/^出荷(\d+)件・PO(\d+)件$/,en:"$1 shipments · $2 POs",zh:"出货$1件・PO$2件",es:"$1 envíos · $2 órdenes"},
+ {re:/^見積(\d+)件・出荷(\d+)件$/,en:"$1 quotes · $2 shipments",zh:"报价$1件・出货$2件",es:"$1 cotizaciones · $2 envíos"},
+ {re:/^契約(\d+)・資料(\d+)・やりとり(\d+)$/,en:"$1 contracts · $2 decks · $3 messages",zh:"合同$1・资料$2・沟通$3",es:"$1 contratos · $2 materiales · $3 mensajes"},
+ {re:/^通知（(\d+)）$/,en:"Notifications ($1)",zh:"通知（$1）",es:"Notificaciones ($1)"},
+ {re:/^STANDAGEが世界(\d+)か国で積み上げた$/,en:"Across $1 countries, search the ",zh:"在STANDAGE于全球$1个国家积累的",es:"En $1 países, busca en la "},
+ {re:/^バイヤーネットワーク（現在 ([\d,]+)名）$/,en:"buyer network STANDAGE has built (currently $1 buyers)",zh:"买家网络（现有$1名）",es:"red de compradores de STANDAGE (actualmente $1)"},
+ {re:/^から、条件に合う相手を探せます。ネットワークは$/,en:" for buyers matching your criteria. The network ",zh:"中寻找符合条件的对象。该网络",es:" compradores que cumplan tus criterios. La red "},
+ {re:/^毎週増え続け$/,en:"keeps growing every week",zh:"每周持续增加",es:"crece cada semana"},
+ {re:/^、気になる相手には現地の担当へその場で依頼を出せます。$/,en:", and you can ask the local team to approach a buyer on the spot.",zh:"，对感兴趣的对象可当场委托当地负责人。",es:", y puedes pedir al equipo local que contacte a un comprador al instante."},
+ {re:/^世界(\d+)か国／取引先企業 ([\d,]+)社$/,en:"$1 countries / $2 partner companies",zh:"全球$1个国家／合作企业$2家",es:"$1 países / $2 empresas"},
+ {re:/^本番DBの実数（基準日 (\d+\/\d+)）$/,en:"Actual production DB count (as of $1)",zh:"正式数据库实数（基准日 $1）",es:"Cifra real de la BD (a $1)"},
+ {re:/^毎週月曜にまとめて反映／前回 (.+?)・次回 (.+)$/,en:(m)=>"Updated every Monday / last "+m[1].replace(/（月）/,"(Mon)")+" · next "+m[2].replace(/（月）/,"(Mon)"),zh:"每周一统一更新／上次 $1・下次 $2",es:(m)=>"Cada lunes / anterior "+m[1].replace(/（月）/,"(lun)")+" · próxima "+m[2].replace(/（月）/,"(lun)")},
+ {re:/^(.+)のバイヤー$/,en:(m,d)=>"Buyers: "+(d[m[1]]||m[1]),zh:(m,d)=>(d[m[1]]||m[1])+"买家",es:(m,d)=>"Compradores: "+(d[m[1]]||m[1])},
+ {re:/^毎週月曜更新・次回 (.+)$/,en:(m)=>"Updated Mondays · next "+m[1].replace(/（月）/,"(Mon)"),zh:"每周一更新・下次 $1",es:(m)=>"Cada lunes · próxima "+m[1].replace(/（月）/,"(lun)")},
+ {re:/^オレンジ＝今週（\+(\d+)名）$/,en:"Orange = this week (+$1)",zh:"橙色＝本周（+$1名）",es:"Naranja = esta semana (+$1)"},
+ {re:/^世界(\d+)か国$/,en:"$1 countries worldwide",zh:"全球$1个国家",es:"$1 países"},
+ {re:/^([\d,]+)名$/,en:"$1 buyers",zh:"$1名",es:"$1 compradores"},
+ {re:/^（本番DB実数）から、実績順の匿名見本 (\d+)件を表示中。国とカテゴリで絞り込めます。$/,en:"(actual DB count) — showing $1 anonymized samples ordered by track record. Filter by country and category.",zh:"（正式数据库实数）中按实绩排序显示匿名样本$1条。可按国家和类别筛选。",es:"(cifra real de la BD): se muestran $1 ejemplos anónimos por historial. Filtra por país y categoría."}
+);
+/* 追補：残っていた文言 */
+I18N_ROWS2.push(
+["相手を探す","Find buyers","寻找对象","Buscar compradores"],["受注内容（自動取得）","Order details (auto-filled)","订单内容（自动获取）","Datos del pedido (automático)"],
+["商談フィードバック","Buyer feedback","商谈反馈","Comentarios de compradores"],["横浜港","Yokohama Port","横滨港","Puerto de Yokohama"],["神戸港","Kobe Port","神户港","Puerto de Kobe"],["東京港","Tokyo Port","东京港","Puerto de Tokio"],["大阪港","Osaka Port","大阪港","Puerto de Osaka"],["名古屋港","Nagoya Port","名古屋港","Puerto de Nagoya"],
+["成田空港","Narita Airport","成田机场","Aeropuerto de Narita"],["関西空港","Kansai Airport","关西机场","Aeropuerto de Kansai"],["羽田空港","Haneda Airport","羽田机场","Aeropuerto de Haneda"]
+);
+I18N_EL_ROWS.push(
+["📌 <b>今日やること</b>は専用ページに移りました — AI商社マンが<b>毎日</b>、最新データとWeb検索で商品別に提案します。",
+ "📌 <b>Today's tasks</b> moved to their own page — the AI Trade Agent proposes them <b>every day</b> per product from the latest data and web search.",
+ "📌 <b>今日待办</b>已移至专页——AI商社专员<b>每天</b>根据最新数据和网络搜索按商品提出建议。",
+ "📌 <b>Las tareas de hoy</b> tienen su propia página: el agente IA las propone <b>cada día</b> por producto con los datos más recientes y búsqueda web."]
+);
+I18N_PAT2.push(
+ {re:/^🏢 (.+?)[　 ]+·[　 ]+最終調査$/,en:"🏢 $1 · Last research",zh:"🏢 $1 · 最近调查",es:"🏢 $1 · Última investigación"},
+ {re:/^レイヤー([①-⑩]+)　(.+)$/,en:(m,d)=>"Layer "+m[1]+" · "+(d[m[2]]||m[2]),zh:(m,d)=>"层"+m[1]+"・"+(d[m[2]]||m[2]),es:(m,d)=>"Capa "+m[1]+" · "+(d[m[2]]||m[2])},
+ {re:/^オレンジの縦線が今日（(.+?)）です。親タスクの下に、細かい手順が子タスクとしてぶら下がります。$/,en:(m)=>"The orange line marks today ("+m[1].replace(/(\d+)年(\d+)月(\d+)日/,"$1-$2-$3")+"). Detailed steps hang under each parent task as subtasks.",zh:"橙色竖线为今天（$1）。父任务下挂有作为子任务的详细步骤。",es:(m)=>"La línea naranja es hoy ("+m[1].replace(/(\d+)年(\d+)月(\d+)日/,"$1-$2-$3")+"). Los pasos detallados cuelgan de cada tarea principal como subtareas."},
+ {re:/^充足度(\d+)%・表示中$/,en:"Completeness $1% · showing",zh:"完整度$1%・显示中",es:"Completitud $1% · en pantalla"},
+ {re:/^(\d+)個（想定シナリオ）$/,en:"$1 unit(s) (hypothetical scenario)",zh:"$1个（假设场景）",es:"$1 unidad(es) (escenario hipotético)"},
+ {re:/^(US\$[\d,]+) ／ 合計 (US\$[\d,]+)$/,en:"$1 / total $2",zh:"$1 ／ 合计 $2",es:"$1 / total $2"},
+ {re:/^T\/T 前払(\d+)%$/,en:"T/T $1% in advance",zh:"T/T 预付$1%",es:"T/T $1% por adelantado"},
+ {re:/^充足度 (\d+)%／価格表 (\d+)行・寸法 (\d+)行・(.+?) (\d+)項目／強み (\d+)件／HS ([\d.]+)$/,en:(m,d)=>"Completeness "+m[1]+"% / price list "+m[2]+" rows · dimensions "+m[3]+" rows · "+(d[m[4]]||m[4])+" "+m[5]+" items / strengths "+m[6]+" / HS "+m[7],zh:(m,d)=>"完整度 "+m[1]+"%／价格表 "+m[2]+"行・尺寸 "+m[3]+"行・"+(d[m[4]]||m[4])+" "+m[5]+"项／优势 "+m[6]+"项／HS "+m[7],es:(m,d)=>"Completitud "+m[1]+"% / precios "+m[2]+" filas · medidas "+m[3]+" filas · "+(d[m[4]]||m[4])+" "+m[5]+" datos / fortalezas "+m[6]+" / HS "+m[7]},
+ {re:/^規制調査 (\d+)か国（目安(\d+)か国）／Web検索 (\d+)回（目安(\d+)回）／通関統計・価格分析 (\d+)回（目安(\d+)回）$/,en:"Regulatory research $1 countries (target $2) / web searches $3 (target $4) / customs stats & price analysis $5 (target $6)",zh:"法规调查 $1国（目标$2国）／网络搜索 $3次（目标$4次）／海关统计・价格分析 $5次（目标$6次）",es:"Normativa $1 países (objetivo $2) / búsquedas web $3 (objetivo $4) / estadísticas y precios $5 (objetivo $6)"},
+ {re:/^商談記録 (\d+)／(\d+)件（おまかせ貿易の2年コミット）／反応「高」(\d+)件／受注 (\d+)件$/,en:"Meeting records $1/$2 (2-year commitment) / “high” reactions $3 / orders $4",zh:"商谈记录 $1／$2件（全托贸易2年承诺）／反应“高” $3件／订单 $4件",es:"Reuniones $1/$2 (compromiso de 2 años) / reacciones “altas” $3 / pedidos $4"},
+ {re:/^AI商社マンへの質問 (\d+)回（目安(\d+)回）／使った画面 (\d+)種類（目安(\d+)）$/,en:"Questions to the AI $1 (target $2) / screens used $3 (target $4)",zh:"向AI商社专员提问 $1次（目标$2次）／使用页面 $3种（目标$4）",es:"Preguntas a la IA $1 (objetivo $2) / pantallas usadas $3 (objetivo $4)"},
+ {re:/^見積 (\d+)件／受注・出荷 (\d+)件／出荷手続き (\d+)案件（完了 (\d+)）／発注書案件 (\d+)件／物流AI見積 (\d+)件／契約書 (\d+)件／完了タスク (\d+)件$/,en:"Quotes $1 / orders & shipments $2 / shipping cases $3 (done $4) / PO cases $5 / AI freight quotes $6 / contracts $7 / tasks done $8",zh:"报价 $1件／订单・出货 $2件／出货手续 $3案件（完成 $4）／订购单案件 $5件／物流AI询价 $6件／合同 $7件／完成任务 $8件",es:"Cotizaciones $1 / pedidos y envíos $2 / casos de envío $3 (hechos $4) / órdenes $5 / fletes IA $6 / contratos $7 / tareas hechas $8"},
+ {re:/^アップロード (\d+)回（目安(\d+)回）／取り込んだ資料・添付 (\d+)件（目安(\d+)件）$/,en:"Uploads $1 (target $2) / imported documents & attachments $3 (target $4)",zh:"上传 $1次（目标$2次）／导入资料・附件 $3件（目标$4件）",es:"Subidas $1 (objetivo $2) / documentos y adjuntos $3 (objetivo $4)"},
+ {re:/^([^\s・／]+(?:・[^\s・／]+){1,4})$/,en:(m,d)=>{ const ps=m[1].split("・"); return ps.every(p=>d[p])?ps.map(p=>d[p]).join(" · "):null; },zh:(m,d)=>{ const ps=m[1].split("・"); return ps.every(p=>d[p])?ps.map(p=>d[p]).join("・"):null; },es:(m,d)=>{ const ps=m[1].split("・"); return ps.every(p=>d[p])?ps.map(p=>d[p]).join(" · "):null; }}
+);
+
+/* ═══════════════════════════════════════════════════════════════
+   v15.23b: element-level translation (paragraphs with inline <b>/<span>)
+   - I18N_ROWS2  : extra plain rows [ja,en,zh,es] merged into I18N.dict
+   - I18N_EL_ROWS: [jaKey(collapsed textContent), enHTML, zhHTML, esHTML]
+     The translation HTML must keep the same inline tag sequence as the
+     original element; text is written into the existing text nodes so
+     classes/styles/handlers of inline children are preserved.
+   ═══════════════════════════════════════════════════════════════ */
+I18N.elNodes=new WeakSet(); I18N.elDone=new WeakSet(); I18N.elIns=[];
+const I18N_EL={en:{},zh:{},es:{}};
+(function(){
+  try{ (typeof I18N_ROWS2!=="undefined"?I18N_ROWS2:[]).forEach(r=>{ if(!r||!r[0]) return; if(r[1]&&!I18N.dict.en[r[0]]) I18N.dict.en[r[0]]=r[1]; if(r[2]&&!I18N.dict.zh[r[0]]) I18N.dict.zh[r[0]]=r[2]; if(r[3]&&!I18N.dict.es[r[0]]) I18N.dict.es[r[0]]=r[3]; }); }catch(e){}
+  try{ const tpl=document.createElement("template"); (typeof I18N_EL_ROWS!=="undefined"?I18N_EL_ROWS:[]).forEach(r=>{ if(!r||!r[0]) return; tpl.innerHTML=r[0]; const k=String(tpl.content.textContent||"").replace(/\s+/g," ").trim(); if(!k) return; if(r[1]) I18N_EL.en[k]=r[1]; if(r[2]) I18N_EL.zh[k]=r[2]; if(r[3]) I18N_EL.es[k]=r[3]; }); }catch(e){}
+  try{ (typeof I18N_PAT2!=="undefined"?I18N_PAT2:[]).slice().reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+})();
+function i18nElKey(el){ return String(el.textContent||"").replace(/\s+/g," ").trim(); }
+function i18nElGroups(el){ const out=[{nodes:[],text:""}]; el.childNodes.forEach(n=>{ if(n.nodeType===1){ out.push({nodes:[],text:""}); } else if(n.nodeType===3){ const g=out[out.length-1]; g.nodes.push(n); g.text+=n.nodeValue; } }); return out; }
+function i18nElCheck(a,b){
+  const ea=[...a.childNodes].filter(n=>n.nodeType===1), eb=[...b.childNodes].filter(n=>n.nodeType===1);
+  if(ea.length!==eb.length) return false;
+  for(let i=0;i<ea.length;i++){ if(ea[i].nodeName!==eb[i].nodeName) return false; if(!i18nElCheck(ea[i],eb[i])) return false; }
+  return true;
+}
+function i18nElWrite(a,b){
+  const ga=i18nElGroups(a), gb=i18nElGroups(b);
+  const ea=[...a.childNodes].filter(n=>n.nodeType===1), eb=[...b.childNodes].filter(n=>n.nodeType===1);
+  for(let i=0;i<ga.length;i++){
+    const t=(gb[i]&&gb[i].text)||""; const nodes=ga[i].nodes;
+    if(nodes.length){ nodes.forEach((n,j)=>{ const v=j===0?t:""; if(!I18N.orig.has(n)) I18N.orig.set(n,n.nodeValue); if(n.nodeValue!==v) n.nodeValue=v; I18N.elNodes.add(n); }); }
+    else if(t.trim()){ const n=document.createTextNode(t); a.insertBefore(n,ea[i]||null); I18N.elIns.push(n); I18N.elNodes.add(n); }
+  }
+  for(let i=0;i<ea.length;i++) i18nElWrite(ea[i],eb[i]);
+}
+function i18nElMerge(el,html){
+  const tpl=document.createElement("template"); tpl.innerHTML=html; const tr=tpl.content;
+  if(!i18nElCheck(el,tr)) return false; i18nElWrite(el,tr); return true;
+}
+function i18nApplyEl(root){
+  if(I18N.lang==="ja"||!root||root.nodeType!==1) return; const d=I18N_EL[I18N.lang]; if(!d) return;
+  const els=[root].concat([...root.querySelectorAll("*")]);
+  for(const el of els){
+    if(I18N_SKIP.test(el.nodeName)||!el.childNodes.length) continue;
+    if(I18N.elDone.has(el)) continue;
+    if(el.closest&&el.closest("[data-noi18n],.bb,#uxpq")) continue;
+    const key=i18nElKey(el); if(!key||key.length>1200) continue; const tr=d[key]; if(!tr) continue;
+    try{ if(i18nElMerge(el,tr)) I18N.elDone.add(el); }catch(e){}
+  }
+}
+/* hook into the v15.23 engine */
+const __i18nApplyEl0=i18nApply;
+i18nApply=function(root){ try{ if(root&&root.nodeType===1) i18nApplyEl(root); }catch(e){} return __i18nApplyEl0.apply(this,arguments); };
+const __i18nTextEl0=i18nText;
+i18nText=function(n,d){ if(I18N.elNodes&&I18N.elNodes.has(n)) return; return __i18nTextEl0.apply(this,arguments); };
+const __i18nRestoreEl0=i18nRestore;
+i18nRestore=function(){ __i18nRestoreEl0.apply(this,arguments); try{ I18N.elIns.forEach(n=>{ try{ n.remove(); }catch(e){} }); }catch(e){} I18N.elIns=[]; I18N.elNodes=new WeakSet(); I18N.elDone=new WeakSet(); };
+/* re-apply once now (the language may already be non-ja at load / after F5) */
+try{ if(I18N.lang!=="ja") i18nApply(document.body); }catch(e){}
 
 </script>
