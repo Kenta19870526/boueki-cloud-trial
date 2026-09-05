@@ -404,6 +404,61 @@ body.mob .stp .t{display:none} body.mob .stp .s{min-width:34px}
 #guide .gmsg{flex:1;min-width:210px;color:var(--ink);line-height:1.6}
 #guide .gmsg b{color:var(--or-deep)}
 @media (max-width:700px){#guide .gst{display:none}}
+/* ── v15.23：読みやすさの底上げ（SaaS各社の本文13〜16px・二次情報11px以上に合わせる） ── */
+:root{--ink-2:#3D4C60;--ink-3:#66748A}
+@media (prefers-color-scheme: dark){:root:where(:not([data-theme="light"])){--ink-2:#B7C3D1;--ink-3:#93A3B5}}
+:root[data-theme="dark"]{--ink-2:#B7C3D1;--ink-3:#93A3B5}
+body{font-size:14px}
+.c{padding:16px 18px}
+.c h3{font-size:15px}
+.c .nn,.nn{font-size:12.5px;line-height:1.7}
+.lbl{font-size:11px}
+.kd{font-size:12px}
+.kv{font-size:28px} .kv small{font-size:12.5px}
+.p{font-size:11px;padding:3px 8px}
+.btn{font-size:13.5px;padding:9px 16px}
+.q{font-size:13px;padding:8px 14px}
+.sel{font-size:13.5px}
+.bb{font-size:13.5px;line-height:1.75}
+.ci{font-size:11.5px}
+.ph h1{font-size:22px} .ph .cando{font-size:13px}
+.lt,.nt,.src{font-size:11px}
+.nb{font-size:13.5px}
+.ngrp{font-size:10.5px}
+.usr b{font-size:12.5px} .usr span{font-size:11px}
+.tgl{font-size:12.5px}
+table{font-size:12.5px} th{font-size:11px}
+.doc{font-size:11.5px} .doc table{font-size:11px} .doc h4{font-size:12.5px}
+.fld{font-size:12.5px} .fld dt{font-size:11.5px}
+.ti{font-size:12.5px} .ti time{font-size:11px}
+.stp .t{font-size:11px}
+.dscope .dsl{font-size:12px} .dscope .dsk{font-size:11px} .dscope .dsp{font-size:12px}
+#guide{font-size:13px} #guide .gst{font-size:11.5px}
+.fwdcmp table th,.fwdcmp table td{font-size:11.5px}
+.fwdrec{font-size:12px} .fwdx>summary{font-size:12.5px}
+.art .ah{font-size:11.5px} .cmp h4{font-size:11.5px} .cmp p{font-size:12.5px}
+.nf{font-size:12.5px} .nf time{font-size:11px}
+/* インライン指定の小さい文字に下限を設ける（テンプレートを触らずに一括で底上げ） */
+#well [style*="font-size:8.5px"],#pn [style*="font-size:8.5px"],#guide [style*="font-size:8.5px"]{font-size:10.5px!important}
+#well [style*="font-size:9px"],#pn [style*="font-size:9px"],#well [style*="font-size:9.5px"],#pn [style*="font-size:9.5px"],#guide [style*="font-size:9.5px"]{font-size:11px!important}
+#well [style*="font-size:10px"],#pn [style*="font-size:10px"],#well [style*="font-size:10.5px"],#pn [style*="font-size:10.5px"]{font-size:11.5px!important}
+#well [style*="font-size:11px"],#pn [style*="font-size:11px"]{font-size:12px!important}
+#well [style*="font-size:11.5px"],#pn [style*="font-size:11.5px"]{font-size:12.5px!important}
+/* 表示サイズ（Aa）：標準／大きめ／特大 */
+body.z110 #well,body.z110 .side,body.z110 #guide,body.z110 .dw .pn,body.z110 #uxpal .box{zoom:1.1}
+body.z120 #well,body.z120 .side,body.z120 #guide,body.z120 .dw .pn,body.z120 #uxpal .box{zoom:1.2}
+/* 上部バー：検索・言語 */
+.uxsb{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--sunk);color:var(--ink-2);border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.uxsb:hover{border-color:var(--or);color:var(--or-deep)}
+.uxsb kbd{font:inherit;font-size:10px;border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(--surface);color:var(--ink-3)}
+.uxlang{min-height:32px;padding:4px 8px;font-size:12.5px;max-width:110px}
+@media (max-width:900px){.uxsb .hm{display:none}.uxlang{max-width:84px}}
+/* ページ内の目次 */
+#uxsec{position:sticky;top:92px;z-index:20;display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:-4px 0 12px;padding:7px 10px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:10px;box-shadow:var(--sh)}
+#uxsec .uxsl{font-size:11px;font-weight:700;color:var(--ink-3);margin-right:2px;white-space:nowrap}
+#uxsec .uxsc{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);cursor:pointer}
+#uxsec .uxsc:hover,#uxsec .uxsc.on{border-color:var(--or);color:var(--or-deep);background:var(--or-soft)}
+@media (max-width:700px){#uxsec{position:static}}
 /* ── v15.22：全画面共通のUX層 ── */
 #well.uxin{animation:uxin .22s ease}
 @keyframes uxin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -18204,5 +18259,235 @@ if(typeof renderAdmin==="function"){ const __renderAdminUX=renderAdmin; renderAd
 if(typeof buildNav==="function"){ const __buildNavUX=buildNav; buildNav=function(){ const r=__buildNavUX.apply(this,arguments); try{ const f=document.getElementById("sft"); if(f&&!f.querySelector(".uxhint")) f.insertAdjacentHTML("beforeend",'<br><span class="uxhint">⌨ Ctrl+K：画面・商品・操作を検索して移動</span>'); }catch(e){} return r; }; }
 /* 既に描画済みの画面（読込時）にも適用 */
 try{ uxAfterRender("boot"); const f=document.getElementById("sft"); if(f&&!f.querySelector(".uxhint")) f.insertAdjacentHTML("beforeend",'<br><span class="uxhint">⌨ Ctrl+K：画面・商品・操作を検索して移動</span>'); }catch(e){}
+
+/* ═══════════ v15.23：見やすさ・探しやすさ（お客様の声「文字が小さい／情報が散らばる／見つけにくい」への対応） ═══════════
+   SaaS各社（Salesforce Lightning・Shopify Polaris・Atlassian・HubSpot・Stripe・Notion・Slack・Linear・Airtable・Intercom／
+   SmartHR・freee・Sansan・kintone・Money Forward）の共通則＝本文13〜16px・二次情報でも11px以上・グローバル検索・
+   ページ内の目次・表示サイズの選択、を後付けで実装する。
+   ・上部バー：🔍 何でも検索（Ctrl+K）／Aa 表示サイズ（標準・大きめ・特大）／🌐 言語
+   ・各ページ先頭：「このページの内容」＝カード見出しの目次（クリックで移動・強調）
+   ・コマンドパレットの対象を拡張：商談相手・タスク・取り込んだ資料・出荷案件・発注書案件・契約書 */
+const UX2={zoom:(function(){ try{ return +localStorage.getItem("bc20_zoom")||100; }catch(e){ return 100; } })()};
+function ux2ApplyZoom(){ const b=document.body; b.classList.remove("z110","z120"); if(UX2.zoom===110) b.classList.add("z110"); if(UX2.zoom===120) b.classList.add("z120"); const z=document.getElementById("zoomb"); if(z) z.title=`表示サイズ：${UX2.zoom===100?"標準":UX2.zoom===110?"大きめ":"特大"}（クリックで切替）`; }
+function ux2ZoomNext(){ UX2.zoom=UX2.zoom===100?110:UX2.zoom===110?120:100; try{ localStorage.setItem("bc20_zoom",String(UX2.zoom)); }catch(e){} ux2ApplyZoom(); if(typeof toast==="function") toast(`表示サイズ：${UX2.zoom===100?"標準":UX2.zoom===110?"大きめ":"特大"}`); }
+/* 上部バーのコントロール（検索・表示サイズ・言語）を一度だけ差し込む */
+function ux2TopBar(){
+  const easy=document.getElementById("easy"); if(!easy||document.getElementById("uxsearch")) return;
+  const html=`<button class="uxsb" id="uxsearch" title="画面・商品・商談相手・資料を検索して移動（Ctrl+K）" aria-label="検索"><span>🔍</span><span class="hm">何でも検索</span><kbd class="hm">Ctrl+K</kbd></button>
+    <button class="ib" id="zoomb" aria-label="表示サイズ" title="表示サイズ（標準・大きめ・特大）"><span style="font-weight:800;font-size:13px;letter-spacing:-.02em">Aa</span></button>
+    <select class="sel uxlang" id="lang" title="言語 / Language" aria-label="言語"><option value="ja">日本語</option><option value="en">English</option><option value="zh">中文</option><option value="es">Español</option></select>`;
+  easy.insertAdjacentHTML("beforebegin",html);
+  document.getElementById("uxsearch").onclick=()=>{ if(typeof uxPalOpen==="function") uxPalOpen(); };
+  document.getElementById("zoomb").onclick=ux2ZoomNext;
+  const ls=document.getElementById("lang"); ls.value=(typeof I18N!=="undefined")?I18N.lang:"ja"; ls.onchange=()=>{ if(typeof i18nSet==="function") i18nSet(ls.value); };
+  ux2ApplyZoom();
+}
+/* ページ内の目次（カード見出し）。3件以上あるページだけ */
+function ux2SecNav(){
+  const well=document.getElementById("well"); if(!well) return; const old=document.getElementById("uxsec"); if(old) old.remove();
+  const cards=[...well.querySelectorAll(":scope > .c, :scope > .g2 > .c, :scope > .admgrid2 > .c, :scope > div > .c")].filter(c=>c.querySelector("h3")&&c.getBoundingClientRect().height>60);
+  const items=[]; const seen=new Set();
+  cards.forEach((c,i)=>{ const h=c.querySelector("h3"); let t=(h.textContent||"").replace(/\s+/g," ").replace(/この版で(新規|強化)/g,"").replace(/^[^\p{L}\p{N}]+/u,"").trim(); t=t.replace(/\s*\d+(件|社|本|レーン|商品)\s*$/,"").slice(0,22); if(!t||seen.has(t)) return; seen.add(t); if(!c.id) c.id="sec-"+i; items.push({id:c.id,t}); });
+  if(items.length<3) return;
+  const bar=document.createElement("div"); bar.id="uxsec"; bar.innerHTML=`<span class="uxsl">このページの内容</span>${items.map(it=>`<button class="uxsc" data-sec="${it.id}">${it.t}</button>`).join("")}`;
+  well.insertAdjacentElement("afterbegin",bar);
+  bar.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{ const el=document.getElementById(b.dataset.sec); if(!el) return; const y=el.getBoundingClientRect().top+scrollY-150; scrollTo({top:Math.max(0,y),behavior:"smooth"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1200); bar.querySelectorAll(".uxsc").forEach(x=>x.classList.toggle("on",x===b)); });
+}
+/* コマンドパレットの対象を拡張 */
+if(typeof uxPalItems==="function"){ const __uxPalItems2=uxPalItems;
+  uxPalItems=function(q){ let items=__uxPalItems2(q); const qq=String(q||"").trim().toLowerCase(); const extra=[];
+    try{ const dd=(typeof D!=="undefined"&&D)||null, t=(typeof TEN!=="undefined"&&TEN)||null, isFwd=(typeof FWDON!=="undefined"&&FWDON);
+      if(dd&&!isFwd&&typeof PID!=="undefined"&&PID){
+        [...new Set((dd.fb||[]).map(f=>f.b).filter(Boolean))].slice(0,30).forEach(b=>extra.push({g:"商談相手",t:b,sub:"商談・バイヤー",ic:"🤝",run:()=>go("deal")}));
+        (dd.tasks||[]).slice(0,30).forEach(x=>extra.push({g:"タスク",t:x.n,sub:(x.st||"")+(x.e?"・期限 "+x.e:""),ic:"✅",run:()=>go("task")}));
+        (t&&t.sources||[]).slice(0,30).forEach(x=>extra.push({g:"取り込んだ情報",t:x.name,sub:x.kind||"",ic:"📄",run:()=>go("srcs")}));
+        ((typeof SHIPS!=="undefined"&&Array.isArray(SHIPS))?SHIPS:[]).slice(0,20).forEach(c=>{ const s=c.ship||{}; extra.push({g:"出荷案件",t:`${s.no||""} ${s.buyer||""}`,sub:(s.country||"")+"・ステップ "+((c.step||0)+1),ic:"🚢",run:()=>go("ship")}); });
+        (t&&t.poCases||[]).slice(0,20).forEach(c=>{ const s=c.ship||{}; extra.push({g:"発注書案件",t:`${s.poNo||s.no||""} ${s.buyer||""}`,sub:s.country||"",ic:"🧾",run:()=>{ if(typeof opsTab!=="undefined") opsTab="doc"; go("ops"); }}); });
+        (t&&t.legal&&t.legal.docs||[]).slice(0,20).forEach(x=>extra.push({g:"契約書",t:x.name||"",sub:x.kind||"",ic:"📜",run:()=>go("legal")}));
+      } }catch(e){}
+    const ex2=qq?extra.filter(i=>(i.t+" "+(i.sub||"")+" "+i.g).toLowerCase().includes(qq)):extra.slice(0,12);
+    return items.concat(ex2); }; }
+/* 描画後 */
+if(typeof uxAfterRender==="function"){ const __uxAfter2=uxAfterRender; uxAfterRender=function(){ const r=__uxAfter2.apply(this,arguments); try{ ux2TopBar(); ux2SecNav(); }catch(e){} return r; }; }
+try{ ux2TopBar(); ux2SecNav(); }catch(e){}
+
+/* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
+   方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
+   選択中の言語に置き換える（MutationObserver で描画のたびに自動適用）。辞書に無い文言（AIの回答文・長文説明）は日本語のまま。
+   AI接続時の回答は選択言語で返すよう system prompt に指示を追加。日本語に戻すと原文を復元する。 */
+const I18N={lang:(function(){ try{ return localStorage.getItem("bc20_lang")||"ja"; }catch(e){ return "ja"; } })(),orig:new Map(),attr:new Map(),dict:{},pat:[]};
+const I18N_LANGS={ja:"日本語",en:"English",zh:"中文",es:"Español"};
+const I18N_INSTR={en:"Answer in English (keep product names, company names and codes as they are).",zh:"请用简体中文回答（商品名・公司名・代码保持原样）。",es:"Responde en español (mantén nombres de productos, empresas y códigos tal como están)."};
+/* 辞書：[日本語, English, 中文, Español] */
+const I18N_ROWS=[
+/* ナビ・グループ・画面名 */
+["ダッシュボード","Dashboard","仪表盘","Panel"],["商品情報を登録","Register product","登记商品信息","Registrar producto"],["今日やること","Today's tasks","今日待办","Tareas de hoy"],
+["商品情報","Product","商品信息","Producto"],["取り込んだ情報一覧","Imported sources","已导入的信息","Fuentes importadas"],["商談・バイヤー","Deals & buyers","商谈・买家","Negociaciones y compradores"],
+["外国語 営業資料","Sales deck (multilingual)","外语销售资料","Material de ventas"],["タスク・進行","Tasks & progress","任务・进度","Tareas y avance"],["貿易実務・書類・出荷","Trade ops · Docs · Shipping","贸易实务・单证・出货","Operaciones · Documentos · Envío"],
+["契約書関連","Contracts","合同相关","Contratos"],["AI商社マン","AI Trade Agent","AI商社专员","Agente comercial IA"],["やりとり","Messages","往来沟通","Mensajes"],["バイヤーDB・拠点","Buyer DB & bases","买家数据库・据点","BD de compradores y bases"],
+["旧版からの改善","Improvements from v1","相对旧版的改进","Mejoras desde v1"],["まず見る","Start here","先看这里","Empezar aquí"],["はじめに","Getting started","开始","Primeros pasos"],["毎日つかう","Daily use","每日使用","Uso diario"],
+["データを貯める","Build your data","积累数据","Acumular datos"],["業務を回す","Run operations","推进业务","Operar"],["自走する","Self-driving","自主运行","Autónomo"],["外とつながる","Connect outside","对外连接","Conectar"],["この版について","About this version","关于本版本","Sobre esta versión"],
+["出荷を進める","Proceed to shipping","推进出货","Avanzar envío"],["トライアル管理","Trial management","试用管理","Gestión de pruebas"],["STANDAGE管理","STANDAGE admin","STANDAGE管理","Admin STANDAGE"],["物流会社メニュー","Forwarder menu","物流公司菜单","Menú transitario"],
+["見積受信箱","Quote inbox","报价收件箱","Bandeja de cotizaciones"],["物流レート管理","Freight rate management","物流费率管理","Gestión de tarifas"],["相見積・AI推奨","Quotes compare · AI pick","比价・AI推荐","Comparativa · IA"],["AI物流マンに相談","Ask AI Logistics","咨询AI物流专员","Consultar IA logística"],
+/* 上部バー・ガイド */
+["右パネル","Side panel","右侧面板","Panel lateral"],["やさしい説明","Plain language","通俗说明","Explicación simple"],["スマホ表示","Mobile view","手机视图","Vista móvil"],["通知","Notifications","通知","Notificaciones"],["ログアウト","Log out","退出登录","Cerrar sesión"],
+["会社・商品を検索して切り替え","Search and switch company/product","搜索并切换公司/商品","Buscar y cambiar empresa/producto"],["商材を切り替えます","Switch product","切换商品","Cambiar producto"],["メニューを開閉","Toggle menu","打开/关闭菜单","Abrir/cerrar menú"],
+["何でも検索","Search anything","搜索一切","Buscar"],["表示サイズ","Text size","显示大小","Tamaño de texto"],["表示サイズ（標準・大きめ・特大）","Text size (standard · large · extra large)","显示大小（标准・较大・特大）","Tamaño de texto (normal · grande · extra)"],
+["画面・商品・商談相手・資料を検索して移動（Ctrl+K）","Search pages, products, buyers and documents (Ctrl+K)","搜索页面・商品・买家・资料并跳转（Ctrl+K）","Buscar páginas, productos, compradores y documentos (Ctrl+K)"],
+["資料を登録","Upload documents","登记资料","Subir documentos"],["足りない情報を埋める","Fill in the gaps","补全信息","Completar datos"],["AIと一緒に使う","Work with the AI","与AI一起使用","Usar con la IA"],
+["準備完了です。","Ready to go.","准备完成。","Todo listo."],["AI商社マンに何でも聞けます。出荷の手続きもそのまま進められます。","Ask the AI Trade Agent anything. You can also proceed with shipping right away.","可以向AI商社专员提问，也可直接推进出货手续。","Pregunta lo que quieras al agente IA. También puedes iniciar el envío."],
+["AI商社マンに聞く","Ask AI Trade Agent","咨询AI商社专员","Preguntar a la IA"],["AIと埋める","Fill with AI","与AI补全","Completar con IA"],["アップロードする","Upload","上传","Subir"],
+["サンプルで体験中です。AI商社マンへの質問・出荷の手続きのほか、自社の資料でも試せます。","You are exploring a sample. Ask the AI, try shipping, or upload your own documents.","正在体验样例。可以向AI提问、体验出货，也可上传自己的资料。","Estás en un ejemplo. Pregunta a la IA, prueba el envío o sube tus documentos."],
+["このページの内容","On this page","本页内容","En esta página"],["画面・商品・操作を検索（例：ダッシュボード／抹茶／AI見積）","Search pages, products, actions (e.g. dashboard / matcha / AI quote)","搜索页面・商品・操作（例：仪表盘／抹茶／AI报价）","Buscar páginas, productos, acciones"],
+["↑↓ で選択・Enter で移動・Esc で閉じる　｜　Ctrl+K（⌘K）でいつでも開けます","↑↓ select · Enter go · Esc close | Ctrl+K (⌘K) opens this anytime","↑↓选择・Enter跳转・Esc关闭 ｜ 随时按 Ctrl+K（⌘K）打开","↑↓ elegir · Enter ir · Esc cerrar | Ctrl+K (⌘K) abre esto"],
+["画面","Pages","页面","Páginas"],["操作","Actions","操作","Acciones"],["商談相手","Buyers","商谈对象","Compradores"],["タスク","Tasks","任务","Tareas"],["取り込んだ情報","Sources","已导入信息","Fuentes"],["出荷案件","Shipments","出货案件","Envíos"],["発注書案件","PO cases","订单案件","Órdenes"],["契約書","Contracts","合同","Contratos"],
+["⌨ Ctrl+K：画面・商品・操作を検索して移動","⌨ Ctrl+K: search pages, products and actions","⌨ Ctrl+K：搜索页面・商品・操作","⌨ Ctrl+K: buscar páginas, productos y acciones"],
+/* 共通 */
+["この画面でできること：","What you can do here:","本页可做：","Qué puedes hacer aquí:"],["この画面でわかること：","What this page shows:","本页可见：","Qué muestra esta página:"],["閉じる","Close","关闭","Cerrar"],["キャンセル","Cancel","取消","Cancelar"],
+["保存","Save","保存","Guardar"],["送信","Send","发送","Enviar"],["質問する","Ask","提问","Preguntar"],["削除","Delete","删除","Eliminar"],["追加","Add","添加","Añadir"],["開く","Open","打开","Abrir"],["編集","Edit","编辑","Editar"],["詳細","Details","详情","Detalles"],
+["検索","Search","搜索","Buscar"],["はい","Yes","是","Sí"],["いいえ","No","否","No"],["すべて","All","全部","Todo"],["すべて開く","Expand all","全部展开","Expandir todo"],["すべて閉じる","Collapse all","全部收起","Contraer todo"],["最初から","Start over","重新开始","Desde el inicio"],
+["再計算","Recalculate","重新计算","Recalcular"],["やめる","Cancel","放弃","Cancelar"],["あとで","Later","稍后","Después"],["確認","Confirm","确认","Confirmar"],["更新","Refresh","更新","Actualizar"],["コピー","Copy","复制","Copiar"],
+["この版で新規","New in this version","本版新增","Nuevo en esta versión"],["この版で強化","Improved in this version","本版增强","Mejorado en esta versión"],["根拠","Source","依据","Fuente"],["未登録","Not registered","未登记","Sin registrar"],
+["件","items","条","elem."],["社","cos.","家","emp."],["回","times","次","veces"],["本","lanes","条","líneas"],["か国","countries","个国家","países"],["名","people","人","pers."],
+["有効","Active","有效","Activo"],["無効","Disabled","无效","Inactivo"],["期限切れ","Expired","已过期","Vencido"],["許可","Allowed","允许","Permitido"],["停止","Off","停止","Desactivado"],
+["は専用ページに移りました — AI商社マンが毎日、最新データとWeb検索で商品別に提案します。"," moved to its own page — the AI proposes them daily per product from the latest data and web search."," 已移至专页——AI商社专员每天根据最新数据和网络搜索按商品提出建议。"," tienen su propia página: la IA las propone a diario por producto."],
+["サンプルで体験中です。","You are exploring a sample.","正在体验样例。","Estás explorando un ejemplo."],
+/* ダッシュボード */
+["集計範囲（いま見ている範囲）","Scope (what you are viewing)","统计范围（当前查看）","Ámbito (lo que estás viendo)"],["全社","All companies","全公司","Todas las empresas"],["会社","Company","公司","Empresa"],["カテゴリ","Category","品类","Categoría"],["商品","Product","商品","Producto"],["期間","Period","期间","Periodo"],
+["部署・部門グループ","Department groups","部门分组","Grupos por departamento"],["デモ企業を含める","Include demo companies","包含演示企业","Incluir empresas demo"],["今月","This month","本月","Este mes"],["先月","Last month","上月","Mes pasado"],["直近90日","Last 90 days","近90天","Últimos 90 días"],["今年","This year","今年","Este año"],
+["期間クリア","Clear period","清除期间","Limpiar periodo"],["全社に戻す","Back to all companies","返回全公司","Volver a todas"],["全カテゴリ","All categories","全部品类","Todas las categorías"],["全商品","All products","全部商品","Todos los productos"],["全部署","All departments","全部部门","Todos los departamentos"],
+["バイヤーの声を集めた数","Buyer feedback collected","收集的买家反馈数","Comentarios de compradores"],["やりとりが続いている相手","Buyers in conversation","持续沟通的对象","Compradores en conversación"],["見積を出している案件","Open quotes","已报价案件","Cotizaciones abiertas"],["初めての受注","First orders","首次订单","Primeros pedidos"],["累計受注金額","Total order value","累计订单金额","Valor total de pedidos"],
+["どこまで進んだか","Pipeline progress","进展到哪一步","Avance del pipeline"],["どの国で手応えがあるか","Traction by country","哪些国家有反响","Tracción por país"],["いま何が動いているか","What is moving now","当前进展","Qué está en marcha"],["これから30日の予定","Next 30 days","未来30天计划","Próximos 30 días"],
+["今月のレポート","Monthly report","本月报告","Informe mensual"],["AI分析（集計・レポート・共有）","AI analysis (aggregate · report · share)","AI分析（汇总・报告・共享）","Análisis IA (resumen · informe · compartir)"],["AIに質問","Ask AI","向AI提问","Preguntar a la IA"],["データを持ち出す","Export data","导出数据","Exportar datos"],
+["バイヤーに接触","Contacted","接触买家","Contacto"],["商談を実施","Meetings held","已商谈","Reuniones"],["反応を記録","Responses logged","记录反应","Respuestas"],["見積を提示","Quotes sent","已报价","Cotizaciones"],["サンプル発送","Samples shipped","已寄样","Muestras"],["初回受注","First order","首次订单","Primer pedido"],
+["クリックで内訳・編集","Click for details / edit","点击查看明细・编辑","Clic para detalle / editar"],["クリックで相手一覧","Click for buyer list","点击查看对象列表","Clic para lista"],["クリックで案件一覧","Click for case list","点击查看案件列表","Clic para casos"],["クリックで受注内訳","Click for order details","点击查看订单明细","Clic para pedidos"],["クリックで金額の内訳","Click for amount breakdown","点击查看金额明细","Clic para importes"],
+["今日やることは専用ページに移りました — AI商社マンが毎日、最新データとWeb検索で商品別に提案します。","Today's tasks moved to its own page — the AI proposes them daily per product from the latest data and web search.","今日待办已移至专页——AI商社专员每天根据最新数据和网络搜索按商品提出建议。","Las tareas de hoy tienen su propia página: la IA las propone a diario por producto."],
+/* AI商社マン */
+["AI商社マンの成長レベル","AI Trade Agent growth level","AI商社专员成长等级","Nivel de crecimiento del agente IA"],["商品の理解","Product knowledge","商品理解","Conocimiento del producto"],["市場・規制の知識","Market & regulation","市场・法规知识","Mercado y regulación"],
+["商談フィードバックからの学び","Learning from buyer feedback","从商谈反馈中学习","Aprendizaje de comentarios"],["対話による学習","Learning by dialogue","通过对话学习","Aprendizaje por diálogo"],["実務の経験","Hands-on experience","实务经验","Experiencia práctica"],["資料・データの蓄積","Documents & data","资料・数据积累","Documentos y datos"],
+["見習い","Trainee","见习","Aprendiz"],["駆け出し","Junior","新手","Junior"],["中堅","Mid-level","中坚","Intermedio"],["ベテラン候補","Senior candidate","资深候选","Senior"],["一人前","Full-fledged","独当一面","Experto"],
+["最近の成長の記録","Recent growth log","最近的成长记录","Registro reciente"],["AI商社マンの稼働モデル（利用プラン）","AI engine plan","AI商社专员运行模式（套餐）","Plan del motor IA"],["ライト","Lite","轻量","Lite"],["スタンダード","Standard","标准","Estándar"],["プレミアム","Premium","高级","Premium"],
+["AI商社マンに相談する","Talk to the AI Trade Agent","咨询AI商社专员","Hablar con el agente IA"],["AIが見ているもの","What the AI sees","AI所参考的信息","Qué ve la IA"],["相手ごとの脈あり度","Deal likelihood by buyer","各买家成交可能性","Probabilidad por comprador"],["Web検索","Web search","网络搜索","Búsqueda web"],["添付","Attach","附件","Adjuntar"],
+["商談の記録","Meeting records","商谈记录","Registros de reuniones"],["規制の調査","Regulatory research","法规调查","Investigación regulatoria"],["商品情報・強み","Product info & strengths","商品信息・优势","Producto y fortalezas"],["価格表・寸法","Price list & dimensions","价格表・尺寸","Precios y dimensiones"],
+["通関統計（輸出額・数量・上位国）","Customs statistics","海关统计（出口额・数量・主要国家）","Estadísticas aduaneras"],["取り込んだ情報・添付","Sources & attachments","已导入信息・附件","Fuentes y adjuntos"],["物流レート・AI見積","Freight rates & AI quotes","物流费率・AI报价","Tarifas y cotizaciones IA"],
+["出荷案件・発注書案件","Shipments & PO cases","出货・订单案件","Envíos y órdenes"],["過去の見積・出荷","Past quotes & shipments","过往报价・出货","Cotizaciones y envíos previos"],["契約書・営業資料・やりとり","Contracts, decks & messages","合同・销售资料・沟通","Contratos, material y mensajes"],
+["この商品はどの国に売れますか？","Which countries can this product sell to?","这个商品能卖到哪些国家？","¿A qué países se puede vender este producto?"],["価格を教えてください","Tell me the prices","请告诉我价格","Dime los precios"],["いま何ができますか？","What can you do now?","现在能做什么？","¿Qué puedes hacer ahora?"],
+["寸法と重量は？","Dimensions and weight?","尺寸和重量？","¿Dimensiones y peso?"],["MOQは？","MOQ?","最小起订量？","¿Cantidad mínima?"],["強みを教えて","Tell me the strengths","介绍一下优势","Dime las fortalezas"],["タスクの進捗は？","Task progress?","任务进度？","¿Progreso de tareas?"],["足りない情報は？","What information is missing?","还缺什么信息？","¿Qué información falta?"],
+["通関統計で輸出額・数量・上位国は？","Export value, volume and top countries?","海关统计的出口额・数量・主要国家？","¿Valor, volumen y principales países de exportación?"],["物流のAI見積・仮押さえの状況は？","Status of freight AI quotes and holds?","物流AI报价・暂定预订状况？","¿Estado de cotizaciones y reservas?"],
+["出荷を進める →","Proceed to shipping →","推进出货 →","Avanzar envío →"],["実務をまかせる →","Delegate operations →","交给AI处理 →","Delegar →"],
+/* 貿易実務・書類・出荷 */
+["規制を調べる","Check regulations","查法规","Ver regulaciones"],["書類をつくる","Create documents","制作单证","Crear documentos"],["受注・請求・入金","Orders · Invoices · Payments","订单・开票・收款","Pedidos · Facturas · Cobros"],["この案件の書類","Case documents","本案件单证","Documentos del caso"],
+["送り先の決まりごと・関税・必要書類","Rules, duties and documents by destination","目的地规则・关税・所需单证","Normas, aranceles y documentos"],["発注書の取り込み・PI／CI／PL・S/I","Import PO · PI/CI/PL · S/I","导入订单・PI/CI/PL・S/I","Importar PO · PI/CI/PL · S/I"],
+["物流AI見積・仮押さえ・出荷手続き","AI freight quotes · holds · shipping","物流AI报价・暂定预订・出货手续","Cotización IA · reservas · envío"],["受注書・請求書・入金の管理","Manage orders, invoices and payments","管理订单・发票・收款","Gestionar pedidos, facturas y cobros"],["作成した書類の一覧","List of created documents","已制作单证一览","Lista de documentos creados"],
+["送り先ごとの決まりごとを調べる","Check rules by destination","按目的地查规则","Normas por destino"],["HSコード","HS code","HS编码","Código HS"],["関税率","Duty rate","关税率","Arancel"],["通関にかかる日数","Customs lead time","通关天数","Plazo aduanero"],["必要な書類・認証","Required documents & certifications","所需单证・认证","Documentos y certificaciones"],
+["気をつけること","Watch out","注意事项","Atención"],["AIで最新規制を詳細調査","Research latest regulations with AI","用AI详查最新法规","Investigar regulaciones con IA"],["社内規制DBの関連レポートを見る","Open internal regulation DB report","查看内部法规数据库报告","Ver informe de la BD interna"],
+["出荷の進み具合","Shipping progress","出货进度","Progreso del envío"],["案件","Case","案件","Caso"],["相手","Buyer","对象","Comprador"],["送り先","Destination","目的地","Destino"],["数量","Quantity","数量","Cantidad"],["取引条件","Terms","交易条件","Condiciones"],["書類","Documents","单证","Documentos"],["状況","Status","状态","Estado"],["状態","Status","状态","Estado"],["入金","Payment","收款","Cobro"],
+["AI商社マンにまかせる","Let the AI handle it","交给AI商社专员","Dejar a la IA"],["この手続きでやっていること","What this process does","本流程在做什么","Qué hace este proceso"],["データはどこから来ているか","Where the data comes from","数据来源","De dónde vienen los datos"],
+["AI見積の履歴","AI quote history","AI报价历史","Historial de cotizaciones IA"],["新しくAI見積を依頼","Request a new AI quote","新的AI报价请求","Nueva cotización IA"],["直近の見積結果を確認","See latest quote","查看最新报价","Ver última cotización"],["新しい案件","New case","新案件","Nuevo caso"],
+["国ごとの見積（国ごとに仮押さえ・再見積ができます）","Quotes by country (hold or re-quote per country)","按国家报价（可按国家暂定预订・重新报价）","Cotizaciones por país (reserva o recotiza por país)"],["この国を仮押さえ","Hold this country","暂定预订此国","Reservar este país"],["仮押さえを解除","Release hold","取消暂定预订","Liberar reserva"],["再見積を依頼","Request re-quote","请求重新报价","Pedir recotización"],
+["相見積もり一覧","Quote comparison","比价一览","Comparativa de cotizaciones"],["AI物流マンの推奨","AI Logistics pick","AI物流专员推荐","Recomendación IA logística"],["選ぶ","Choose","选择","Elegir"],["この会社で仮押さえ","Hold with this company","用此公司暂定预订","Reservar con esta empresa"],["再見積","Re-quote","重新报价","Recotizar"],
+["仮押さえ済み","Held","已暂定预订","Reservado"],["AI回答済み","AI answered","AI已回复","Respondido por IA"],["一部AI回答","Partly answered","部分回复","Parcialmente respondido"],["レーン未登録","Lane not registered","航线未登记","Ruta sin registrar"],["提案中","Proposed","提案中","Propuesto"],["選択中","Selected","已选择","Seleccionado"],
+["推奨","Recommended","推荐","Recomendado"],["最安","Cheapest","最便宜","Más barato"],["最速","Fastest","最快","Más rápido"],["納期NG","Misses deadline","无法按期","Fuera de plazo"],["期限間近","Expiring soon","即将到期","Vence pronto"],["形態違い","Different mode","方式不同","Modo distinto"],
+/* 物流会社モード */
+["受信した依頼","Requests received","收到的请求","Solicitudes recibidas"],["AI自動回答","AI auto replies","AI自动回复","Respuestas automáticas IA"],["登録レーン","Registered lanes","已登记航线","Rutas registradas"],["仮押さえ","Holds","暂定预订","Reservas"],["依頼一覧","Request list","请求一览","Lista de solicitudes"],
+["受信日","Received","接收日","Recibido"],["依頼No","Request No.","请求编号","N.º solicitud"],["荷主","Shipper","货主","Cargador"],["区間","Lane","区间","Ruta"],["貨物","Cargo","货物","Carga"],["見積合計","Quote total","报价合计","Total cotización"],["交渉記録","Negotiation log","谈判记录","Registro"],
+["レート表をアップロード","Upload rate sheet","上传费率表","Subir tarifas"],["登録済みレート","Registered rates","已登记费率","Tarifas registradas"],["物流会社","Forwarder","物流公司","Transitario"],["形態","Mode","方式","Modo"],["運賃","Freight","运费","Flete"],["日数","Days","天数","Días"],["有効期限","Valid until","有效期","Válido hasta"],
+["参加物流会社","Participating forwarders","参与的物流公司","Transitarios participantes"],["相見積があるレーン","Lanes with multiple quotes","有比价的航线","Rutas con varias ofertas"],["有効期限切れ","Expired rates","已过期","Vencidas"],["レート・AI設定","Rates & AI settings","费率・AI设置","Tarifas y IA"],["受信箱へ戻る","Back to inbox","返回收件箱","Volver a bandeja"],["レート管理へ","To rate management","前往费率管理","A tarifas"],
+["情勢メモ","Market notes","形势备忘","Notas de mercado"],["レーン別の集計とAI物流マンの推奨","Lane summary & AI pick","按航线汇总与AI推荐","Resumen por ruta y recomendación IA"],["この表の物流会社名","Forwarder name for this sheet","此表的物流公司名","Transitario de esta tabla"],
+/* 管理コンソール */
+["発行済みアカウント","Issued accounts","已发行账户","Cuentas emitidas"],["累計ログイン","Total logins","累计登录","Inicios de sesión"],["商品データの解析","Product files parsed","已解析商品数据","Archivos analizados"],["AIへの質問","AI questions","AI提问","Preguntas a la IA"],["7日以内に利用","Active in 7 days","7天内使用","Activos en 7 días"],["クラウド同期","Cloud sync","云同步","Sincronización"],
+["利用の推移（直近14日・全アカウント）","Usage trend (last 14 days · all accounts)","使用趋势（近14天・全部账户）","Tendencia de uso (14 días)"],["新しいトライアルアカウントを発行する","Issue a new trial account","发行新的试用账户","Emitir cuenta de prueba"],
+["会社名（例：株式会社◯◯）","Company name","公司名","Nombre de la empresa"],["ご担当者名","Contact name","负责人姓名","Nombre del contacto"],["荷主（標準）","Shipper (standard)","货主（标准）","Cargador (estándar)"],["Web検索を許可","Allow web search","允许网络搜索","Permitir búsqueda web"],["発行する","Issue","发行","Emitir"],
+["管理者AIアシスタント","Admin AI assistant","管理员AI助手","Asistente IA de administración"],["アカウント一覧と利用状況","Accounts & usage","账户一览与使用情况","Cuentas y uso"],["コード","Code","代码","Código"],["会社・担当","Company / contact","公司・负责人","Empresa / contacto"],["期限","Expires","期限","Vence"],["ログイン","Logins","登录","Inicios"],["解析","Parsed","解析","Analizados"],["AI質問","AI Qs","AI提问","Preguntas IA"],["最終利用","Last used","最后使用","Último uso"],
+["無効化","Disable","停用","Desactivar"],["有効化","Enable","启用","Activar"],["クラウド同期・端末管理","Cloud sync & devices","云同步・终端管理","Sincronización y dispositivos"],["接続テスト","Test connection","连接测试","Probar conexión"],["台帳をサーバーへ送る","Push ledger to server","将台账发送到服务器","Enviar registro al servidor"],["利用状況・端末を取得","Fetch usage & devices","获取使用情况・终端","Obtener uso y dispositivos"],
+["デモ画面を開く","Open demo","打开演示画面","Abrir demo"],["コード・会社名で絞り込み","Filter by code / company","按代码・公司筛选","Filtrar por código / empresa"],
+/* ログイン */
+["お客様ログイン","Customer login","客户登录","Acceso cliente"],["STANDAGE管理者","STANDAGE admin","STANDAGE管理员","Admin STANDAGE"],["トライアルを開始する","Start trial","开始试用","Iniciar prueba"],["管理コンソールへ","To admin console","进入管理控制台","Ir a la consola"],
+["アクセスコード（例：BC-XXXX-XXXX）","Access code (e.g. BC-XXXX-XXXX)","访问码（例：BC-XXXX-XXXX）","Código de acceso (ej. BC-XXXX-XXXX)"],["ご担当者名（任意）","Your name (optional)","负责人姓名（可选）","Su nombre (opcional)"],["管理者ID","Admin ID","管理员ID","ID de administrador"],["パスワード","Password","密码","Contraseña"],
+["お渡ししたアクセスコードでログインしてください。","Log in with the access code we gave you.","请使用提供的访问码登录。","Inicie sesión con el código de acceso."],["アップロードいただく商品データは、このブラウザの外には送信されません。","Uploaded product data never leaves this browser.","上传的商品数据不会离开此浏览器。","Los datos subidos no salen de este navegador."],
+["言語","Language","语言","Idioma"],["トライアル環境","Trial environment","试用环境","Entorno de prueba"],
+/* 商品情報・登録 */
+["資料をアップロードする","Upload documents","上传资料","Subir documentos"],["ここにファイルをドラッグ＆ドロップ","Drag & drop files here","将文件拖放到此处","Arrastra archivos aquí"],["サンプルで試す","Try a sample","用样例试试","Probar un ejemplo"],["別の資料を読み込む","Load other documents","读取其他资料","Cargar otros documentos"],
+["通関統計コネクト","Customs statistics connect","海关统计连接","Estadísticas aduaneras"],["画面内で統計を開く","Open statistics here","在页面内打开统计","Abrir estadísticas aquí"],["統計エクスプローラ ↗","Statistics explorer ↗","统计浏览器 ↗","Explorador ↗"],["AIで価格設定・競合を分析","Analyze pricing & competitors with AI","用AI分析定价・竞品","Analizar precios y competencia con IA"],
+["推奨FOB価格をAI商社マンと試算","Estimate FOB price with the AI","与AI商社专员试算推荐FOB价格","Estimar precio FOB con la IA"],["強みを追加","Add strength","添加优势","Añadir fortaleza"],["価格表を編集","Edit price list","编辑价格表","Editar precios"],["寸法を編集","Edit dimensions","编辑尺寸","Editar dimensiones"],
+["商談を記録する","Record a meeting","记录商谈","Registrar reunión"],["最初の商談を記録する","Record the first meeting","记录首次商谈","Registrar la primera reunión"],["記録する","Record","记录","Registrar"],["断られた理由","Reason declined","被拒原因","Motivo de rechazo"],["日付","Date","日期","Fecha"],["バイヤー","Buyer","买家","Comprador"],["国","Country","国家","País"],["反応","Response","反应","Respuesta"],["担当","Owner","负责人","Responsable"],
+["高","High","高","Alta"],["中","Mid","中","Media"],["低","Low","低","Baja"],["受注","Won","成交","Ganado"],["失注","Lost","流失","Perdido"],
+["この環境について","About this environment","关于此环境","Sobre este entorno"],["デモ環境について","About the demo","关于演示环境","Sobre la demo"],["業種サンプルについて","About the industry sample","关于行业样例","Sobre el ejemplo"],
+];
+I18N.dict={en:{},zh:{},es:{}};
+I18N_ROWS.forEach(r=>{ I18N.dict.en[r[0]]=r[1]; I18N.dict.zh[r[0]]=r[2]; I18N.dict.es[r[0]]=r[3]; });
+/* 数字を含む定型文（正規表現→言語別テンプレート。$1,$2 で参照。関数なら (m,dict) を受ける） */
+I18N.pat=[
+ {re:/^トライアル 残り(\d+)日$/,en:"Trial · $1 days left",zh:"试用剩余$1天",es:"Prueba · $1 días"},
+ {re:/^残り(\d+)日$/,en:"$1 days left",zh:"剩余$1天",es:"$1 días restantes"},
+ {re:/^残り (\d+)日（(.+) まで）$/,en:"$1 days left (until $2)",zh:"剩余$1天（至 $2）",es:"$1 días (hasta $2)"},
+ {re:/^ステップ (\d+) \/ (\d+)(.*)$/,en:"Step $1 / $2$3",zh:"步骤 $1 / $2$3",es:"Paso $1 / $2$3"},
+ {re:/^レイヤー(.)　(.+)$/,en:(m,d)=>"Layer "+m[1]+" · "+(d[m[2]]||m[2]),zh:(m,d)=>"层"+m[1]+"・"+(d[m[2]]||m[2]),es:(m,d)=>"Capa "+m[1]+" · "+(d[m[2]]||m[2])},
+ {re:/^Lv\.(\d+) (\S+?)・(\d+)%$/,en:(m,d)=>"Lv."+m[1]+" "+(d[m[2]]||m[2])+" · "+m[3]+"%",zh:(m,d)=>"Lv."+m[1]+" "+(d[m[2]]||m[2])+"・"+m[3]+"%",es:(m,d)=>"Nv."+m[1]+" "+(d[m[2]]||m[2])+" · "+m[3]+"%"},
+ {re:/^(\d+)社回答$/,en:"$1 replies",zh:"$1家回复",es:"$1 respuestas"},
+ {re:/^(\d+)\/(\d+)件$/,en:"$1/$2",zh:"$1/$2 条",es:"$1/$2"},
+ {re:/^(.+?)・(\d+)商品平均$/,en:(m,d)=>(d[m[1]]||m[1])+" · avg. of "+m[2]+" products",zh:(m,d)=>(d[m[1]]||m[1])+"・"+m[2]+"个商品平均",es:(m,d)=>(d[m[1]]||m[1])+" · media de "+m[2]+" productos"},
+ {re:/^(\d+)商品平均$/,en:"avg. of $1 products",zh:"$1个商品平均",es:"media de $1 productos"},
+ {re:/^全社（(\d+)社・(\d+)商品(?:・うちデモ企業 (\d+)商品)?）$/,en:(m)=>"All companies ("+m[1]+" cos. · "+m[2]+" products"+(m[3]?" · "+m[3]+" demo":"")+")",zh:(m)=>"全公司（"+m[1]+"家・"+m[2]+"个商品"+(m[3]?"・其中演示"+m[3]+"个":"")+"）",es:(m)=>"Todas ("+m[1]+" emp. · "+m[2]+" productos"+(m[3]?" · "+m[3]+" demo":"")+")"},
+ {re:/^目標42件×(\d+)商材に対し (\d+)%$/,en:"vs. target 42 × $1 products: $2%",zh:"目标42件×$1个商品：$2%",es:"vs. objetivo 42 × $1 productos: $2%"},
+ {re:/^2年間で42件以上というお約束に対し (\d+)%$/,en:"vs. our 42-in-2-years commitment: $1%",zh:"对于两年42件的承诺：$1%",es:"vs. compromiso de 42 en 2 años: $1%"},
+ {re:/^一人前まで あと (\d+) pt$/,en:"$1 pt to full-fledged",zh:"距独当一面还差 $1 pt",es:"$1 pt para experto"},
+ {re:/^うち有効 (\d+)件$/,en:"$1 active",zh:"其中有效 $1 个",es:"$1 activas"},
+ {re:/^うち 🌐Web検索 (\d+)回$/,en:"incl. $1 web searches",zh:"含网络搜索 $1 次",es:"incl. $1 búsquedas web"},
+];
+const I18N_SKIP=/^(SCRIPT|STYLE|TEXTAREA|CODE|PRE|SVG|svg)$/;
+function i18nStr(s,d){
+  const k=String(s).trim(); if(!k||/^[\d\s.,%¥$\-–—/()（）:：]*$/.test(k)) return null;
+  const hit=v=>{ if(d[v]) return d[v]; for(const p of I18N.pat){ const m=v.match(p.re); if(m){ const out=p[I18N.lang]; if(!out) return null; return typeof out==="function"?out(m,d):out.replace(/\$(\d)/g,(x,i)=>m[+i]); } } return null; };
+  let t=hit(k);
+  if(t==null){ const m=k.match(/^([^\p{L}\p{N}]+)([\s\S]*?)([：:]?)$/u); if(m&&m[2]){ const t2=hit(m[2]); if(t2!=null) t=m[1]+t2+(m[3]?":":""); } }
+  if(t==null){ const m=k.match(/^([\s\S]*?)([：:])$/); if(m&&m[1]){ const t2=hit(m[1]); if(t2!=null) t=t2+":"; } }
+  if(t==null) return null;
+  return String(s).replace(k,t);
+}
+function i18nText(n,d){
+  const src=I18N.orig.has(n)?I18N.orig.get(n):n.nodeValue; const t=i18nStr(src,d);
+  if(t==null){ if(I18N.orig.has(n)&&n.nodeValue!==src) n.nodeValue=src; return; }
+  if(!I18N.orig.has(n)) I18N.orig.set(n,n.nodeValue); if(n.nodeValue!==t) n.nodeValue=t;
+}
+function i18nApply(root){
+  if(I18N.lang==="ja"||!root) return; const d=I18N.dict[I18N.lang]; if(!d) return;
+  const el=root.nodeType===1?root:(root.parentNode||null);
+  if(root.nodeType===3){ if(el&&!(I18N_SKIP.test(el.nodeName)||(el.closest&&el.closest("[data-noi18n],.bb,#uxpq")))) i18nText(root,d); return; }
+  if(!el||el.nodeType!==1) return;
+  const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode:n=>{ const p=n.parentNode; if(!p||I18N_SKIP.test(p.nodeName)) return NodeFilter.FILTER_REJECT; if(p.closest&&p.closest("[data-noi18n],.bb,#uxpq")) return NodeFilter.FILTER_REJECT; return NodeFilter.FILTER_ACCEPT; }});
+  const list=[]; while(w.nextNode()) list.push(w.currentNode); list.forEach(n=>i18nText(n,d));
+  const els=[el].concat([...el.querySelectorAll("[placeholder],[title],[aria-label]")]);
+  els.forEach(e=>{ if(e.closest&&e.closest("[data-noi18n]")) return; ["placeholder","title","aria-label"].forEach(a=>{ if(!e.hasAttribute||!e.hasAttribute(a)) return; const o=I18N.attr.get(e)||{}; const src=(o[a]!==undefined)?o[a]:e.getAttribute(a); const t=i18nStr(src,d); if(t==null) return; if(o[a]===undefined){ o[a]=src; I18N.attr.set(e,o); } if(e.getAttribute(a)!==t) e.setAttribute(a,t); }); });
+}
+function i18nRestore(){
+  I18N.orig.forEach((v,n)=>{ try{ if(n.isConnected) n.nodeValue=v; }catch(e){} }); I18N.orig=new Map();
+  I18N.attr.forEach((o,e)=>{ try{ if(e.isConnected) Object.keys(o).forEach(a=>e.setAttribute(a,o[a])); }catch(e2){} }); I18N.attr=new Map();
+}
+function i18nSet(l){
+  if(!I18N_LANGS[l]) l="ja"; I18N.lang=l; try{ localStorage.setItem("bc20_lang",l); }catch(e){}
+  document.documentElement.lang=l==="zh"?"zh-Hans":l; document.documentElement.setAttribute("data-lang",l);
+  i18nRestore();
+  document.querySelectorAll("#lang,#lang2").forEach(s=>{ if(s.value!==l) s.value=l; });
+  try{ if(typeof FWDON!=="undefined"&&FWDON&&typeof fwdRender==="function"){ fwdNav(); fwdRender(); }
+    else if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof renderAdmin==="function"&&typeof cur!=="undefined"&&cur==="adm"){ buildNav(); renderAdmin(); }
+    else if(typeof render==="function"&&!document.body.classList.contains("locked")){ if(typeof buildNav==="function") buildNav(); render(); } }catch(e){}
+  if(l!=="ja") i18nApply(document.body);
+  if(typeof toast==="function") toast(l==="ja"?"日本語表示に戻しました":l==="en"?"Switched to English":l==="zh"?"已切换为中文":"Cambiado a español");
+}
+/* ログイン画面にも言語切替を出す */
+function i18nLoginSel(){
+  const box=document.querySelector("#lgv .lgc"); if(!box||document.getElementById("lang2")) return;
+  box.insertAdjacentHTML("beforeend",`<div class="rw" style="margin-top:12px;gap:6px;justify-content:center;align-items:center" data-noi18n><span style="font-size:11.5px;color:var(--ink-3)">🌐 言語 / Language</span><select class="sel" id="lang2" style="min-height:32px;padding:4px 8px;font-size:12.5px"><option value="ja">日本語</option><option value="en">English</option><option value="zh">中文</option><option value="es">Español</option></select></div>`);
+  const s=document.getElementById("lang2"); s.value=I18N.lang; s.onchange=()=>i18nSet(s.value);
+}
+/* 描画のたびに自動適用（追加されたノードだけ） */
+new MutationObserver(muts=>{ try{ i18nLoginSel(); if(I18N.lang==="ja") return; muts.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1||n.nodeType===3) i18nApply(n); })); }catch(e){} }).observe(document.body,{childList:true,subtree:true});
+/* トースト・AIの回答言語 */
+if(typeof toast==="function"){ const __toastI=toast; toast=function(m){ try{ if(I18N.lang!=="ja"){ const t=i18nStr(String(m||""),I18N.dict[I18N.lang]); if(t!=null) m=t; } }catch(e){} return __toastI.apply(this,[m]); }; }
+if(typeof llmSysPrompt==="function"){ const __sysI=llmSysPrompt; llmSysPrompt=function(){ const s=__sysI.apply(this,arguments); return I18N.lang==="ja"?s:s+"\n\n"+I18N_INSTR[I18N.lang]; }; }
+if(typeof llmAsk==="function"){ const __askI=llmAsk; llmAsk=async function(q,maxTok,opts){ if(I18N.lang!=="ja"&&opts&&opts.sys){ opts=Object.assign({},opts,{sys:String(opts.sys)+"\n\n"+I18N_INSTR[I18N.lang]}); } return __askI.apply(this,[q,maxTok,opts]); }; }
+/* 起動時 */
+try{ document.documentElement.setAttribute("data-lang",I18N.lang); if(I18N.lang!=="ja"){ document.documentElement.lang=I18N.lang==="zh"?"zh-Hans":I18N.lang; i18nApply(document.body); } i18nLoginSel(); const ls=document.getElementById("lang"); if(ls) ls.value=I18N.lang; }catch(e){}
 
 </script>
