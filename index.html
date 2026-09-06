@@ -459,6 +459,13 @@ body.z120 #well,body.z120 .side,body.z120 #guide,body.z120 .dw .pn,body.z120 #ux
 #uxsec .uxsc{font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);cursor:pointer}
 #uxsec .uxsc:hover,#uxsec .uxsc.on{border-color:var(--or);color:var(--or-deep);background:var(--or-soft)}
 @media (max-width:700px){#uxsec{position:static}}
+
+/* ── v16：会議メモ・承認チップ・受信翻訳 ── */
+#memoList button.rw:hover{border-color:var(--or)}
+[data-v16tr] .q,[data-v16lw] .q{white-space:nowrap}
+td[data-aprtd] .btn{white-space:nowrap}
+#v16adm .admgrid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+@media (max-width:900px){#v16adm .admgrid2{grid-template-columns:1fr}}
 /* ── v15.22：全画面共通のUX層 ── */
 #well.uxin{animation:uxin .22s ease}
 @keyframes uxin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -6223,7 +6230,7 @@ function mRows(){
   const rows=D.msgs.map((m,__mi)=>Object.assign({__mi},m)).filter(m=>(msgScope==="all"||m.scope===msgScope)
     &&(!q||(m.body+m.who+(m.file?m.file.n:"")).includes(q)));
   $("#mlist").innerHTML=rows.length?rows.map(m=>`
-    <div style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:${m.ai?"var(--or-soft)":"var(--surface)"}">
+    <div data-mi="${m.__mi}" style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:${m.ai?"var(--or-soft)":"var(--surface)"}">
       <div class="rw" style="justify-content:space-between;margin-bottom:6px">
         <div class="rw" style="gap:8px">
           <span style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;
@@ -10056,7 +10063,7 @@ function render(){
     ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp),
     legal:(typeof vLegal==="function"?vLegal:vUp),
     today:(typeof vToday==="function"?vToday:vDash),
-    srcs:(typeof vSrcs==="function"?vSrcs:vUp)})[cur](p);
+    srcs:(typeof vSrcs==="function"?vSrcs:vUp),memo:(typeof vMemo==="function"?vMemo:vUp)})[cur](p);
   if(cur==="deck"&&typeof deckBind==="function") deckBind();
   if(cur==="legal"&&typeof legalBind==="function") legalBind();
   if(cur==="srcs"&&typeof srcsBind==="function") srcsBind();
@@ -17840,7 +17847,7 @@ async function syncLookup(code){
 async function syncAdminPush(){
   if(!syncOn()||typeof SES==="undefined"||!SES||SES.t!=="admin"||typeof ADB==="undefined") return;
   const accounts=[]; for(const a of ADB.accounts){ const {kid}=await syncDerive(a.code);
-    accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,members:(a.members||[]).map(m=>({name:m.name,st:m.st}))}); }
+    accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,members:(a.members||[]).map(m=>({name:m.name,st:m.st})),approver:a.approver||""}); }
   const r=await syncCall("admin_set",{pw:SES.apw||"",accounts});
   if(r.ok){ SYNC.last.push=Date.now(); SYNC.pwDefault=r.pwDefault?1:0; }
   return r;
@@ -18310,6 +18317,519 @@ if(typeof uxPalItems==="function"){ const __uxPalItems2=uxPalItems;
 /* 描画後 */
 if(typeof uxAfterRender==="function"){ const __uxAfter2=uxAfterRender; uxAfterRender=function(){ const r=__uxAfter2.apply(this,arguments); try{ ux2TopBar(); ux2SecNav(); }catch(e){} return r; }; }
 try{ ux2TopBar(); ux2SecNav(); }catch(e){}
+
+/* ═══════════ v16（2026-09-06）：ギャップ分析「実装推奨」の両ビルド共通分 ═══════════
+   ① 会議メモ・議事録（AI要約→決定事項・宿題→ワンクリックでタスク化）
+   ② タスクの定型セット（標準5種＋自社セット。AI提案と併用）
+   ③ 商談記録の承認フロー・公開管理・対訳保存（下書き→承認待ち→公開）
+   ④ 受信翻訳（やりとり・商談記録・会議メモの「読む側」翻訳。AI接続時のみ・未接続は正直表示） */
+function v16Ten(){ return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))?TEN:null; }
+function v16Persist(){ if(v16Ten()){ if(typeof syncTenant==="function") syncTenant(); if(typeof saveTen==="function") saveTen(); } }
+function v16Lang(){ try{ return (typeof I18N!=="undefined"&&I18N&&I18N.lang)||"ja"; }catch(e){ return "ja"; } }
+const V16_LANGN={ja:"日本語",en:"English",zh:"简体中文",es:"Español"};
+function v16Online(){ try{ return typeof ppReady==="function"&&ppReady()&&typeof llmAsk==="function"; }catch(e){ return false; } }
+function v16HasJa(s){ return /[぀-ヿ㐀-鿿]/.test(String(s||"")); }
+function v16Plain(h){ return String(h||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"'); }
+function v16Who(){ return (typeof SES!=="undefined"&&SES&&SES.who)||((typeof D!=="undefined"&&D&&D.co)||"貴社担当"); }
+function v16TrTarget(text){ const L=v16Lang(); if(L!=="ja") return L; return v16HasJa(text)?"en":"ja"; }
+async function v16Translate(text,to){
+  const q=`Translate the text below into ${V16_LANGN[to]||to}. Output only the translation. Keep names, codes, numbers and line breaks as they are.\n\n${String(text).slice(0,6000)}`;
+  const r=await llmAsk(q,Math.min(1800,Math.max(300,String(text).length*2)),{noWeb:1,timeout:60000,task:"translate"});
+  const t=String((r&&r.txt)||"").trim(); if(!t) throw new Error("翻訳結果が空でした"); return t;
+}
+function v16DayDiff(a,b){ return Math.round((new Date(String(b)+"T00:00:00")-new Date(String(a)+"T00:00:00"))/864e5)||0; }
+
+/* ═══ ① 会議メモ・議事録 ═══ */
+try{ if(typeof PAGES!=="undefined"&&!PAGES.some(p=>p.id==="memo")){ const i=PAGES.findIndex(p=>p.id==="task");
+  PAGES.splice(i>=0?i+1:PAGES.length,0,{id:"memo",ly:"②",nm:"会議メモ・議事録",grp:"業務を回す",nw:1,
+    ic:'<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 12h8M8 16h5"/>'}); } }catch(e){}
+try{ if(typeof SCN!=="undefined"&&SCN) SCN.memo="会議メモ"; }catch(e){}
+function memoStore(){ const t=v16Ten(); if(t) return (t.memos=t.memos||[]); if(typeof D!=="undefined"&&D) return (D.memos=D.memos||[]); return []; }
+let MEMO_EDIT="";
+function memoFind(id){ return memoStore().find(m=>m.id===id)||null; }
+function memoSorted(){ return memoStore().slice().sort((a,b)=>((b.pin|0)-(a.pin|0))||String(b.d||"").localeCompare(String(a.d||""))||((b.at||0)-(a.at||0))); }
+function vMemo(p){
+  const L=memoSorted(); const ed=MEMO_EDIT?memoFind(MEMO_EDIT):null;
+  return ph(p,"<b>この画面でできること：</b>定例会や商談の議事録をここに残すと、AIが決定事項と宿題を整理し、宿題はワンクリックでタスクになります。以前の貿易クラウドで最も使われていた「メモ」の置き場です。",
+    `<button class="btn" onclick="memoEdit('')">＋ 新しいメモ</button>`)+`
+  <div class="g2" style="align-items:start">
+    <div class="c" style="min-width:0"><div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>会議メモ・議事録 <span class="n" style="color:var(--ink-3);font-weight:400">${L.length}件</span></h3>
+        <input class="sel" id="memoQ" placeholder="🔍 メモを検索" style="min-width:170px"></div>
+      <p class="nn">ピン留めしたメモが上に来ます。クリックで右側に開きます。</p>
+      <div id="memoList" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div></div>
+    <div class="c" id="memoForm" style="min-width:0">${memoFormHtml(ed)}</div>
+  </div>`;
+}
+function memoFormHtml(m){
+  const isNew=!m; m=m||{t:"",d:TODAYS,body:"",pin:0};
+  return `<div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>${isNew?"新しいメモ":"メモを編集"}</h3>
+      ${isNew?"":`<span class="rw" style="gap:6px"><button class="btn g" style="font-size:11px" onclick="memoPin('${esc(m.id)}')">${m.pin?"📌 ピン留め解除":"📌 ピン留め"}</button><button class="btn g" style="font-size:11px;color:var(--crit);border-color:var(--crit)" onclick="memoDelete('${esc(m.id)}')">🗑 削除</button></span>`}</div>
+    <div class="g2" style="gap:8px;margin-top:8px">
+      <div><p class="lbl">タイトル</p><input class="sel" id="memoT" value="${esc(m.t||"")}" placeholder="例：9月定例会（○○様）" style="width:100%;box-sizing:border-box"></div>
+      <div><p class="lbl">日付</p><input type="date" class="sel" id="memoD" value="${esc(m.d||TODAYS)}" style="width:100%;box-sizing:border-box"></div></div>
+    <p class="lbl" style="margin-top:8px">本文（議事録・メモ）</p>
+    <textarea class="sel" id="memoB" style="width:100%;min-height:170px;box-sizing:border-box;resize:vertical;font-size:12.5px;line-height:1.7" placeholder="議事録を貼り付け、または入力。ZoomやMeetの文字起こし（txt / vtt / docx）は下の📎から読み込めます">${esc(m.body||"")}</textarea>
+    <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn" onclick="memoSave()">💾 保存</button>
+      <label class="btn g" style="cursor:pointer">📎 議事録ファイル<input type="file" id="memoF" hidden accept=".txt,.vtt,.docx,.md"></label>
+      <button class="btn g" onclick="memoSummarize()">🤖 要約して宿題を抽出</button>
+      ${isNew?"":`<button class="btn g" onclick="memoTranslate('${esc(m.id)}')">🌐 翻訳</button>`}
+      <span class="nn" id="memoSt" style="margin:0"></span></div>
+    ${m.sum?memoSumHtml(m):`<p class="nn" style="margin-top:8px">「要約して宿題を抽出」を押すと、決定事項・宿題を整理します（AI接続時はAIが要約、未接続時はキーワードで抽出）。</p>`}
+    ${m.tr&&Object.keys(m.tr).length?`<details class="fwdx" style="margin-top:8px"><summary>🌐 翻訳（${Object.keys(m.tr).map(k=>V16_LANGN[k]||k).join("・")}）</summary><div style="font-size:12px;line-height:1.75;white-space:pre-wrap;margin-top:6px">${Object.entries(m.tr).map(([k,v])=>`<b>${V16_LANGN[k]||k}</b><br>${esc(v)}`).join("<br><br>")}</div></details>`:""}`;
+}
+function memoSumHtml(m){
+  const s=m.sum, todos=s.todo||[];
+  return `<div style="margin-top:10px;padding:11px 13px;border-radius:var(--r2);background:var(--or-soft);font-size:12px;line-height:1.75">
+    <b style="color:var(--or-deep)">🤖 要約</b><span class="p ${s.ai?"hi":"lo"}" style="margin-left:6px;font-size:9px">${s.ai?"AI":"キーワード抽出"}</span><br>${esc(s.txt||"")}
+    ${(s.dec||[]).length?`<p class="lbl" style="margin-top:8px">決定事項</p><ul style="margin:4px 0 0 18px;padding:0">${s.dec.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+    ${todos.length?`<p class="lbl" style="margin-top:8px">宿題（チェックしてタスクにする）</p>
+      <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">${todos.map((t,i)=>`<label style="display:flex;gap:7px;align-items:flex-start"><input type="checkbox" data-memotodo="${i}" ${t.tasked?"disabled":"checked"} style="margin-top:4px;accent-color:var(--or)"><span>${esc(t.t)}${t.who?` <span class="p lo">${esc(t.who)}</span>`:""}${t.due?` <span class="p lo">${esc(t.due)}</span>`:""}${t.tasked?' <span class="p hi">タスク化済み</span>':""}</span></label>`).join("")}</div>
+      <div class="rw" style="margin-top:8px;gap:6px"><button class="btn" onclick="memoTask('${esc(m.id)}')">✅ 選んだ宿題をタスクにする</button></div>`
+      :`<p class="nn" style="margin-top:6px">宿題は見つかりませんでした。「〜する」「〜まで」など次の行動が本文にあると抽出できます。</p>`}</div>`;
+}
+function memoRows(){
+  const q=(($("#memoQ")||{}).value||"").trim().toLowerCase();
+  const L=memoSorted().filter(m=>!q||(String(m.t||"")+" "+String(m.body||"")).toLowerCase().includes(q));
+  const box=$("#memoList"); if(!box) return;
+  box.innerHTML=L.length?L.map(m=>`<button class="rw" data-memo="${esc(m.id)}" style="width:100%;text-align:left;gap:10px;padding:9px 12px;border:1px solid ${m.id===MEMO_EDIT?"var(--or)":"var(--line)"};border-radius:var(--r2);background:${m.id===MEMO_EDIT?"var(--or-soft)":"var(--surface)"};cursor:pointer;font:inherit;align-items:flex-start">
+      <span style="flex:1;min-width:0"><b style="font-size:12.5px">${m.pin?"📌 ":""}${esc(m.t||"（無題）")}</b> <span style="font-size:10px;color:var(--ink-3)">${esc(m.d||"")}</span><br>
+        <span style="font-size:11px;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all">${esc(String(m.body||"").replace(/\s+/g," ").slice(0,90))}</span></span>
+      <span class="rw" style="gap:4px;flex:none">${m.sum?'<span class="p hi">要約済み</span>':""}${(m.sum&&(m.sum.todo||[]).some(t=>t.tasked))?'<span class="p on">タスク化</span>':""}</span></button>`).join("")
+    :`<div style="padding:18px;text-align:center;color:var(--ink-3);font-size:12px;border:1px dashed var(--line);border-radius:var(--r2)">まだメモがありません。<br><b style="color:var(--ink-2)">定例会の議事録を貼り付けるだけで、宿題がタスクになります。</b></div>`;
+  box.querySelectorAll("[data-memo]").forEach(b=>b.onclick=()=>memoEdit(b.dataset.memo));
+}
+function memoBind(){ memoRows(); const q=$("#memoQ"); if(q) q.oninput=memoRows; const f=$("#memoF"); if(f) f.onchange=memoFile; }
+function memoEdit(id){ MEMO_EDIT=id||""; render(); const t=$("#memoT"); if(t&&!id) t.focus(); }
+async function memoFile(e){
+  const f=e.target.files[0]; e.target.value=""; if(!f) return; const st=$("#memoSt"); const ext=(typeof FEXT==="function")?FEXT(f.name):"";
+  try{ let txt=""; if(ext==="docx"&&typeof extractDocx==="function"){ txt=(await extractDocx(f)).text; } else txt=await f.text();
+    txt=String(txt||"").replace(/\r/g,"").slice(0,30000);
+    if(ext==="vtt") txt=txt.split("\n").filter(l=>l&&!/^\d+$/.test(l)&&!/-->/.test(l)&&!/^WEBVTT/.test(l)).join("\n");
+    const ta=$("#memoB"); if(ta) ta.value=(ta.value?ta.value+"\n\n":"")+txt;
+    const t=$("#memoT"); if(t&&!t.value) t.value=f.name.replace(/\.[^.]+$/,"");
+    if(st) st.textContent="OK: "+f.name+" を読み込みました（保存を押してください）";
+  }catch(err){ if(st) st.textContent="読み込めませんでした："+String(err.message||err).slice(0,40); }
+}
+function memoSave(quiet){
+  const t=(($("#memoT")||{}).value||""), d=(($("#memoD")||{}).value||TODAYS), body=(($("#memoB")||{}).value||"");
+  if(!t.trim()&&!body.trim()){ toast("タイトルか本文を入力してください"); return null; }
+  let m=MEMO_EDIT?memoFind(MEMO_EDIT):null;
+  if(!m){ m={id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),pin:0,at:Date.now(),sum:null}; memoStore().unshift(m); MEMO_EDIT=m.id; }
+  m.t=t.trim()||("メモ "+d); m.d=d; m.body=body; m.up=Date.now();
+  v16Persist(); if(typeof logU==="function") logU("fill","会議メモ:"+m.t.slice(0,30));
+  if(!quiet){ render(); toast("メモを保存しました"); }
+  return m;
+}
+function memoPin(id){ const m=memoFind(id); if(!m) return; m.pin=m.pin?0:1; v16Persist(); render(); }
+function memoDelete(id){ const m=memoFind(id); if(!m) return; if(!confirm("このメモを削除しますか？")) return; const s=memoStore(); s.splice(s.indexOf(m),1); MEMO_EDIT=""; v16Persist(); render(); toast("削除しました"); }
+function memoSumLocal(text){
+  const lines=String(text||"").replace(/\r/g,"").split("\n").map(l=>l.replace(/^[\s\-•・■□☐▪◆●○*]+/,"").trim()).filter(l=>l.length>1);
+  const dec=[],todo=[]; const seen=new Set();
+  lines.forEach(l=>{ if(l.length>140||seen.has(l)) return;
+    if(/決定|決まり|合意|確定|承認|了承|方針/.test(l)){ seen.add(l); dec.push(l); return; }
+    if(/宿題|TODO|ToDo|対応|確認|送付|送る|作成|準備|依頼|提出|回答|連絡|手配|検討|調整|までに|まで$|する$|すること$|お願い|next|action|follow/i.test(l)){ seen.add(l);
+      todo.push({t:l.slice(0,90),who:((l.match(/[（(]([^（()）]{1,12})[)）]/)||[])[1]||"").replace(/^(担当者|担当|責任者|owner)[：:]\s*/i,""),due:(l.match(/(\d{1,2}\/\d{1,2}|\d{1,2}月\d{1,2}日|来週|今週|月末)/)||[])[1]||""}); } });
+  const head=lines.slice(0,3).join(" ／ ").slice(0,200);
+  return {txt:head||"（本文が短いため要約はありません）",dec:dec.slice(0,8),todo:todo.slice(0,12),ai:0,at:Date.now()};
+}
+async function memoSummarize(){
+  const m=memoSave(1); if(!m) return; const st=$("#memoSt");
+  if(!v16Online()){ m.sum=memoSumLocal(m.body); v16Persist(); render(); toast("キーワードで整理しました（AI接続時はAIが要約します）"); return; }
+  if(st) st.textContent="🤖 要約しています…";
+  try{
+    const r=await llmAsk(`次の議事録を整理し、JSONだけを出力してください。スキーマ:{"summary":"3行以内の要約","decisions":["決定事項"],"todos":[{"t":"宿題（動詞で終わる）","who":"担当（不明なら空）","due":"期限（不明なら空）"}]}\n\n議事録：\n${String(m.body).slice(0,9000)}`,1400,{noWeb:1,timeout:90000});
+    const txt=String((r&&r.txt)||""); const j=JSON.parse((txt.match(/\{[\s\S]*\}/)||["{}"])[0]);
+    m.sum={txt:String(j.summary||"").slice(0,400),dec:(j.decisions||[]).map(String).slice(0,10),todo:(j.todos||[]).map(x=>({t:String(x.t||"").slice(0,90),who:String(x.who||""),due:String(x.due||"")})).filter(x=>x.t).slice(0,15),ai:1,at:Date.now()};
+    if(!m.sum.txt&&!m.sum.todo.length) m.sum=memoSumLocal(m.body);
+    v16Persist(); if(typeof logU==="function") logU("ai","会議メモ要約"); render(); toast("要約しました");
+  }catch(e){ m.sum=memoSumLocal(m.body); v16Persist(); render(); toast("AI要約に失敗したためキーワードで整理しました"); }
+}
+function memoDue(s,base){
+  if(!s) return ""; const y=String(base||TODAYS).slice(0,4); let m=String(s).match(/(\d{1,2})[\/月](\d{1,2})/);
+  if(m) return `${y}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;
+  if(/今週/.test(s)) return addDays(TODAYS,5); if(/来週/.test(s)) return addDays(TODAYS,10);
+  if(/月末/.test(s)){ const d=new Date(TODAYS+"T00:00:00"); d.setMonth(d.getMonth()+1,0); return d.toISOString().slice(0,10); }
+  return "";
+}
+function memoTask(id){
+  const m=memoFind(id); if(!m||!m.sum) return;
+  const picked=[]; document.querySelectorAll("[data-memotodo]").forEach(cb=>{ const t=m.sum.todo[+cb.dataset.memotodo]; if(cb.checked&&!cb.disabled&&t&&!t.tasked) picked.push(t); });
+  if(!picked.length){ toast("タスクにする宿題にチェックを入れてください"); return; }
+  const mk=(t,i)=>({n:t.t.slice(0,70),pri:"中",s:TODAYS,e:memoDue(t.due,m.d)||addDays(TODAYS,7+i*2),st:"未着手",who:t.who||((typeof D!=="undefined"&&D&&D.co)||"貴社"),ref:"会議メモ："+String(m.t).slice(0,18),kids:[],memo:m.id});
+  const ten=v16Ten();
+  if(ten){ ten.xtasks=(ten.xtasks||[]).concat(picked.map(mk)); } else if(typeof D!=="undefined"&&D){ picked.map(mk).forEach(t=>D.tasks.push(t)); }
+  picked.forEach(t=>t.tasked=1); m.tasked=(m.tasked||0)+picked.length;
+  v16Persist(); if(typeof logU==="function") logU("fill","会議メモ→タスク:"+picked.length+"件");
+  render(); toast(picked.length+"件をタスクにしました（「タスク・進行」に反映済み）");
+}
+async function memoTranslate(id){
+  const m=memoFind(id); if(!m) return; const to=v16TrTarget(m.body); const st=$("#memoSt");
+  if(!v16Online()){ toast("翻訳はAIエンジン接続時に使えます（管理コンソールで接続）"); return; }
+  if(st) st.textContent="🌐 翻訳しています…";
+  try{ const t=await v16Translate((m.t?m.t+"\n\n":"")+m.body,to); m.tr=m.tr||{}; m.tr[to]=t; v16Persist(); render(); toast((V16_LANGN[to]||to)+"に翻訳しました"); }
+  catch(e){ if(st) st.textContent="翻訳できませんでした："+String(e.message||e).slice(0,40); }
+}
+
+/* ═══ ② タスクの定型セット ═══ */
+const PRESET_DEF=[
+ {id:"init",nm:"導入時の初期タスク",desc:"商品情報の登録から規制調査まで。新しい商品を登録した直後に",tasks:[["商品情報（価格表・寸法・成分）を揃える",3,"高"],["進出希望国を決める",5,"高"],["規制調査を依頼する",14,"高"],["英文の商品名・社名を登録する",7,"中"],["営業資料の元データを確認する",10,"中"]]},
+ {id:"teirei",nm:"定例会の準備（毎月）",desc:"定例会の1週間前から翌日まで。基準日＝定例会の当日",tasks:[["商談記録を最新にする",-7,"中"],["今月の実績と次月の計画をまとめる",-3,"高"],["定例会の資料を送る",-1,"高"],["定例会を実施し議事録を残す",0,"高"],["宿題をタスクに登録する",1,"中"]]},
+ {id:"expo",nm:"展示会の準備",desc:"出展の6週間前から事後フォローまで。基準日＝会期初日",tasks:[["出展商品とサンプル数を決める",-42,"高"],["英語カタログ・価格表を用意する",-28,"高"],["招待メールをバイヤーに送る",-14,"中"],["名刺・商談記録の記入ルールを決める",-7,"中"],["商談記録を貿易クラウドに登録する",2,"高"],["御礼と見積を送る",5,"高"]]},
+ {id:"export",nm:"国別輸出の定型手順",desc:"受注が見えてから出荷まで。基準日＝受注日",tasks:[["送り先の規制・必要書類を確認する",2,"高"],["見積（FOB／CIF）を提示する",4,"高"],["物流会社に見積を依頼する",5,"中"],["注文書・PIを取り交わす",8,"高"],["船積書類（CI／PL）を作る",14,"高"],["出荷・入金を確認する",21,"高"]]},
+ {id:"newbuyer",nm:"新規バイヤー対応",desc:"初回コンタクトからフォローまで。基準日＝初回接触日",tasks:[["初回提案メールを送る",1,"高"],["サンプル・見積の要否を確認する",5,"中"],["サンプルを発送する",10,"中"],["1週間後にフォローする",17,"中"],["商談記録を残す",18,"高"]]}
+];
+function presetStore(){ const t=v16Ten(); if(t) return (t.presets=t.presets||[]); if(typeof D!=="undefined"&&D) return (D.presets=D.presets||[]); return []; }
+function presetAll(){ return PRESET_DEF.map(p=>Object.assign({builtin:1},p)).concat(presetStore()); }
+function openPresets(){
+  const all=presetAll();
+  openDW(`<h3>📚 タスクの定型セット</h3>
+   <p class="nn" style="margin:6px 0 10px">展示会の準備や定例会など「毎回同じ手順」は、定型セットから一括でタスクにできます。AIの提案と併用できます。</p>
+   <div class="rw" style="gap:8px;align-items:center;flex-wrap:wrap"><span class="lbl" style="margin:0">基準日</span><input type="date" class="sel" id="psBase" value="${TODAYS}"><span class="nn" style="margin:0">展示会・定例会の当日など。各タスクの期限は基準日からの日数で決まります。</span></div>
+   <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+   ${all.map((p,i)=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:9px 12px;background:${p.builtin?"var(--surface)":"var(--or-soft)"}">
+      <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b style="font-size:12.5px">${esc(p.nm)}</b> <span class="p ${p.builtin?"lo":"or"}">${p.builtin?"標準":"自社"}</span><br><span style="font-size:10.5px;color:var(--ink-3)"><span>${esc(p.desc||"")}</span>・<span>${(p.tasks||[]).length}件</span></span></div>
+        <span class="rw" style="gap:5px"><button class="btn" style="font-size:11px;padding:4px 10px" data-psapply="${i}">この商品に適用</button>${p.builtin?"":`<button class="btn g" style="font-size:11px;padding:4px 8px;color:var(--crit);border-color:var(--crit)" data-psdel="${esc(p.id)}">削除</button>`}</span></div>
+      <details style="margin-top:5px"><summary style="font-size:10.5px;color:var(--ink-3);cursor:pointer">タスクを見る</summary><ol style="margin:4px 0 0 18px;padding:0;font-size:11px;line-height:1.7">${(p.tasks||[]).map(t=>`<li>${esc(t[0])} <span style="color:var(--ink-3)">（${t[1]>=0?"+":""}${t[1]}日・${esc(t[2]||"中")}）</span></li>`).join("")}</ol></details></div>`).join("")}</div>
+   <div class="rw" style="margin-top:12px;gap:8px"><button class="btn g" onclick="openPresetMake()">＋ いまのタスクから定型セットを作る</button><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  document.querySelectorAll("[data-psapply]").forEach(b=>b.onclick=()=>presetApply(all[+b.dataset.psapply]));
+  document.querySelectorAll("[data-psdel]").forEach(b=>b.onclick=()=>{ const s=presetStore(); const i=s.findIndex(x=>x.id===b.dataset.psdel); if(i>=0&&confirm("この定型セットを削除しますか？")){ s.splice(i,1); v16Persist(); openPresets(); } });
+}
+function presetApply(p){
+  if(!p||!(p.tasks||[]).length) return; const base=(($("#psBase")||{}).value||TODAYS);
+  const mk=t=>{ const e=addDays(base,+t[1]||0); const s0=addDays(e,-3); return {n:String(t[0]).slice(0,80),pri:t[2]||"中",s:s0>e?e:s0,e,st:"未着手",who:(typeof D!=="undefined"&&D&&D.co)||"貴社",ref:"定型："+String(p.nm).slice(0,14),kids:[],preset:p.id}; };
+  const ten=v16Ten(); const made=p.tasks.map(mk);
+  if(ten){ ten.xtasks=(ten.xtasks||[]).concat(made); } else if(typeof D!=="undefined"&&D){ made.forEach(t=>D.tasks.push(t)); }
+  v16Persist(); if(typeof logU==="function") logU("fill","定型セット適用:"+p.nm);
+  closeDW(); try{ taskTab="task"; }catch(e){} go("task"); toast(`「${p.nm}」から${made.length}件のタスクを作成しました`);
+}
+function openPresetMake(){
+  const ts=((typeof D!=="undefined"&&D&&D.tasks)||[]).filter(t=>t&&t.n);
+  openDW(`<h3>＋ 定型セットを作る</h3><p class="nn" style="margin:6px 0 8px">いま登録されているタスクから選んで、次回以降に使い回せる定型セットにします（期限は今日からの日数として保存）。</p>
+   <p class="lbl">セット名</p><input class="sel" id="psNm" placeholder="例：台湾向け出荷の定型" style="width:100%;box-sizing:border-box">
+   <p class="lbl" style="margin-top:8px">含めるタスク</p>
+   <div style="max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:3px">${ts.length?ts.map((t,i)=>`<label style="display:flex;gap:7px;align-items:flex-start;font-size:11.5px"><input type="checkbox" data-psmk="${i}" ${t.st==="完了"||t.st==="中止"?"":"checked"} style="margin-top:3px;accent-color:var(--or)"><span>${esc(t.n)} <span style="color:var(--ink-3);font-size:10px">${esc(t.e||"")}・${esc(t.pri||"")}</span></span></label>`).join(""):'<p class="nn">タスクがありません。</p>'}</div>
+   <div class="rw" style="margin-top:12px;gap:8px"><button class="btn" id="psMkGo">保存する</button><button class="btn g" onclick="openPresets()">戻る</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#psMkGo").onclick=()=>{ const nm=(($("#psNm")||{}).value||"").trim(); if(!nm){ toast("セット名を入力してください"); return; }
+    const tasks=[]; document.querySelectorAll("[data-psmk]").forEach(cb=>{ if(!cb.checked) return; const t=ts[+cb.dataset.psmk]; if(t) tasks.push([t.n,t.e?v16DayDiff(TODAYS,t.e):7,t.pri||"中"]); });
+    if(!tasks.length){ toast("タスクを1件以上選んでください"); return; }
+    presetStore().push({id:"p"+Date.now().toString(36),nm,desc:"現在のタスクから作成",tasks,at:Date.now()}); v16Persist(); toast("定型セットを保存しました"); openPresets(); };
+}
+if(typeof vTask==="function"){ const __vTask16=vTask;
+  vTask=function(p){ return __vTask16.apply(this,arguments).replace('<button class="btn" onclick="openAiTask()">AIにタスクを作らせる</button>','<button class="btn" onclick="openAiTask()">AIにタスクを作らせる</button> <button class="btn g" onclick="openPresets()">📚 定型セット</button>'); }; }
+
+/* ═══ ③ 商談記録の承認フロー・公開管理・対訳 ═══ */
+function fbSet(){ const t=v16Ten(); return t||((typeof D!=="undefined"&&D)?D:{}); }
+function fbAprOn(){ return !!fbSet().fbAprOn; }
+function fbApprover(){ const s=fbSet(); return s.fbApprover||((typeof SYNC!=="undefined"&&SYNC&&SYNC.srvAcct&&SYNC.srvAcct.approver)||""); }
+function fbAprSt(f){ if(f&&f.apr&&f.apr.st) return f.apr.st; return (f&&f.user&&fbAprOn())?"下書き":"公開"; }
+function fbAprChip(f){ const st=fbAprSt(f); const c=st==="公開"?"hi":st==="承認済"?"on":st==="承認待ち"?"mid":st==="差戻し"?"no":"lo"; return `<span class="p ${c}">${st}</span>`; }
+function fbRec(i){ return (typeof D!=="undefined"&&D&&D.fb)?D.fb[i]:null; }
+function fbAprReq(i){ const f=fbRec(i); if(!f) return; f.apr={st:"承認待ち",req:v16Who(),reqAt:TODAYS}; v16Persist(); if(typeof logU==="function") logU("fill","商談記録の承認依頼"); render(); toast("承認を依頼しました"+(fbApprover()?"（承認者："+fbApprover()+"）":"")); }
+function fbAprOk(i){ const f=fbRec(i); if(!f) return; f.apr=Object.assign({},f.apr||{},{st:"公開",by:v16Who(),at:TODAYS,pub:1}); v16Persist(); if(typeof logU==="function") logU("fill","商談記録を承認・公開"); render(); toast("承認して公開しました"); }
+function fbAprBack(i){ const f=fbRec(i); if(!f) return; const why=prompt("差し戻しの理由（任意）","")||""; f.apr=Object.assign({},f.apr||{},{st:"差戻し",by:v16Who(),at:TODAYS,back:why}); v16Persist(); render(); toast("差し戻しました"); }
+function fbPubToggle(i){ const f=fbRec(i); if(!f) return; const st=fbAprSt(f);
+  if(st==="公開") f.apr=Object.assign({},f.apr||{},{st:"承認済",pub:0,by:v16Who(),at:TODAYS}); else f.apr=Object.assign({},f.apr||{},{st:"公開",pub:1,by:v16Who(),at:TODAYS});
+  v16Persist(); render(); toast(fbAprSt(f)==="公開"?"公開しました":"非公開にしました"); }
+function fbAprBtns(i,f){ const st=fbAprSt(f); const B=(fn,lb,cls)=>`<button class="btn ${cls||"g"}" style="padding:2px 8px;font-size:10px" onclick="event.stopPropagation();${fn}(${i})">${lb}</button>`;
+  if(st==="下書き"||st==="差戻し") return B("fbAprReq","承認を依頼");
+  if(st==="承認待ち") return B("fbAprOk","承認して公開","")+B("fbAprBack","差戻し");
+  if(st==="承認済") return B("fbPubToggle","公開する","");
+  return B("fbPubToggle","非公開にする"); }
+function fbAprDecorate(){
+  const tb=$("#fbb"); if(!tb) return; const tbl=tb.closest("table"); const th=tbl&&tbl.querySelector("thead tr");
+  if(th&&!th.querySelector("[data-aprth]")) th.insertAdjacentHTML("beforeend",'<th data-aprth>承認・公開</th>');
+  tb.querySelectorAll("tr[data-i]").forEach(tr=>{ if(tr.querySelector("[data-aprtd]")) return; const i=+tr.dataset.i; const f=fbRec(i); if(!f) return;
+    tr.insertAdjacentHTML("beforeend",`<td data-aprtd><div class="rw" style="gap:4px;flex-wrap:wrap;align-items:center">${fbAprChip(f)}${fbAprBtns(i,f)}${f.tr&&f.tr.en?'<span class="p on" title="対訳あり">🌐</span>':""}</div></td>`); });
+  const empty=tb.querySelector("td[colspan]"); if(empty) empty.setAttribute("colspan","10");
+}
+if(typeof fbRows==="function"){ const __fbRows16=fbRows; fbRows=function(){ __fbRows16.apply(this,arguments); try{ fbAprDecorate(); }catch(e){} }; }
+if(typeof vDeal==="function"){ const __vDeal16=vDeal;
+  vDeal=function(p){ return __vDeal16.apply(this,arguments).replace('<button class="btn g">CSV / API で書き出す</button>','<button class="btn g" onclick="openExport()">CSV / API で書き出す</button><button class="btn g" onclick="openFbAprSet()">⚙ 承認・公開の設定</button>'); }; }
+function openFbAprSet(){ const s=fbSet(); const srv=(typeof SYNC!=="undefined"&&SYNC&&SYNC.srvAcct&&SYNC.srvAcct.approver)||"";
+  openDW(`<h3>⚙ 商談記録の承認・公開</h3><p class="nn" style="margin:6px 0 10px">海外拠点や複数人で記録するときは、承認者が確認してから公開する運用にできます（以前の貿易クラウドの「下書き→承認待ち→公開」と同じ考え方）。</p>
+   <label class="rw" style="gap:8px;font-size:12px"><input type="checkbox" id="fbAprOnCk" ${fbAprOn()?"checked":""} style="accent-color:var(--or)"> 新しい商談記録は「下書き」から始め、承認後に公開する</label>
+   <p class="lbl" style="margin-top:10px">承認者（氏名）</p><input class="sel" id="fbAprWho" value="${esc(s.fbApprover||"")}" placeholder="${esc(srv||"例：中島 慎吾")}" style="width:100%;box-sizing:border-box">
+   <p class="nn" style="margin-top:6px">${srv?"<span>STANDAGEの管理コンソールで設定された既定の承認者</span>："+esc(srv)+"（<span>空欄ならこれを使います</span>）":"STANDAGE側の管理コンソールからも、案件ごとの承認者を設定できます。"}</p>
+   <div class="rw" style="margin-top:12px;gap:8px"><button class="btn" id="fbAprSave">保存</button><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#fbAprSave").onclick=()=>{ s.fbAprOn=$("#fbAprOnCk").checked?1:0; s.fbApprover=(($("#fbAprWho")||{}).value||"").trim(); v16Persist(); closeDW(); render(); toast("保存しました"); };
+}
+function fbDwExtra(i){
+  const f=fbRec(i); if(!f) return; const pn=$("#pn"); if(!pn||pn.querySelector("[data-fbx]")) return; const tr=(f.tr&&f.tr.en)||"";
+  pn.insertAdjacentHTML("beforeend",`<div data-fbx style="margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2)">
+    <div class="rw" style="justify-content:space-between;gap:6px;flex-wrap:wrap"><b style="font-size:12px">承認・公開</b><span class="rw" style="gap:4px">${fbAprChip(f)}${fbAprBtns(i,f)}</span></div>
+    ${f.apr&&f.apr.by?`<p class="nn" style="margin-top:4px"><span>${esc(f.apr.st)}</span>：${esc(f.apr.by)}（${esc(f.apr.at||"")}）${f.apr.back?"　<span>理由</span>："+esc(f.apr.back):""}</p>`:(f.apr&&f.apr.req?`<p class="nn" style="margin-top:4px"><span>承認依頼</span>：${esc(f.apr.req)}（${esc(f.apr.reqAt||"")}）</p>`:"")}
+    <div class="rw" style="justify-content:space-between;gap:6px;margin-top:10px;flex-wrap:wrap"><b style="font-size:12px">🌐 対訳（English）</b><span class="rw" style="gap:4px"><button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fbTr(${i})">${tr?"再翻訳":"AIで対訳を作る"}</button><button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fbTrSave(${i})">保存</button></span></div>
+    <textarea class="sel" id="fbTrTa" style="width:100%;min-height:70px;box-sizing:border-box;margin-top:6px;font-size:11.5px" placeholder="${v16Online()?"「AIで対訳を作る」を押すと英訳が入ります。手で直して保存できます":"AI未接続のため自動翻訳はできません。手で英訳を入力して保存できます"}">${esc(tr)}</textarea></div>`);
+}
+if(typeof openFB==="function"){ const __openFB16=openFB; openFB=function(i){ __openFB16.apply(this,arguments); try{ fbDwExtra(i); }catch(e){} }; }
+async function fbTr(i){
+  const f=fbRec(i); if(!f) return; if(!v16Online()){ toast("自動翻訳はAIエンジン接続時に使えます（手入力で保存はできます）"); return; }
+  const src=[["Buyer",f.b],["Country",f.c],["Channel",f.ch],["Status",f.st],["Reaction",f.react],["Price",f.price],["Qty",f.lot],["Terms",f.term],["Request",f.spec],["Lost reason",f.why],["Note",f.note]].filter(x=>x[1]).map(x=>x[0]+": "+x[1]).join("\n");
+  const ta=$("#fbTrTa"); if(ta) ta.value="翻訳しています…";
+  try{ const t=await v16Translate(src,"en"); if(ta) ta.value=t; f.tr=Object.assign({},f.tr||{},{en:t}); v16Persist(); if(typeof logU==="function") logU("ai","商談記録の対訳"); toast("対訳を作成しました"); }
+  catch(e){ if(ta) ta.value=""; toast("翻訳できませんでした："+String(e.message||e).slice(0,40)); }
+}
+function fbTrSave(i){ const f=fbRec(i); if(!f) return; const ta=$("#fbTrTa"); f.tr=Object.assign({},f.tr||{},{en:((ta&&ta.value)||"").trim()}); v16Persist(); toast("対訳を保存しました"); }
+if(typeof notifCalc==="function"){ const __nc16=notifCalc;
+  notifCalc=function(){ const out=__nc16.apply(this,arguments);
+    try{ const P=notifDB().prefs; const n=((typeof D!=="undefined"&&D&&D.fb)||[]).filter(f=>fbAprSt(f)==="承認待ち").length;
+      if(n&&P.appr!==false) out.push({cat:"appr",icon:"📝",t:`承認待ちの商談記録 ${n}件`,d:"承認すると公開されます",act:{pg:"deal"},key:`fbappr:${n}`}); }catch(e){}
+    return out; }; }
+
+/* ═══ ④ 受信翻訳（やりとり） ═══ */
+function v16MsgStore(){ if(typeof lwStore==="function"){ try{ const s=lwStore(); if(Array.isArray(s)) return s; }catch(e){} } return (typeof D!=="undefined"&&D&&D.msgs)||[]; }
+function msgTrDecorate(){
+  const list=$("#mlist"); if(!list) return; const store=v16MsgStore();
+  list.querySelectorAll("[data-mi]").forEach(el=>{ if(el.querySelector("[data-v16tr]")) return; const mi=+el.dataset.mi; const m=store[mi]; if(!m||m.ai||m._tmp) return;
+    const plain=v16Plain(m.body); if(!plain.trim()) return; const to=v16TrTarget(plain); const has=!!(m.tr&&m.tr[to]);
+    el.insertAdjacentHTML("beforeend",`<div data-v16tr class="rw" style="gap:6px;margin-top:6px;align-items:flex-start;flex-wrap:wrap"><button class="q" style="padding:1px 8px;font-size:10.5px" onclick="msgTr(${mi})">🌐 ${has?(m._trHide?"訳を表示":"訳を隠す"):"訳す（"+esc(V16_LANGN[to]||to)+"）"}</button>${has&&!m._trHide?`<div style="flex:1;min-width:200px;font-size:11.5px;line-height:1.7;padding:6px 9px;border-radius:var(--r2);background:var(--bl-soft);white-space:pre-wrap">${esc(m.tr[to])}</div>`:""}</div>`); });
+  if(!list.querySelector("[data-v16trall]")&&store.some(m=>m&&!m.ai))
+    list.insertAdjacentHTML("afterbegin",`<div data-v16trall class="rw" style="justify-content:flex-end;gap:6px"><button class="btn g" style="font-size:10.5px;padding:3px 9px" onclick="msgTrAll()">🌐 すべて訳す</button></div>`);
+}
+async function msgTr(mi){
+  const store=v16MsgStore(); const m=store[mi]; if(!m) return; const plain=v16Plain(m.body); const to=v16TrTarget(plain);
+  if(m.tr&&m.tr[to]){ m._trHide=!m._trHide; if(typeof mRows==="function") mRows(); return; }
+  if(!v16Online()){ toast("受信翻訳はAIエンジン接続時に使えます（管理コンソールで接続）"); return; }
+  toast("翻訳しています…");
+  try{ const t=await v16Translate(plain,to); m.tr=Object.assign({},m.tr||{},{[to]:t}); if(typeof lwPersist==="function") lwPersist(); if(typeof logU==="function") logU("ai","受信翻訳"); if(typeof mRows==="function") mRows(); }
+  catch(e){ toast("翻訳できませんでした："+String(e.message||e).slice(0,40)); }
+}
+async function msgTrAll(){
+  if(!v16Online()){ toast("受信翻訳はAIエンジン接続時に使えます（管理コンソールで接続）"); return; }
+  const store=v16MsgStore(); let n=0;
+  for(let i=0;i<store.length&&n<8;i++){ const m=store[i]; if(!m||m.ai||m._tmp) continue; const plain=v16Plain(m.body); const to=v16TrTarget(plain); if(!plain.trim()||(m.tr&&m.tr[to])) continue;
+    try{ m.tr=Object.assign({},m.tr||{},{[to]:await v16Translate(plain,to)}); n++; }catch(e){} }
+  if(typeof lwPersist==="function") lwPersist(); if(typeof mRows==="function") mRows(); toast(n+"件を翻訳しました");
+}
+if(typeof mRows==="function"){ const __mRows16=mRows; mRows=function(){ __mRows16.apply(this,arguments); try{ msgTrDecorate(); }catch(e){} }; }
+
+/* ═══ 共通フック ═══ */
+if(typeof uxPalItems==="function"){ const __pal16=uxPalItems;
+  uxPalItems=function(q){ let items=__pal16.apply(this,arguments);
+    try{ const qq=String(q||"").trim().toLowerCase(); if(typeof PID!=="undefined"&&PID&&!(typeof FWDON!=="undefined"&&FWDON)){
+      memoStore().forEach(m=>{ if(!qq||(String(m.t||"")+" "+String(m.body||"")).toLowerCase().includes(qq)) items.push({g:"会議メモ",t:m.t||"（無題）",sub:m.d||"",ic:"📝",run:()=>{ MEMO_EDIT=m.id; go("memo"); }}); }); } }catch(e){}
+    return items; }; }
+const __render16=render;
+render=function(){ __render16.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="memo") memoBind(); }catch(e){} };
+
+/* ═══════════ v16t（2026-09-06）：トライアル版（クラウド同期あり）だけの機能 ═══════════
+   ⑤ メール通知（毎朝8時の日次ダイジェスト。件数と見出しだけ。同期サーバー＝Apps Script から送信）
+   ⑥ LINE／WhatsApp のリアルタイム連携（Webhook受信→「やりとり」へ自動転記・返信）
+   ⑦ 自動化向けの搬出API（お客様がONにした平文スナップショットを、読み取り専用トークンで取得）
+   ⑧ CS横断の受信箱（管理コンソール：全社の未返信・承認待ち・期限切れを横断表示、案件ごとの承認者） */
+const DIG={t:0,busy:0,expT:0}; const LW={since:0,timer:null,busy:0};
+function v16SyncOk(){ try{ return typeof SYNC!=="undefined"&&SYNC&&SYNC.on&&!!SYNC.kid&&typeof SES!=="undefined"&&SES&&SES.t==="trial"; }catch(e){ return false; } }
+function v16Mail(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||"").trim()); }
+
+/* ═══ ⑤ メール通知（日次ダイジェスト） ═══ */
+function digPrefs(){ const db=notifDB(); return db.mail||{to:"",on:0}; }
+function digItems(){
+  let list=[]; try{ list=notifCalc(); }catch(e){}
+  try{ if(typeof FWDON!=="undefined"&&FWDON&&typeof FWDB!=="undefined"&&FWDB){ const pend=(FWDB.reqs||[]).filter(r=>!(r.quote||(typeof fwdOkLegs==="function"&&fwdOkLegs(r).length))); if(pend.length) list.push({cat:"fwd",t:`未回答の見積依頼 ${pend.length}件`}); } }catch(e){}
+  return list.slice(0,12).map(n=>({cat:n.cat||"",t:String(n.t||"").slice(0,80)}));
+}
+async function digPush(force){
+  if(!v16SyncOk()) return null; const p=digPrefs(); if(!p.to&&!force) return null;
+  if(!force&&Date.now()-DIG.t<30*60*1000) return null; if(DIG.busy) return null; DIG.busy=1; DIG.t=Date.now();
+  try{ return await syncCall("digest_set",{kid:SYNC.kid,to:p.to||"",on:p.on?1:0,lang:v16Lang(),co:(typeof acct==="function"&&acct().co)||"",who:(SES&&SES.who)||"",items:digItems(),url:location.href.split("#")[0].split("?")[0]}); }
+  catch(e){ return null; } finally{ DIG.busy=0; }
+}
+function digSave(){
+  const to=(($("#digTo")||{}).value||"").trim(), on=!!(($("#digOn")||{}).checked);
+  if(on&&!v16Mail(to)){ toast("メールアドレスの形式を確認してください"); return; }
+  const db=notifDB(); db.mail={to,on:on?1:0}; notifSave(db);
+  digPush(1).then(r=>toast(r&&r.ok?"メール通知の設定を保存しました（毎朝8時・要対応があるときだけ）":"保存しましたが同期サーバーに送れませんでした"));
+}
+async function digTest(){
+  const to=(($("#digTo")||{}).value||"").trim(); if(!v16Mail(to)){ toast("メールアドレスを入力してください"); return; }
+  if(!v16SyncOk()){ toast("クラウド同期が未設定のため送れません"); return; }
+  const db=notifDB(); db.mail=Object.assign(db.mail||{},{to}); notifSave(db); await digPush(1); toast("テスト送信しています…");
+  try{ const r=await syncCall("digest_test",{kid:SYNC.kid,to}); toast(r.ok?("テストメールを送りました → "+to+(r.note?"（"+r.note+"）":"")):("送れませんでした："+(r.msg||""))); }
+  catch(e){ toast("送れませんでした："+String(e.message||e).slice(0,50)); }
+}
+function digBlockHtml(){
+  const p=digPrefs(); const ok=v16SyncOk();
+  return `<div data-v16dig style="margin-top:9px;border-top:1px dashed var(--line);padding-top:9px"><b style="font-size:11.5px">📧 メールで受け取る <span class="p ${p.on&&p.to?"hi":"lo"}" style="font-size:9px">${p.on&&p.to?"有効":"未設定"}</span></b>
+    <p class="nn" style="margin:3px 0 6px">毎朝8時に、要対応があるときだけ<b>件数と見出し</b>をメールします（商談の中身は載せません）。${ok?"":"<b style='color:var(--crit)'>クラウド同期が未設定のため、この端末では利用できません。</b>"}</p>
+    <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center"><input class="sel" id="digTo" value="${esc(p.to||"")}" placeholder="you@example.com" style="flex:1;min-width:170px" ${ok?"":"disabled"}>
+      <label style="font-size:11px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="digOn" ${p.on?"checked":""} ${ok?"":"disabled"} style="accent-color:var(--or)">有効</label>
+      <button class="btn" style="font-size:10.5px" onclick="digSave()" ${ok?"":"disabled"}>保存</button><button class="btn g" style="font-size:10.5px" onclick="digTest()" ${ok?"":"disabled"}>テスト送信</button></div></div>`;
+}
+if(typeof openNotif==="function"){ const __openNotif16=openNotif;
+  openNotif=function(){ __openNotif16.apply(this,arguments); try{ const d=document.querySelector("#pn details"); if(d&&!d.querySelector("[data-v16dig]")) d.insertAdjacentHTML("beforeend",digBlockHtml()); }catch(e){} }; }
+
+/* ═══ ⑥ LINE／WhatsApp 連携（Webhook） ═══ */
+function lwStoreT(){ return (typeof lwStore==="function")?lwStore():((typeof D!=="undefined"&&D&&D.msgs)||[]); }
+function lwTime(at){ const d=at?new Date(at):new Date(); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+async function lwPull(manual){
+  if(!v16SyncOk()||LW.busy) return 0; LW.busy=1;
+  try{ const r=await syncCall("lw_pull",{kid:SYNC.kid,since:LW.since||0}); const ms=(r&&r.msgs)||[]; if(r&&r.at) LW.since=Math.max(LW.since||0,+r.at||0);
+    const store=lwStoreT(); let n=0;
+    ms.forEach(x=>{ if(!x||!x.id||store.some(m=>m&&m.lwid===x.id)) return;
+      store.push({who:x.who||((x.src||"LINE")+"の相手"),org:x.src||"LINE",t:lwTime(x.at),scope:"共有",read:0,body:esc(String(x.body||"")).replace(/\n/g,"<br>"),mention:[],quote:null,file:null,src:x.src||"LINE",lwid:x.id,lw:{uid:x.uid||"",src:x.src||"LINE"}}); n++; });
+    if(n){ if(typeof lwPersist==="function") lwPersist(); if(typeof cur!=="undefined"&&cur==="msg"&&typeof mRows==="function") mRows(); if(typeof notifBadge==="function") notifBadge(); toast(`📱 ${n}件の新着メッセージ（${(ms[0]&&ms[0].src)||"LINE"}）を取り込みました`); }
+    else if(manual) toast(r&&r.configured===false?"連携が未設定です（管理コンソール「📱 LINE／WhatsApp 連携」で設定します）":"新着はありません");
+    return n; }
+  catch(e){ if(manual) toast("取得できませんでした："+String(e.message||e).slice(0,40)); return 0; }
+  finally{ LW.busy=0; }
+}
+function lwPollStart(){ if(LW.timer) return; LW.timer=setInterval(()=>{ if(v16SyncOk()&&!document.hidden) lwPull(); },45000); }
+function lwReplyDecorate(){
+  const list=$("#mlist"); if(!list) return; const store=lwStoreT();
+  list.querySelectorAll("[data-mi]").forEach(el=>{ if(el.querySelector("[data-v16lw]")) return; const m=store[+el.dataset.mi]; if(!m||!m.lw||!m.lw.uid||m.lw.out) return;
+    el.insertAdjacentHTML("beforeend",`<div data-v16lw class="rw" style="gap:6px;margin-top:6px"><button class="q" style="padding:1px 8px;font-size:10.5px" onclick="lwReply(${+el.dataset.mi})">📱 ${esc(m.lw.src||"LINE")}で返信</button></div>`); });
+}
+function lwReply(mi){
+  const m=lwStoreT()[mi]; if(!m||!m.lw) return;
+  openDW(`<h3>📱 ${esc(m.lw.src||"LINE")}で返信</h3><p class="nn" style="margin:6px 0 8px">宛先：${esc(m.who)}（${esc(m.lw.src||"LINE")}）。同期サーバー経由で相手のアプリに届きます。</p>
+    <div style="font-size:11.5px;padding:8px 10px;border-left:3px solid var(--line);color:var(--ink-3);margin-bottom:8px;white-space:pre-wrap">${esc(v16Plain(m.body)).slice(0,300)}</div>
+    <textarea class="sel" id="lwRep" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="返信を入力"></textarea>
+    <div class="rw" style="margin-top:10px;gap:8px"><button class="btn" id="lwRepGo">送信</button><button class="btn g" onclick="closeDW()">やめる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  $("#lwRepGo").onclick=async()=>{ const text=(($("#lwRep")||{}).value||"").trim(); if(!text){ toast("本文を入力してください"); return; }
+    $("#lwRepGo").disabled=true;
+    try{ const r=await syncCall("lw_send",{kid:SYNC.kid,src:m.lw.src,to:m.lw.uid,text});
+      if(!r.ok){ toast("送れませんでした："+(r.msg||"")); $("#lwRepGo").disabled=false; return; }
+      lwStoreT().push({who:v16Who(),org:(typeof D!=="undefined"&&D&&D.co)||"",t:lwTime(),scope:"共有",read:1,body:esc(text).replace(/\n/g,"<br>"),mention:[],quote:null,file:null,src:(m.lw.src||"LINE")+"送信",lw:{uid:m.lw.uid,src:m.lw.src,out:1}});
+      if(typeof lwPersist==="function") lwPersist(); closeDW(); if(typeof mRows==="function") mRows(); if(typeof logU==="function") logU("ai",(m.lw.src||"LINE")+"返信"); toast("送信しました"+(r.note?"（"+r.note+"）":"")); }
+    catch(e){ toast("送れませんでした："+String(e.message||e).slice(0,40)); $("#lwRepGo").disabled=false; } };
+}
+if(typeof mRows==="function"){ const __mRowsLW=mRows; mRows=function(){ __mRowsLW.apply(this,arguments); try{ lwReplyDecorate(); }catch(e){} }; }
+if(typeof openLW==="function"){ const __openLW16=openLW;
+  openLW=function(){ __openLW16.apply(this,arguments);
+    try{ const pn=$("#pn"); if(!pn) return; const ok=v16SyncOk();
+      pn.insertAdjacentHTML("beforeend",`<p class="lbl" style="margin-top:14px">③ 自動連携（Webhook） <span class="nt">この版で新規</span></p><div id="lwMe" class="nn" style="margin-top:4px">${ok?"状態を確認しています…":"クラウド同期が未設定のため、この端末では自動連携を使えません（貼り付け取込は使えます）。"}</div><div class="rw" style="margin-top:6px;gap:6px"><button class="btn g" style="font-size:11px" onclick="lwPull(1)" ${ok?"":"disabled"}>📱 連携メッセージを今すぐ取得</button></div>`);
+      if(ok) syncCall("lw_me",{kid:SYNC.kid}).then(r=>{ const e=$("#lwMe"); if(!e) return;
+        e.innerHTML=r.configured?`LINE：${r.line?"接続済み":"未設定"}／WhatsApp：${r.wa?"接続済み":"未設定"}／受信 ${r.received||0}件${r.lastAt?"（最終 "+new Date(r.lastAt).toLocaleString()+"）":""}。届いたメッセージは「やりとり」に📱バッジ付きで入り（45秒ごとに自動取得）、返信は各メッセージの「📱で返信」から送れます。`
+          :"未設定です。STANDAGEの管理コンソール「📱 LINE／WhatsApp 連携」で、LINE公式アカウント（Messaging API）またはWhatsApp Business（Cloud API）のWebhookを設定すると、届いたメッセージが自動で「やりとり」に入ります。"; })
+        .catch(()=>{ const e=$("#lwMe"); if(e) e.textContent="状態を取得できませんでした"; }); }catch(e){} }; }
+
+/* ═══ ⑦ 自動化向けの搬出API（お客様側：平文スナップショットのON/OFF） ═══ */
+function expApiOn(){ const db=notifDB(); return !!(db.api&&db.api.on); }
+function expApiData(){
+  const dd=(typeof D!=="undefined"&&D)||{}; const ten=v16Ten();
+  return {at:Date.now(),co:dd.co||"",item:dd.item||"",
+    products:((typeof TENS!=="undefined"&&TENS)||[]).filter(t=>t&&(t.src==="upload"||t.src==="sample2")).map(t=>({item:t.item||"",co:t.co||"",cat:t.cat||""})),
+    kpi:dd.kpi||{},tasks:(dd.tasks||[]).map(t=>({n:t.n,pri:t.pri,s:t.s,e:t.e,st:t.st,who:t.who,ref:t.ref})),
+    deals:(dd.fb||[]).map(f=>({d:f.d,buyer:f.b,country:f.c,status:f.st,react:f.react,price:f.price,qty:f.lot,why:f.why||"",approval:(typeof fbAprSt==="function")?fbAprSt(f):"",note:String(f.note||"").slice(0,400)})),
+    orders:(dd.orders||[]).map(o=>({no:o.no,buyer:o.buyer||o.b,country:o.country||o.c,amount:o.jpy||o.total,pay:o.pay,st:o.st})),
+    ship:dd.ship?{no:dd.ship.no,buyer:dd.ship.buyer,country:dd.ship.country,total:dd.ship.total,step:(typeof shipStep!=="undefined")?shipStep:0}:null,
+    messages:(dd.msgs||[]).slice(-50).map(m=>({who:m.who,org:m.org,t:m.t,scope:m.scope,src:m.src||"",body:v16Plain(m.body).slice(0,600)})),
+    memos:(ten?(ten.memos||[]):(dd.memos||[])).map(m=>({t:m.t,d:m.d,summary:(m.sum&&m.sum.txt)||"",todos:((m.sum&&m.sum.todo)||[]).map(x=>x.t)})),
+    notifications:digItems()};
+}
+async function expApiPush(force){
+  if(!v16SyncOk()||!expApiOn()) return; if(!force&&Date.now()-(DIG.expT||0)<10*60*1000) return; DIG.expT=Date.now();
+  try{ const r=await syncCall("export_set",{kid:SYNC.kid,data:expApiData()}); if(force) toast(r.ok?"自動化向けスナップショットを更新しました":"更新できませんでした："+(r.msg||"")); }
+  catch(e){ if(force) toast("更新できませんでした："+String(e.message||e).slice(0,40)); }
+}
+function expApiToggle(on){ const db=notifDB(); db.api={on:on?1:0}; notifSave(db); if(on) expApiPush(1); else if(v16SyncOk()) syncCall("export_set",{kid:SYNC.kid,data:null}).catch(()=>{}); openExport(); }
+if(typeof openExport==="function"){ const __openExport16=openExport;
+  openExport=function(){ __openExport16.apply(this,arguments);
+    try{ const pn=$("#pn"); if(!pn||pn.querySelector("[data-v16api]")) return; const on=expApiOn(), ok=v16SyncOk();
+      pn.insertAdjacentHTML("beforeend",`<div data-v16api style="margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2)"><b style="font-size:12px">🤖 自動化向けスナップショット（読み取り専用API） <span class="p ${on?"hi":"lo"}" style="font-size:9px">${on?"有効":"停止中"}</span></b>
+        <p class="nn" style="margin:4px 0 6px">ONにすると、タスク・商談記録・受注・やりとり・会議メモの要約を<b>平文のスナップショット</b>として同期サーバーに置き、STANDAGEが発行する読み取り専用トークンで外部ツール（Claude等）から取得できます。<b>通常の同期データは暗号化のままです。</b>OFFにすると削除されます。</p>
+        <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn ${on?"g":""}" style="font-size:10.5px" onclick="expApiToggle(${on?0:1})" ${ok?"":"disabled"}>${on?"OFFにする（削除）":"ONにする"}</button>${on?`<button class="btn g" style="font-size:10.5px" onclick="expApiPush(1)">今すぐ更新</button>`:""}${ok?"":'<span class="nn" style="margin:0">クラウド同期が未設定のため利用できません</span>'}</div></div>`); }catch(e){} }; }
+if(typeof syncPushAcct==="function"){ const __spa16=syncPushAcct; syncPushAcct=async function(){ const r=await __spa16.apply(this,arguments); try{ expApiPush(); }catch(e){} return r; }; }
+
+/* ═══ ⑧ 管理コンソール：CS横断の受信箱・案件別承認者・配信／連携／トークンの管理 ═══ */
+async function v16DecWith(key,s){ if(!s||!/^v1:/.test(s)) return null; const u=ub64(s.slice(3)); const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},key,u.slice(12)); return JSON.parse(new TextDecoder().decode(pt)); }
+function admV16Html(){
+  const ok=(function(){ try{ return typeof syncOn==="function"&&syncOn(); }catch(e){ return false; } })(); const A=(typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[];
+  const opt=list=>list.map(a=>`<option value="${esc(a.code)}">${esc(a.code)}｜${esc(a.co)}</option>`).join("");
+  return `<div id="v16adm">
+   <div class="c" id="adminbox" style="margin-bottom:11px"><div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start"><div><h3>📥 CS横断の受信箱 <span class="nt">この版で新規</span></h3>
+      <p class="nn">全アカウントの「最後のメッセージ・未返信・承認待ちの商談記録・期限切れタスク」を横断で確認し、案件ごとの承認者を設定します。各社のデータはアクセスコードで復号してこの画面にだけ表示します。</p></div>
+      <button class="btn" id="adminboxGo" ${ok?"":"disabled"}>🔄 最新の状態を取得</button></div>
+     <div id="adminboxOut" style="margin-top:8px">${ok?'<p class="nn">「最新の状態を取得」を押すと、同期サーバーから各社の状態を読み取ります（社数×1〜3秒）。</p>':'<p class="nn">クラウド同期が未設定のため利用できません。</p>'}</div></div>
+   <div class="admgrid2" style="margin-bottom:11px">
+    <div class="c" id="admdig"><h3>📧 メール通知（日次ダイジェスト） <span class="nt">この版で新規</span></h3><p class="nn">お客様が通知センターでメールアドレスを登録すると、毎朝8時に要対応の件数と見出しだけをお送りします。送信は同期サーバー（Apps Script）から行います。</p>
+      <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn g" id="digStat" ${ok?"":"disabled"}>配信状況を取得</button><button class="btn g" id="digSetup" ${ok?"":"disabled"}>毎朝8時の配信ジョブを設定</button><button class="btn" id="digRun" ${ok?"":"disabled"}>今すぐ配信</button></div><div id="digOut" style="margin-top:8px"></div></div>
+    <div class="c" id="admlw"><h3>📱 LINE／WhatsApp 連携（Webhook） <span class="nt">この版で新規</span></h3><p class="nn">お客様のLINE公式アカウント（Messaging API）やWhatsApp Business（Cloud API）からのメッセージを同期サーバーが受け取り、「やりとり」へ自動転記します。トークンはサーバー側のプロパティに保存し、この画面や配布HTMLには残しません。</p>
+      <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><select class="sel" id="lwAcc" style="flex:1;min-width:160px">${opt(A.filter(a=>a.role!=="fwd"))}</select><button class="btn g" id="lwStat" ${ok?"":"disabled"}>設定状況</button></div>
+      <div id="lwOut" style="margin-top:8px"></div></div>
+   </div>
+   <div class="c" id="admtok" style="margin-bottom:11px"><h3>🔑 自動化向けの搬出API（読み取り専用トークン） <span class="nt">この版で新規</span></h3><p class="nn">Claude等の自動化から、お客様が「自動化向けスナップショット」をONにしたデータを取得するためのトークンです。発行時に一度だけ表示します。取得URL：<code style="font-size:10px;word-break:break-all">${esc(ok?SYNC.url:"（同期URL）")}?op=export&amp;token=…</code></p>
+     <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><select class="sel" id="tokAcc" style="flex:1;min-width:160px">${opt(A)}</select><input class="sel" id="tokLabel" placeholder="用途（例：定例会自動化）" style="min-width:150px"><button class="btn" id="tokIssue" ${ok?"":"disabled"}>トークンを発行</button><button class="btn g" id="tokList" ${ok?"":"disabled"}>一覧</button></div><div id="tokOut" style="margin-top:8px"></div></div>
+  </div>`;
+}
+function admInboxAgg(r,tens){
+  let last=null,unans=0,pend=0,od=0,memos=0; const isUs=w=>/STANDAGE|AI商社マン|AI物流マン|\bCS\b|\bFS\b/.test(String(w||""));
+  (tens||[]).forEach(t=>{ (t.msgs||[]).forEach(m=>{ const k=String(m.t||""); if(!last||k>String(last.t||"")) last={who:m.who,t:m.t,src:m.src,us:isUs(m.who)||!!m.ai}; });
+    pend+=(t.fbx||[]).filter(f=>f&&f.apr&&f.apr.st==="承認待ち").length;
+    od+=(t.xtasks||[]).filter(x=>x&&x.e&&x.e<TODAYS&&x.st!=="完了"&&x.st!=="中止").length;
+    memos+=(t.memos||[]).length; });
+  if(last){ r.last=last; r.lastAt=Date.parse(String(last.t).replace(" ","T"))||0; if(!last.us&&r.lastAt&&Date.now()-r.lastAt>24*3600*1000) unans=1; }
+  r.unans=unans; r.pend=pend; r.od=od; r.memos=memos;
+}
+async function admInboxLoad(){
+  const out=$("#adminboxOut"); if(!out) return; out.innerHTML='<p class="nn">取得中…（各社のデータを復号しています）</p>';
+  const A=(ADB.accounts||[]).filter(a=>a.role!=="fwd"); const rows=[];
+  for(const a of A){ const r={a,co:a.co,code:a.code};
+    try{ const {kid,key}=await syncDerive(a.code); r.kid=kid; const p=await syncCall("pull",{kid,ns:"acct"});
+      if(!p.blob){ r.none=1; rows.push(r); continue; }
+      const snap=await v16DecWith(key,p.blob); r.at=snap.at||0;
+      const raw=snap.items&&snap.items["bc20_ten_"+a.code]; const j=raw?JSON.parse(raw):null;
+      const tens=(j&&Array.isArray(j.list))?j.list:((j&&(j.src==="upload"||j.src==="sample2"))?[j]:[]);
+      admInboxAgg(r,tens);
+      const nd=snap.items&&snap.items["bc20_notif_v1"]; if(nd){ try{ const n=JSON.parse(nd); r.mail=(n.mail&&n.mail.on&&n.mail.to)?1:0; r.api=(n.api&&n.api.on)?1:0; }catch(e){} }
+    }catch(e){ r.err=String(e.message||e).slice(0,40); }
+    rows.push(r); }
+  rows.sort((x,y)=>((y.unans|0)-(x.unans|0))||((y.pend|0)-(x.pend|0))||((y.lastAt||0)-(x.lastAt||0)));
+  out.innerHTML=`<div class="tw" style="max-height:none"><table><thead><tr><th>会社／コード</th><th>最後のメッセージ</th><th class="num">未返信</th><th class="num">承認待ち</th><th class="num">期限切れ</th><th class="num">会議メモ</th><th>メール通知</th><th>承認者（案件ごと）</th><th></th></tr></thead><tbody>
+   ${rows.map(r=>`<tr><td><b>${esc(r.co)}</b><br><span class="acode" style="font-size:10px">${esc(r.code)}</span></td>
+    <td style="font-size:11px">${r.none?'<span style="color:var(--ink-3)">同期データなし</span>':r.err?'<span style="color:var(--crit)">'+esc(r.err)+'</span>':r.last?`${esc(r.last.who)}<br><span style="color:var(--ink-3);font-size:10px">${esc(r.last.t)}${r.last.src?" 📱"+esc(r.last.src):""}</span>`:'<span style="color:var(--ink-3)">やりとりなし</span>'}</td>
+    <td class="num">${r.unans?`<span class="p no">${r.unans}</span>`:"0"}</td><td class="num">${r.pend?`<span class="p mid">${r.pend}</span>`:"0"}</td><td class="num">${r.od?`<span class="p no">${r.od}</span>`:"0"}</td><td class="num">${r.memos|0}</td>
+    <td>${r.mail?'<span class="p hi">有効</span>':'<span class="p lo">—</span>'}${r.api?' <span class="p on" title="自動化向けスナップショットON">API</span>':""}</td>
+    <td><div class="rw" style="gap:4px;flex-wrap:nowrap"><input class="sel" data-aprv="${esc(r.code)}" value="${esc(r.a.approver||"")}" placeholder="氏名" style="min-width:110px;padding:3px 7px;font-size:11px"><button class="btn g" data-aprvs="${esc(r.code)}" style="padding:2px 8px;font-size:10px">保存</button></div></td>
+    <td><button class="btn g" style="padding:2px 8px;font-size:10px" onclick="copyTxt('${esc(r.code)}')">コードをコピー</button></td></tr>`).join("")||'<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:16px">荷主アカウントがありません</td></tr>'}</tbody></table></div>
+   <p class="nn" style="margin-top:6px">未返信＝お客様側の最後のメッセージから24時間以上、STANDAGE・AIの返信がないもの。承認者はサーバーの台帳に保存され、お客様の「承認・公開の設定」の既定値になります。取得 ${new Date().toLocaleTimeString()}</p>`;
+  out.querySelectorAll("[data-aprvs]").forEach(b=>b.onclick=async()=>{ const a=findAcct(b.dataset.aprvs); const inp=out.querySelector(`[data-aprv="${b.dataset.aprvs}"]`); if(!a||!inp) return;
+    a.approver=(inp.value||"").trim(); asave(); try{ const r=await syncAdminPush(); toast(r&&r.ok?"承認者を保存しました（台帳をサーバーへ送信）":"保存しましたがサーバーへ送れませんでした"); }catch(e){ toast("保存しましたがサーバーへ送れませんでした"); } });
+}
+async function admV16Kid(code){ const {kid}=await syncDerive(code); return kid; }
+function admV16Bind(){
+  const q=id=>document.getElementById(id); const pw=()=>(SES&&SES.apw)||"";
+  const show=(id,h)=>{ const e=q(id); if(e) e.innerHTML=h; };
+  const err=e=>`<p class="nn" style="color:var(--crit)">✕ ${esc((typeof SYNC!=="undefined"&&SYNC.err)||String(e&&e.message||e))}</p>`;
+  if(q("adminboxGo")) q("adminboxGo").onclick=()=>admInboxLoad().catch(e=>show("adminboxOut",err(e)));
+  if(q("digStat")) q("digStat").onclick=async()=>{ show("digOut",'<p class="nn">取得中…</p>'); try{ const r=await syncCall("digest_status",{pw:pw()}); if(!r.ok){ show("digOut",err(r.msg)); return; }
+      const L=r.list||[]; show("digOut",`<p class="nn">配信ジョブ：${r.trigger?"<b style='color:var(--good)'>設定済み（毎朝8時 JST）</b>":"<b style='color:var(--crit)'>未設定</b>（「毎朝8時の配信ジョブを設定」を押してください）"}／メール送信の残り枠（本日）${r.quota!=null?r.quota:"—"}</p>
+        ${L.length?`<div class="tw" style="max-height:none"><table><thead><tr><th>会社</th><th>宛先</th><th>有効</th><th class="num">要対応</th><th>最終更新</th><th>最終送信</th></tr></thead><tbody>${L.map(x=>`<tr><td>${esc(x.co||x.kid.slice(0,8))}</td><td>${esc(x.to||"—")}</td><td>${x.on?'<span class="p hi">有効</span>':'<span class="p lo">停止</span>'}</td><td class="num">${x.items|0}</td><td style="font-size:10.5px">${x.at?new Date(x.at).toLocaleString():"—"}</td><td style="font-size:10.5px">${x.sent?new Date(x.sent).toLocaleString():"未送信"}</td></tr>`).join("")}</tbody></table></div>`:'<p class="nn">メール通知を登録したお客様はまだいません。</p>'}`); }catch(e){ show("digOut",err(e)); } };
+  if(q("digSetup")) q("digSetup").onclick=async()=>{ show("digOut",'<p class="nn">設定中…</p>'); try{ const r=await syncCall("digest_setup",{pw:pw()}); show("digOut",r.ok?`<p class="nn" style="color:var(--good)">✓ ${esc(r.msg||"毎朝8時（JST）の配信ジョブを設定しました")}</p>`:err(r.msg)); }catch(e){ show("digOut",err(e)); } };
+  if(q("digRun")) q("digRun").onclick=async()=>{ show("digOut",'<p class="nn">配信中…</p>'); try{ const r=await syncCall("digest_run",{pw:pw(),force:1}); show("digOut",r.ok?`<p class="nn" style="color:var(--good)">✓ ${r.sent|0}件を送信しました${r.skipped?"（対象外 "+r.skipped+"件）":""}${(r.errors||[]).length?"　<span style='color:var(--crit)'>失敗："+esc(r.errors.join("、"))+"</span>":""}</p>`:err(r.msg)); }catch(e){ show("digOut",err(e)); } };
+  if(q("lwStat")) q("lwStat").onclick=async()=>{ const code=q("lwAcc").value; show("lwOut",'<p class="nn">取得中…</p>'); try{ const kid=await admV16Kid(code); const r=await syncCall("lw_status",{pw:pw(),kid}); if(!r.ok){ show("lwOut",err(r.msg)); return; }
+      show("lwOut",`<p class="nn">受信 ${r.received|0}件${r.lastAt?"（最終 "+new Date(r.lastAt).toLocaleString()+"）":""}／LINE ${r.line?"接続済み":"未設定"}／WhatsApp ${r.wa?"接続済み":"未設定"}</p>
+       <p class="lbl" style="margin-top:6px">Webhook URL（LINE Developers／Meta for Developers に貼り付け）</p>
+       <div class="rw" style="gap:6px"><code style="font-size:10px;word-break:break-all;flex:1">${esc(r.webhook||"（保存すると発行されます）")}</code>${r.webhook?`<button class="btn g" style="font-size:10px;padding:2px 8px" onclick="copyTxt('${esc(r.webhook)}')">コピー</button>`:""}</div>
+       <div class="g2" style="gap:6px;margin-top:8px"><div><p class="lbl">LINE チャネルアクセストークン（送信用・任意）</p><input class="sel" id="lwLine" placeholder="${r.line?"設定済み（変更するときだけ入力）":"長期トークンを貼り付け"}" style="width:100%;box-sizing:border-box"></div>
+         <div><p class="lbl">WhatsApp 電話番号ID</p><input class="sel" id="lwWaPh" value="${esc(r.waPhone||"")}" placeholder="Phone number ID" style="width:100%;box-sizing:border-box"></div>
+         <div><p class="lbl">WhatsApp アクセストークン（送信用・任意）</p><input class="sel" id="lwWaTok" placeholder="${r.wa?"設定済み（変更するときだけ入力）":"Cloud API のトークン"}" style="width:100%;box-sizing:border-box"></div>
+         <div><p class="lbl">WhatsApp 検証トークン（Webhook登録時に入力する文字列）</p><input class="sel" id="lwWaVer" value="${esc(r.waVerify||"")}" placeholder="任意の文字列" style="width:100%;box-sizing:border-box"></div></div>
+       <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn" id="lwSave">保存（Webhook URLを発行）</button><button class="btn g" id="lwTest">受信テスト（模擬メッセージを1件入れる）</button></div>
+       <p class="nn" style="margin-top:6px">受信だけなら Webhook URL の登録だけで動きます。返信もするときは各サービスの送信用トークンを保存してください（サーバーのプロパティに保存・画面には表示しません）。</p>`);
+      q("lwSave").onclick=async()=>{ try{ const r2=await syncCall("lw_config",{pw:pw(),kid,line:q("lwLine").value.trim(),waPhone:q("lwWaPh").value.trim(),waToken:q("lwWaTok").value.trim(),waVerify:q("lwWaVer").value.trim()}); toast(r2.ok?"保存しました":"保存できません："+(r2.msg||"")); q("lwStat").click(); }catch(e){ toast("保存できません："+String(e.message||e).slice(0,40)); } };
+      q("lwTest").onclick=async()=>{ try{ const r2=await syncCall("lw_test",{pw:pw(),kid}); toast(r2.ok?"模擬メッセージを入れました（お客様の画面で「連携メッセージを今すぐ取得」）":"失敗："+(r2.msg||"")); q("lwStat").click(); }catch(e){ toast("失敗："+String(e.message||e).slice(0,40)); } };
+    }catch(e){ show("lwOut",err(e)); } };
+  if(q("tokIssue")) q("tokIssue").onclick=async()=>{ const code=q("tokAcc").value; show("tokOut",'<p class="nn">発行中…</p>'); try{ const kid=await admV16Kid(code); const r=await syncCall("token_issue",{pw:pw(),kid,label:q("tokLabel").value.trim(),code_hint:code.slice(0,3)}); if(!r.ok){ show("tokOut",err(r.msg)); return; }
+      const url=SYNC.url+"?op=export&token="+r.token;
+      show("tokOut",`<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)"><b style="color:var(--good)">発行しました（この画面を閉じると再表示できません）</b><br><code style="font-size:11px;word-break:break-all">${esc(r.token)}</code> <button class="btn g" style="font-size:10px;padding:2px 8px" onclick="copyTxt('${esc(r.token)}')">コピー</button>
+        <p class="nn" style="margin-top:6px">取得例：<code style="font-size:10px;word-break:break-all">curl -L "${esc(url)}"</code></p><p class="nn">お客様側で「📦 データ一括エクスポート › 自動化向けスナップショット」をONにしたデータだけが返ります。</p></div>`); }catch(e){ show("tokOut",err(e)); } };
+  if(q("tokList")) q("tokList").onclick=async()=>{ show("tokOut",'<p class="nn">取得中…</p>'); try{ const r=await syncCall("token_list",{pw:pw()}); if(!r.ok){ show("tokOut",err(r.msg)); return; } const L=r.list||[];
+      show("tokOut",L.length?`<div class="tw" style="max-height:none"><table><thead><tr><th>トークン</th><th>アカウント</th><th>用途</th><th>発行</th><th>最終利用</th><th></th></tr></thead><tbody>${L.map(t=>`<tr><td><code style="font-size:10px">${esc(t.mask)}</code></td><td>${esc(t.co||t.kid.slice(0,8))}</td><td>${esc(t.label||"")}</td><td style="font-size:10.5px">${t.created?new Date(t.created).toLocaleDateString():""}</td><td style="font-size:10.5px">${t.last?new Date(t.last).toLocaleString():"未使用"}</td><td><button class="btn g" style="font-size:10px;padding:2px 8px" data-tokrev="${esc(t.id)}">失効</button></td></tr>`).join("")}</tbody></table></div>`:'<p class="nn">発行済みのトークンはありません。</p>');
+      q("tokOut").querySelectorAll("[data-tokrev]").forEach(b=>b.onclick=async()=>{ if(!confirm("このトークンを失効させますか？")) return; try{ await syncCall("token_revoke",{pw:pw(),id:b.dataset.tokrev}); toast("失効させました"); q("tokList").click(); }catch(e){ toast("失敗："+String(e.message||e).slice(0,40)); } }); }catch(e){ show("tokOut",err(e)); } };
+}
+if(typeof renderAdmin==="function"){ const __renderAdmin16=renderAdmin;
+  renderAdmin=function(){ __renderAdmin16.apply(this,arguments);
+    try{ if(document.getElementById("v16adm")) return; const acc=document.getElementById("accounts"); if(acc) acc.insertAdjacentHTML("beforebegin",admV16Html()); else document.getElementById("well").insertAdjacentHTML("beforeend",admV16Html()); admV16Bind(); }catch(e){} }; }
+
+/* ═══ 起動フック ═══ */
+const __render16t=render;
+render=function(){ __render16t.apply(this,arguments); try{ if(v16SyncOk()){ setTimeout(()=>digPush(),1500); lwPollStart(); if(typeof cur!=="undefined"&&cur==="msg"&&!LW.first){ LW.first=1; lwPull(); } } }catch(e){} };
 
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
@@ -19070,6 +19590,97 @@ I18N_PAT2.push(
  {re:/^見積 (\d+)件／受注・出荷 (\d+)件／出荷手続き (\d+)案件（完了 (\d+)）／発注書案件 (\d+)件／物流AI見積 (\d+)件／契約書 (\d+)件／完了タスク (\d+)件$/,en:"Quotes $1 / orders & shipments $2 / shipping cases $3 (done $4) / PO cases $5 / AI freight quotes $6 / contracts $7 / tasks done $8",zh:"报价 $1件／订单・出货 $2件／出货手续 $3案件（完成 $4）／订购单案件 $5件／物流AI询价 $6件／合同 $7件／完成任务 $8件",es:"Cotizaciones $1 / pedidos y envíos $2 / casos de envío $3 (hechos $4) / órdenes $5 / fletes IA $6 / contratos $7 / tareas hechas $8"},
  {re:/^アップロード (\d+)回（目安(\d+)回）／取り込んだ資料・添付 (\d+)件（目安(\d+)件）$/,en:"Uploads $1 (target $2) / imported documents & attachments $3 (target $4)",zh:"上传 $1次（目标$2次）／导入资料・附件 $3件（目标$4件）",es:"Subidas $1 (objetivo $2) / documentos y adjuntos $3 (objetivo $4)"},
  {re:/^([^\s・／]+(?:・[^\s・／]+){1,4})$/,en:(m,d)=>{ const ps=m[1].split("・"); return ps.every(p=>d[p])?ps.map(p=>d[p]).join(" · "):null; },zh:(m,d)=>{ const ps=m[1].split("・"); return ps.every(p=>d[p])?ps.map(p=>d[p]).join("・"):null; },es:(m,d)=>{ const ps=m[1].split("・"); return ps.every(p=>d[p])?ps.map(p=>d[p]).join(" · "):null; }}
+);
+
+/* v16 翻訳辞書（追加分）5：会議メモ・定型セット・承認/公開/対訳・受信翻訳・メール通知・LINE/WhatsApp・搬出API */
+I18N_ROWS2.push(
+/* ナビ・画面名 */
+["会議メモ・議事録","Meeting notes","会议记录","Actas de reunión"],["会議メモ","Meeting notes","会议记录","Actas"],["新しいメモ","New note","新建记录","Nueva nota"],["メモを編集","Edit note","编辑记录","Editar nota"],["＋ 新しいメモ","+ New note","＋ 新建记录","+ Nueva nota"],
+["🔍 メモを検索","🔍 Search notes","🔍 搜索记录","🔍 Buscar notas"],["ピン留めしたメモが上に来ます。クリックで右側に開きます。","Pinned notes come first. Click to open on the right.","置顶的记录排在前面。点击后在右侧打开。","Las notas fijadas van primero. Haz clic para abrir a la derecha."],
+["📌 ピン留め","📌 Pin","📌 置顶","📌 Fijar"],["📌 ピン留め解除","📌 Unpin","📌 取消置顶","📌 Desfijar"],["🗑 削除","🗑 Delete","🗑 删除","🗑 Eliminar"],["タイトル","Title","标题","Título"],["日付","Date","日期","Fecha"],
+["例：9月定例会（○○様）","e.g. September review meeting","例：9月例会","p. ej. Reunión mensual de septiembre"],["本文（議事録・メモ）","Body (minutes / notes)","正文（会议记录・备忘）","Contenido (acta / notas)"],
+["議事録を貼り付け、または入力。ZoomやMeetの文字起こし（txt / vtt / docx）は下の📎から読み込めます","Paste or type the minutes. Zoom/Meet transcripts (txt / vtt / docx) can be loaded with 📎 below","粘贴或输入会议记录。Zoom/Meet 的文字记录（txt / vtt / docx）可用下方📎读入","Pega o escribe el acta. Las transcripciones de Zoom/Meet (txt / vtt / docx) se cargan con 📎"],
+["💾 保存","💾 Save","💾 保存","💾 Guardar"],["📎 議事録ファイル","📎 Minutes file","📎 会议记录文件","📎 Archivo del acta"],["🤖 要約して宿題を抽出","🤖 Summarize & extract to-dos","🤖 总结并提取待办","🤖 Resumir y extraer tareas"],["🌐 翻訳","🌐 Translate","🌐 翻译","🌐 Traducir"],
+["「要約して宿題を抽出」を押すと、決定事項・宿題を整理します（AI接続時はAIが要約、未接続時はキーワードで抽出）。","Press “Summarize & extract to-dos” to organize decisions and to-dos (AI summarizes when connected; keyword extraction otherwise).","点击「总结并提取待办」可整理决定事项和待办（已连接AI时由AI总结，否则按关键词提取）。","Pulsa “Resumir y extraer tareas” para ordenar decisiones y pendientes (la IA resume si está conectada; si no, por palabras clave)."],
+["🤖 要約","🤖 Summary","🤖 摘要","🤖 Resumen"],["キーワード抽出","Keyword extraction","关键词提取","Extracción por palabras clave"],["決定事項","Decisions","决定事项","Decisiones"],["宿題（チェックしてタスクにする）","To-dos (check to turn into tasks)","待办（勾选后转为任务）","Pendientes (marca para convertir en tareas)"],
+["タスク化済み","Already a task","已转为任务","Ya es tarea"],["✅ 選んだ宿題をタスクにする","✅ Turn selected to-dos into tasks","✅ 将所选待办转为任务","✅ Convertir en tareas"],
+["宿題は見つかりませんでした。「〜する」「〜まで」など次の行動が本文にあると抽出できます。","No to-dos found. Lines with next actions or deadlines can be extracted.","未找到待办。正文中有「要做…」「…之前」等下一步行动时可提取。","No se encontraron pendientes. Se extraen cuando el texto contiene acciones o plazos."],
+["要約済み","Summarized","已总结","Resumido"],["タスク化","Tasked","已转任务","Con tareas"],["（無題）","(untitled)","（无标题）","(sin título)"],["まだメモがありません。","No notes yet.","还没有记录。","Aún no hay notas."],
+["定例会の議事録を貼り付けるだけで、宿題がタスクになります。","Just paste the meeting minutes and the to-dos become tasks.","只需粘贴例会记录，待办就会变成任务。","Solo pega el acta y los pendientes se convierten en tareas."],
+["タイトルか本文を入力してください","Enter a title or body","请输入标题或正文","Escribe un título o contenido"],["メモを保存しました","Note saved","记录已保存","Nota guardada"],["このメモを削除しますか？","Delete this note?","要删除这条记录吗？","¿Eliminar esta nota?"],["削除しました","Deleted","已删除","Eliminado"],
+["キーワードで整理しました（AI接続時はAIが要約します）","Organized by keywords (AI summarizes when connected)","已按关键词整理（连接AI后由AI总结）","Ordenado por palabras clave (la IA resume si está conectada)"],["🤖 要約しています…","🤖 Summarizing…","🤖 正在总结…","🤖 Resumiendo…"],["要約しました","Summarized","已总结","Resumido"],
+["AI要約に失敗したためキーワードで整理しました","AI summary failed; organized by keywords instead","AI总结失败，已按关键词整理","Falló el resumen IA; se ordenó por palabras clave"],["タスクにする宿題にチェックを入れてください","Check the to-dos to turn into tasks","请勾选要转为任务的待办","Marca los pendientes a convertir"],
+["翻訳はAIエンジン接続時に使えます（管理コンソールで接続）","Translation needs an AI engine (connect in the admin console)","翻译需要连接AI引擎（在管理控制台连接）","La traducción requiere un motor IA (conectar en la consola)"],["🌐 翻訳しています…","🌐 Translating…","🌐 正在翻译…","🌐 Traduciendo…"],
+/* 定型セット */
+["📚 定型セット","📚 Task templates","📚 任务模板","📚 Plantillas"],["📚 タスクの定型セット","📚 Task templates","📚 任务模板","📚 Plantillas de tareas"],
+["展示会の準備や定例会など「毎回同じ手順」は、定型セットから一括でタスクにできます。AIの提案と併用できます。","Recurring routines such as trade-show prep or monthly reviews can be created as tasks in one go from a template. Works alongside AI suggestions.","展会准备、例会等「每次相同的步骤」可从模板一次性生成任务。可与AI建议并用。","Rutinas repetidas como ferias o reuniones mensuales se crean de una vez desde una plantilla. Compatible con las sugerencias de IA."],
+["基準日","Base date","基准日","Fecha base"],["展示会・定例会の当日など。各タスクの期限は基準日からの日数で決まります。","e.g. the show or meeting day. Each due date is offset from the base date.","如展会・例会当天。各任务期限按基准日的天数偏移确定。","p. ej. el día de la feria. Cada plazo se calcula desde la fecha base."],
+["標準","Standard","标准","Estándar"],["自社","Custom","自定义","Propia"],["この商品に適用","Apply to this product","应用到此商品","Aplicar a este producto"],["タスクを見る","Show tasks","查看任务","Ver tareas"],
+["＋ いまのタスクから定型セットを作る","+ Make a template from current tasks","＋ 用当前任务创建模板","+ Crear plantilla con las tareas actuales"],["＋ 定型セットを作る","+ Create a template","＋ 创建模板","+ Crear plantilla"],
+["いま登録されているタスクから選んで、次回以降に使い回せる定型セットにします（期限は今日からの日数として保存）。","Pick from the current tasks to make a reusable template (due dates are saved as days from today).","从当前任务中选择，做成下次可复用的模板（期限按距今天的天数保存）。","Elige entre las tareas actuales para crear una plantilla reutilizable (los plazos se guardan como días desde hoy)."],
+["セット名","Template name","模板名称","Nombre de la plantilla"],["例：台湾向け出荷の定型","e.g. Taiwan shipment routine","例：对台出货流程","p. ej. Rutina de envío a Taiwán"],["含めるタスク","Tasks to include","包含的任务","Tareas a incluir"],["タスクがありません。","No tasks.","没有任务。","No hay tareas."],
+["保存する","Save","保存","Guardar"],["戻る","Back","返回","Volver"],["セット名を入力してください","Enter a template name","请输入模板名称","Escribe un nombre"],["タスクを1件以上選んでください","Select at least one task","请至少选择1个任务","Selecciona al menos una tarea"],["定型セットを保存しました","Template saved","模板已保存","Plantilla guardada"],["この定型セットを削除しますか？","Delete this template?","要删除此模板吗？","¿Eliminar esta plantilla?"],
+["商品情報の登録から規制調査まで。新しい商品を登録した直後に","From product registration to regulatory research. Right after registering a new product","从登记商品信息到法规调查。适合刚登记新商品时","Del registro del producto a la investigación normativa. Justo después de registrar un producto"],
+["定例会の1週間前から翌日まで。基準日＝定例会の当日","From a week before the review meeting to the day after. Base date = meeting day","例会前一周到次日。基准日＝例会当天","Desde una semana antes de la reunión hasta el día siguiente. Fecha base = día de la reunión"],
+["出展の6週間前から事後フォローまで。基準日＝会期初日","From six weeks before the show to follow-up. Base date = first day of the show","展会前6周到会后跟进。基准日＝展会首日","Desde seis semanas antes de la feria hasta el seguimiento. Fecha base = primer día"],
+["受注が見えてから出荷まで。基準日＝受注日","From a likely order to shipment. Base date = order date","从订单在望到出货。基准日＝接单日","Desde el pedido previsible hasta el envío. Fecha base = fecha del pedido"],
+["初回コンタクトからフォローまで。基準日＝初回接触日","From first contact to follow-up. Base date = first contact","从首次接触到跟进。基准日＝首次接触日","Del primer contacto al seguimiento. Fecha base = primer contacto"],
+["現在のタスクから作成","Made from current tasks","由当前任务创建","Creada con las tareas actuales"],
+["商品情報（価格表・寸法・成分）を揃える","Gather product information (price list, dimensions, ingredients)","准备商品信息（价格表・尺寸・成分）","Reunir la información del producto (precios, medidas, ingredientes)"],["進出希望国を決める","Decide target countries","确定目标国家","Decidir los países objetivo"],["規制調査を依頼する","Request regulatory research","委托法规调查","Solicitar investigación normativa"],["英文の商品名・社名を登録する","Register English product and company names","登记英文商品名・公司名","Registrar nombres en inglés"],["営業資料の元データを確認する","Check source data for sales materials","确认销售资料的原始数据","Revisar los datos base del material comercial"],
+["商談記録を最新にする","Update deal records","更新商谈记录","Actualizar los registros de negociación"],["今月の実績と次月の計画をまとめる","Summarize this month's results and next month's plan","汇总本月业绩和下月计划","Resumir resultados del mes y plan del siguiente"],["定例会の資料を送る","Send the meeting materials","发送例会资料","Enviar el material de la reunión"],["定例会を実施し議事録を残す","Hold the meeting and keep minutes","召开例会并留下记录","Celebrar la reunión y levantar acta"],["宿題をタスクに登録する","Register to-dos as tasks","把待办登记为任务","Registrar los pendientes como tareas"],
+["出展商品とサンプル数を決める","Decide exhibits and sample quantities","确定参展商品和样品数量","Decidir productos a exponer y muestras"],["英語カタログ・価格表を用意する","Prepare an English catalog and price list","准备英文目录・价格表","Preparar catálogo y lista de precios en inglés"],["招待メールをバイヤーに送る","Send invitation emails to buyers","向买家发送邀请邮件","Enviar invitaciones a los compradores"],["名刺・商談記録の記入ルールを決める","Set rules for business cards and deal records","确定名片・商谈记录的填写规则","Definir reglas para tarjetas y registros"],["商談記録を貿易クラウドに登録する","Register deal records in Trade Cloud","把商谈记录登记到贸易云","Registrar las negociaciones en Trade Cloud"],["御礼と見積を送る","Send thanks and quotes","发送致谢和报价","Enviar agradecimiento y cotización"],
+["送り先の規制・必要書類を確認する","Check destination regulations and required documents","确认目的地法规・所需单证","Revisar normativa y documentos del destino"],["見積（FOB／CIF）を提示する","Present a quote (FOB / CIF)","提交报价（FOB／CIF）","Presentar cotización (FOB / CIF)"],["物流会社に見積を依頼する","Request a freight quote","向物流公司询价","Solicitar cotización al transportista"],["注文書・PIを取り交わす","Exchange PO and PI","交换订单・PI","Intercambiar orden de compra y PI"],["船積書類（CI／PL）を作る","Prepare shipping documents (CI / PL)","制作装船单证（CI／PL）","Preparar documentos de embarque (CI / PL)"],["出荷・入金を確認する","Confirm shipment and payment","确认出货・收款","Confirmar envío y cobro"],
+["初回提案メールを送る","Send the first proposal email","发送首次提案邮件","Enviar el primer correo de propuesta"],["サンプル・見積の要否を確認する","Check whether samples or quotes are needed","确认是否需要样品・报价","Confirmar si necesitan muestras o cotización"],["サンプルを発送する","Ship samples","寄送样品","Enviar muestras"],["1週間後にフォローする","Follow up after a week","一周后跟进","Hacer seguimiento tras una semana"],["商談記録を残す","Record the deal","留下商谈记录","Registrar la negociación"],
+["STANDAGEの管理コンソールで設定された既定の承認者","Default approver set in STANDAGE's admin console","STANDAGE管理控制台设置的默认审批者","Aprobador predeterminado fijado en la consola de STANDAGE"],["空欄ならこれを使います","used when left blank","留空时使用此值","se usa si se deja en blanco"],["理由","Reason","理由","Motivo"],["承認依頼","Approval requested by","审批申请","Aprobación solicitada por"],
+["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
+["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
+/* 承認・公開・対訳 */
+["承認・公開","Approval / publish","审批・发布","Aprobación / publicación"],["⚙ 承認・公開の設定","⚙ Approval settings","⚙ 审批・发布设置","⚙ Ajustes de aprobación"],["⚙ 商談記録の承認・公開","⚙ Deal-record approval & publishing","⚙ 商谈记录的审批・发布","⚙ Aprobación y publicación de registros"],
+["海外拠点や複数人で記録するときは、承認者が確認してから公開する運用にできます（以前の貿易クラウドの「下書き→承認待ち→公開」と同じ考え方）。","When overseas offices or several people write records, an approver can review before publishing (same idea as “draft → pending → published” in the previous Trade Cloud).","多人或海外据点记录时，可由审批者确认后再发布（与旧版贸易云「草稿→待审批→发布」同理）。","Cuando registran varias personas u oficinas, un aprobador puede revisar antes de publicar (igual que “borrador → pendiente → publicado” en la versión anterior)."],
+["新しい商談記録は「下書き」から始め、承認後に公開する","Start new records as drafts and publish after approval","新商谈记录从「草稿」开始，审批后发布","Los registros nuevos empiezan como borrador y se publican tras aprobarse"],["承認者（氏名）","Approver (name)","审批者（姓名）","Aprobador (nombre)"],
+["STANDAGE側の管理コンソールからも、案件ごとの承認者を設定できます。","The approver per account can also be set from STANDAGE's admin console.","STANDAGE的管理控制台也可按项目设置审批者。","El aprobador por cuenta también se fija desde la consola de STANDAGE."],
+["下書き","Draft","草稿","Borrador"],["承認待ち","Pending approval","待审批","Pendiente"],["承認済","Approved","已审批","Aprobado"],["差戻し","Returned","已退回","Devuelto"],["公開","Published","已发布","Publicado"],
+["承認を依頼","Request approval","申请审批","Solicitar aprobación"],["承認して公開","Approve & publish","审批并发布","Aprobar y publicar"],["公開する","Publish","发布","Publicar"],["非公開にする","Unpublish","设为不公开","Despublicar"],
+["承認を依頼しました","Approval requested","已申请审批","Aprobación solicitada"],["承認して公開しました","Approved and published","已审批并发布","Aprobado y publicado"],["差し戻しました","Returned","已退回","Devuelto"],["公開しました","Published","已发布","Publicado"],["非公開にしました","Unpublished","已设为不公开","Despublicado"],["差し戻しの理由（任意）","Reason for returning (optional)","退回理由（可选）","Motivo de la devolución (opcional)"],
+["🌐 対訳（English）","🌐 English version","🌐 英文对照","🌐 Versión en inglés"],["AIで対訳を作る","Create with AI","用AI生成","Crear con IA"],["再翻訳","Re-translate","重新翻译","Traducir de nuevo"],["対訳あり","Has English version","有英文对照","Con versión en inglés"],
+["「AIで対訳を作る」を押すと英訳が入ります。手で直して保存できます","Press “Create with AI” to fill in an English version; edit by hand and save","点击「用AI生成」填入英文，可手动修改后保存","Pulsa “Crear con IA” para rellenar la versión inglesa; edita a mano y guarda"],
+["AI未接続のため自動翻訳はできません。手で英訳を入力して保存できます","No AI engine connected, so automatic translation is unavailable. Type the English version and save","未连接AI，无法自动翻译。可手动输入英文后保存","Sin motor IA no hay traducción automática. Escribe la versión inglesa y guarda"],
+["自動翻訳はAIエンジン接続時に使えます（手入力で保存はできます）","Automatic translation needs an AI engine (manual entry still works)","自动翻译需要连接AI引擎（可手动输入保存）","La traducción automática requiere IA (la entrada manual funciona)"],["翻訳しています…","Translating…","正在翻译…","Traduciendo…"],["対訳を作成しました","English version created","已生成英文对照","Versión en inglés creada"],["対訳を保存しました","English version saved","英文对照已保存","Versión guardada"],
+["承認すると公開されます","Approving publishes the record","审批后即发布","Al aprobar se publica"],
+/* 受信翻訳 */
+["🌐 すべて訳す","🌐 Translate all","🌐 全部翻译","🌐 Traducir todo"],["訳を表示","Show translation","显示译文","Mostrar traducción"],["訳を隠す","Hide translation","隐藏译文","Ocultar traducción"],
+["受信翻訳はAIエンジン接続時に使えます（管理コンソールで接続）","Inbound translation needs an AI engine (connect in the admin console)","接收翻译需要连接AI引擎（在管理控制台连接）","La traducción de mensajes requiere un motor IA (conectar en la consola)"],
+/* メール通知 */
+["📧 メールで受け取る","📧 Receive by email","📧 通过邮件接收","📧 Recibir por correo"],["有効","On","已启用","Activo"],["未設定","Not set","未设置","Sin configurar"],["停止中","Off","已停止","Desactivado"],["保存","Save","保存","Guardar"],["テスト送信","Send test","测试发送","Enviar prueba"],
+["クラウド同期が未設定のため、この端末では利用できません。","Cloud sync is not set up on this device, so this is unavailable.","本设备未设置云同步，无法使用。","La sincronización en la nube no está configurada en este dispositivo."],
+["メールアドレスの形式を確認してください","Check the email address format","请确认邮箱格式","Revisa el formato del correo"],["メールアドレスを入力してください","Enter an email address","请输入邮箱","Escribe un correo"],["クラウド同期が未設定のため送れません","Cannot send: cloud sync is not set up","未设置云同步，无法发送","No se puede enviar: sin sincronización en la nube"],["テスト送信しています…","Sending a test…","正在测试发送…","Enviando prueba…"],
+["メール通知の設定を保存しました（毎朝8時・要対応があるときだけ）","Email settings saved (8:00 every morning, only when something needs attention)","邮件通知设置已保存（每天早8点・仅在有待办时）","Ajustes de correo guardados (8:00 cada mañana, solo si hay pendientes)"],["保存しましたが同期サーバーに送れませんでした","Saved, but could not reach the sync server","已保存，但无法发送到同步服务器","Guardado, pero no se pudo contactar el servidor"],
+/* LINE／WhatsApp */
+["③ 自動連携（Webhook）","③ Automatic link (webhook)","③ 自动联动（Webhook）","③ Enlace automático (webhook)"],["状態を確認しています…","Checking status…","正在确认状态…","Comprobando estado…"],["📱 連携メッセージを今すぐ取得","📱 Fetch linked messages now","📱 立即获取联动消息","📱 Obtener mensajes ahora"],
+["クラウド同期が未設定のため、この端末では自動連携を使えません（貼り付け取込は使えます）。","Cloud sync is not set up on this device, so automatic linking is unavailable (paste import still works).","本设备未设置云同步，无法自动联动（可使用粘贴导入）。","Sin sincronización en la nube no hay enlace automático (la importación por pegado funciona)."],
+["状態を取得できませんでした","Could not get the status","无法获取状态","No se pudo obtener el estado"],["新着はありません","No new messages","没有新消息","Sin mensajes nuevos"],["連携が未設定です（管理コンソール「📱 LINE／WhatsApp 連携」で設定します）","Linking is not set up (configure in the admin console → 📱 LINE / WhatsApp)","联动未设置（在管理控制台「📱 LINE／WhatsApp 联动」设置）","El enlace no está configurado (consola → 📱 LINE / WhatsApp)"],
+["📱 LINEで返信","📱 Reply on LINE","📱 用LINE回复","📱 Responder por LINE"],["📱 WhatsAppで返信","📱 Reply on WhatsApp","📱 用WhatsApp回复","📱 Responder por WhatsApp"],["返信を入力","Type your reply","输入回复","Escribe tu respuesta"],["送信","Send","发送","Enviar"],["やめる","Cancel","取消","Cancelar"],["本文を入力してください","Enter a message","请输入内容","Escribe el mensaje"],["送信しました","Sent","已发送","Enviado"],
+/* 搬出API */
+["🤖 自動化向けスナップショット（読み取り専用API）","🤖 Automation snapshot (read-only API)","🤖 自动化快照（只读API）","🤖 Instantánea para automatización (API de solo lectura)"],["ONにする","Turn on","开启","Activar"],["OFFにする（削除）","Turn off (delete)","关闭（删除）","Desactivar (eliminar)"],["今すぐ更新","Update now","立即更新","Actualizar ahora"],["クラウド同期が未設定のため利用できません","Unavailable: cloud sync is not set up","未设置云同步，无法使用","No disponible: sin sincronización en la nube"],
+["自動化向けスナップショットを更新しました","Automation snapshot updated","自动化快照已更新","Instantánea actualizada"]
+);
+I18N_EL_ROWS.push(
+["<b>この画面でできること：</b>定例会や商談の議事録をここに残すと、AIが決定事項と宿題を整理し、宿題はワンクリックでタスクになります。以前の貿易クラウドで最も使われていた「メモ」の置き場です。","<b>What you can do here:</b> keep minutes of review meetings and deals here; AI organizes decisions and to-dos, and to-dos become tasks in one click. This replaces the most-used “Memo” of the previous Trade Cloud.","<b>本页功能：</b>把例会・商谈的记录留在这里，AI会整理决定事项和待办，待办一键变成任务。这是旧版贸易云使用最多的「备忘」的新位置。","<b>Qué puedes hacer aquí:</b> guarda las actas de reuniones y negociaciones; la IA ordena decisiones y pendientes, y estos se convierten en tareas con un clic. Sustituye al “Memo” más usado de la versión anterior."],
+["毎朝8時に、要対応があるときだけ<b>件数と見出し</b>をメールします（商談の中身は載せません）。","At 8:00 every morning, only when something needs attention, we email the <b>counts and titles</b> (no deal contents).","每天早8点，仅在有待办时把<b>件数和标题</b>发到邮箱（不含商谈内容）。","A las 8:00 cada mañana, solo si hay pendientes, enviamos por correo <b>cantidades y títulos</b> (sin contenido de las negociaciones)."],
+["ONにすると、タスク・商談記録・受注・やりとり・会議メモの要約を<b>平文のスナップショット</b>として同期サーバーに置き、STANDAGEが発行する読み取り専用トークンで外部ツール（Claude等）から取得できます。<b>通常の同期データは暗号化のままです。</b>OFFにすると削除されます。","When on, a <b>plain-text snapshot</b> of tasks, deal records, orders, messages and meeting summaries is placed on the sync server, retrievable by external tools (e.g. Claude) with a read-only token issued by STANDAGE. <b>Regular sync data stays encrypted.</b> Turning it off deletes the snapshot.","开启后，任务・商谈记录・订单・往来・会议摘要会以<b>明文快照</b>放在同步服务器上，外部工具（如Claude）可用STANDAGE发放的只读令牌获取。<b>常规同步数据仍保持加密。</b>关闭后即删除。","Al activarlo, una <b>instantánea en texto plano</b> de tareas, registros, pedidos, mensajes y resúmenes de reuniones se coloca en el servidor de sincronización, accesible con un token de solo lectura emitido por STANDAGE. <b>Los datos de sincronización normales siguen cifrados.</b> Al desactivarlo se elimina."]
+);
+I18N_PAT2.push(
+ {re:/^承認待ちの商談記録 (\d+)件$/,en:"$1 deal records pending approval",zh:"待审批的商谈记录 $1件",es:"$1 registros pendientes de aprobación"},
+ {re:/^未回答の見積依頼 (\d+)件$/,en:"$1 unanswered quote requests",zh:"未回复的询价 $1件",es:"$1 solicitudes de cotización sin responder"},
+ {re:/^(\d+)件をタスクにしました（「タスク・進行」に反映済み）$/,en:"$1 to-dos turned into tasks (see Tasks)",zh:"已将$1项转为任务（已反映到「任务・进度」）",es:"$1 pendientes convertidos en tareas (ver Tareas)"},
+ {re:/^「(.+)」から(\d+)件のタスクを作成しました$/,en:"Created $2 tasks from “$1”",zh:"已从「$1」创建$2个任务",es:"Se crearon $2 tareas desde “$1”"},
+ {re:/^(\d+)件を翻訳しました$/,en:"$1 messages translated",zh:"已翻译$1条",es:"$1 mensajes traducidos"},
+ {re:/^🌐 訳す（(.+)）$/,en:"🌐 Translate ($1)",zh:"🌐 翻译（$1）",es:"🌐 Traducir ($1)"},
+ {re:/^🌐 翻訳（(.+)）$/,en:"🌐 Translation ($1)",zh:"🌐 翻译（$1）",es:"🌐 Traducción ($1)"},
+ {re:/^📱 (.+)で返信$/,en:"📱 Reply on $1",zh:"📱 用$1回复",es:"📱 Responder por $1"},
+ {re:/^(.+)に翻訳しました$/,en:"Translated into $1",zh:"已翻译为$1",es:"Traducido al $1"},
+ {re:/^（([+-]?\d+)日・(高|中|低)）$/,en:(m,d)=>`(${m[1]} d · ${d[m[2]]||m[2]})`,zh:(m,d)=>`（${m[1]}天・${d[m[2]]||m[2]}）`,es:(m,d)=>`(${m[1]} d · ${d[m[2]]||m[2]})`},
+ {re:/^(\d{4}-\d{2}-\d{2})・(高|中|低)$/,en:(m,d)=>`${m[1]} · ${d[m[2]]||m[2]}`,zh:(m,d)=>`${m[1]}・${d[m[2]]||m[2]}`,es:(m,d)=>`${m[1]} · ${d[m[2]]||m[2]}`}
 );
 
 /* ═══════════════════════════════════════════════════════════════
