@@ -591,6 +591,11 @@ td[data-aprtd] .btn{white-space:nowrap}
 .dwmob #dwchat{min-height:38dvh}
 .dwmob .dwfoot{padding:6px 10px calc(8px + env(safe-area-inset-bottom))}
 .dwmob .dwfoot>.nn{display:none}
+/* v16.2：スマホ1列のグリッドは 1fr（＝minmax(auto,1fr)）だと中身の最小幅でカードが横に伸びる → minmax(0,1fr) に。チップ行・表は親の幅を超えない */
+@media (max-width:820px){.g2,.g3,.g4{grid-template-columns:minmax(0,1fr)}.c{min-width:0}}
+body.mob .g2,body.mob .g3,body.mob .g4{grid-template-columns:minmax(0,1fr)!important}
+body.mob .c{min-width:0}
+.aimob .qb,.dwmob .dwbody>.qb{width:0;min-width:100%}
 </style>
 
 <style>
@@ -18906,6 +18911,55 @@ document.addEventListener("focusin",e=>{ const t=e.target; if(t&&t.classList&&t.
 /* 画面描画のたびに適用 */
 const __render16f=render;
 render=function(){ __render16f.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="ai") v16fAiPage(); }catch(e){} };
+
+/* ═══════════ v16.2（2026-09-07）：AI商社マンの参照データ漏れを塞ぐ ═══════════
+   デモ前の総点検で見つかった漏れ：v16 で増えた「会議メモ・議事録」と LINE／WhatsApp 由来のメッセージが、
+   接続AIのコンテキスト（ppContext→kbCtx）・内蔵エンジンの直接回答（kbAsk）・「AIが見ているもの」（kbSeen）・成長レベル（aiLevelFor ⑥資料・データの蓄積）に入っていなかった。 */
+function kbMemoList(){ try{ if(typeof memoStore==="function") return memoStore().slice(); }catch(e){} const t=(typeof TEN!=="undefined"&&TEN)||null; const dd=(typeof D!=="undefined"&&D)||{}; return ((t&&t.memos)||dd.memos||[]).slice(); }
+function kbMemos(){
+  const L=kbMemoList().sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))); if(!L.length) return "";
+  return `## 会議メモ・議事録（${L.length}件・新しい順。定例会の決定事項・宿題はここが一次情報）\n`+L.slice(0,6).map(m=>{
+    const s=m.sum||{}; const dec=(s.dec||[]).slice(0,5).join("／"); const todo=(s.todo||[]).slice(0,6).map(x=>x.t+(x.who?"（"+x.who+"）":"")+(x.due?" 期限"+x.due:"")+(x.tasked?" ✓タスク化":"")).join("／");
+    return `・${m.d||""} ${m.t||"（無題）"}${m.pin?"（ピン留め）":""}\n  要約：${(s.txt||String(m.body||"").replace(/\s+/g," ").slice(0,160))||"-"}${dec?"\n  決定事項："+dec:""}${todo?"\n  宿題："+todo:""}`;
+  }).join("\n");
+}
+/* やりとり：LINE／WhatsApp 由来と返信の別が分かるように（kbObj のキー一覧に src が無かった） */
+function kbMsgs(){
+  const t=(typeof TEN!=="undefined"&&TEN)||null; const dd=(typeof D!=="undefined"&&D)||{};
+  const L=(t&&Array.isArray(t.msgs)&&t.msgs.length)?t.msgs:(Array.isArray(dd.msgs)?dd.msgs:[]); if(!L.length) return "";
+  const plain=h=>String(h||"").replace(/<br\s*\/?>/gi," ").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/\s+/g," ").trim();
+  const lw=L.filter(m=>m&&m.lw).length;
+  return `## やりとり（バイヤー・関係先との連絡 ${L.length}件${lw?"・うちLINE／WhatsApp連携 "+lw+"件":""}・新しい順）\n`+L.slice(-8).reverse().map(m=>`・${m.t||""} ${m.src?"["+m.src+"] ":""}${m.who||""}${m.org?"（"+m.org+"）":""}${m.scope?"［"+m.scope+"］":""}：${plain(m.body).slice(0,200)}`).join("\n");
+}
+/* 接続AIのコンテキストに会議メモを追加 */
+if(typeof kbCtx==="function"){ const __kbCtx16=kbCtx; kbCtx=function(){ let base=""; try{ base=__kbCtx16.apply(this,arguments)||""; }catch(e){} let m=""; try{ m=kbMemos(); }catch(e){} if(!m) return base; return (base||`\n=== 貿易クラウド内の連携データ（AI商社マンが参照できる情報。回答の根拠にしてよい。無いものは「未登録」と答える） ===`)+"\n\n"+m.slice(0,1500); }; }
+/* 内蔵エンジン（未接続）：会議メモの質問に直接答える */
+if(typeof kbAsk==="function"){ const __kbAsk16=kbAsk;
+  kbAsk=function(q){ const s=String(q||"");
+    try{ if(/会議メモ|議事録|決定事項|宿題|定例会|定例の|ミーティング/.test(s)&&typeof D!=="undefined"&&D){ const L=kbMemoList().sort((a,b)=>String(b.d||"").localeCompare(String(a.d||"")));
+      if(!L.length) return {a:"会議メモ・議事録はまだありません。「会議メモ・議事録」に定例会の議事録を貼り付けると、決定事項・宿題を整理してここで答えられます。",c:"根拠：会議メモ 0件"};
+      const rows=L.slice(0,5).map(m=>{ const su=m.sum||{}; return `<b>${esc(m.d||"")} ${esc(m.t||"（無題）")}</b>${su.txt?"<br>"+esc(su.txt):""}${(su.dec||[]).length?"<br>決定事項："+su.dec.slice(0,5).map(esc).join("／"):""}${(su.todo||[]).length?"<br>宿題："+su.todo.slice(0,6).map(x=>esc(x.t)+(x.tasked?" ✓":"")).join("／"):""}`; });
+      return {a:`会議メモ・議事録は <b>${L.length}件</b> あります（新しい順）：<br>`+rows.join("<br><br>"),c:`根拠：会議メモ ${L.length}件（要約${L.filter(m=>m.sum).length}件・タスク化 ${L.reduce((n,m)=>n+((m.sum&&m.sum.todo)||[]).filter(x=>x.tasked).length,0)}件）`}; } }catch(e){}
+    /* 「商談の状況は？」が価格の回答になっていた（意図判定が価格に寄る）→ 商談記録から直接答える */
+    try{ if(/商談(の)?(状況|進捗|記録|結果|履歴|一覧)|商談は|バイヤーの反応|反応は|失注/.test(s)&&!/価格|単価|いくら/.test(s)&&typeof D!=="undefined"&&D){ const FB=(D.fb||[]).slice();
+      if(!FB.length) return {a:"商談記録はまだありません。「商談・バイヤー」に記録すると、相手ごとの反応・確度・断られた理由から次の一手を提案できます。",c:"根拠：商談記録 0件"};
+      const by=k=>{ const m={}; FB.forEach(f=>{ const v=f[k]||"（未設定）"; m[v]=(m[v]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(x=>x[0]+" "+x[1]+"件").join("・"); };
+      const lost=FB.filter(f=>f.why).slice(0,4).map(f=>esc(f.b)+"："+esc(f.why)).join("／");
+      const recent=FB.slice().sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))).slice(0,6).map(f=>`・${esc(f.d||"")} <b>${esc(f.b||"")}</b>（${esc(f.c||"")}${f.ch?"・"+esc(f.ch):""}）${esc(f.st||"")}${f.react?"・反応"+esc(f.react):""}${f.price?"・"+esc(f.price):""}${(typeof fbAprSt==="function"&&fbAprSt(f)!=="公開")?"・"+esc(fbAprSt(f)):""}`).join("<br>");
+      const K=D.kpi||{}; const total=(K.fbDone!=null&&+K.fbDone>FB.length)?+K.fbDone:FB.length;
+      return {a:`商談記録は <b>${total}件</b>${K.fbGoal?"（目標 "+K.fbGoal+"件）":""}${total!==FB.length?"（うち詳細を登録済み "+FB.length+"件）":""}です。<br>状況：${esc(by("st"))}<br>反応：${esc(by("react"))}${lost?"<br>断られた理由："+lost:""}<br><br>直近の記録：<br>${recent}`,c:`根拠：商談記録 ${FB.length}件${K.hot?"・反応「高」"+K.hot+"件":""}${K.won?"・受注 "+K.won+"件":""}`}; } }catch(e){}
+    return __kbAsk16.apply(this,arguments); }; }
+/* 「AIが見ているもの」に会議メモを追加 */
+if(typeof kbSeen==="function"){ const __kbSeen16=kbSeen; kbSeen=function(){ const rows=__kbSeen16.apply(this,arguments)||[]; try{ const n=kbMemoList().length; rows.push(["会議メモ・議事録",`${n}件`,Math.min(100,Math.round(n/3*100))]); }catch(e){} return rows; }; }
+/* 成長レベル ⑥資料・データの蓄積：会議メモも蓄積として加点（1件5pt・上限20pt） */
+if(typeof aiLevelFor==="function"){ const __lvl16=aiLevelFor;
+  aiLevelFor=function(d,t){ const L=__lvl16.apply(this,arguments); try{
+      const curD=(typeof D!=="undefined"&&D)||null; const isCur=(!d||d===curD);
+      const memos=isCur?kbMemoList().length:((t&&t.memos)||(d&&d.memos)||[]).length; const c6=L&&L.cats&&L.cats.find(c=>c.k==="data"); if(!c6) return L;
+      if(memos){ c6.pct=Math.min(100,c6.pct+Math.min(20,memos*5)); c6.detail+=`／会議メモ ${memos}件`; } else if(!c6.next){ c6.next={t:"定例会の議事録を残す",go:"memo"}; }
+      const pct=Math.max(0,Math.min(100,Math.round(L.cats.reduce((a,c)=>a+c.pct*c.w/100,0)))); let lvIdx=0; GROW_STAGES.forEach((s,i)=>{ if(pct>=s[0]) lvIdx=i; });
+      L.pct=pct; L.lv=lvIdx+1; L.lvIdx=lvIdx; L.stage=GROW_STAGES[lvIdx][1]; L.nextStage=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][1]:null; L.nextTh=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][0]:null; L.to=Math.max(0,GROW_PRO-pct); L.pro=pct>=GROW_PRO;
+    }catch(e){} return L; }; }
 
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
