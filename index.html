@@ -568,13 +568,36 @@ td[data-aprtd] .btn{white-space:nowrap}
 .pg-ft b{color:var(--ink-2)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* ── v16.1：スマホのチャット（AI商社マン画面・右パネル）。JSが .aimob / .dwmob を付ける（スマホ幅または「スマホ表示」） ── */
+@media (max-width:820px){
+  .chat{max-height:52dvh}                                  /* 以前は後続の .chat{max-height:430px} に負けて効いていなかった */
+  .dw .pn{height:var(--vvh,100dvh)}                        /* iOS：キーボード表示中は visualViewport の高さに追従 */
+}
+.aimob .qb,.dwmob .dwbody>.qb{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;gap:6px;padding:2px 2px 4px;margin-top:6px}
+.aimob .qb::-webkit-scrollbar,.dwmob .dwbody>.qb::-webkit-scrollbar{display:none}
+.aimob .qb .q,.dwmob .dwbody>.qb .q{flex:0 0 auto;white-space:nowrap}
+.aimob .composer,.dwmob .dwfoot .composer{display:flex;align-items:flex-end;gap:6px;padding:4px 6px 4px 10px;margin-top:6px!important}
+.aimob .composer>.rw:first-child,.dwmob .dwfoot .composer>.rw:first-child{display:none}          /* 書式バー（太字・斜体）はスマホでは省く */
+.aimob .composer>.rw:last-child,.dwmob .dwfoot .composer>.rw:last-child{border-top:0!important;padding:0 0 3px!important;flex:none}
+.aimob .composer textarea.sel,.dwmob .dwfoot .composer textarea.sel{flex:1 1 auto;width:auto!important;min-height:40px!important;max-height:120px!important;padding:8px 0!important;line-height:1.5!important}
+.aimob .composer .btn,.dwmob .dwfoot .composer .btn{padding:8px 13px;border-radius:999px;white-space:nowrap}
+.aimob .aistick{position:sticky;bottom:calc(4px + env(safe-area-inset-bottom));z-index:6;background:var(--surface);box-shadow:0 -8px 20px rgba(20,26,34,.10);border-radius:12px;padding:0 0 2px}
+.aimob .aistick .qb{margin-top:0}
+.aimob .aistick+.nn{display:none}
+.aimob #chat{scroll-margin-bottom:130px}
+.dwmob .dwhead{padding:10px 44px 8px 14px}
+.dwmob .dwbody{padding:8px 12px 4px}
+.dwmob .dwbody>.nn{display:none}
+.dwmob #dwchat{min-height:38dvh}
+.dwmob .dwfoot{padding:6px 10px calc(8px + env(safe-area-inset-bottom))}
+.dwmob .dwfoot>.nn{display:none}
 </style>
 
 <style>
 body.locked .app{display:none}
 body.locked .pg-ft{display:none}
-#lgv{position:fixed;inset:0;z-index:100;background:var(--canvas);display:grid;place-items:center;padding:20px}
-.lgc{width:min(432px,94vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;
+#lgv{position:fixed;inset:0;z-index:100;background:var(--canvas);display:grid;place-items:center;padding:20px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.lgc{width:min(432px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;
   box-shadow:var(--sh-2);padding:26px 26px 20px}
 .lgtabs{display:flex;gap:5px;margin:15px 0 4px}
 .lgin{width:100%;font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--line);
@@ -583,6 +606,7 @@ body.locked .pg-ft{display:none}
 .lgerr{font-size:11.5px;color:var(--crit);background:var(--crit-soft);border-radius:var(--r);
   padding:8px 11px;margin-top:10px;line-height:1.6}
 .tgl:disabled{opacity:.45;cursor:not-allowed}
+@media (max-width:480px),(max-height:700px){#lgv{place-items:start center;padding:14px 12px calc(24px + env(safe-area-inset-bottom))}.lgc{padding:20px 18px 16px}}
 .acode{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.05em;font-weight:700}
 #welv{position:fixed;inset:0;z-index:95;background:rgba(20,26,34,.45);display:grid;place-items:center;padding:18px}
 #welv .wc{width:min(700px,95vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;
@@ -1579,7 +1603,7 @@ function tenantFromSample2(x){
     compCols:x.compCols,compRows:x.compRows,compTitle:x.compTitle,strengths:x.strengths,
     targets:x.targets.slice()};
 }
-function adoptSample2(k){
+function adoptSample2(k,stay){
   const x=SAMPLES2[k]; if(!x) return;
   /* 同じ業種サンプルが既にあれば複製せず、そちらへ切り替える（選び直すたびに同名商品が増えない） */
   const ex=(typeof TENS!=="undefined"?TENS:[]).findIndex(t=>t&&t.src==="sample2"&&t.co===x.co&&t.item===x.item);
@@ -1588,7 +1612,7 @@ function adoptSample2(k){
   FILL={on:false,log:[],cur:null,sel:[]};
   syncTenant(); if(typeof saveTen==="function") saveTen();
   if(typeof logU==="function") logU("upload","業種サンプル:"+x.cat);
-  buildNav(); go("dash"); scrollTo({top:0});
+  buildNav(); if(stay&&typeof cur!=="undefined"&&cur&&cur!=="dash"){ render(); } else { go("dash"); scrollTo({top:0}); }   /* v16.1: 切替メニューからは現在のページに留まる */
   toast(`${x.cat}のサンプル環境を作成しました：${x.co}（1日目の状態）`);
 }
 
@@ -7588,14 +7612,16 @@ function vUp(p){
   let plist="";
   if(TENS.length){
     const cos=tenCos(), actCo=tenCoOf(TENS[TIDX]||TENS[0]);
+    const curTen=(PID==="custom"&&TEN&&(TENS.indexOf(TEN)>=0||TEN.src==="upload"||TEN.src==="sample2"));   /* v16.1: 表示中＝登録済み商品か */
+    const isCur=i=>curTen&&(TENS[i]===TEN||(TENS.indexOf(TEN)<0&&i===TIDX));
     const act=cos.find(x=>x.co===actCo)||cos[0];
     const prodChip=i=>{const t=TENS[i],s=scoreOf(t);
       return `<button class="smp" data-tsw="${i}"
-        style="position:relative;padding:8px 26px 8px 11px;max-width:250px;flex:0 0 auto;gap:2px;${i===TIDX?"border-color:var(--or);background:var(--or-soft)":""}">
+        style="position:relative;padding:8px 26px 8px 11px;max-width:250px;flex:0 0 auto;gap:2px;${isCur(i)?"border-color:var(--or);background:var(--or-soft)":""}">
         <span data-tedit="${i}" title="商品名・会社名を編集" role="button"
           style="position:absolute;top:4px;right:5px;font-size:11px;padding:2px 5px;border-radius:5px;color:var(--ink-3);border:1px solid transparent">✎</span>
         <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,22))}</b>
-        <span style="display:block;font-size:9.5px;color:var(--ink-3)">充足度${s.pct}%${i===TIDX?"・表示中":""}</span>
+        <span style="display:block;font-size:9.5px;color:var(--ink-3)">充足度${s.pct}%${isCur(i)?"・表示中":""}</span>
       </button>`;};
     plist=`<div class="c" style="margin-bottom:11px">
       <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -7606,6 +7632,7 @@ function vUp(p){
           <input class="sel" id="pfq" placeholder="🔍 会社名・商品名で検索" autocomplete="off"
             style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px"></div></div>
       <div id="pfnorm">
+        ${curTen?"":`<div class="rw" data-curdemo style="margin-top:8px;gap:8px;padding:8px 11px;border-radius:var(--r2);background:var(--or-soft);font-size:11.5px;line-height:1.6"><span style="flex:1;min-width:200px">いま表示中：<b>${esc((D&&D.co)||"")}／${esc((D&&D.item)||"")}</b>（${(TEN&&TEN.src==="sample")?"デモ商材・架空":"サンプル"}）。<span>登録済みの商品ではありません</span></span><button class="btn g" style="font-size:11px;padding:4px 10px;flex:none" data-tsw="${TIDX}">登録済みの商品に戻る</button></div>`}
         <div class="rw" style="margin-top:8px;gap:7px;flex-wrap:wrap;align-items:center">
           <span class="lbl" style="margin:0;white-space:nowrap">🏢 ${esc(actCo)}</span>
           ${act.idxs.map(prodChip).join("")}
@@ -10186,7 +10213,7 @@ $("#psw").addEventListener("change",e=>{
   upFile=null;   /* 直前にアップロードしたファイル名を別商品に表示しない */
   if(v==="custom"){ PID="custom"; syncTenant(); }
   else if(v.startsWith("t:")){ switchTen(+v.slice(2)); toast(`「${TEN.item||TEN.file}」に切り替えました`); return; }
-  else if(v.startsWith("s2:")){ adoptSample2(v.slice(3)); return; }
+  else if(v.startsWith("s2:")){ adoptSample2(v.slice(3),true); return; }
   else { PID=v; D=PRODUCTS[PID]; TEN=tenantFromSample(D); applyTenScalars(); }
   shipStep=0; SHIPQA=[]; FILL.on=false; buildNav(); render(); toast(`${D.cat}／${D.co} に切り替えました`);});
 document.querySelectorAll("[data-close]").forEach(e=>e.addEventListener("click",closeDW));
@@ -12835,11 +12862,11 @@ function showLogin(){
        <button class="btn ${tab==="trial"?"":"g"}" data-t="trial" style="flex:1">お客様ログイン</button>
        <button class="btn ${tab==="admin"?"":"g"}" data-t="admin" style="flex:1">STANDAGE管理者</button></div>
      ${tab==="trial"
-      ?`<input class="lgin" id="lg-code" placeholder="アクセスコード（例：BC-XXXX-XXXX）" autocomplete="off">
-        <input class="lgin" id="lg-name" placeholder="ご担当者名（任意）" autocomplete="off">
+      ?`<input class="lgin" id="lg-code" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" placeholder="アクセスコード（例：BC-XXXX-XXXX）" autocomplete="off">
+        <input class="lgin" id="lg-name" autocorrect="off" enterkeyhint="go" placeholder="ご担当者名（任意）" autocomplete="off">
         <button class="btn" id="lg-go" style="width:100%;margin-top:12px;padding:9px 0">トライアルを開始する</button>`
-      :`<input class="lgin" id="ad-id" placeholder="管理者ID" autocomplete="off">
-        <input class="lgin" id="ad-pw" type="password" placeholder="パスワード" autocomplete="off">
+      :`<input class="lgin" id="ad-id" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="管理者ID" autocomplete="off">
+        <input class="lgin" id="ad-pw" type="password" enterkeyhint="go" placeholder="パスワード" autocomplete="off">
         <button class="btn" id="ad-go" style="width:100%;margin-top:12px;padding:9px 0">管理コンソールへ</button>`}
      <p class="lgerr" id="lg-err" hidden></p>
      <p style="font-size:10px;color:var(--ink-3);margin-top:14px;line-height:1.7">
@@ -16003,7 +16030,7 @@ function growSwitchTo(ref){
   if(sel&&[...sel.options].some(o=>o.value===v)){ sel.value=v; sel.dispatchEvent(new Event("change")); return true; }
   try{
     if(v.startsWith("t:")&&typeof switchTen==="function"){ switchTen(+v.slice(2)); return true; }
-    if(v.startsWith("s2:")&&typeof adoptSample2==="function"){ adoptSample2(v.slice(3)); return true; }
+    if(v.startsWith("s2:")&&typeof adoptSample2==="function"){ adoptSample2(v.slice(3),true); return true; }
     if(typeof PRODUCTS!=="undefined"&&PRODUCTS[v]){ PID=v; D=PRODUCTS[PID]; if(typeof tenantFromSample==="function") TEN=tenantFromSample(D); if(typeof applyTenScalars==="function") applyTenScalars(); if(typeof buildNav==="function") buildNav(); return true; }
   }catch(e){}
   return false;
@@ -18831,6 +18858,55 @@ if(typeof renderAdmin==="function"){ const __renderAdmin16=renderAdmin;
 const __render16t=render;
 render=function(){ __render16t.apply(this,arguments); try{ if(v16SyncOk()){ setTimeout(()=>digPush(),1500); lwPollStart(); if(typeof cur!=="undefined"&&cur==="msg"&&!LW.first){ LW.first=1; lwPull(); } } }catch(e){} };
 
+/* ═══════════ v16.1（2026-09-07）：お客様報告の4件の修正 ═══════════
+   ① 「登録済みの商品」カードが、上部で切り替えた商品と食い違う（表示中の印が登録商品に付いたまま）→ logic.js の vUp を修正（このファイルでは無い）
+   ② 商品切替でダッシュボードに戻る → adoptSample2 に stay を追加（同じく本体側）
+   ③ iPhone のログイン画面：右ズレ・キーボード表示中にスクロールできない → CSS＋ここ（入力欄を見える位置へ）
+   ④ スマホのAI商社マン：履歴と入力欄が重なる／チップが場所を取る → 入力欄を画面下に固定・1行から自動拡張・チップは1行横スクロール
+   参考にした型：ChatGPT／Slack／Intercom／LINE のスマホ版＝「履歴が主役・入力欄は常に下・キーボードに追従・候補は1行の横スクロール」 */
+function v16fMob(){ try{ return matchMedia("(max-width:820px)").matches||document.body.classList.contains("mob"); }catch(e){ return false; } }
+/* iOS Safari：キーボードが出ると visualViewport が縮む。右パネルの高さをそれに追従させる（--vvh） */
+(function(){ const vv=window.visualViewport;
+  const set=()=>{ try{ const h=vv?Math.round(vv.height):innerHeight; document.documentElement.style.setProperty("--vvh",h+"px"); }catch(e){} };
+  set(); if(vv){ vv.addEventListener("resize",set); vv.addEventListener("scroll",set); } addEventListener("resize",set); })();
+function v16fGrow(ta,min,max){ if(!ta) return; ta.style.height="auto"; ta.style.height=Math.min(max,Math.max(min,ta.scrollHeight))+"px"; }
+function v16fSee(el,block,beh){ if(!el) return; setTimeout(()=>{ try{ el.scrollIntoView({block:block||"end",behavior:beh||"smooth"}); }catch(e){} },280); }
+function v16fComposer(ta,btn,min,max,onFocus){
+  if(!ta) return; ta.rows=1; ta.placeholder="質問を入力（Enterで送信・Shift+Enterで改行）"; v16fGrow(ta,min,max);
+  ta.addEventListener("input",()=>v16fGrow(ta,min,max));
+  ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey) setTimeout(()=>v16fGrow(ta,min,max),0); });
+  ta.addEventListener("focus",()=>{ if(onFocus) onFocus(); });
+  if(btn){ btn.textContent="送信"; btn.addEventListener("click",()=>setTimeout(()=>v16fGrow(ta,min,max),0)); }
+}
+/* ④-a AI商社マン画面 */
+function v16fAiPage(){
+  const chat=$("#chat"), aq=$("#aiq"); if(!chat||!aq) return; const card=chat.closest(".c"); if(!card) return;
+  const mob=v16fMob(); card.classList.toggle("aimob",mob); if(!mob) return;
+  const comp=aq.closest(".composer"); const qb=card.querySelector(".qb");
+  /* 候補チップ＋入力欄をひとつの「画面下に貼り付く帯」にまとめる（チップが入力欄の下に潜り込まない） */
+  let stick=card.querySelector(".aistick");
+  if(!stick&&comp){ stick=document.createElement("div"); stick.className="aistick"; comp.parentNode.insertBefore(stick,qb||comp); if(qb) stick.appendChild(qb); stick.appendChild(comp); }
+  v16fComposer(aq,$("#aisend"),40,120,()=>v16fSee(stick||comp||aq,"end"));
+  /* 回答が増えたら、履歴の下端（＝最新の回答）を帯のすぐ上に出す */
+  const fit=()=>{ try{ chat.style.scrollMarginBottom=(((stick||comp)?(stick||comp).offsetHeight:60)+14)+"px"; chat.scrollTop=chat.scrollHeight; }catch(e){} };
+  fit();
+  /* 回答の打ち出しアニメーション中は smooth スクロールが打ち消されるため、即時スクロールで確実に見せる */
+  try{ if(chat.__v16mo) chat.__v16mo.disconnect(); const mo=new MutationObserver(()=>{ fit(); v16fSee(chat,"end","auto"); setTimeout(()=>{ fit(); v16fSee(chat,"end","auto"); },900); }); mo.observe(chat,{childList:true}); chat.__v16mo=mo; }catch(e){}
+}
+/* ④-b 右パネル（AI商社マンに質問） */
+function v16fDrawer(){
+  const pn=$("#pn"), dq=$("#dwq"), c=$("#dwchat"); if(!pn||!dq) return;
+  const mob=v16fMob(); pn.classList.toggle("dwmob",mob); if(!mob) return;
+  v16fComposer(dq,$("#dwqgo"),40,110,()=>{ setTimeout(()=>{ if(c) c.scrollTop=c.scrollHeight; },320); });
+  if(c){ try{ if(c.__v16mo) c.__v16mo.disconnect(); const mo=new MutationObserver(()=>{ c.scrollTop=c.scrollHeight; }); mo.observe(c,{childList:true}); c.__v16mo=mo; }catch(e){} }
+}
+if(typeof openAskAI==="function"){ const __oa16=openAskAI; openAskAI=function(){ __oa16.apply(this,arguments); try{ v16fDrawer(); }catch(e){} }; }
+/* ③ ログイン画面：入力欄にフォーカスしたら、キーボードに隠れない位置へ */
+document.addEventListener("focusin",e=>{ const t=e.target; if(t&&t.classList&&t.classList.contains("lgin")&&v16fMob()) v16fSee(t,"center"); });
+/* 画面描画のたびに適用 */
+const __render16f=render;
+render=function(){ __render16f.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="ai") v16fAiPage(); }catch(e){} };
+
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
    選択中の言語に置き換える（MutationObserver で描画のたびに自動適用）。辞書に無い文言（AIの回答文・長文説明）は日本語のまま。
@@ -19632,6 +19708,8 @@ I18N_ROWS2.push(
 ["送り先の規制・必要書類を確認する","Check destination regulations and required documents","确认目的地法规・所需单证","Revisar normativa y documentos del destino"],["見積（FOB／CIF）を提示する","Present a quote (FOB / CIF)","提交报价（FOB／CIF）","Presentar cotización (FOB / CIF)"],["物流会社に見積を依頼する","Request a freight quote","向物流公司询价","Solicitar cotización al transportista"],["注文書・PIを取り交わす","Exchange PO and PI","交换订单・PI","Intercambiar orden de compra y PI"],["船積書類（CI／PL）を作る","Prepare shipping documents (CI / PL)","制作装船单证（CI／PL）","Preparar documentos de embarque (CI / PL)"],["出荷・入金を確認する","Confirm shipment and payment","确认出货・收款","Confirmar envío y cobro"],
 ["初回提案メールを送る","Send the first proposal email","发送首次提案邮件","Enviar el primer correo de propuesta"],["サンプル・見積の要否を確認する","Check whether samples or quotes are needed","确认是否需要样品・报价","Confirmar si necesitan muestras o cotización"],["サンプルを発送する","Ship samples","寄送样品","Enviar muestras"],["1週間後にフォローする","Follow up after a week","一周后跟进","Hacer seguimiento tras una semana"],["商談記録を残す","Record the deal","留下商谈记录","Registrar la negociación"],
 ["STANDAGEの管理コンソールで設定された既定の承認者","Default approver set in STANDAGE's admin console","STANDAGE管理控制台设置的默认审批者","Aprobador predeterminado fijado en la consola de STANDAGE"],["空欄ならこれを使います","used when left blank","留空时使用此值","se usa si se deja en blanco"],["理由","Reason","理由","Motivo"],["承認依頼","Approval requested by","审批申请","Aprobación solicitada por"],
+["登録済みの商品ではありません","This is not a registered product","这不是已登记的商品","No es un producto registrado"],["登録済みの商品に戻る","Back to registered products","返回已登记商品","Volver a los productos registrados"],["デモ商材・架空","demo product (fictional)","演示商品・虚构","producto de demostración (ficticio)"],["サンプル","sample","样本","muestra"],
+["質問を入力（Enterで送信・Shift+Enterで改行）","Type a question (Enter to send, Shift+Enter for a new line)","输入问题（Enter发送・Shift+Enter换行）","Escribe una pregunta (Enter envía, Shift+Enter salto de línea)"],
 ["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
 ["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
 /* 承認・公開・対訳 */
