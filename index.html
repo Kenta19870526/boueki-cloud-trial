@@ -18882,6 +18882,8 @@ function v16fComposer(ta,btn,min,max,onFocus){
   ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey) setTimeout(()=>v16fGrow(ta,min,max),0); });
   ta.addEventListener("focus",()=>{ if(onFocus) onFocus(); });
   if(btn){ btn.textContent="送信"; btn.addEventListener("click",()=>setTimeout(()=>v16fGrow(ta,min,max),0)); }
+  /* 元の自動拡張（最小84px）が後から高さを書き戻しても、スマホの範囲（min〜max）に収め直す */
+  try{ if(ta.__v16mo) ta.__v16mo.disconnect(); const mo=new MutationObserver(()=>{ if(ta.__v16busy) return; const h=parseFloat(ta.style.height)||0; if(h>max+1||(h>min+1&&!ta.value)){ ta.__v16busy=1; v16fGrow(ta,min,max); ta.__v16busy=0; } }); mo.observe(ta,{attributes:true,attributeFilter:["style"]}); ta.__v16mo=mo; }catch(e){}
 }
 /* ④-a AI商社マン画面 */
 function v16fAiPage(){
@@ -18933,15 +18935,53 @@ function kbMsgs(){
 }
 /* 接続AIのコンテキストに会議メモを追加 */
 if(typeof kbCtx==="function"){ const __kbCtx16=kbCtx; kbCtx=function(){ let base=""; try{ base=__kbCtx16.apply(this,arguments)||""; }catch(e){} let m=""; try{ m=kbMemos(); }catch(e){} if(!m) return base; return (base||`\n=== 貿易クラウド内の連携データ（AI商社マンが参照できる情報。回答の根拠にしてよい。無いものは「未登録」と答える） ===`)+"\n\n"+m.slice(0,1500); }; }
+/* 「ナイジェリア向けの過去事例は？」のような国×事例の質問：蓄積データ（商談・受注・出荷・規制・やりとり・会議メモ・タスク・資料）を国名で横断検索して答える（内蔵エンジン＝AI未接続のとき） */
+const V16_CTRY=["ナイジェリア","ケニア","ガーナ","南アフリカ","エジプト","モロッコ","エチオピア","タンザニア","トルコ","サウジアラビア","サウジ","カタール","クウェート","オマーン","バーレーン","イスラエル","ヨルダン","ロシア","ポーランド","オランダ","イタリア","スペイン","ポルトガル","ベルギー","スイス","オーストリア","スウェーデン","ノルウェー","デンマーク","フィンランド","チェコ","ハンガリー","ギリシャ","アイルランド","アルゼンチン","チリ","ペルー","コロンビア","メキシコ","ブラジル","パキスタン","バングラデシュ","スリランカ","ネパール","ミャンマー","カンボジア","ラオス","モンゴル","ニュージーランド","フィリピン","インドネシア","マレーシア","ベトナム","タイ","シンガポール","台湾","香港","韓国","中国","インド","UAE","ドバイ","アメリカ","米国","カナダ","オーストラリア","イギリス","英国","フランス","ドイツ"];
+function v16Country(q){ const s=String(q||""); for(const c of V16_CTRY){ if(s.includes(c)) return ({"米国":"アメリカ","英国":"イギリス","ドバイ":"UAE","サウジ":"サウジアラビア"})[c]||c; } return null; }
+function v16Offline(){ try{ return !(typeof ppReady==="function"&&ppReady()); }catch(e){ return true; } }
+function v16WebNote(){ try{ if(v16Offline()&&typeof WEBON!=="undefined"&&WEBON) return "／🌐 Web検索：この端末はAIエンジン未接続のため未実行（接続した端末では検索つきで回答）"; }catch(e){} return ""; }
+function v16Cases(cty){
+  const dd=(typeof D!=="undefined"&&D)||{}; const t=(typeof v16Ten==="function")?v16Ten():null; const has=s=>String(s||"").includes(cty); const plain=h=>(typeof v16Plain==="function")?v16Plain(h):String(h||"");
+  const fb=(dd.fb||[]).filter(f=>has(f.c)||has(f.b)||has(f.note)||has(f.spec));
+  const orders=(dd.orders||[]).filter(o=>has(o.country||o.c)||has(o.buyer||o.b));
+  const ship=(dd.ship&&(has(dd.ship.country)||has(dd.ship.buyer)))?dd.ship:null;
+  const reg=(dd.regs||{})[cty]||null;
+  const msgs=((t&&t.msgs)||dd.msgs||[]).filter(m=>m&&(has(plain(m.body))||has(m.who)||has(m.org)));
+  const memos=kbMemoList().filter(m=>has(m.t)||has(m.body));
+  const tasks=(dd.tasks||[]).filter(x=>has(x.n)||has(x.ref));
+  const srcs=((t&&t.sources)||[]).filter(x=>x.on!==false&&(has(x.name)||has(x.txt)));
+  const xdocs=((t&&t.xdocs)||[]).filter(x=>has(x.name)||has(x.txt)||has(x.note));
+  return {fb,orders,ship,reg,msgs,memos,tasks,srcs,xdocs,total:fb.length+orders.length+(ship?1:0)+(reg?1:0)+msgs.length+memos.length+tasks.length+srcs.length+xdocs.length};
+}
+function v16CasesAnswer(cty){
+  const C=v16Cases(cty); const dd=D||{};
+  const cnt=`商談 ${C.fb.length}件・受注 ${C.orders.length}件・出荷 ${C.ship?1:0}件・規制調査 ${C.reg?"あり":"なし"}・やりとり ${C.msgs.length}件・会議メモ ${C.memos.length}件・タスク ${C.tasks.length}件・資料 ${C.srcs.length+C.xdocs.length}件`;
+  if(!C.total){
+    const ctys=[...new Set((dd.fb||[]).map(f=>f.c).filter(Boolean))]; const regs=Object.keys(dd.regs||{});
+    return {a:`貴社のデータに<b>「${esc(cty)}」向けの記録はまだありません</b>（商談・受注・出荷・規制調査・やりとり・会議メモ・タスク・資料を横断して確認）。<br><br>いまある記録：商談記録 ${(dd.fb||[]).length}件${ctys.length?"（"+esc(ctys.slice(0,6).join("・"))+"）":""}／規制調査 ${regs.length}か国${regs.length?"（"+esc(regs.slice(0,6).join("・"))+"）":""}／会議メモ ${kbMemoList().length}件。<br><br>${esc(cty)}向けに進めるなら：「商談・バイヤー」で商談記録を残す、「貿易実務 › 規制」で進出希望国に追加して規制調査を依頼する、「バイヤーDB・拠点」で「${esc(cty)}のバイヤーは？」と照会する、が次の一手です。${v16Offline()?"<br><span style='color:var(--ink-3)'>AIエンジンに接続した端末（PCの管理コンソールで接続、または「AI接続の共有」）では、Web検索と一般的な貿易知識で補足して答えます。</span>":""}`,
+      c:`根拠：蓄積データを「${cty}」で横断検索（該当0件）`+v16WebNote()};
+  }
+  const L=[];
+  if(C.fb.length) L.push(`<b>商談記録（${C.fb.length}件）</b><br>`+C.fb.slice(0,5).map(f=>`・${esc(f.d||"")} ${esc(f.b||"")}（${esc(f.c||"")}${f.ch?"・"+esc(f.ch):""}）${esc(f.st||"")}${f.react?"・反応"+esc(f.react):""}${f.price?"・"+esc(f.price):""}${f.why?"・理由："+esc(f.why):""}`).join("<br>"));
+  if(C.orders.length) L.push(`<b>受注（${C.orders.length}件）</b><br>`+C.orders.slice(0,4).map(o=>`・${esc(o.no||"")} ${esc(o.buyer||o.b||"")} ${esc(o.jpy||o.total||"")}${o.st?"・"+esc(o.st):""}`).join("<br>"));
+  if(C.ship) L.push(`<b>出荷案件</b><br>・${esc(C.ship.no||"")} ${esc(C.ship.buyer||"")} ${esc(C.ship.total||"")}`);
+  if(C.reg) L.push(`<b>規制調査</b><br>・関税 ${esc(C.reg.duty||"-")}／${esc(C.reg.lead||"")}／必要書類：${esc((C.reg.docs||[]).join("、")||"-")}${C.reg.warn?"／注意："+esc(C.reg.warn):""}`);
+  if(C.memos.length) L.push(`<b>会議メモ（${C.memos.length}件）</b><br>`+C.memos.slice(0,3).map(m=>`・${esc(m.d||"")} ${esc(m.t||"")}${m.sum&&m.sum.txt?"：" +esc(String(m.sum.txt).slice(0,80)):""}`).join("<br>"));
+  if(C.msgs.length) L.push(`<b>やりとり（${C.msgs.length}件）</b><br>`+C.msgs.slice(-3).map(m=>`・${esc(m.t||"")} ${esc(m.who||"")}：${esc((typeof v16Plain==="function"?v16Plain(m.body):String(m.body||"")).slice(0,80))}`).join("<br>"));
+  if(C.tasks.length) L.push(`<b>タスク（${C.tasks.length}件）</b><br>`+C.tasks.slice(0,3).map(x=>`・${esc(x.n||"")}（${esc(x.st||"")}・期限${esc(x.e||"-")}）`).join("<br>"));
+  if(C.srcs.length+C.xdocs.length) L.push(`<b>資料（${C.srcs.length+C.xdocs.length}件）</b><br>`+C.srcs.concat(C.xdocs).slice(0,3).map(x=>`・${esc(x.name||"")}`).join("<br>"));
+  return {a:`<b>${esc(cty)}向けの記録</b>：${esc(cnt)}<br><br>`+L.join("<br><br>"),c:`根拠：蓄積データを「${cty}」で横断検索（${C.total}件）`+v16WebNote()};
+}
 /* 内蔵エンジン（未接続）：会議メモの質問に直接答える */
 if(typeof kbAsk==="function"){ const __kbAsk16=kbAsk;
   kbAsk=function(q){ const s=String(q||"");
-    try{ if(/会議メモ|議事録|決定事項|宿題|定例会|定例の|ミーティング/.test(s)&&typeof D!=="undefined"&&D){ const L=kbMemoList().sort((a,b)=>String(b.d||"").localeCompare(String(a.d||"")));
+    try{ if(v16Offline()&&typeof D!=="undefined"&&D&&/(過去|これまで|以前|昔)の?(事例|実績|取引|商談|出荷|案件|経緯)|事例|実績|取引履歴|輸出実績|取引したこと|売ったこと|実績は/.test(s)){ const cty=v16Country(s); if(cty) return v16CasesAnswer(cty); } }catch(e){}
+    try{ if(v16Offline()&&/会議メモ|議事録|決定事項|宿題|定例会|定例の|ミーティング/.test(s)&&typeof D!=="undefined"&&D){ const L=kbMemoList().sort((a,b)=>String(b.d||"").localeCompare(String(a.d||"")));
       if(!L.length) return {a:"会議メモ・議事録はまだありません。「会議メモ・議事録」に定例会の議事録を貼り付けると、決定事項・宿題を整理してここで答えられます。",c:"根拠：会議メモ 0件"};
       const rows=L.slice(0,5).map(m=>{ const su=m.sum||{}; return `<b>${esc(m.d||"")} ${esc(m.t||"（無題）")}</b>${su.txt?"<br>"+esc(su.txt):""}${(su.dec||[]).length?"<br>決定事項："+su.dec.slice(0,5).map(esc).join("／"):""}${(su.todo||[]).length?"<br>宿題："+su.todo.slice(0,6).map(x=>esc(x.t)+(x.tasked?" ✓":"")).join("／"):""}`; });
       return {a:`会議メモ・議事録は <b>${L.length}件</b> あります（新しい順）：<br>`+rows.join("<br><br>"),c:`根拠：会議メモ ${L.length}件（要約${L.filter(m=>m.sum).length}件・タスク化 ${L.reduce((n,m)=>n+((m.sum&&m.sum.todo)||[]).filter(x=>x.tasked).length,0)}件）`}; } }catch(e){}
     /* 「商談の状況は？」が価格の回答になっていた（意図判定が価格に寄る）→ 商談記録から直接答える */
-    try{ if(/商談(の)?(状況|進捗|記録|結果|履歴|一覧)|商談は|バイヤーの反応|反応は|失注/.test(s)&&!/価格|単価|いくら/.test(s)&&typeof D!=="undefined"&&D){ const FB=(D.fb||[]).slice();
+    try{ if(v16Offline()&&/商談(の)?(状況|進捗|記録|結果|履歴|一覧)|商談は|バイヤーの反応|反応は|失注/.test(s)&&!/価格|単価|いくら/.test(s)&&typeof D!=="undefined"&&D){ const FB=(D.fb||[]).slice();
       if(!FB.length) return {a:"商談記録はまだありません。「商談・バイヤー」に記録すると、相手ごとの反応・確度・断られた理由から次の一手を提案できます。",c:"根拠：商談記録 0件"};
       const by=k=>{ const m={}; FB.forEach(f=>{ const v=f[k]||"（未設定）"; m[v]=(m[v]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(x=>x[0]+" "+x[1]+"件").join("・"); };
       const lost=FB.filter(f=>f.why).slice(0,4).map(f=>esc(f.b)+"："+esc(f.why)).join("／");
@@ -18949,6 +18989,14 @@ if(typeof kbAsk==="function"){ const __kbAsk16=kbAsk;
       const K=D.kpi||{}; const total=(K.fbDone!=null&&+K.fbDone>FB.length)?+K.fbDone:FB.length;
       return {a:`商談記録は <b>${total}件</b>${K.fbGoal?"（目標 "+K.fbGoal+"件）":""}${total!==FB.length?"（うち詳細を登録済み "+FB.length+"件）":""}です。<br>状況：${esc(by("st"))}<br>反応：${esc(by("react"))}${lost?"<br>断られた理由："+lost:""}<br><br>直近の記録：<br>${recent}`,c:`根拠：商談記録 ${FB.length}件${K.hot?"・反応「高」"+K.hot+"件":""}${K.won?"・受注 "+K.won+"件":""}`}; } }catch(e){}
     return __kbAsk16.apply(this,arguments); }; }
+/* 未接続×Web検索ON：「該当する情報なし」ではなく「この端末では検索していない」と正直に。フォールバック文にも国名質問の案内を追加 */
+if(typeof brain==="function"){ const __brainOff16=brain;
+  brain=function(q,opts){ const r=__brainOff16.apply(this,arguments);
+    const fix=x=>{ try{ if(x&&typeof x.c==="string"&&v16Offline()&&typeof WEBON!=="undefined"&&WEBON) x.c=x.c.replace(/／🌐 Web検索：該当する情報なし/,"／🌐 Web検索：この端末はAIエンジン未接続のため未実行（接続した端末では検索つきで回答）");
+      if(x&&typeof x.a==="string"&&/その質問には答えられませんでした/.test(x.a)&&v16Offline()){ const cty=v16Country((opts&&opts.raw)||q); if(cty) x.a+=`<br><br><span style="color:var(--ink-3)">「${esc(cty)}向けの過去事例は？」「${esc(cty)}の規制は？」「${esc(cty)}のバイヤーは？」のように聞くと、蓄積データから答えます。</span>`; } }catch(e){} return x; };
+    return (r&&typeof r.then==="function")?r.then(fix):fix(r); }; }
+/* Web検索トグル：未接続の端末では、ONにしたときに「この端末では検索されない」ことを伝える */
+document.addEventListener("click",e=>{ try{ const b=e.target&&e.target.closest&&e.target.closest("#webtg"); if(!b||!v16Offline()) return; setTimeout(()=>{ if(typeof WEBON!=="undefined"&&WEBON) toast("この端末はAIエンジン未接続のため、Web検索は実行されません（内蔵ナレッジと社内データで回答）。PCの管理コンソールで接続するか、「AI接続の共有」をONにしてください"); },50); }catch(x){} },true);
 /* 「AIが見ているもの」に会議メモを追加 */
 if(typeof kbSeen==="function"){ const __kbSeen16=kbSeen; kbSeen=function(){ const rows=__kbSeen16.apply(this,arguments)||[]; try{ const n=kbMemoList().length; rows.push(["会議メモ・議事録",`${n}件`,Math.min(100,Math.round(n/3*100))]); }catch(e){} return rows; }; }
 /* 成長レベル ⑥資料・データの蓄積：会議メモも蓄積として加点（1件5pt・上限20pt） */
@@ -18960,6 +19008,70 @@ if(typeof aiLevelFor==="function"){ const __lvl16=aiLevelFor;
       const pct=Math.max(0,Math.min(100,Math.round(L.cats.reduce((a,c)=>a+c.pct*c.w/100,0)))); let lvIdx=0; GROW_STAGES.forEach((s,i)=>{ if(pct>=s[0]) lvIdx=i; });
       L.pct=pct; L.lv=lvIdx+1; L.lvIdx=lvIdx; L.stage=GROW_STAGES[lvIdx][1]; L.nextStage=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][1]:null; L.nextTh=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][0]:null; L.to=Math.max(0,GROW_PRO-pct); L.pro=pct>=GROW_PRO;
     }catch(e){} return L; }; }
+
+/* ═══════════ v16.3（2026-09-07）：AI接続の共有（トライアル版・クラウド同期あり） ═══════════
+   背景：AIエンジンのAPIキーは「管理コンソールを開いた端末のブラウザ」にだけ保存される設計のため、
+   お客様のスマホや別PCでは内蔵エンジンしか動かず、Web検索ONでも検索されない（デモで判明）。
+   対応：管理者がアカウント別にONにすると、AIエンジン設定をそのアカウントの鍵（アクセスコードから端末側で導出）で
+   暗号化して同期サーバーに預ける。サーバーは復号できない。そのアカウントでログインした端末はログイン時に取得・復号して
+   実AI（Web検索つき）が使えるようになる。OFFにすると次回ログイン／画面復帰時に端末側から消える。既定はOFF。 */
+async function v16EncWith(key,obj){ const iv=crypto.getRandomValues(new Uint8Array(12)); const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(JSON.stringify(obj)))); const out=new Uint8Array(12+ct.length); out.set(iv); out.set(ct,12); return "v1:"+b64(out); }
+function llmSharePayload(){ return {llm:{on:LLM.on,prov:LLM.prov,keys:LLM.keys||{},models:LLM.models||{},eps:LLM.eps||{},act:LLM.act||{},route:LLM.route!==false},plan:(typeof USERPLAN!=="undefined"&&USERPLAN!=="lite")?USERPLAN:"std",at:Date.now(),by:(typeof syncDev==="function")?syncDev().name:""}; }
+async function llmShareSet(code,on){
+  const {kid,key}=await syncDerive(code); const blob=on?await v16EncWith(key,llmSharePayload()):"";
+  const r=await syncCall("llm_set",{pw:(SES&&SES.apw)||"",kid,blob}); if(!r.ok) throw new Error(r.msg||"llm_set"); return r;
+}
+let __llmShareT=null;
+function llmSharePushAll(){
+  try{ if(!(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof syncOn==="function"&&syncOn())) return; }catch(e){ return; }
+  clearTimeout(__llmShareT); __llmShareT=setTimeout(async()=>{ const A=((typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]).filter(a=>a.llmShare&&a.role!=="fwd"); let n=0; for(const a of A){ try{ await llmShareSet(a.code,true); n++; }catch(e){} } if(n) toast(`AI接続の共有 ${n}件を最新の設定で更新しました`); },1500);
+}
+/* 管理者がAIエンジン設定を保存したら、共有中のアカウントへ再送 */
+if(typeof ppSave==="function"){ const __ppSave16=ppSave; ppSave=function(){ const r=__ppSave16.apply(this,arguments); try{ llmSharePushAll(); }catch(e){} return r; }; }
+/* ── 管理コンソールのカード ── */
+function admShareHtml(){
+  const A=((typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]).filter(a=>a.role!=="fwd"); const ok=(function(){ try{ return syncOn(); }catch(e){ return false; } })();
+  let act=[]; try{ act=llmActive(); }catch(e){}
+  return `<div class="c" id="admshare" style="margin-bottom:11px"><h3>📱 AI接続の共有（お客様のスマホ・別PCでも実AIを使う） <span class="nt">この版で新規</span></h3>
+    <p class="nn">APIキーはこの端末のブラウザにだけ保存されるため、そのままではお客様の端末は内蔵エンジンだけで動き、Web検索も行いません。ONにしたアカウントには、この端末のAIエンジン設定を<b>そのアカウントの鍵で暗号化</b>して同期サーバーに預けます（サーバーは復号できません）。そのアカウントでログインした端末は、ログイン時に取得して実AI（Web検索つき）で回答します。</p>
+    <p class="nn" style="color:var(--crit)">注意：ONの間は、そのアカウントでログインした端末のブラウザにAPIキーが保存されます。デモ用・信頼できるお客様に限って使い、終わったらOFFにしてください（OFFにすると端末側からも消えます）。</p>
+    <p class="nn">この端末のAIエンジン：${act.length?'<span class="p on">接続中（'+esc(act.map(p=>(PROV[p]&&PROV[p].short)||p).join("・"))+'）</span>':'<span class="p lo">未接続（先に下の「AIエンジン設定」で接続）</span>'}</p>
+    <div class="tw" style="max-height:none;margin-top:8px"><table><thead><tr><th>共有</th><th>アカウント</th><th>会社</th><th>状態</th></tr></thead><tbody>
+    ${A.map(a=>`<tr><td><input type="checkbox" data-lls="${esc(a.code)}" ${a.llmShare?"checked":""} ${ok&&act.length?"":"disabled"} style="accent-color:var(--or);width:16px;height:16px"></td><td><span class="acode">${esc(a.code)}</span></td><td>${esc(a.co)}</td><td>${a.llmShare?'<span class="p hi">共有中</span>':'<span class="p lo">この端末のみ</span>'}</td></tr>`).join("")||'<tr><td colspan="4" style="text-align:center;color:var(--ink-3);padding:12px">荷主アカウントがありません</td></tr>'}</tbody></table></div>
+    ${ok?"":'<p class="nn" style="margin-top:6px">クラウド同期が未設定のため利用できません。</p>'}</div>`;
+}
+function admShareBind(){
+  document.querySelectorAll("[data-lls]").forEach(cb=>cb.onchange=async()=>{ const a=findAcct(cb.dataset.lls); if(!a) return; cb.disabled=true;
+    try{ await llmShareSet(a.code,cb.checked); a.llmShare=cb.checked?1:0; asave(); toast(cb.checked?`${a.co} の端末でSTANDAGEのAI接続を使えるようにしました（次回ログイン時から）`:`${a.co} への共有を解除しました`); }
+    catch(e){ cb.checked=!cb.checked; toast("設定できませんでした："+String(e.message||e).slice(0,50)); }
+    cb.disabled=false; const tr=cb.closest("tr"); if(tr){ const td=tr.lastElementChild; td.innerHTML=cb.checked?'<span class="p hi">共有中</span>':'<span class="p lo">この端末のみ</span>'; } });
+}
+if(typeof renderAdmin==="function"){ const __renderAdminShare=renderAdmin;
+  renderAdmin=function(){ __renderAdminShare.apply(this,arguments); try{ if(document.getElementById("admshare")) return; const anchor=document.getElementById("admtok")||document.getElementById("accounts"); if(anchor){ anchor.insertAdjacentHTML("beforebegin",admShareHtml()); admShareBind(); } }catch(e){} }; }
+/* ── お客様の端末：ログイン時・画面復帰時に取得して反映 ── */
+const LLMSHARE={t:0};
+async function llmSharePull(force){
+  try{ if(!(typeof SYNC!=="undefined"&&SYNC&&SYNC.on&&SYNC.kid&&SYNC.key&&typeof SES!=="undefined"&&SES&&SES.t==="trial")) return; }catch(e){ return; }
+  if(!force&&Date.now()-LLMSHARE.t<10*60*1000) return; LLMSHARE.t=Date.now();
+  let had=false; try{ had=localStorage.getItem("bc20_llm_shared")==="1"; }catch(e){}
+  try{ const r=await syncCall("llm_get",{kid:SYNC.kid});
+    if(r&&r.blob){ const p=await syncDec(r.blob); if(!(p&&p.llm)) return; const before=llmSig();
+      /* 管理コンソールと同じブラウザ（デモPC）の場合、解除時に管理者自身のキーを消さないよう、共有前の設定を退避しておく */
+      if(!had){ try{ localStorage.setItem("bc20_llm_backup",JSON.stringify({llm:localStorage.getItem("bc20_llm_v1")||"",plan:localStorage.getItem("bc20_plan_v1")||""})); }catch(e){} }
+      LLM.on=!!p.llm.on; LLM.prov=p.llm.prov||LLM.prov; LLM.keys=p.llm.keys||{}; LLM.models=p.llm.models||{}; LLM.eps=p.llm.eps||{}; LLM.act=p.llm.act||{}; LLM.route=p.llm.route!==false;
+      try{ localStorage.setItem("bc20_llm_v1",JSON.stringify(LLM)); }catch(e){}
+      if(p.plan&&typeof PLANS!=="undefined"&&PLANS[p.plan]){ USERPLAN=p.plan; try{ localStorage.setItem("bc20_plan_v1",p.plan); }catch(e){} }
+      try{ localStorage.setItem("bc20_llm_shared","1"); }catch(e){}
+      if(llmSig()!==before){ if(typeof render==="function") render(); toast("STANDAGEのAI接続をこの端末でも使えるようになりました（Web検索つきで回答します）"); } }
+    else if(had){
+      let bk=null; try{ bk=JSON.parse(localStorage.getItem("bc20_llm_backup")||"null"); }catch(e){}
+      try{ if(bk&&bk.llm){ localStorage.setItem("bc20_llm_v1",bk.llm); if(bk.plan) localStorage.setItem("bc20_plan_v1",bk.plan); } else { LLM.on=false; LLM.keys={}; LLM.act={}; localStorage.setItem("bc20_llm_v1",JSON.stringify(LLM)); } localStorage.removeItem("bc20_llm_shared"); localStorage.removeItem("bc20_llm_backup"); }catch(e){}
+      try{ if(typeof llmReload==="function") llmReload(); }catch(e){}
+      if(typeof render==="function") render(); toast((bk&&bk.llm)?"AI接続の共有が解除されました（この端末の元の設定に戻しました）":"AI接続の共有が解除されたため、内蔵エンジンに戻りました"); }
+  }catch(e){}
+}
+if(typeof syncStart==="function"){ const __syncStartShare=syncStart; syncStart=async function(){ const r=await __syncStartShare.apply(this,arguments); try{ if(r&&r.ok&&!r.skip) llmSharePull(true); }catch(e){} return r; }; }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) llmSharePull(); });
 
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
@@ -19764,6 +19876,7 @@ I18N_ROWS2.push(
 ["STANDAGEの管理コンソールで設定された既定の承認者","Default approver set in STANDAGE's admin console","STANDAGE管理控制台设置的默认审批者","Aprobador predeterminado fijado en la consola de STANDAGE"],["空欄ならこれを使います","used when left blank","留空时使用此值","se usa si se deja en blanco"],["理由","Reason","理由","Motivo"],["承認依頼","Approval requested by","审批申请","Aprobación solicitada por"],
 ["登録済みの商品ではありません","This is not a registered product","这不是已登记的商品","No es un producto registrado"],["登録済みの商品に戻る","Back to registered products","返回已登记商品","Volver a los productos registrados"],["デモ商材・架空","demo product (fictional)","演示商品・虚构","producto de demostración (ficticio)"],["サンプル","sample","样本","muestra"],
 ["質問を入力（Enterで送信・Shift+Enterで改行）","Type a question (Enter to send, Shift+Enter for a new line)","输入问题（Enter发送・Shift+Enter换行）","Escribe una pregunta (Enter envía, Shift+Enter salto de línea)"],
+["共有","Share","共享","Compartir"],["アカウント","Account","账号","Cuenta"],["会社","Company","公司","Empresa"],["状態","Status","状态","Estado"],["共有中","Shared","共享中","Compartido"],["この端末のみ","This device only","仅此设备","Solo este dispositivo"],
 ["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
 ["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
 /* 承認・公開・対訳 */
