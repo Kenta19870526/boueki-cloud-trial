@@ -596,6 +596,46 @@ td[data-aprtd] .btn{white-space:nowrap}
 body.mob .g2,body.mob .g3,body.mob .g4{grid-template-columns:minmax(0,1fr)!important}
 body.mob .c{min-width:0}
 .aimob .qb,.dwmob .dwbody>.qb{width:0;min-width:100%}
+/* ── v17：主要SaaSの共通点を反映（上部バー整理・下部タブ・案内の折りたたみ・タップ領域・遷移・元に戻す） ── */
+#barmore{flex:none;margin-left:2px}
+#barmenu{position:absolute;right:8px;top:calc(100% + 4px);width:min(300px,calc(100vw - 16px));background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--pop);padding:6px;z-index:60;display:flex;flex-direction:column;gap:2px}
+#barmenu[hidden]{display:none}
+#barmenu .bmrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;min-height:40px}
+#barmenu .bmrow:hover{background:var(--sunk)}
+#barmenu .bml{font-size:12px;color:var(--ink-2);font-weight:700}
+#barmenu .tgl span{display:inline!important}
+#barmenu .tgl,#barmenu .sel,#barmenu .p{max-width:170px}
+#tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;flex-direction:row;gap:0;background:var(--chrome);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px rgba(20,26,34,.08)}
+#tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;border:0;background:none;color:var(--ink-3);font:inherit;font-size:10px;font-weight:700;border-radius:10px;min-height:48px;cursor:pointer}
+#tabbar .tb.on{color:var(--or-deep);background:var(--or-soft)}
+#tabbar .tbi{font-size:19px;line-height:1;position:relative}
+#tabbar .tbn{position:absolute;top:-7px;right:-11px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--crit);color:#fff;font-size:9.5px;font-style:normal;display:grid;place-items:center;font-weight:800}
+body.dwopen #tabbar,body.kbopen #tabbar,body.locked #tabbar{display:none}
+#undobar{position:fixed;left:50%;bottom:calc(var(--tabbar-h,0px) + 22px);transform:translateX(-50%);z-index:81;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--canvas);font-size:12.5px;font-weight:700;padding:8px 10px 8px 16px;border-radius:12px;box-shadow:var(--pop);max-width:92vw}
+#undobar[hidden]{display:none}
+#undobar .btn{padding:5px 12px;font-size:12px;background:var(--surface);color:var(--ink);border-color:var(--surface)}
+.dw[data-open="true"] .pn{animation:v17slide .18s ease-out}
+@keyframes v17slide{from{transform:translateX(18px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.dw[data-open="true"] .pn{animation:none}}
+@media (max-width:820px){
+  .stage,body.narrow .stage,body.mob .stage{padding-bottom:calc(var(--tabbar-h,0px) + 18px)}
+  #tst{bottom:calc(var(--tabbar-h,0px) + 18px)!important}
+  .aimob .aistick{bottom:calc(var(--tabbar-h,0px) + 4px + env(safe-area-inset-bottom))}
+  #guide:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  #guide.gmin > *:not(#gai):not(#gtog){display:none!important}
+  #guide.gmin{padding:4px 8px!important;flex-wrap:nowrap}
+  #guide.gmin #gai{padding:4px 10px;font-size:11px;flex:1;min-width:0;justify-content:center;overflow:hidden}
+  #guide.gmin #gai .lvs{display:none}
+  .accounts-tr:focus,#accounts tbody tr:focus{outline:2px solid var(--or);outline-offset:-2px}
+  #gtog{margin-left:auto;width:34px;height:34px;flex:none;font-size:14px}
+  .q{min-height:34px;padding:6px 12px}
+  .btn{min-height:40px}
+  .nb{min-height:44px}
+  .bar .ib{width:38px;height:38px}
+  .bar{padding:4px 8px}
+  #psw{flex:1;min-width:0;max-width:none;font-size:12px}
+  .bar .sp{display:none}
+}
 </style>
 
 <style>
@@ -19162,6 +19202,130 @@ if(typeof mRows==="function"){ const __mRows3=mRows; mRows=function(){ __mRows3.
 const __render16f3=render;
 render=function(){ __render16f3.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="msg"){ v16MsgTabsSync(); const ml=document.getElementById("mlist"); if(ml) ml.scrollTop=ml.scrollHeight; } }catch(e){} };
 
+/* ═══════════ v17（2026-09-07）：日米欧豪の主要SaaS 20社のUI/UX共通点を反映 ═══════════
+   共通点（分析資料参照）→ 反映：
+   1 スマホは「上部バーは4つまで・残りは⋯」（Slack/Linear/Notion/Canva）→ ①上部バーの整理
+   2 主要導線は親指で届く下部タブ（Slack/Notion/Xero/Canva/Pipedrive のモバイル）→ ③下部タブバー（荷主5・物流会社4）
+   3 案内・オンボーディングは「済んだら畳む」（Linear/Notion/SmartHR）→ ②ガイドの折りたたみ（スマホ）
+   4 44px前後のタップ領域（Apple HIG／Material）→ ④
+   5 画面遷移・パネルは短い動き＋reduced-motion尊重（Linear/Stripe/Figma）→ ⑤
+   6 キーボード第一級（Linear/Slack/Notion/Figma：? で一覧）→ ⑥ショートカット一覧
+   7 「最近」の再訪導線（Notion/Atlassian/Miro）→ ⑦最近開いた画面をコマンドパレットへ
+   8 破壊的操作は確認ダイアログより「元に戻す」（Gmail/Linear/Notion）→ ⑧
+   9 一覧は検索＋状態チップで即絞り込み（HubSpot/Pipedrive/freee/SmartHR）→ ⑨管理コンソールのアカウント一覧 */
+const UX17={undoT:null,recent:[]};
+function ux17Narrow(){ try{ return matchMedia("(max-width:820px)").matches; }catch(e){ return false; } }
+function ux17Mob(){ try{ return ux17Narrow()||document.body.classList.contains("mob"); }catch(e){ return false; } }
+function ux17Mode(){ if(typeof SES==="undefined") return "user"; if(!SES) return "none"; if(SES.t==="admin") return "admin"; if(typeof FWDON!=="undefined"&&FWDON) return "fwd"; return "user"; }
+
+/* ① スマホの上部バー：メニュー・商品・検索・通知だけ残し、残りは「⋯」メニューへ（PCに戻したら元の位置へ） */
+const UX17_MORE=[["rail","右パネル（AIに質問）"],["zoomb","表示サイズ"],["lang","言語 / Language"],["easy","やさしい説明"],["lgpill","アカウント"],["lgout","ログアウト"]];
+function ux17BarLayout(){
+  const bar=document.querySelector(".bar"); if(!bar) return;
+  let more=document.getElementById("barmore"), menu=document.getElementById("barmenu");
+  if(ux17Mob()){
+    if(!more){ more=document.createElement("button"); more.id="barmore"; more.className="ib"; more.setAttribute("aria-label","その他のメニュー"); more.setAttribute("aria-expanded","false"); more.title="その他"; more.innerHTML='<span style="font-size:19px;line-height:1">⋯</span>';
+      menu=document.createElement("div"); menu.id="barmenu"; menu.hidden=true; menu.setAttribute("role","menu");
+      bar.appendChild(more); bar.appendChild(menu);
+      more.onclick=e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; more.setAttribute("aria-expanded",String(!menu.hidden)); };
+      document.addEventListener("click",e=>{ if(menu&&!menu.hidden&&!menu.contains(e.target)&&!more.contains(e.target)){ menu.hidden=true; more.setAttribute("aria-expanded","false"); } });
+      menu.addEventListener("click",e=>{ const t=e.target.closest("button,select"); if(t&&t.id==="lgout") return; if(t&&t.tagName==="BUTTON") setTimeout(()=>{ menu.hidden=true; more.setAttribute("aria-expanded","false"); },120); });
+    }
+    UX17_MORE.forEach(([id,lbl])=>{ const el=document.getElementById(id); if(!el||menu.contains(el)) return;
+      if(!el.__ux17next){ el.__ux17next=(el.nextElementSibling&&el.nextElementSibling.id)||"bell"; el.__ux17nextEl=el.nextElementSibling; }
+      let row=menu.querySelector(`[data-for="${id}"]`); if(!row){ row=document.createElement("div"); row.className="bmrow"; row.dataset.for=id; row.innerHTML=`<span class="bml">${lbl}</span>`; menu.appendChild(row); }
+      row.appendChild(el); });
+    /* 通知ベルは⋯の左に */
+    const bell=document.getElementById("bell"); if(bell&&bell.nextElementSibling!==more){ if(!bell.__ux17nextEl) bell.__ux17nextEl=bell.nextElementSibling; bar.insertBefore(bell,more); }
+  } else if(menu){
+    const put=(el)=>{ const ne=el.__ux17nextEl; if(ne&&ne.parentElement===bar){ bar.insertBefore(el,ne); return; } const nx=document.getElementById(el.__ux17next||"bell"); if(nx&&nx.parentElement===bar) bar.insertBefore(el,nx); else bar.appendChild(el); };
+    [...menu.querySelectorAll(".bmrow")].reverse().forEach(row=>{ const el=row.querySelector("[id]"); if(!el) return; put(el); row.remove(); });
+    menu.remove(); if(more) more.remove();
+    const bell=document.getElementById("bell"); if(bell&&bell.__ux17nextEl&&bell.__ux17nextEl.parentElement===bar&&bell.nextElementSibling!==bell.__ux17nextEl) bar.insertBefore(bell,bell.__ux17nextEl);
+    /* アカウント表示とログアウトは常に通知ベルの直前（injectBar と同じ位置） */
+    if(bell) ["lgpill","lgout"].forEach(id=>{ const el=document.getElementById(id); if(el&&el.parentElement===bar&&(el.compareDocumentPosition(bell)&Node.DOCUMENT_POSITION_PRECEDING)) bar.insertBefore(el,bell); });
+  }
+}
+/* ② ガイドバー（スマホ）：完了後は1行に畳む（▾で開閉） */
+function ux17Guide(){
+  const g=document.getElementById("guide"); if(!g) return;
+  let t=document.getElementById("gtog");
+  if(!ux17Narrow()){ g.classList.remove("gmin"); if(t) t.remove(); return; }
+  if(!t){ t=document.createElement("button"); t.id="gtog"; t.className="ib"; t.setAttribute("aria-label","案内を開閉"); g.appendChild(t);
+    t.onclick=()=>{ const min=!g.classList.contains("gmin"); g.classList.toggle("gmin",min); try{ localStorage.setItem("bc20_guide_min",min?"1":"0"); }catch(e){} t.textContent=min?"▾":"▴"; }; }
+  let min=true; try{ const v=localStorage.getItem("bc20_guide_min"); if(v!=null) min=v==="1"; }catch(e){}
+  g.classList.toggle("gmin",min); t.textContent=min?"▾":"▴";
+}
+/* ③ 下部タブバー（スマホ幅のみ。荷主5・物流会社4・管理は無し） */
+function ux17Tabs(){
+  const mode=ux17Mode(); let bar=document.getElementById("tabbar");
+  if(!ux17Narrow()||mode==="admin"||mode==="none"||document.body.classList.contains("locked")){ if(bar) bar.remove(); document.documentElement.style.setProperty("--tabbar-h","0px"); return; }
+  const items=mode==="fwd"?[["finbox","📥","受信箱"],["frates","🚚","レート"],["fagg","📊","相見積"],["fai","🤖","AI物流マン"]]
+    :[["dash","🏠","ホーム"],["today","☀️","今日"],["msg","💬","やりとり"],["ai","🤖","AI商社マン"],["task","✅","タスク"]];
+  if(!bar){ bar=document.createElement("nav"); bar.id="tabbar"; bar.setAttribute("aria-label","主要画面"); document.body.appendChild(bar); }
+  const active=mode==="fwd"?((typeof fwdCur!=="undefined")?fwdCur:""):((typeof cur!=="undefined")?cur:"");
+  let unread=0; try{ unread=(typeof v16Unread==="function")?v16Unread().length:0; }catch(e){}
+  bar.innerHTML=items.map(([id,ic,nm])=>`<button class="tb${active===id?" on":""}" data-tb="${id}" ${active===id?'aria-current="page"':""}><span class="tbi">${ic}${(id==="msg"&&unread)?`<i class="tbn">${unread>9?"9+":unread}</i>`:""}</span><span class="tbl">${nm}</span></button>`).join("");
+  bar.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>{ const id=b.dataset.tb; try{ if(mode==="fwd"){ fwdCur=id; fwdNav(); fwdRender(); ux17Tabs(); } else go(id); }catch(e){} try{ window.scrollTo({top:0}); }catch(e){} });
+  document.documentElement.style.setProperty("--tabbar-h","58px");
+}
+/* パネル表示中・キーボード表示中はタブバーを隠す */
+(function(){ try{ const dw=document.getElementById("dw"); if(dw){ const sync=()=>document.body.classList.toggle("dwopen",dw.getAttribute("data-open")==="true"); new MutationObserver(sync).observe(dw,{attributes:true,attributeFilter:["data-open"]}); sync(); }
+  const vv=window.visualViewport; if(vv){ const kb=()=>document.body.classList.toggle("kbopen",vv.height<innerHeight*0.72); vv.addEventListener("resize",kb); } }catch(e){} })();
+/* ⑤ 画面遷移のフェードは既存（#well .uxin）を活かし、v17 ではパネルのスライドインのみ追加（CSS） */
+/* ⑥ キーボードショートカット一覧（? キー／コマンドパレット） */
+function ux17Shortcuts(){
+  const rows=[["Ctrl+K／⌘K","何でも検索して画面・商品・操作へ移動"],["?","この一覧を表示"],["Esc","パネル・検索・ドロワーを閉じる"],["Ctrl+Enter","やりとりのメッセージを送信"],["Enter","AI商社マン／右パネルの質問を送信（Shift+Enterで改行）"],["↑ ↓ Enter","検索候補の移動と決定"],["Tab","次の項目へ（フォーカス位置は枠線で表示）"]];
+  openDW(`<h3>⌨ キーボードショートカット</h3><p class="nn" style="margin:6px 0 10px">PCではキーボードだけで主要操作ができます。</p><div class="tw" style="max-height:none"><table><thead><tr><th style="width:150px">キー</th><th>操作</th></tr></thead><tbody>${rows.map(r=>`<tr><td><kbd style="font:inherit;font-weight:700;padding:2px 7px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2)">${esc(r[0])}</kbd></td><td>${esc(r[1])}</td></tr>`).join("")}</tbody></table></div><div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+}
+document.addEventListener("keydown",e=>{ try{ if(e.key==="?"&&!e.ctrlKey&&!e.metaKey&&!e.altKey){ const t=e.target; if(t&&(/INPUT|TEXTAREA|SELECT/.test(t.tagName)||t.isContentEditable)) return; if(ux17Mode()==="none") return; e.preventDefault(); ux17Shortcuts(); } }catch(x){} });
+/* ⑦ 最近開いた画面（コマンドパレットの先頭） */
+function ux17RecentAdd(id){ try{ if(!id||id==="adm") return; let L=JSON.parse(localStorage.getItem("bc20_recent")||"[]"); L=[id].concat(L.filter(x=>x!==id)).slice(0,6); localStorage.setItem("bc20_recent",JSON.stringify(L)); }catch(e){} }
+if(typeof go==="function"){ const __go17=go; go=function(id){ const r=__go17.apply(this,arguments); try{ ux17RecentAdd(id); }catch(e){} return r; }; }
+if(typeof uxPalItems==="function"){ const __pal17=uxPalItems;
+  uxPalItems=function(q){ let items=__pal17.apply(this,arguments);
+    try{ const qq=String(q||"").trim().toLowerCase(); if(!qq&&typeof PAGES!=="undefined"&&ux17Mode()==="user"){ let L=[]; try{ L=JSON.parse(localStorage.getItem("bc20_recent")||"[]"); }catch(e){}
+        const rec=L.filter(id=>id!==cur).map(id=>PAGES.find(p=>p.id===id)).filter(p=>p).slice(0,4).map(p=>({g:"最近開いた画面",t:p.nm,sub:p.grp,ic:"🕘",run:()=>go(p.id)}));
+        if(rec.length) items=rec.concat(items); }
+      if(!qq||/ショート|shortcut|キー|キーボード/.test(qq)) items.push({g:"操作",t:"キーボードショートカット一覧",sub:"? キーでも開けます",ic:"⌨",run:ux17Shortcuts}); }catch(e){}
+    return items; }; }
+/* ⑧ 削除は「元に戻す」つき（確認ダイアログを廃止） */
+function ux17Undo(msg,fn){
+  let bar=document.getElementById("undobar"); if(!bar){ bar=document.createElement("div"); bar.id="undobar"; bar.setAttribute("role","status"); document.body.appendChild(bar); }
+  bar.innerHTML=`<span>${esc(msg)}</span><button class="btn g" id="undogo">元に戻す</button>`; bar.hidden=false;
+  clearTimeout(UX17.undoT); document.getElementById("undogo").onclick=()=>{ bar.hidden=true; try{ fn(); }catch(e){} };
+  UX17.undoT=setTimeout(()=>{ bar.hidden=true; },7000);
+}
+if(typeof memoDelete==="function"){
+  memoDelete=function(id){ const s=memoStore(); const i=s.findIndex(m=>m.id===id); if(i<0) return; const m=s[i]; s.splice(i,1); if(typeof MEMO_EDIT!=="undefined"&&MEMO_EDIT===id) MEMO_EDIT="";
+    v16Persist(); render(); ux17Undo("メモを削除しました",()=>{ const st=memoStore(); st.splice(Math.min(i,st.length),0,m); v16Persist(); render(); toast("元に戻しました"); }); }; }
+if(typeof openPresets==="function"){ const __op17=openPresets;
+  openPresets=function(){ __op17.apply(this,arguments);
+    try{ document.querySelectorAll("[data-psdel]").forEach(b=>b.onclick=()=>{ const s=presetStore(); const i=s.findIndex(x=>x.id===b.dataset.psdel); if(i<0) return; const p=s[i]; s.splice(i,1); v16Persist(); openPresets();
+        ux17Undo("定型セットを削除しました",()=>{ const st=presetStore(); st.splice(Math.min(i,st.length),0,p); v16Persist(); openPresets(); toast("元に戻しました"); }); }); }catch(e){} }; }
+/* ⑨ 管理コンソール：一覧の検索・状態チップは既存（#acq／[data-acf]）。v17では「行の選択をキーボードで」＋「期限7日以内を強調」 */
+function ux17AdminPolish(){
+  try{ const card=document.getElementById("accounts"); if(!card) return;
+    card.querySelectorAll("table tbody tr").forEach(tr=>{ if(tr.dataset.ux17) return; tr.dataset.ux17=1; tr.tabIndex=0;
+      tr.addEventListener("keydown",e=>{ if(e.key==="Enter"){ const b=tr.querySelector("button"); if(b){ e.preventDefault(); b.click(); } } else if(e.key==="ArrowDown"&&tr.nextElementSibling){ e.preventDefault(); tr.nextElementSibling.focus(); } else if(e.key==="ArrowUp"&&tr.previousElementSibling){ e.preventDefault(); tr.previousElementSibling.focus(); } }); });
+  }catch(e){}
+}
+/* ── 描画のたびに適用 ── */
+const __render17=render;
+render=function(){ __render17.apply(this,arguments); try{ ux17BarLayout(); ux17Guide(); ux17Tabs();}catch(e){} };
+if(typeof renderAdmin==="function"){ const __ra17=renderAdmin; renderAdmin=function(){ __ra17.apply(this,arguments); try{ ux17BarLayout(); ux17Tabs(); ux17AdminPolish();}catch(e){} }; }
+if(typeof fwdRender==="function"){ const __fr17=fwdRender; fwdRender=function(){ __fr17.apply(this,arguments); try{ ux17BarLayout(); ux17Tabs();}catch(e){} }; }
+if(typeof updateGuide==="function"){ const __ug17=updateGuide; updateGuide=function(){ __ug17.apply(this,arguments); try{ ux17Guide(); }catch(e){} }; }
+if(typeof injectBar==="function"){ const __ib17=injectBar; injectBar=function(){ __ib17.apply(this,arguments); try{ ux17BarLayout(); }catch(e){} }; }
+addEventListener("resize",()=>{ clearTimeout(UX17.rT); UX17.rT=setTimeout(()=>{ try{ ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },200); });
+/* ⑩ 起動時の取りこぼし修正：logic_ux2.js の ux2TopBar() は typeof I18N（TDZ）で例外になり、言語セレクトの onchange と保存済み表示サイズの適用が抜けていた */
+function ux17BarInit(){
+  try{ const ls=document.getElementById("lang"); if(ls&&!ls.onchange) ls.onchange=()=>{ if(typeof i18nSet==="function") i18nSet(ls.value); }; if(ls&&typeof I18N!=="undefined"&&I18N&&ls.value!==I18N.lang) ls.value=I18N.lang; }catch(e){}
+  try{ if(typeof ux2ApplyZoom==="function") ux2ApplyZoom(); }catch(e){}
+}
+setTimeout(()=>{ try{ ux17BarInit(); ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },300);
+
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
    選択中の言語に置き換える（MutationObserver で描画のたびに自動適用）。辞書に無い文言（AIの回答文・長文説明）は日本語のまま。
@@ -19967,6 +20131,11 @@ I18N_ROWS2.push(
 ["質問を入力（Enterで送信・Shift+Enterで改行）","Type a question (Enter to send, Shift+Enter for a new line)","输入问题（Enter发送・Shift+Enter换行）","Escribe una pregunta (Enter envía, Shift+Enter salto de línea)"],
 ["共有","Share","共享","Compartir"],["アカウント","Account","账号","Cuenta"],["会社","Company","公司","Empresa"],["状態","Status","状态","Estado"],["共有中","Shared","共享中","Compartido"],["この端末のみ","This device only","仅此设备","Solo este dispositivo"],
 ["🤖 AIとのやりとり","🤖 AI Q&A","🤖 与AI的往来","🤖 Conversación con la IA"],["「やりとり」を開くと既読になります","Opens as read when you open Messages","打开「往来」后即为已读","Se marca como leído al abrir Mensajes"],
+["ホーム","Home","主页","Inicio"],["今日","Today","今天","Hoy"],["タスク","Tasks","任务","Tareas"],["受信箱","Inbox","收件箱","Bandeja"],["レート","Rates","费率","Tarifas"],["相見積","Compare","比价","Comparar"],["AI物流マン","AI Logistics","AI物流专员","IA logística"],
+["その他","More","更多","Más"],["右パネル（AIに質問）","Side panel (ask AI)","右侧面板（向AI提问）","Panel lateral (preguntar a la IA)"],["表示サイズ","Text size","显示大小","Tamaño del texto"],["言語 / Language","Language","语言 / Language","Idioma"],["アカウント","Account","账号","Cuenta"],["ログアウト","Log out","退出登录","Cerrar sesión"],["その他のメニュー","More options","更多菜单","Más opciones"],["案内を開閉","Show or hide the guide","展开/收起指引","Mostrar u ocultar la guía"],
+["キーボードショートカット一覧","Keyboard shortcuts","键盘快捷键","Atajos de teclado"],["⌨ キーボードショートカット","⌨ Keyboard shortcuts","⌨ 键盘快捷键","⌨ Atajos de teclado"],["PCではキーボードだけで主要操作ができます。","On a PC, the main actions work from the keyboard alone.","在电脑上仅用键盘即可完成主要操作。","En PC, las acciones principales funcionan solo con el teclado."],["キー","Key","按键","Tecla"],["操作","Action","操作","Acción"],["? キーでも開けます","Also opens with the ? key","也可按 ? 键打开","También se abre con la tecla ?"],["最近開いた画面","Recently opened","最近打开","Abiertos recientemente"],
+["元に戻す","Undo","撤销","Deshacer"],["元に戻しました","Restored","已恢复","Restaurado"],["メモを削除しました","Note deleted","记录已删除","Nota eliminada"],["定型セットを削除しました","Template deleted","模板已删除","Plantilla eliminada"],
+["🔍 コード・会社名・担当で絞り込み","🔍 Filter by code, company or contact","🔍 按代码・公司・负责人筛选","🔍 Filtrar por código, empresa o contacto"],["物流会社","Forwarder","物流公司","Transportista"],
 ["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
 ["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
 /* 承認・公開・対訳 */
