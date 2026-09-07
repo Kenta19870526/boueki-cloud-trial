@@ -637,6 +637,23 @@ body.dwopen #tabbar,body.kbopen #tabbar,body.locked #tabbar{display:none}
   #psw{flex:1;min-width:0;max-width:none;font-size:12px}
   .bar .sp{display:none}
 }
+/* v17.3：登録済み商品カード・新規登録の導線 */
+.regl{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.smp.regc{position:relative;padding:10px 30px 10px 12px;text-align:left;max-width:none;display:block}
+.smp.regc.on{border-color:var(--or);background:var(--or-soft)}
+.smp.regc>b{font-size:12px;display:block;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.regedit{position:absolute;top:6px;right:6px;font-size:11px;padding:2px 6px;border-radius:5px;color:var(--ink-3);border:1px solid transparent;cursor:pointer}
+.regedit:hover{border-color:var(--line);background:var(--surface)}
+.regm{display:block;height:4px;border-radius:2px;background:var(--line);margin-top:7px;overflow:hidden}
+.regm i{display:block;height:100%;background:var(--good)}
+.regs{display:block;font-size:10px;color:var(--ink-3);margin-top:4px}
+.newsteps{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:8px 0 4px;font-size:11.5px;font-weight:700;color:var(--ink-2)}
+.newsteps span{display:inline-flex;align-items:center;gap:5px}
+.newsteps i{width:18px;height:18px;border-radius:50%;background:var(--or);color:#fff;font-style:normal;font-size:10px;font-weight:700;display:grid;place-items:center;flex:none}
+.newsteps .arr{color:var(--ink-3)}
+.drop.dropflash{animation:dropflash 1.4s ease-out 2;border-color:var(--or)}
+@keyframes dropflash{0%{box-shadow:0 0 0 0 rgba(248,149,29,.55)}70%{box-shadow:0 0 0 16px rgba(248,149,29,0)}100%{box-shadow:0 0 0 0 rgba(248,149,29,0)}}
+@media (prefers-reduced-motion:reduce){.drop.dropflash{animation:none}}
 </style>
 
 <style>
@@ -7662,31 +7679,30 @@ function vUp(p){
     const curTen=(PID==="custom"&&TEN&&(TENS.indexOf(TEN)>=0||TEN.src==="upload"||TEN.src==="sample2"));   /* v16.1: 表示中＝登録済み商品か */
     const isCur=i=>curTen&&(TENS[i]===TEN||(TENS.indexOf(TEN)<0&&i===TIDX));
     const act=cos.find(x=>x.co===actCo)||cos[0];
+    /* v17.3：会社名は上部バーに出ているので繰り返さない。商品は充足度メーター付きのカード一覧、追加は「＋ 新しい商品を登録」ボタンに */
     const prodChip=i=>{const t=TENS[i],s=scoreOf(t);
-      return `<button class="smp" data-tsw="${i}"
-        style="position:relative;padding:8px 26px 8px 11px;max-width:250px;flex:0 0 auto;gap:2px;${isCur(i)?"border-color:var(--or);background:var(--or-soft)":""}">
-        <span data-tedit="${i}" title="商品名・会社名を編集" role="button"
-          style="position:absolute;top:4px;right:5px;font-size:11px;padding:2px 5px;border-radius:5px;color:var(--ink-3);border:1px solid transparent">✎</span>
-        <b style="font-size:11.5px">${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,22))}</b>
-        <span style="display:block;font-size:9.5px;color:var(--ink-3)">充足度${s.pct}%${isCur(i)?"・表示中":""}</span>
+      return `<button class="smp regc${isCur(i)?" on":""}" data-tsw="${i}" title="${isCur(i)?"いま表示中の商品":"この商品に切り替え"}">
+        <span data-tedit="${i}" title="商品名・会社名を編集" role="button" class="regedit">✎</span>
+        <b>${cmeta(t.catKey||"custom").ic} ${esc((t.item||t.file||"（未入力）").slice(0,30))}</b>
+        <span class="regm"><i style="width:${s.pct}%"></i></span>
+        <span class="regs">充足度${s.pct}%${isCur(i)?"・表示中":""}</span>
       </button>`;};
-    plist=`<div class="c" style="margin-bottom:11px">
-      <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
-        <h3>登録済みの商品</h3>
+    const others=cos.filter(x=>x.co!==actCo);
+    plist=`<div class="c" id="regprod" style="margin-bottom:11px">
+      <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:center">
+        <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center"><h3 style="margin:0">登録済みの商品</h3>
+          <span class="p lo">この会社の商品 ${act.idxs.length}/${PROD_PER_CO}件</span>
+          <span class="p lo">サプライヤー ${cos.length}/${CO_MAX}社</span></div>
         <div class="rw" style="gap:6px;flex-wrap:wrap">
-          <span class="p lo" style="align-self:center">サプライヤー ${cos.length}/${CO_MAX}社</span>
-          <span class="p lo" style="align-self:center">この会社の商品 ${act.idxs.length}/${PROD_PER_CO}件</span>
           <input class="sel" id="pfq" placeholder="🔍 会社名・商品名で検索" autocomplete="off"
-            style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px"></div></div>
+            style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px">
+          ${tenCanAdd(actCo)?`<button class="btn" id="newprod-go" onclick="ux17NewProd()" title="下の登録欄へ移動します（登録済みの商品はそのまま残ります）" style="padding:7px 14px;white-space:nowrap">＋ 新しい商品を登録</button>`
+            :`<span class="p no" style="align-self:center">この会社は上限（${PROD_PER_CO}件）</span>`}</div></div>
       <div id="pfnorm">
         ${curTen?"":`<div class="rw" data-curdemo style="margin-top:8px;gap:8px;padding:8px 11px;border-radius:var(--r2);background:var(--or-soft);font-size:11.5px;line-height:1.6"><span style="flex:1;min-width:200px">いま表示中：<b>${esc((D&&D.co)||"")}／${esc((D&&D.item)||"")}</b>（${(TEN&&TEN.src==="sample")?"デモ商材・架空":"サンプル"}）。<span>登録済みの商品ではありません</span></span><button class="btn g" style="font-size:11px;padding:4px 10px;flex:none" data-tsw="${TIDX}">登録済みの商品に戻る</button></div>`}
-        <div class="rw" style="margin-top:8px;gap:7px;flex-wrap:wrap;align-items:center">
-          <span class="lbl" style="margin:0;white-space:nowrap">🏢 ${esc(actCo)}</span>
-          ${act.idxs.map(prodChip).join("")}
-          ${tenCanAdd(actCo)?`<span class="nn" style="align-self:center">新しい資料は<b>別の商品として追加</b>（あと${PROD_PER_CO-act.idxs.length}件）</span>`
-            :`<span class="p no" style="align-self:center">この会社は上限（${PROD_PER_CO}件）</span>`}
-          ${cos.length>1?`<span class="nn" style="align-self:center;color:var(--ink-3)">他${cos.length-1}社は上部の切替メニュー／🔍検索で</span>`:""}
-        </div></div>
+        <div class="regl" style="margin-top:10px">${act.idxs.map(prodChip).join("")}</div>
+        ${others.length?`<div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap;align-items:center"><span class="nn" style="margin:0">他の会社：</span>${others.map(x=>`<button class="q" data-tsw="${x.idxs[0]}" title="この会社の商品に切り替え">🏢 ${esc(x.co.slice(0,18))}<span style="opacity:.65;margin-left:4px">${x.idxs.length}件</span></button>`).join("")}</div>`:""}
+        </div>
       <div id="pfx" hidden style="margin-top:9px"></div>
       </div>`;
   }
@@ -7709,7 +7725,9 @@ function vUp(p){
   return plist+(typeof healthBanner==="function"?healthBanner():"")+resume+ph(p,"<b>ここから始まります。</b>お手元の商品資料をアップロードすると、貿易クラウドがその商材専用の環境をつくります。以降のすべての画面が、この情報をもとに動きます。")+`
   <div class="g2" style="align-items:start;margin-bottom:11px">
     <div class="c">
-      <h3>資料をアップロードする</h3>
+      <span id="newprod"></span>
+      <h3>${TENS.length?"＋ 新しい商品を登録する":"商品を登録する"}</h3>
+      <div class="newsteps"><span><i>1</i>資料をここにドロップ</span><span class="arr">›</span><span><i>2</i>AIが読み取り、${TENS.length?"別の商品として追加":"商品として登録"}</span><span class="arr">›</span><span><i>3</i>足りない情報に答えて完成</span></div>
       <p class="nn"><b>Excel・CSV・Word・PowerPoint・PDF・画像（PNG/JPEG）・Zip</b>に対応。①商品情報 ②価格表・寸法 ③成分表・素材表 の3種類がそろうと、AIが最も正確に働きます。<br>
       <span style="font-size:10px;color:var(--ink-3)"><b>Zipは中の資料をまとめて読み込み、1つの商品資料一式として統合</b>します（PCのフォルダごと取り込みたいときに）。PDF・画像の高精度読み取りは、管理者がAIエンジンを接続している場合に有効です。</span></p>
       <div class="drop" id="drop" role="button" tabindex="0" style="margin-top:11px">
@@ -19320,6 +19338,18 @@ if(typeof renderAdmin==="function"){ const __ra17=renderAdmin; renderAdmin=funct
 if(typeof fwdRender==="function"){ const __fr17=fwdRender; fwdRender=function(){ __fr17.apply(this,arguments); try{ ux17BarLayout(); ux17Tabs();}catch(e){} }; }
 if(typeof updateGuide==="function"){ const __ug17=updateGuide; updateGuide=function(){ __ug17.apply(this,arguments); try{ ux17Guide(); }catch(e){} }; }
 if(typeof injectBar==="function"){ const __ib17=injectBar; injectBar=function(){ __ib17.apply(this,arguments); try{ ux17BarLayout(); }catch(e){} }; }
+/* ⑫ v17.3：新しい商品の登録導線（登録済み商品カードの「＋」ボタン／上部の商品切替の末尾／何でも検索／ダッシュボード → 登録欄へ移動して強調） */
+function ux17NewProd(){
+  const run=()=>{ const d=document.getElementById("drop"); if(!d) return; const y=d.getBoundingClientRect().top+scrollY-110; window.scrollTo(0,Math.max(0,y));   /* 即時スクロール（スムーズは非表示タブや reduced-motion で止まることがある） */
+    d.classList.remove("dropflash"); void d.offsetWidth; d.classList.add("dropflash"); try{ d.focus({preventScroll:true}); }catch(e){}
+    toast((typeof TENS!=="undefined"&&TENS.length)?"ここに新しい商品の資料をドロップ（登録済みの商品はそのまま残ります）":"ここに商品の資料をドロップしてください"); };
+  const onUp=(typeof cur!=="undefined"&&cur==="up")&&!(typeof FILL!=="undefined"&&FILL&&FILL.on);
+  if(onUp) run(); else { try{ if(typeof FILL!=="undefined"&&FILL) FILL.on=false; }catch(e){} go("up"); setTimeout(run,380); }
+}
+if(typeof pswHtml==="function"){ const __psw17=pswHtml; pswHtml=function(){ return __psw17.apply(this,arguments)+`<option value="__new">＋ 新しい商品を登録…</option>`; }; }
+document.addEventListener("change",e=>{ const s=e.target; if(!s||s.id!=="psw"||s.value!=="__new") return; e.stopImmediatePropagation(); e.stopPropagation();
+  try{ const prev=[...s.options].find(o=>o.value!=="__new"&&o.hasAttribute("selected")); s.value=prev?prev.value:((s.options[0]||{}).value||""); }catch(x){} ux17NewProd(); },true);
+if(typeof uxPalItems==="function"){ const __pal17b=uxPalItems; uxPalItems=function(q){ let items=__pal17b.apply(this,arguments); try{ const qq=String(q||"").trim().toLowerCase(); if(ux17Mode()==="user"&&(!qq||/商品|登録|新|追加|アップ|upload|product|new/.test(qq))) items.unshift({g:"操作",t:"＋ 新しい商品を登録",sub:"資料をアップロードして追加",ic:"🗂",run:ux17NewProd}); }catch(e){} return items; }; }
 addEventListener("resize",()=>{ clearTimeout(UX17.rT); UX17.rT=setTimeout(()=>{ try{ ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },200); });
 /* ⑩ 起動時の取りこぼし修正：logic_ux2.js の ux2TopBar() は typeof I18N（TDZ）で例外になり、言語セレクトの onchange と保存済み表示サイズの適用が抜けていた */
 function ux17BarInit(){
@@ -19355,6 +19385,8 @@ function ux17Help(){
   const w=document.getElementById("hlp-wel"); if(w) w.onclick=()=>{ closeDW(); try{ localStorage.removeItem("bc20_wel_"+code); }catch(e){} try{ showWelcome(); }catch(e){} };
 }
 setTimeout(()=>{ try{ ux17BarInit(); ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },300);
+/* v17.3：ダッシュボードのクイック操作にも「＋ 新しい商品を登録」 */
+{ const __render17c=render; render=function(){ __render17c.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="dash"&&ux17Mode()==="user"){ const ex=document.getElementById("expOpen"); if(ex&&!document.getElementById("newprodDash")) ex.insertAdjacentHTML("beforebegin",`<button class="btn g" id="newprodDash" style="font-size:10.5px;padding:4px 11px" onclick="ux17NewProd()">＋ 新しい商品を登録</button> `); } }catch(e){} }; }
 
 /* ═══════════ v17.1（2026-09-07）：データ生命周期の総点検で見つかった2件の修正 ═══════════
    ①削除が他端末から復活する：v16.4 の結合同期は「相手側にだけある項目を足す」ため、片方で削除した会議メモ・定型セット・商品が
@@ -20239,6 +20271,10 @@ I18N_ROWS2.push(
 ["🗂 商品資料をアップロード","🗂 Upload product documents","🗂 上传产品资料","🗂 Subir documentos del producto"],["💬 足りない情報に答える","💬 Answer what is missing","💬 补充缺失信息","💬 Responder lo que falta"],["🤝 あとはAIに聞く・任せる","🤝 Then ask or delegate to the AI","🤝 之后交给AI","🤝 Luego pregunte o delegue a la IA"],
 ["お手元のExcelをドラッグするだけ。中身はこのブラウザの外に出ません。","Just drag in your Excel file. Its contents never leave this browser.","只需拖入您的Excel文件。内容不会离开此浏览器。","Solo arrastre su Excel. Su contenido nunca sale de este navegador."],["AIが必要なことだけ質問します。わからなければ「わからない」でOKです。","The AI asks only what it needs. “I don't know” is a fine answer.","AI只会询问必要的信息。不清楚时回答“不知道”即可。","La IA solo pregunta lo necesario. “No lo sé” es una respuesta válida."],["「どの国に売れる？」「500個でいくら？」。出荷の手続きまで任せられます。","“Which countries would buy this?” “How much for 500 units?” You can even hand over the shipping paperwork.","“能卖到哪些国家？”“500个多少钱？”连出货手续也可以交给它。","“¿En qué países se vendería?” “¿Cuánto por 500 unidades?” Incluso puede delegar los trámites de envío."],
 ["🤖 AI物流マンに相談","🤖 Ask the AI Logistics Agent","🤖 咨询AI物流专员","🤖 Consultar a la IA logística"],["👋 はじめての案内をもう一度見る","👋 Show the welcome guide again","👋 再看一次新手指引","👋 Ver de nuevo la guía de bienvenida"],["お問い合わせ","Contact","联系我们","Contacto"],["操作で困ったときは、担当のSTANDAGE営業・CSにご連絡ください。","If you get stuck, contact your STANDAGE sales or CS representative.","操作遇到困难时，请联系您的STANDAGE销售或CS负责人。","Si tiene dudas, contacte a su representante de ventas o CS de STANDAGE."],["トライアルコード","Trial code","试用代码","Código de prueba"],["をお伝えいただくとスムーズです。","— quoting it makes things quicker.","告知此代码可更快处理。","; indicarlo agiliza la atención."],
+["＋ 新しい商品を登録","＋ Add a new product","＋ 登记新产品","＋ Añadir un producto"],["＋ 新しい商品を登録する","＋ Add a new product","＋ 登记新产品","＋ Añadir un producto"],["商品を登録する","Register a product","登记产品","Registrar un producto"],["＋ 新しい商品を登録…","＋ Add a new product…","＋ 登记新产品…","＋ Añadir un producto…"],["資料をアップロードして追加","Upload documents to add one","上传资料以添加","Suba documentos para añadirlo"],
+["資料をここにドロップ","Drop your documents here","把资料拖到这里","Suelte aquí sus documentos"],["AIが読み取り、別の商品として追加","AI reads them and adds a separate product","AI读取后作为另一件产品添加","La IA los lee y añade otro producto"],["AIが読み取り、商品として登録","AI reads them and registers the product","AI读取后登记为产品","La IA los lee y registra el producto"],["足りない情報に答えて完成","Answer what is missing and you are done","补充缺失信息即完成","Responda lo que falta y listo"],
+["他の会社：","Other companies:","其他公司：","Otras empresas:"],["この会社の商品に切り替え","Switch to this company's products","切换到该公司的产品","Cambiar a los productos de esta empresa"],["いま表示中の商品","Product currently shown","当前显示的产品","Producto mostrado ahora"],["この商品に切り替え","Switch to this product","切换到此产品","Cambiar a este producto"],["下の登録欄へ移動します（登録済みの商品はそのまま残ります）","Jumps to the upload area below (registered products are kept)","跳转到下方的登记区（已登记的产品会保留）","Va al área de carga de abajo (los productos registrados se conservan)"],
+["ここに新しい商品の資料をドロップ（登録済みの商品はそのまま残ります）","Drop the new product's documents here (registered products are kept)","把新产品的资料拖到这里（已登记的产品会保留）","Suelte aquí los documentos del nuevo producto (los registrados se conservan)"],["ここに商品の資料をドロップしてください","Drop the product's documents here","请把产品资料拖到这里","Suelte aquí los documentos del producto"],
 ["🔍 コード・会社名・担当で絞り込み","🔍 Filter by code, company or contact","🔍 按代码・公司・负责人筛选","🔍 Filtrar por código, empresa o contacto"],["物流会社","Forwarder","物流公司","Transportista"],
 ["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
 ["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
