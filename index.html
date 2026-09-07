@@ -19158,7 +19158,7 @@ function v16MsgTabsSync(){
     msgNewScope=msgScope; tabs.forEach(x=>{ x.className="btn"+(x.dataset.mscope===msgNewScope?"":" g"); }); const n=document.getElementById("mscopeNow"); if(n) n.textContent=msgNewScope; }
 }
 /* 一覧描画のたび：既読を付け、タブを連動 */
-if(typeof mRows==="function"){ const __mRows3=mRows; mRows=function(){ __mRows3.apply(this,arguments); try{ v16MarkRead(); }catch(e){} }; }
+if(typeof mRows==="function"){ const __mRows3=mRows; mRows=function(){ __mRows3.apply(this,arguments); try{ if(v16MarkRead()) __mRows3.apply(this,arguments); }catch(e){} }; }   /* 既読を付けたら既読人数の表示も即時更新 */
 const __render16f3=render;
 render=function(){ __render16f3.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="msg"){ v16MsgTabsSync(); const ml=document.getElementById("mlist"); if(ml) ml.scrollTop=ml.scrollHeight; } }catch(e){} };
 
