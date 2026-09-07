@@ -663,6 +663,15 @@ body.dwopen #tabbar,body.kbopen #tabbar,body.locked #tabbar{display:none}
 #uxsec .uxsc:hover{background:var(--sunk);border-color:transparent;color:var(--ink)}
 #uxsec .uxsc.on{background:var(--or-soft);border-color:transparent;color:var(--or-deep);font-weight:700}
 @media (max-width:820px){#uxsec .uxsc{min-height:30px}}
+/* v17.8：AI見積パネルの国別タブ・まとめ表 */
+.fqtabs{display:flex;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:10px 0 8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.fqtabs::-webkit-scrollbar{display:none}
+.fqtab{font:inherit;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid transparent;background:transparent;color:var(--ink-2);cursor:pointer;white-space:nowrap;flex:none;min-height:32px}
+.fqtab:hover{background:var(--sunk)}
+.fqtab.on{background:var(--or);color:#fff;border-color:var(--or)}
+.fqpane[hidden]{display:none}
+.fqrow{cursor:pointer}.fqrow:hover td{background:var(--or-soft)}
+.fqbox{margin-top:10px}
 </style>
 
 <style>
@@ -19437,6 +19446,9 @@ setTimeout(()=>{ try{ ux17BarInit(); ux17BarLayout(); ux17Guide(); ux17Tabs(); }
 /* v17.6：F5（再読込）で管理者セッションが復元されたとき、authBoot→renderAdmin は各モジュールのラッパー装着前に走るため
    （logic_kb2.js の再描画も v16t／v16share より前）、CS受信箱・メール通知・LINE/WA・AI接続の共有・搬出API・実AI列が出ないまま止まる → ここで一度描き直す */
 try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm"&&document.getElementById("admkpi")&&!document.getElementById("admshare")&&typeof renderAdmin==="function"){ if(typeof render==="function") render(); else renderAdmin(); } }catch(e){}   /* render() 経由にすると目次（このページの内容）も作り直される */
+/* v17.7：右パネルの「⛶ 拡大／標準」ボタンと左端ドラッグ（dwChrome）を、どの openDW にも自動で付ける
+   （AI見積の受付パネルなど、呼び出し側で dwChrome() を呼んでいないパネルは拡大・縮小できなかった） */
+if(typeof openDW==="function"&&typeof dwChrome==="function"){ const __openDW17=openDW; openDW=function(){ const r=__openDW17.apply(this,arguments); try{ dwChrome(); }catch(e){} return r; }; }
 /* v17.3：ダッシュボードのクイック操作にも「＋ 新しい商品を登録」 */
 { const __render17c=render; render=function(){ __render17c.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="dash"&&ux17Mode()==="user"){ const ex=document.getElementById("expOpen"); if(ex&&!document.getElementById("newprodDash")) ex.insertAdjacentHTML("beforebegin",`<button class="btn g" id="newprodDash" style="font-size:10.5px;padding:4px 11px" onclick="ux17NewProd()">＋ 新しい商品を登録</button> `); } }catch(e){} }; }
 
@@ -19507,6 +19519,91 @@ if(typeof ux17Undo==="function"){ const __undo17=ux17Undo; ux17Undo=function(msg
 if(typeof openPresets==="function"){ const __op17s=openPresets; openPresets=function(){ const before=(function(){ try{ return presetStore().map(p=>p.id); }catch(e){ return []; } })(); const r=__op17s.apply(this,arguments);
   try{ document.querySelectorAll("[data-psdel]").forEach(b=>{ const prev=b.onclick; b.onclick=function(){ const id=b.dataset.psdel; const r2=prev?prev.apply(this,arguments):undefined; try{ if(!presetStore().find(p=>p.id===id)) v17TombAdd("presets",id); }catch(e){} return r2; }; }); }catch(e){} return r; }; }
 if(typeof memoSave==="function"){ const __ms17=memoSave; memoSave=function(){ const m=__ms17.apply(this,arguments); try{ if(m&&m.id){ if(!m.at) m.at=Date.now(); v17TombDrop("memos",m.id); } }catch(e){} return m; }; }
+
+/* ═══════════ v17.8（2026-09-07）：AI見積パネルを「まとめ＋国別タブ」に再構成し、相談欄を国ごとに ═══════════
+   ①「この見積についてAI商社マンに相談」で返信が出ない：接続AIの応答待ち（最大25〜45秒）の間に目立つ表示が無く、
+     空回答・例外のときに何も出なかった → 待機表示・45秒で内蔵回答へ切替・空回答／例外は内蔵回答＋注記で必ず返す
+   ② 国ごとの見積が縦に長く見づらい → 「📋 まとめ」タブ（国／物流会社／金額／所要日数／有効期限／状態）＋国別タブ
+   ③ 相談欄が1か国目のカードの中に入り込んでいた（挿入位置のバグ）→ まとめタブと各国タブに1つずつ、その国の見積を根拠に回答 */
+const FQ17={tab:{}};
+function fq17Req(id){ try{ if((typeof FWDB==="undefined"||!FWDB)&&typeof fwdLoad==="function") fwdLoad(); return (typeof FWDB!=="undefined"&&FWDB)?(FWDB.reqs.find(x=>x.id===id)||null):null; }catch(e){ return null; } }
+function fq17Held(r,l){ try{ return (typeof fwdLegHeld==="function")?!!fwdLegHeld(r,l):!!l.hold; }catch(e){ return !!l.hold; } }
+function fq17Summary(r){
+  const legs=r.legs||[]; if(!legs.length) return "";
+  const rows=legs.map(l=>{
+    if(!l.ok||!l.quote) return `<tr class="fqrow" data-fqgo="${esc(l.cty)}"><td><b>${esc(l.cty)}</b></td><td colspan="4"><span class="p mid">レーン未登録</span> <span class="nn" style="margin:0;font-size:10.5px">物流会社がレート表を更新すると自動で見積が届きます</span></td><td><span class="p lo">未提案</span></td></tr>`;
+    const q=l.quote, co=l.sel||l.co||"", held=fq17Held(r,l), n=(l.offers||[]).length, isRec=!l.rec||co===l.rec;
+    return `<tr class="fqrow" data-fqgo="${esc(l.cty)}" title="${esc(l.cty)}の詳細タブへ"><td><b>${esc(l.cty)}</b><br><span class="nn" style="margin:0;font-size:10px">${esc(q.lane||"")}・${esc(q.mode||"")}</span></td>
+      <td>${esc(co)}${isRec&&n>1?' <span class="p rec" style="font-size:8.5px">🤖 推奨</span>':""}${n>1?`<br><span class="nn" style="margin:0;font-size:10px">${n}社回答</span>`:""}</td>
+      <td class="num"><b>¥${(+q.total||0).toLocaleString()}</b></td><td class="num">約${q.tt}日</td><td class="n">${esc(q.valid||"")}</td>
+      <td>${held?'<span class="p hi">仮押さえ済み</span>':'<span class="p lo">未確定</span>'}</td></tr>`; });
+  const ok=legs.filter(l=>l.ok&&l.quote), tot=ok.reduce((s,l)=>s+(+l.quote.total||0),0);
+  return `<div class="tw" style="max-height:none"><table><thead><tr><th>国</th><th>物流会社（推奨／選択中）</th><th class="num">金額（合計）</th><th class="num">所要日数</th><th>有効期限</th><th>状態</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+    ${ok.length>1?`<p class="nn" style="margin-top:6px">${ok.length}か国の合計：<b>¥${tot.toLocaleString()}</b>（各国の推奨／選択中の物流会社の合計・仮押さえは国ごとに選べます）</p>`:""}`;
+}
+function fq17Render(id,cty,box){
+  const r=fq17Req(id); const chat=box&&box.querySelector(".fqchat"); if(!r||!chat) return;
+  const hist=(r.chat||[]).filter(m=>(m.cty||"")===cty);
+  chat.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join("")
+    :`<p class="nn" style="padding:6px 2px">${cty?"例：「相場より高い？」「どの会社を選ぶべき？」「倉庫はどこが良い？」":"例：「合計を下げるには？」「仮押さえの優先順位は？」"}</p>`;
+  chat.scrollTop=chat.scrollHeight;
+}
+async function fq17Ask(id,cty,q,box){
+  q=String(q||"").trim(); if(!q) return; const r=fq17Req(id); if(!r) return;
+  r.chat=(r.chat||[]).concat([{w:"u",t:q,cty,at:Date.now()}]).slice(-60); try{ if(typeof fwdSave==="function") fwdSave(); }catch(e){} fq17Render(id,cty,box);
+  const chat=box.querySelector(".fqchat"); const online=(typeof ppReady==="function"&&ppReady());
+  chat.insertAdjacentHTML("beforeend",`<div class="m a fqwait"><div class="bb"><span class="car"></span> ${online?"AI商社マンが考えています…（通常10〜30秒）":"内蔵エンジンで回答しています…"}</div></div>`); chat.scrollTop=chat.scrollHeight;
+  let ans=null, l=null;
+  try{
+    l=cty?((r.legs||[]).find(x=>x.cty===cty)||null):((typeof fwdqLeg==="function")?fwdqLeg(r,q):null);
+    const qq=cty?`${cty}向けの見積について：${q}`:q;
+    const p=(typeof fwdqAnswer==="function")?fwdqAnswer(qq,r,l):Promise.resolve({a:"相談機能が読み込まれていません。",c:""});
+    ans=await Promise.race([p,new Promise(res=>setTimeout(()=>res({timeout:1}),45000))]);
+    const plain=s=>String(s||"").replace(/<[^>]+>/g,"").trim();
+    if(!ans||ans.timeout){ ans=(typeof fwdqAnswerLocal==="function")?fwdqAnswerLocal(q,r,l):{a:"回答を取得できませんでした。",c:""}; ans.c=(ans.c||"")+"／⚠ 接続AIの応答が45秒以内に返らなかったため内蔵エンジンで回答"; }
+    else if(!plain(ans.a)){ const loc=(typeof fwdqAnswerLocal==="function")?fwdqAnswerLocal(q,r,l):{a:"回答を取得できませんでした。",c:""}; loc.c=(loc.c||"")+"／⚠ 接続AIの回答が空だったため内蔵エンジンで回答"; ans=loc; }
+  }catch(e){ ans={a:"うまく処理できませんでした。もう一度お試しください。（"+esc(String((e&&e.message)||e).slice(0,60))+"）",c:"内部エラー"}; }
+  r.chat=(r.chat||[]).concat([{w:"a",t:ans.a,c:ans.c,cty,at:Date.now()}]).slice(-60);
+  try{ if(typeof fwdSave==="function") fwdSave(); }catch(e){} try{ if(typeof logU==="function") logU("ai","見積相談:"+q.slice(0,24)); }catch(e){}
+  fq17Render(id,cty,box);
+}
+function fq17Box(id,k){
+  const cty=k==="all"?"":k; const box=document.createElement("details"); box.className="fwdx fqbox"; box.open=true; box.dataset.fqcty=cty;
+  const ex=cty?["この見積は相場より高い？安い？","どの物流会社を選ぶべき？","最適な倉庫・配送拠点は？","LCLとFCLどちらが得？","納期を短くするには？"]:["全体で一番の課題は？","仮押さえの優先順位は？","合計を下げる方法は？"];
+  box.innerHTML=`<summary>${cty?`💬 ${esc(cty)}向けの見積についてAI商社マンに相談`:"💬 この見積全体についてAI商社マンに相談"}</summary><div>
+    <div class="chat fqchat" style="max-height:300px;margin-top:6px"></div>
+    <div class="qb" style="margin-top:7px">${ex.map(x=>`<button class="q" data-fqq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <div class="rw" style="margin-top:7px;gap:6px"><input class="sel fqin" placeholder="${cty?`${esc(cty)}向けの見積について質問（Enterで送信）`:"見積全体について質問（Enterで送信）"}" style="flex:1;min-width:0"><button class="btn fqgo" style="flex:none">質問する</button></div>
+    <p class="nn" style="margin-top:5px">根拠：AI物流マンの見積・登録レート・内蔵の参考レーン表（目安）。AI接続時はWeb検索の実勢も参照します（未接続時はその旨を明示）。</p></div>`;
+  const go=()=>{ const i=box.querySelector(".fqin"); const v=(i.value||"").trim(); if(!v) return; i.value=""; fq17Ask(id,cty,v,box); };
+  box.querySelector(".fqgo").onclick=go; box.querySelector(".fqin").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } };
+  box.querySelectorAll("[data-fqq]").forEach(b=>b.onclick=()=>fq17Ask(id,cty,b.dataset.fqq,box));
+  fq17Render(id,cty,box); return box;
+}
+function fq17Build(id){
+  if(typeof FWDON!=="undefined"&&FWDON) return;   /* 物流会社側のパネルは従来どおり */
+  const r=fq17Req(id); if(!r||!Array.isArray(r.legs)||!r.legs.length) return;
+  const body=document.querySelector("#pn .dwbody"); if(!body||body.querySelector(".fqwrap")) return;
+  const cards=[...body.querySelectorAll(":scope > .fwdleg")]; if(cards.length!==r.legs.length) return;
+  const lbl=[...body.querySelectorAll(":scope > p.lbl")].find(p=>/国ごとの見積/.test(p.textContent));
+  const old=document.getElementById("fwdqbox"); if(old) old.remove();   /* 旧：1か国目のカード内に入っていた相談欄 */
+  const wrap=document.createElement("div"); wrap.className="fqwrap";
+  const tabs=[["all","📋 まとめ"]].concat(r.legs.map(l=>[l.cty,(l.ok?"":"⚠ ")+l.cty+(fq17Held(r,l)?" ✓":"")]));
+  wrap.innerHTML=`<div class="fqtabs" role="tablist">${tabs.map(([k,nm])=>`<button class="fqtab" role="tab" data-fqtab="${esc(k)}">${esc(nm)}</button>`).join("")}</div>`;
+  const anchor=lbl||cards[0]; anchor.insertAdjacentElement("beforebegin",wrap); if(lbl) lbl.remove();
+  const paneAll=document.createElement("div"); paneAll.className="fqpane"; paneAll.dataset.fqpane="all";
+  paneAll.innerHTML=`<p class="nn" style="margin:4px 0 8px">各国の推奨（または選択中）の物流会社と金額・所要日数・有効期限の一覧です。行をクリックすると、その国の詳細（相見積・仮押さえ・再見積）と相談欄に移ります。</p>${fq17Summary(r)}`;
+  wrap.appendChild(paneAll);
+  r.legs.forEach((l,i)=>{ const pane=document.createElement("div"); pane.className="fqpane"; pane.dataset.fqpane=l.cty; pane.appendChild(cards[i]); wrap.appendChild(pane); });
+  wrap.querySelectorAll(".fqpane").forEach(p=>p.appendChild(fq17Box(r.id,p.dataset.fqpane)));
+  const sel=k=>{ if(!wrap.querySelector(`[data-fqpane="${CSS.escape(k)}"]`)) k="all"; FQ17.tab[r.id]=k; wrap.querySelectorAll(".fqtab").forEach(b=>b.classList.toggle("on",b.dataset.fqtab===k)); wrap.querySelectorAll(".fqpane").forEach(p=>p.hidden=p.dataset.fqpane!==k); };
+  wrap.querySelectorAll(".fqtab").forEach(b=>b.onclick=()=>sel(b.dataset.fqtab));
+  wrap.querySelectorAll("[data-fqgo]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button,a")) return; sel(tr.dataset.fqgo); });
+  sel(FQ17.tab[r.id]||"all");
+}
+if(typeof openFwdQuote==="function"){ const __openFwdQuote17=openFwdQuote; openFwdQuote=function(id){ const r=__openFwdQuote17.apply(this,arguments); try{ fq17Build(id); }catch(e){} return r; }; }
+/* 国を仮押さえ・再見積するとパネルが描き直されるので、開いていたタブに戻す（FQ17.tab に保持） */
+if(typeof fwdHoldLeg==="function"){ const __hold17=fwdHoldLeg; fwdHoldLeg=function(id,cty){ try{ if(cty) FQ17.tab[id]=cty; }catch(e){} return __hold17.apply(this,arguments); }; }
 
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
@@ -20317,7 +20414,12 @@ I18N_ROWS2.push(
 ["その他","More","更多","Más"],["右パネル（AIに質問）","Side panel (ask AI)","右侧面板（向AI提问）","Panel lateral (preguntar a la IA)"],["表示サイズ","Text size","显示大小","Tamaño del texto"],["言語 / Language","Language","语言 / Language","Idioma"],["アカウント","Account","账号","Cuenta"],["ログアウト","Log out","退出登录","Cerrar sesión"],["その他のメニュー","More options","更多菜单","Más opciones"],["案内を開閉","Show or hide the guide","展开/收起指引","Mostrar u ocultar la guía"],
 ["キーボードショートカット一覧","Keyboard shortcuts","键盘快捷键","Atajos de teclado"],["⌨ キーボードショートカット","⌨ Keyboard shortcuts","⌨ 键盘快捷键","⌨ Atajos de teclado"],["PCではキーボードだけで主要操作ができます。","On a PC, the main actions work from the keyboard alone.","在电脑上仅用键盘即可完成主要操作。","En PC, las acciones principales funcionan solo con el teclado."],["キー","Key","按键","Tecla"],["操作","Action","操作","Acción"],["? キーでも開けます","Also opens with the ? key","也可按 ? 键打开","También se abre con la tecla ?"],["最近開いた画面","Recently opened","最近打开","Abiertos recientemente"],
 ["元に戻す","Undo","撤销","Deshacer"],["元に戻しました","Restored","已恢复","Restaurado"],["メモを削除しました","Note deleted","记录已删除","Nota eliminada"],["定型セットを削除しました","Template deleted","模板已删除","Plantilla eliminada"],
-["📱 AI接続の共有（お客様のスマホ・別PCでも実AIを使う／荷主・物流会社の両方）","📱 Share AI connection (use the real AI on customers' phones and other PCs / shippers and forwarders)","📱 共享AI连接（客户的手机・其他电脑也能使用真实AI／货主・物流公司均可）","📱 Compartir la conexión de IA (usar la IA real en móviles y otros PC del cliente / cargadores y transportistas)"],["📱 実AI","📱 Real AI","📱 真实AI","📱 IA real"],["そのアカウントのスマホ・別PCでも、この端末のAI接続（実AI）を使えるようにする","Let that account use this device's AI connection (real AI) on phones and other PCs too","让该账号在手机・其他电脑上也能使用本机的AI连接（真实AI）","Permitir que esa cuenta use la conexión de IA de este equipo (IA real) también en móviles y otros PC"],["クリックで切替（別端末での実AI利用）","Click to toggle (real AI on other devices)","点击切换（其他设备使用真实AI）","Clic para alternar (IA real en otros dispositivos)"],["クラウド同期とAIエンジン接続が必要です","Requires cloud sync and a connected AI engine","需要云同步和已连接的AI引擎","Requiere sincronización en la nube y un motor de IA conectado"],["しくみ：","How it works: ","机制：","Cómo funciona: "],["内蔵エンジンは常に動きます","The built-in engine always works","内置引擎始终可用","El motor integrado siempre funciona"],["。実AI（ChatGPT／Gemini等）は、この管理PCではどのアカウントでも使えます。お客様のスマホ・別PCで実AIを使うには、そのアカウントを「共有中」にしてください（アカウント一覧の「📱 実AI」列からも切り替えられます）。",". The real AI (ChatGPT / Gemini etc.) works for every account on this admin PC. To use the real AI on customers' phones or other PCs, set that account to “Shared” (also available from the “📱 Real AI” column in the account list).","。真实AI（ChatGPT／Gemini等）在本管理电脑上对所有账号可用。要在客户的手机・其他电脑上使用真实AI，请将该账号设为“共享中”（也可在账号列表的“📱 真实AI”列切换）。",". La IA real (ChatGPT / Gemini, etc.) funciona para todas las cuentas en este PC de administración. Para usarla en móviles u otros PC del cliente, ponga esa cuenta en “Compartida” (también desde la columna “📱 IA real” de la lista)."],["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
+["📱 AI接続の共有（お客様のスマホ・別PCでも実AIを使う／荷主・物流会社の両方）","📱 Share AI connection (use the real AI on customers' phones and other PCs / shippers and forwarders)","📱 共享AI连接（客户的手机・其他电脑也能使用真实AI／货主・物流公司均可）","📱 Compartir la conexión de IA (usar la IA real en móviles y otros PC del cliente / cargadores y transportistas)"],["📱 実AI","📱 Real AI","📱 真实AI","📱 IA real"],["そのアカウントのスマホ・別PCでも、この端末のAI接続（実AI）を使えるようにする","Let that account use this device's AI connection (real AI) on phones and other PCs too","让该账号在手机・其他电脑上也能使用本机的AI连接（真实AI）","Permitir que esa cuenta use la conexión de IA de este equipo (IA real) también en móviles y otros PC"],["クリックで切替（別端末での実AI利用）","Click to toggle (real AI on other devices)","点击切换（其他设备使用真实AI）","Clic para alternar (IA real en otros dispositivos)"],["クラウド同期とAIエンジン接続が必要です","Requires cloud sync and a connected AI engine","需要云同步和已连接的AI引擎","Requiere sincronización en la nube y un motor de IA conectado"],["しくみ：","How it works: ","机制：","Cómo funciona: "],["内蔵エンジンは常に動きます","The built-in engine always works","内置引擎始终可用","El motor integrado siempre funciona"],["。実AI（ChatGPT／Gemini等）は、この管理PCではどのアカウントでも使えます。お客様のスマホ・別PCで実AIを使うには、そのアカウントを「共有中」にしてください（アカウント一覧の「📱 実AI」列からも切り替えられます）。",". The real AI (ChatGPT / Gemini etc.) works for every account on this admin PC. To use the real AI on customers' phones or other PCs, set that account to “Shared” (also available from the “📱 Real AI” column in the account list).","。真实AI（ChatGPT／Gemini等）在本管理电脑上对所有账号可用。要在客户的手机・其他电脑上使用真实AI，请将该账号设为“共享中”（也可在账号列表的“📱 真实AI”列切换）。",". La IA real (ChatGPT / Gemini, etc.) funciona para todas las cuentas en este PC de administración. Para usarla en móviles u otros PC del cliente, ponga esa cuenta en “Compartida” (también desde la columna “📱 IA real” de la lista)."],["📋 まとめ","📋 Summary","📋 汇总","📋 Resumen"],["国","Country","国家","País"],["物流会社（推奨／選択中）","Forwarder (recommended / selected)","物流公司（推荐／已选）","Transportista (recomendado / seleccionado)"],["金額（合計）","Total","金额（合计）","Importe (total)"],["所要日数","Transit time","所需天数","Tránsito"],["有効期限","Valid until","有效期限","Válido hasta"],["未確定","Not decided","未确定","Sin decidir"],["未提案","No offer","未提案","Sin oferta"],["🤖 推奨","🤖 Recommended","🤖 推荐","🤖 Recomendado"],["物流会社がレート表を更新すると自動で見積が届きます","Quotes arrive automatically once the forwarder updates its rate table","物流公司更新费率表后会自动收到报价","Las cotizaciones llegan automáticamente cuando el transportista actualiza sus tarifas"],
+["各国の推奨（または選択中）の物流会社と金額・所要日数・有効期限の一覧です。行をクリックすると、その国の詳細（相見積・仮押さえ・再見積）と相談欄に移ります。","Recommended (or selected) forwarder, total, transit time and validity for each country. Click a row to open that country's details (comparison, hold, re-quote) and its consultation box.","各国推荐（或已选）的物流公司、金额、所需天数、有效期限一览。点击行可查看该国详情（比价・保留・重新报价）和咨询栏。","Transportista recomendado (o seleccionado), importe, tránsito y validez por país. Haga clic en una fila para ver el detalle del país (comparación, reserva, recotización) y su consulta."],
+["（各国の推奨／選択中の物流会社の合計・仮押さえは国ごとに選べます）","(sum of the recommended / selected forwarders; holds can be chosen per country)","（各国推荐／已选物流公司的合计・可按国家分别保留）","(suma de los transportistas recomendados / seleccionados; la reserva se elige por país)"],
+["💬 この見積全体についてAI商社マンに相談","💬 Ask the AI Trade Agent about this quote as a whole","💬 就整体报价咨询AI商社专员","💬 Consultar a la IA sobre la cotización completa"],["見積全体について質問（Enterで送信）","Ask about the whole quote (Enter to send)","就整体报价提问（Enter发送）","Pregunte sobre la cotización completa (Enter para enviar)"],["全体で一番の課題は？","What is the biggest issue overall?","整体上最大的问题是什么？","¿Cuál es el mayor problema en general?"],["仮押さえの優先順位は？","Which country should I hold first?","优先保留哪个国家？","¿Qué país reservar primero?"],["合計を下げる方法は？","How can I lower the total?","如何降低合计金额？","¿Cómo bajar el total?"],
+["例：「相場より高い？」「どの会社を選ぶべき？」「倉庫はどこが良い？」","e.g. “Is it above market?” “Which forwarder?” “Where to warehouse?”","例：「高于行情吗？」「选哪家？」「仓库放哪？」","p. ej. “¿Está por encima del mercado?” “¿Qué transportista?” “¿Dónde almacenar?”"],["例：「合計を下げるには？」「仮押さえの優先順位は？」","e.g. “How to lower the total?” “Which to hold first?”","例：「如何降低合计？」「先保留哪个？」","p. ej. “¿Cómo bajar el total?” “¿Qué reservar primero?”"],["AI商社マンが考えています…（通常10〜30秒）","The AI Trade Agent is thinking… (usually 10–30 s)","AI商社专员思考中…（通常10〜30秒）","La IA está pensando… (normalmente 10–30 s)"],["内蔵エンジンで回答しています…","Answering with the built-in engine…","正在用内置引擎回答…","Respondiendo con el motor integrado…"],
+["所要","Transit","所需","Tránsito"],["希望納期","Requested date","希望交期","Fecha deseada"],["総合点・特徴","Score / notes","综合分・特点","Puntuación / notas"],["情勢","Situation","形势","Situación"],["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
 ["🎫 アカウントを発行する","🎫 Issue an account","🎫 发放账号","🎫 Emitir una cuenta"],["会社名・担当者・期間を入れて「発行する」。コードをお客様に渡すだけで始められます。","Enter company, contact and period, then “Issue”. Hand the code to the customer and they can start.","输入公司・负责人・期限后点击“发放”。把代码交给客户即可开始。","Introduzca empresa, contacto y periodo y pulse “Emitir”. Entregue el código al cliente y podrá empezar."],["📊 利用状況を見る","📊 See usage","📊 查看使用情况","📊 Ver el uso"],["一覧の「詳細」で画面別の利用回数と行動の時系列。期限切れ・無効の絞り込みもできます。","“Details” in the list shows usage per screen and a timeline. You can also filter expired or disabled accounts.","列表中的“详情”可查看各页面的使用次数和时间线，还可筛选过期・停用账号。","“Detalles” en la lista muestra el uso por pantalla y la cronología. También puede filtrar cuentas caducadas o desactivadas."],["🔐 AI接続を共有する","🔐 Share the AI connection","🔐 共享AI连接","🔐 Compartir la conexión de IA"],["「📱 AI接続の共有」をONにすると、そのアカウントのスマホ・別PCでも実AIが使えます。","Turn on “📱 Share AI connection” and that account can use the real AI on phones and other PCs too.","开启“📱 共享AI连接”后，该账号在手机・其他电脑上也能使用真实AI。","Active “📱 Compartir conexión de IA” y esa cuenta podrá usar la IA real también en móviles y otros PC."],
 ["📥 見積依頼を受け取る","📥 Receive quote requests","📥 接收报价请求","📥 Recibir solicitudes de cotización"],["受信箱に荷主からの依頼が届きます。AI物流マンが返答の下書きを用意します。","Requests from shippers arrive in the inbox. The AI Logistics Agent drafts a reply.","货主的请求会送达收件箱。AI物流专员会准备回复草稿。","Las solicitudes de los cargadores llegan a la bandeja. El agente logístico de IA redacta una respuesta."],["🚚 レートを整える","🚚 Maintain your rates","🚚 维护费率","🚚 Mantener sus tarifas"],["物流レート管理に自社のレートを入れるほど、見積の精度が上がります。","The more of your own rates you enter in rate management, the more accurate the quotes.","在物流费率管理中录入越多自家费率，报价越准确。","Cuantas más tarifas propias introduzca, más precisas serán las cotizaciones."],["📊 相見積・AI推奨で速く返す","📊 Reply faster with comparison & AI advice","📊 用比价和AI推荐更快回复","📊 Responder más rápido con comparación e IA"],["相見積の比較とAI物流マンの推奨で、返答までの時間を短くします。","Compare quotes and use the AI Logistics Agent's recommendation to shorten response time.","通过比价和AI物流专员的推荐，缩短回复时间。","Compare cotizaciones y use la recomendación de la IA para acortar el tiempo de respuesta."],
 ["🗂 商品資料をアップロード","🗂 Upload product documents","🗂 上传产品资料","🗂 Subir documentos del producto"],["💬 足りない情報に答える","💬 Answer what is missing","💬 补充缺失信息","💬 Responder lo que falta"],["🤝 あとはAIに聞く・任せる","🤝 Then ask or delegate to the AI","🤝 之后交给AI","🤝 Luego pregunte o delegue a la IA"],
@@ -20366,6 +20468,14 @@ I18N_EL_ROWS.push(
 ["ONにすると、タスク・商談記録・受注・やりとり・会議メモの要約を<b>平文のスナップショット</b>として同期サーバーに置き、STANDAGEが発行する読み取り専用トークンで外部ツール（Claude等）から取得できます。<b>通常の同期データは暗号化のままです。</b>OFFにすると削除されます。","When on, a <b>plain-text snapshot</b> of tasks, deal records, orders, messages and meeting summaries is placed on the sync server, retrievable by external tools (e.g. Claude) with a read-only token issued by STANDAGE. <b>Regular sync data stays encrypted.</b> Turning it off deletes the snapshot.","开启后，任务・商谈记录・订单・往来・会议摘要会以<b>明文快照</b>放在同步服务器上，外部工具（如Claude）可用STANDAGE发放的只读令牌获取。<b>常规同步数据仍保持加密。</b>关闭后即删除。","Al activarlo, una <b>instantánea en texto plano</b> de tareas, registros, pedidos, mensajes y resúmenes de reuniones se coloca en el servidor de sincronización, accesible con un token de solo lectura emitido por STANDAGE. <b>Los datos de sincronización normales siguen cifrados.</b> Al desactivarlo se elimina."]
 );
 I18N_PAT2.push(
+ {re:/^合計（(\d+(?:\.\d+)?)m³ (.+)）$/,en:"Total ($1 m³ $2)",zh:"合计（$1m³ $2）",es:"Total ($1 m³ $2)"},
+ {re:/^💬 (.+)向けの見積についてAI商社マンに相談$/,en:"💬 Ask the AI Trade Agent about the quote for $1",zh:"💬 就$1的报价咨询AI商社专员",es:"💬 Consultar a la IA sobre la cotización para $1"},
+ {re:/^(.+)向けの見積について質問（Enterで送信）$/,en:"Ask about the quote for $1 (Enter to send)",zh:"就$1的报价提问（Enter发送）",es:"Pregunte sobre la cotización para $1 (Enter para enviar)"},
+ {re:/^(\d+)か国の合計：$/,en:"Total for $1 countries: ",zh:"$1国合计：",es:"Total de $1 países: "},
+ {re:/^(.+)の詳細タブへ$/,en:"Go to the $1 tab",zh:"前往$1详情",es:"Ir a la pestaña de $1"},
+ {re:/^(\d+)社回答$/,en:"$1 replies",zh:"$1家回复",es:"$1 respuestas"},
+ {re:/^約(\d+)日$/,en:"about $1 days",zh:"约$1天",es:"aprox. $1 días"},
+ {re:/^⚠ (.+)$/,en:"⚠ $1",zh:"⚠ $1",es:"⚠ $1"},
  {re:/^承認待ちの商談記録 (\d+)件$/,en:"$1 deal records pending approval",zh:"待审批的商谈记录 $1件",es:"$1 registros pendientes de aprobación"},
  {re:/^未回答の見積依頼 (\d+)件$/,en:"$1 unanswered quote requests",zh:"未回复的询价 $1件",es:"$1 solicitudes de cotización sin responder"},
  {re:/^(\d+)件をタスクにしました（「タスク・進行」に反映済み）$/,en:"$1 to-dos turned into tasks (see Tasks)",zh:"已将$1项转为任务（已反映到「任务・进度」）",es:"$1 pendientes convertidos en tareas (ver Tareas)"},
