@@ -604,6 +604,7 @@ body.mob .c{min-width:0}
 #barmenu .bmrow:hover{background:var(--sunk)}
 #barmenu .bml{font-size:12px;color:var(--ink-2);font-weight:700}
 #barmenu .tgl span{display:inline!important}
+#barmenu .hm{display:inline-flex!important}
 #barmenu .tgl,#barmenu .sel,#barmenu .p{max-width:170px}
 #tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;flex-direction:row;gap:0;background:var(--chrome);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px rgba(20,26,34,.08)}
 #tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 2px;border:0;background:none;color:var(--ink-3);font:inherit;font-size:10px;font-weight:700;border-radius:10px;min-height:48px;cursor:pointer}
@@ -19219,7 +19220,7 @@ function ux17Mob(){ try{ return ux17Narrow()||document.body.classList.contains("
 function ux17Mode(){ if(typeof SES==="undefined") return "user"; if(!SES) return "none"; if(SES.t==="admin") return "admin"; if(typeof FWDON!=="undefined"&&FWDON) return "fwd"; return "user"; }
 
 /* ① スマホの上部バー：メニュー・商品・検索・通知だけ残し、残りは「⋯」メニューへ（PCに戻したら元の位置へ） */
-const UX17_MORE=[["rail","右パネル（AIに質問）"],["zoomb","表示サイズ"],["lang","言語 / Language"],["easy","やさしい説明"],["lgpill","アカウント"],["lgout","ログアウト"]];
+const UX17_MORE=[["rail","右パネル（AIに質問）"],["lang","言語 / Language"],["easy","やさしい説明"],["lgpill","アカウント"],["lgout","ログアウト"],["helpb","ヘルプ・使い方"]];
 function ux17BarLayout(){
   const bar=document.querySelector(".bar"); if(!bar) return;
   let more=document.getElementById("barmore"), menu=document.getElementById("barmenu");
@@ -19235,6 +19236,7 @@ function ux17BarLayout(){
       if(!el.__ux17next){ el.__ux17next=(el.nextElementSibling&&el.nextElementSibling.id)||"bell"; el.__ux17nextEl=el.nextElementSibling; }
       let row=menu.querySelector(`[data-for="${id}"]`); if(!row){ row=document.createElement("div"); row.className="bmrow"; row.dataset.for=id; row.innerHTML=`<span class="bml">${lbl}</span>`; menu.appendChild(row); }
       row.appendChild(el); });
+    UX17_MORE.forEach(([id])=>{ const row=menu.querySelector(`[data-for="${id}"]`); if(row) menu.appendChild(row); });   /* 並びを固定（ログイン後に作り直される要素があるため） */
     /* 通知ベルは⋯の左に */
     const bell=document.getElementById("bell"); if(bell&&bell.nextElementSibling!==more){ if(!bell.__ux17nextEl) bell.__ux17nextEl=bell.nextElementSibling; bar.insertBefore(bell,more); }
   } else if(menu){
@@ -19322,7 +19324,35 @@ addEventListener("resize",()=>{ clearTimeout(UX17.rT); UX17.rT=setTimeout(()=>{ 
 /* ⑩ 起動時の取りこぼし修正：logic_ux2.js の ux2TopBar() は typeof I18N（TDZ）で例外になり、言語セレクトの onchange と保存済み表示サイズの適用が抜けていた */
 function ux17BarInit(){
   try{ const ls=document.getElementById("lang"); if(ls&&!ls.onchange) ls.onchange=()=>{ if(typeof i18nSet==="function") i18nSet(ls.value); }; if(ls&&typeof I18N!=="undefined"&&I18N&&ls.value!==I18N.lang) ls.value=I18N.lang; }catch(e){}
-  try{ if(typeof ux2ApplyZoom==="function") ux2ApplyZoom(); }catch(e){}
+  /* v17.2：「Aa 表示サイズ」は廃止（拡大後に戻せないと感じやすい／ブラウザの拡大縮小で足りる）。保存済みの拡大は標準に戻す */
+  try{ const z=document.getElementById("zoomb"); if(z) z.remove(); if(typeof UX2!=="undefined"&&UX2) UX2.zoom=100; try{ localStorage.removeItem("bc20_zoom"); }catch(e){} if(typeof ux2ApplyZoom==="function") ux2ApplyZoom(); }catch(e){}
+  /* v17.2：右上の「?」（ヘルプ）は押しても何も起きなかった → 使い方パネルを開く */
+  try{ let h=document.getElementById("helpb"); if(!h){ const p=document.querySelector('.bar .ib svg path[d^="M9.2 9.3"]'); h=p?p.closest("button"):null; if(h) h.id="helpb"; } if(h&&!h.onclick){ h.onclick=ux17Help; h.title="ヘルプ・使い方"; } }catch(e){}
+}
+/* ⑪ ヘルプ・使い方パネル（ユーザー／管理／物流会社で内容を切替） */
+function ux17Help(){
+  const mode=ux17Mode(); const code=(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.code)||"";
+  let cando=""; try{ const p=document.querySelector("#well .cando"); cando=p?p.innerHTML.replace(/^\s*<b>[^<]*[：:]<\/b>\s*/,""):""; }catch(e){}
+  const steps=mode==="admin"?[["1","アカウントを発行する","会社名・担当者・期間を入れて「発行する」。コードをお客様に渡すだけで始められます。","🎫"],["2","利用状況を見る","一覧の「詳細」で画面別の利用回数と行動の時系列。期限切れ・無効の絞り込みもできます。","📊"],["3","AI接続を共有する","「📱 AI接続の共有」をONにすると、そのアカウントのスマホ・別PCでも実AIが使えます。","🔐"]]
+    :mode==="fwd"?[["1","見積依頼を受け取る","受信箱に荷主からの依頼が届きます。AI物流マンが返答の下書きを用意します。","📥"],["2","レートを整える","物流レート管理に自社のレートを入れるほど、見積の精度が上がります。","🚚"],["3","相見積・AI推奨で速く返す","相見積の比較とAI物流マンの推奨で、返答までの時間を短くします。","📊"]]
+    :[["1","商品資料をアップロード","お手元のExcelをドラッグするだけ。中身はこのブラウザの外に出ません。","🗂"],["2","足りない情報に答える","AIが必要なことだけ質問します。わからなければ「わからない」でOKです。","💬"],["3","あとはAIに聞く・任せる","「どの国に売れる？」「500個でいくら？」。出荷の手続きまで任せられます。","🤝"]];
+  const card=(h,b)=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:var(--surface-2);margin-top:8px"><p class="lbl">${h}</p>${b}</div>`;
+  openDW(`<h3>❔ ヘルプ・使い方</h3>
+    ${cando?card("この画面でできること",`<p style="font-size:12.5px;margin-top:4px;line-height:1.7">${cando}</p>`):""}
+    <p class="lbl" style="margin-top:12px">${mode==="admin"?"管理コンソールの3ステップ":mode==="fwd"?"物流会社モードの3ステップ":"3つのステップだけ覚えてください"}</p>
+    <div style="display:grid;gap:8px;margin-top:6px">${steps.map(([n,t,d,ic])=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;background:var(--surface-2);display:flex;gap:10px;align-items:flex-start"><span style="width:22px;height:22px;flex:none;border-radius:50%;background:var(--or);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center">${n}</span><div><b style="font-size:12.5px">${ic} ${t}</b><p style="font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.65">${d}</p></div></div>`).join("")}</div>
+    <div class="rw" style="gap:6px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn g" id="hlp-keys">⌨ キーボードショートカット</button>
+      ${mode==="user"?`<button class="btn g" id="hlp-ai">🤖 AI商社マンに聞く</button>`:mode==="fwd"?`<button class="btn g" id="hlp-fai">🤖 AI物流マンに相談</button>`:""}
+      ${(mode==="user"&&code&&typeof showWelcome==="function")?`<button class="btn g" id="hlp-wel">👋 はじめての案内をもう一度見る</button>`:""}
+    </div>
+    ${card("お問い合わせ",`<p class="nn" style="margin-top:4px">操作で困ったときは、担当のSTANDAGE営業・CSにご連絡ください。${code?`<br>トライアルコード <b>${esc(code)}</b> をお伝えいただくとスムーズです。`:""}</p>`)}
+    <div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  const k=document.getElementById("hlp-keys"); if(k) k.onclick=()=>ux17Shortcuts();
+  const a=document.getElementById("hlp-ai"); if(a) a.onclick=()=>{ closeDW(); go("ai"); };
+  const f=document.getElementById("hlp-fai"); if(f) f.onclick=()=>{ closeDW(); try{ fwdCur="fai"; fwdNav(); fwdRender(); ux17Tabs(); }catch(e){} };
+  const w=document.getElementById("hlp-wel"); if(w) w.onclick=()=>{ closeDW(); try{ localStorage.removeItem("bc20_wel_"+code); }catch(e){} try{ showWelcome(); }catch(e){} };
 }
 setTimeout(()=>{ try{ ux17BarInit(); ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },300);
 
@@ -20203,6 +20233,12 @@ I18N_ROWS2.push(
 ["その他","More","更多","Más"],["右パネル（AIに質問）","Side panel (ask AI)","右侧面板（向AI提问）","Panel lateral (preguntar a la IA)"],["表示サイズ","Text size","显示大小","Tamaño del texto"],["言語 / Language","Language","语言 / Language","Idioma"],["アカウント","Account","账号","Cuenta"],["ログアウト","Log out","退出登录","Cerrar sesión"],["その他のメニュー","More options","更多菜单","Más opciones"],["案内を開閉","Show or hide the guide","展开/收起指引","Mostrar u ocultar la guía"],
 ["キーボードショートカット一覧","Keyboard shortcuts","键盘快捷键","Atajos de teclado"],["⌨ キーボードショートカット","⌨ Keyboard shortcuts","⌨ 键盘快捷键","⌨ Atajos de teclado"],["PCではキーボードだけで主要操作ができます。","On a PC, the main actions work from the keyboard alone.","在电脑上仅用键盘即可完成主要操作。","En PC, las acciones principales funcionan solo con el teclado."],["キー","Key","按键","Tecla"],["操作","Action","操作","Acción"],["? キーでも開けます","Also opens with the ? key","也可按 ? 键打开","También se abre con la tecla ?"],["最近開いた画面","Recently opened","最近打开","Abiertos recientemente"],
 ["元に戻す","Undo","撤销","Deshacer"],["元に戻しました","Restored","已恢复","Restaurado"],["メモを削除しました","Note deleted","记录已删除","Nota eliminada"],["定型セットを削除しました","Template deleted","模板已删除","Plantilla eliminada"],
+["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
+["🎫 アカウントを発行する","🎫 Issue an account","🎫 发放账号","🎫 Emitir una cuenta"],["会社名・担当者・期間を入れて「発行する」。コードをお客様に渡すだけで始められます。","Enter company, contact and period, then “Issue”. Hand the code to the customer and they can start.","输入公司・负责人・期限后点击“发放”。把代码交给客户即可开始。","Introduzca empresa, contacto y periodo y pulse “Emitir”. Entregue el código al cliente y podrá empezar."],["📊 利用状況を見る","📊 See usage","📊 查看使用情况","📊 Ver el uso"],["一覧の「詳細」で画面別の利用回数と行動の時系列。期限切れ・無効の絞り込みもできます。","“Details” in the list shows usage per screen and a timeline. You can also filter expired or disabled accounts.","列表中的“详情”可查看各页面的使用次数和时间线，还可筛选过期・停用账号。","“Detalles” en la lista muestra el uso por pantalla y la cronología. También puede filtrar cuentas caducadas o desactivadas."],["🔐 AI接続を共有する","🔐 Share the AI connection","🔐 共享AI连接","🔐 Compartir la conexión de IA"],["「📱 AI接続の共有」をONにすると、そのアカウントのスマホ・別PCでも実AIが使えます。","Turn on “📱 Share AI connection” and that account can use the real AI on phones and other PCs too.","开启“📱 共享AI连接”后，该账号在手机・其他电脑上也能使用真实AI。","Active “📱 Compartir conexión de IA” y esa cuenta podrá usar la IA real también en móviles y otros PC."],
+["📥 見積依頼を受け取る","📥 Receive quote requests","📥 接收报价请求","📥 Recibir solicitudes de cotización"],["受信箱に荷主からの依頼が届きます。AI物流マンが返答の下書きを用意します。","Requests from shippers arrive in the inbox. The AI Logistics Agent drafts a reply.","货主的请求会送达收件箱。AI物流专员会准备回复草稿。","Las solicitudes de los cargadores llegan a la bandeja. El agente logístico de IA redacta una respuesta."],["🚚 レートを整える","🚚 Maintain your rates","🚚 维护费率","🚚 Mantener sus tarifas"],["物流レート管理に自社のレートを入れるほど、見積の精度が上がります。","The more of your own rates you enter in rate management, the more accurate the quotes.","在物流费率管理中录入越多自家费率，报价越准确。","Cuantas más tarifas propias introduzca, más precisas serán las cotizaciones."],["📊 相見積・AI推奨で速く返す","📊 Reply faster with comparison & AI advice","📊 用比价和AI推荐更快回复","📊 Responder más rápido con comparación e IA"],["相見積の比較とAI物流マンの推奨で、返答までの時間を短くします。","Compare quotes and use the AI Logistics Agent's recommendation to shorten response time.","通过比价和AI物流专员的推荐，缩短回复时间。","Compare cotizaciones y use la recomendación de la IA para acortar el tiempo de respuesta."],
+["🗂 商品資料をアップロード","🗂 Upload product documents","🗂 上传产品资料","🗂 Subir documentos del producto"],["💬 足りない情報に答える","💬 Answer what is missing","💬 补充缺失信息","💬 Responder lo que falta"],["🤝 あとはAIに聞く・任せる","🤝 Then ask or delegate to the AI","🤝 之后交给AI","🤝 Luego pregunte o delegue a la IA"],
+["お手元のExcelをドラッグするだけ。中身はこのブラウザの外に出ません。","Just drag in your Excel file. Its contents never leave this browser.","只需拖入您的Excel文件。内容不会离开此浏览器。","Solo arrastre su Excel. Su contenido nunca sale de este navegador."],["AIが必要なことだけ質問します。わからなければ「わからない」でOKです。","The AI asks only what it needs. “I don't know” is a fine answer.","AI只会询问必要的信息。不清楚时回答“不知道”即可。","La IA solo pregunta lo necesario. “No lo sé” es una respuesta válida."],["「どの国に売れる？」「500個でいくら？」。出荷の手続きまで任せられます。","“Which countries would buy this?” “How much for 500 units?” You can even hand over the shipping paperwork.","“能卖到哪些国家？”“500个多少钱？”连出货手续也可以交给它。","“¿En qué países se vendería?” “¿Cuánto por 500 unidades?” Incluso puede delegar los trámites de envío."],
+["🤖 AI物流マンに相談","🤖 Ask the AI Logistics Agent","🤖 咨询AI物流专员","🤖 Consultar a la IA logística"],["👋 はじめての案内をもう一度見る","👋 Show the welcome guide again","👋 再看一次新手指引","👋 Ver de nuevo la guía de bienvenida"],["お問い合わせ","Contact","联系我们","Contacto"],["操作で困ったときは、担当のSTANDAGE営業・CSにご連絡ください。","If you get stuck, contact your STANDAGE sales or CS representative.","操作遇到困难时，请联系您的STANDAGE销售或CS负责人。","Si tiene dudas, contacte a su representante de ventas o CS de STANDAGE."],["トライアルコード","Trial code","试用代码","Código de prueba"],["をお伝えいただくとスムーズです。","— quoting it makes things quicker.","告知此代码可更快处理。","; indicarlo agiliza la atención."],
 ["🔍 コード・会社名・担当で絞り込み","🔍 Filter by code, company or contact","🔍 按代码・公司・负责人筛选","🔍 Filtrar por código, empresa o contacto"],["物流会社","Forwarder","物流公司","Transportista"],
 ["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
 ["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
