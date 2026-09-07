@@ -654,6 +654,15 @@ body.dwopen #tabbar,body.kbopen #tabbar,body.locked #tabbar{display:none}
 .drop.dropflash{animation:dropflash 1.4s ease-out 2;border-color:var(--or)}
 @keyframes dropflash{0%{box-shadow:0 0 0 0 rgba(248,149,29,.55)}70%{box-shadow:0 0 0 16px rgba(248,149,29,0)}100%{box-shadow:0 0 0 0 rgba(248,149,29,0)}}
 @media (prefers-reduced-motion:reduce){.drop.dropflash{animation:none}}
+/* v17.5：ページ内目次（#uxsec）を上部バー直下に密着させ、スリムに */
+#uxsec{top:var(--sec-top,48px);margin:-8px 0 12px;padding:5px 10px;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;border:0;border-bottom:1px solid var(--line);border-radius:0 0 12px 12px;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:none;transition:box-shadow .18s ease}
+#uxsec::-webkit-scrollbar{display:none}
+#uxsec.stuck{box-shadow:0 6px 16px -8px rgba(20,26,34,.22);border-bottom-color:transparent}
+#uxsec .uxsl{font-size:10.5px;letter-spacing:.04em;color:var(--ink-3);padding-right:8px;margin-right:4px;border-right:1px solid var(--line);flex:none}
+#uxsec .uxsc{font-size:11.5px;font-weight:600;padding:3px 10px;border-color:transparent;background:transparent;color:var(--ink-2);white-space:nowrap;flex:none;min-height:0}
+#uxsec .uxsc:hover{background:var(--sunk);border-color:transparent;color:var(--ink)}
+#uxsec .uxsc.on{background:var(--or-soft);border-color:transparent;color:var(--or-deep);font-weight:700}
+@media (max-width:820px){#uxsec .uxsc{min-height:30px}}
 </style>
 
 <style>
@@ -19333,11 +19342,30 @@ function ux17AdminPolish(){
 }
 /* ── 描画のたびに適用 ── */
 const __render17=render;
-render=function(){ __render17.apply(this,arguments); try{ ux17BarLayout(); ux17Guide(); ux17Tabs();}catch(e){} };
+render=function(){ __render17.apply(this,arguments); try{ ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} try{ ux17SecInit(); }catch(e){} };
 if(typeof renderAdmin==="function"){ const __ra17=renderAdmin; renderAdmin=function(){ __ra17.apply(this,arguments); try{ ux17BarLayout(); ux17Tabs(); ux17AdminPolish();}catch(e){} }; }
 if(typeof fwdRender==="function"){ const __fr17=fwdRender; fwdRender=function(){ __fr17.apply(this,arguments); try{ ux17BarLayout(); ux17Tabs();}catch(e){} }; }
 if(typeof updateGuide==="function"){ const __ug17=updateGuide; updateGuide=function(){ __ug17.apply(this,arguments); try{ ux17Guide(); }catch(e){} }; }
 if(typeof injectBar==="function"){ const __ib17=injectBar; injectBar=function(){ __ib17.apply(this,arguments); try{ ux17BarLayout(); }catch(e){} }; }
+/* ⑬ v17.5：ページ内目次（#uxsec）の固定位置を「上部バー＋（表示中なら）案内バー」の実寸から算出し、現在位置の強調と密着時の影を付ける */
+function ux17SecTop(){
+  try{ const bar=document.querySelector(".bar"); let t=bar?Math.round(bar.getBoundingClientRect().height):48;
+    const g=document.getElementById("guide"); if(g&&!g.hidden&&getComputedStyle(g).position==="sticky") t+=Math.round(g.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--sec-top",t+"px"); return t; }catch(e){ return 48; }
+}
+function ux17SecUpdate(){
+  const bar=document.getElementById("uxsec"); if(!bar) return; const top=ux17SecTop(); const h=bar.getBoundingClientRect().height;
+  bar.classList.toggle("stuck",scrollY>8&&Math.round(bar.getBoundingClientRect().top)<=top+6);
+  const btns=[...bar.querySelectorAll("[data-sec]")]; let cur=null, curTop=-Infinity;
+  btns.forEach(b=>{ const el=document.getElementById(b.dataset.sec); if(!el) return; const t=el.getBoundingClientRect().top; if(t<=top+h+16&&t>curTop){ cur=b; curTop=t; } });   /* 同じ高さに並ぶカードは先頭を採用 */
+  if(!cur&&btns.length) cur=btns[0]; btns.forEach(b=>b.classList.toggle("on",b===cur));
+}
+function ux17SecInit(){
+  const bar=document.getElementById("uxsec"); if(!bar) return;
+  bar.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{ const el=document.getElementById(b.dataset.sec); if(!el) return; const y=el.getBoundingClientRect().top+scrollY-(ux17SecTop()+bar.getBoundingClientRect().height+10); window.scrollTo(0,Math.max(0,y)); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),900); ux17SecUpdate(); });
+  if(!UX17.spyOn){ UX17.spyOn=1; addEventListener("scroll",()=>{ if(UX17.spyR) return; UX17.spyR=requestAnimationFrame(()=>{ UX17.spyR=0; ux17SecUpdate(); }); },{passive:true}); }
+  ux17SecUpdate();
+}
 /* ⑫ v17.3：新しい商品の登録導線（登録済み商品カードの「＋」ボタン／上部の商品切替の末尾／何でも検索／ダッシュボード → 登録欄へ移動して強調） */
 function ux17NewProd(){
   const run=()=>{ const d=document.getElementById("drop"); if(!d) return; const y=d.getBoundingClientRect().top+scrollY-110; window.scrollTo(0,Math.max(0,y));   /* 即時スクロール（スムーズは非表示タブや reduced-motion で止まることがある） */
@@ -19350,7 +19378,8 @@ if(typeof pswHtml==="function"){ const __psw17=pswHtml; pswHtml=function(){ retu
 document.addEventListener("change",e=>{ const s=e.target; if(!s||s.id!=="psw"||s.value!=="__new") return; e.stopImmediatePropagation(); e.stopPropagation();
   try{ const prev=[...s.options].find(o=>o.value!=="__new"&&o.hasAttribute("selected")); s.value=prev?prev.value:((s.options[0]||{}).value||""); }catch(x){} ux17NewProd(); },true);
 if(typeof uxPalItems==="function"){ const __pal17b=uxPalItems; uxPalItems=function(q){ let items=__pal17b.apply(this,arguments); try{ const qq=String(q||"").trim().toLowerCase(); if(ux17Mode()==="user"&&(!qq||/商品|登録|新|追加|アップ|upload|product|new/.test(qq))) items.unshift({g:"操作",t:"＋ 新しい商品を登録",sub:"資料をアップロードして追加",ic:"🗂",run:ux17NewProd}); }catch(e){} return items; }; }
-addEventListener("resize",()=>{ clearTimeout(UX17.rT); UX17.rT=setTimeout(()=>{ try{ ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },200); });
+addEventListener("resize",()=>{ clearTimeout(UX17.rT); UX17.rT=setTimeout(()=>{ try{ ux17BarLayout(); ux17Guide(); ux17Tabs(); ux17SecUpdate(); }catch(e){} },200); });
+if(typeof updateGuide==="function"){ const __ug17b=updateGuide; updateGuide=function(){ const r=__ug17b.apply(this,arguments); try{ ux17SecTop(); }catch(e){} return r; }; }
 /* ⑩ 起動時の取りこぼし修正：logic_ux2.js の ux2TopBar() は typeof I18N（TDZ）で例外になり、言語セレクトの onchange と保存済み表示サイズの適用が抜けていた */
 function ux17BarInit(){
   try{ const ls=document.getElementById("lang"); if(ls&&!ls.onchange) ls.onchange=()=>{ if(typeof i18nSet==="function") i18nSet(ls.value); }; if(ls&&typeof I18N!=="undefined"&&I18N&&ls.value!==I18N.lang) ls.value=I18N.lang; }catch(e){}
