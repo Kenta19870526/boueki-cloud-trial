@@ -6205,6 +6205,7 @@ function vMsg(p){
           <button class="btn ${msgScope==="all"?"":"g"}" onclick="msgScope='all';render()">すべて</button>
           <button class="btn ${msgScope==="共有"?"":"g"}" onclick="msgScope='共有';render()">共有のみ</button>
           <button class="btn ${msgScope==="社内のみ"?"":"g"}" onclick="msgScope='社内のみ';render()">社内のみ</button>
+          <button class="btn ${msgScope==="AIに質問"?"":"g"}" onclick="msgScope='AIに質問';render()">🤖 AIとのやりとり</button>
         </div>
         <input class="sel" id="mQ" placeholder="やりとりを検索" value="${esc(msgQ)}" style="flex:1;min-width:120px">
       </div>
@@ -6256,7 +6257,7 @@ function vMsg(p){
 }
 function mRows(){
   const q=($("#mQ")?.value||"").trim();
-  const rows=D.msgs.map((m,__mi)=>Object.assign({__mi},m)).filter(m=>(msgScope==="all"||m.scope===msgScope)
+  const rows=D.msgs.map((m,__mi)=>Object.assign({__mi},m)).filter(m=>(msgScope==="all"||(msgScope==="AIに質問"?(m.ai||(m.mention||[]).includes("AI商社マン")):(m.scope===msgScope&&!m.ai&&!(m.mention||[]).includes("AI商社マン"))))
     &&(!q||(m.body+m.who+(m.file?m.file.n:"")).includes(q)));
   $("#mlist").innerHTML=rows.length?rows.map(m=>`
     <div data-mi="${m.__mi}" style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:${m.ai?"var(--or-soft)":"var(--surface)"}">
@@ -17762,7 +17763,7 @@ async function syncPullAcct(initial){
     let snap=null; try{ snap=await syncDec(p.blob); }catch(e){ SYNC.err="保存データを復号できません（別のコードで暗号化されています）"; return; }
     if(snap&&(snap.at||0)>localAt||(snap&&!hasLocal)){ syncApply(snap); meta[SYNC.kid]={at:snap.at||Date.now()}; syncMetaSet(meta); SYNC.acctAt=snap.at||0;
       if(!initial){ syncReloadState(); } }
-    else if(hasLocal&&localAt>(snap&&snap.at||0)){ syncSchedule("acct"); }   /* 端末側が新しい → 送る */
+    else if(hasLocal&&localAt>(snap&&snap.at||0)){ if(snap&&typeof v16MergeIntoLocal==="function"){ try{ v16MergeIntoLocal(snap); }catch(e){} } syncSchedule("acct"); }   /* 端末側が新しい → 送る */
   } else if(hasLocal){ syncSchedule("acct"); }
 }
 async function syncPushAcct(){
@@ -17773,7 +17774,7 @@ async function syncPushAcct(){
     /* 他端末が先に保存していた：向こうの方が新しければ取り込む、こちらが新しければ上書き */
     let remote=null; try{ remote=await syncDec(r.blob); }catch(e){}
     if(remote&&(remote.at||0)>snap.at){ syncApply(remote); const meta=syncMetaGet(); meta[SYNC.kid]={at:remote.at}; syncMetaSet(meta); SYNC.ver.acct=r.ver||SYNC.ver.acct; syncReloadState(); toast("他の端末の更新を取り込みました"); return; }
-    r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:r.ver,blob,at:snap.at,usage:syncUsage(),dev:syncDev(),force:1});
+    { if(remote&&typeof v16MergeIntoLocal==="function"){ try{ v16MergeIntoLocal(remote); }catch(e){} } const s2=syncSnapshot(); const b2=await syncEnc(s2); r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:r.ver,blob:b2,at:s2.at,usage:syncUsage(),dev:syncDev(),force:1}); }
   }
   if(r.ok){ SYNC.ver.acct=r.ver||SYNC.ver.acct; SYNC.dirty=0; SYNC.last.push=Date.now(); const meta=syncMetaGet(); meta[SYNC.kid]={at:snap.at}; syncMetaSet(meta); }
 }
@@ -19073,6 +19074,94 @@ async function llmSharePull(force){
 if(typeof syncStart==="function"){ const __syncStartShare=syncStart; syncStart=async function(){ const r=await __syncStartShare.apply(this,arguments); try{ if(r&&r.ok&&!r.skip) llmSharePull(true); }catch(e){} return r; }; }
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) llmSharePull(); });
 
+/* ═══════════ v16.4（2026-09-07）：やりとりの通知・既読・絞り込み ═══════════
+   ① 通知センターに「やりとり」の新着が出ない（DMスレッドの通知しか見ていなかった）→ 自分以外の未読メッセージを通知
+      既読は「誰が読んだか」（readBy）で管理し、既読人数もそこから。別端末の投稿は同期の生存確認（90秒）でしか届かなかった → 画面表示中は30秒ごと
+      同期は「スナップショットの丸ごと置換」だったため、2人が同時に投稿すると片方の投稿が消える → 取り込み時にやりとり・会議メモ・商談記録・タスクを結合
+   ② 入力欄の「社内のみ／共有／AIに質問」タブを押しても一覧が変わらない → タブと一覧の絞り込みを連動（逆方向も） */
+function v16Me(){ return (typeof SES!=="undefined"&&SES&&SES.who)||"貴社担当"; }
+function v16MsgAll(){ try{ return (typeof msgStore==="function")?msgStore():((typeof D!=="undefined"&&D&&D.msgs)||[]); }catch(e){ return []; } }
+function v16Unread(){ const me=v16Me(); return v16MsgAll().filter(m=>m&&!m.ai&&!m._tmp&&m.who!==me&&!(m.readBy||[]).includes(me)); }
+/* 既読：やりとりを開いたら自分が読んだ印を付ける。既読人数＝readBy の人数（投稿者を含む） */
+function v16MarkRead(){
+  const me=v16Me(); let ch=0;
+  v16MsgAll().forEach(m=>{ if(!m||m._tmp) return;
+    if(!Array.isArray(m.readBy)){ m.readBy=(m.who&&!m.ai)?[m.who]:[]; ch++; }
+    if(!m.ai&&m.who!==me&&!m.readBy.includes(me)){ m.readBy.push(me); ch++; }
+    const n=Math.max(m.read|0,m.readBy.length); if(n!==(m.read|0)){ m.read=n; ch++; } });
+  if(ch){ try{ if(typeof lwPersist==="function") lwPersist(); }catch(e){} try{ notifBadge(); }catch(e){} }
+  return ch;
+}
+/* 通知センター：未読のやりとり */
+if(typeof notifCalc==="function"){ const __nc3=notifCalc;
+  notifCalc=function(){ const out=__nc3.apply(this,arguments);
+    try{ const P=notifDB().prefs; if(P.msg===false) return out; const U=v16Unread();
+      if(U.length){ const last=U[U.length-1]; const plain=((typeof v16Plain==="function")?v16Plain(last.body):String(last.body||"").replace(/<[^>]+>/g,"")).replace(/\s+/g," ").trim();
+        out.unshift({cat:"msg",icon:"📨",t:`新着メッセージ ${U.length}件（${last.who}${last.scope?"・"+last.scope:""}）`,d:plain.slice(0,60)||"「やりとり」を開くと既読になります",act:{pg:"msg"},key:`msgnew:${last.t}:${U.length}`}); } }catch(e){}
+    return out; }; }
+/* 同期：画面表示中は30秒ごとに他端末の更新を確認（元は90秒） */
+if(typeof syncBeatStart==="function"){ const __sbs3=syncBeatStart;
+  syncBeatStart=function(){ __sbs3.apply(this,arguments); try{ clearInterval(SYNC.beatT); SYNC.beatT=setInterval(()=>{ if(document.hidden) return; syncBeat(); },30000); }catch(e){} }; }
+/* 同期：取り込み時に、端末側だけにあるやりとり・会議メモ・商談記録・タスク・既読を結合してから反映（同時投稿で消えない） */
+/* dst のテナント群に src だけにある要素（テナント・やりとり・既読・会議メモ・商談記録・タスク）を足す。戻り値＝変更あり */
+function v16UnionInto(DST,SRC){
+  const sig=m=>[m.who,m.t,String(m.body||"").slice(0,80)].join("|"); let changed=false;
+  SRC.forEach(st=>{ if(!st) return; const dt=DST.find(x=>x&&x.co===st.co&&x.item===st.item);
+    if(!dt){ DST.push(st); changed=true; return; }   /* 相手側だけにある商品（テナント）は落とさない */
+    const dm=dt.msgs||[], sm=st.msgs||[]; const have=new Set(dm.map(sig));
+    const extra=sm.filter(m=>m&&!m._tmp&&!have.has(sig(m))); if(extra.length){ dt.msgs=dm.concat(extra).sort((a,b)=>String(a.t||"").localeCompare(String(b.t||""))); changed=true; }
+    (dt.msgs||[]).forEach(m=>{ const s=sm.find(x=>x&&sig(x)===sig(m)); if(s&&Array.isArray(s.readBy)){ const rb=new Set(m.readBy||[]); let add=false; s.readBy.forEach(w=>{ if(!rb.has(w)){ rb.add(w); add=true; } }); if(add){ m.readBy=[...rb]; m.read=Math.max(m.read|0,m.readBy.length); changed=true; } } });
+    const dmm=dt.memos||[], smm=st.memos||[]; const ids=new Set(dmm.map(x=>x&&x.id)); const em=smm.filter(x=>x&&x.id&&!ids.has(x.id)); if(em.length){ dt.memos=dmm.concat(em); changed=true; }
+    const sigf=f=>[f.d,f.b,f.c].join("|"); const df=dt.fbx||[], sf=st.fbx||[]; const fs=new Set(df.map(sigf)); const ef=sf.filter(f=>f&&!fs.has(sigf(f))); if(ef.length){ dt.fbx=df.concat(ef); changed=true; }
+    const sigt=t=>[t.n,t.e].join("|"); const dtk=dt.xtasks||[], stk=st.xtasks||[]; const ts=new Set(dtk.map(sigt)); const et=stk.filter(t=>t&&!ts.has(sigt(t))); if(et.length){ dt.xtasks=dtk.concat(et); changed=true; } });
+  return changed;
+}
+function v16TenLists(code,snap){
+  const k="bc20_ten_"+code; if(!snap||!snap.items||!snap.items[k]) return null;
+  let loc=null,rem=null; try{ loc=JSON.parse(localStorage.getItem(k)||"null"); rem=JSON.parse(snap.items[k]); }catch(e){ return null; } if(!loc||!rem) return null;
+  return {k,loc,rem,L:Array.isArray(loc.list)?loc.list:(loc.src?[loc]:[]),R:Array.isArray(rem.list)?rem.list:(rem.src?[rem]:[])};
+}
+/* 取り込み（相手の方が新しい）：相手のスナップショットに、端末側だけの要素を足してから反映 */
+function v16MergeSnap(snap){
+  const code=(typeof SES!=="undefined"&&SES&&SES.code)||""; if(!code) return; const X=v16TenLists(code,snap); if(!X) return;
+  if(v16UnionInto(X.R,X.L)){ if(Array.isArray(X.rem.list)) X.rem.list=X.R; else if(X.R[0]) X.rem=X.R[0]; snap.items[X.k]=JSON.stringify(X.rem); snap.__merged=1; }
+}
+/* 端末側の方が新しい（衝突・取り込み判定で「送る」側）：相手側だけの要素を端末側に足してから送る＝相手の投稿を上書きで消さない */
+function v16MergeIntoLocal(snap){
+  const code=(typeof SES!=="undefined"&&SES&&SES.code)||""; if(!code) return false; const X=v16TenLists(code,snap); if(!X) return false;
+  if(!v16UnionInto(X.L,X.R)) return false;
+  if(Array.isArray(X.loc.list)) X.loc.list=X.L; else if(X.L[0]) X.loc=X.L[0];
+  try{ localStorage.setItem(X.k,JSON.stringify(X.loc)); }catch(e){}
+  try{ if(typeof syncReloadState==="function") syncReloadState(); }catch(e){}
+  try{ notifBadge(); }catch(e){}
+  return true;
+}
+if(typeof syncApply==="function"){ const __sa3=syncApply;
+  syncApply=function(snap){ try{ v16MergeSnap(snap); }catch(e){} const r=__sa3.apply(this,arguments); try{ if(snap&&snap.__merged){ setTimeout(()=>{ try{ if(typeof syncSchedule==="function") syncSchedule("acct"); }catch(e){} },600); } }catch(e){} return r; }; }
+/* 同期：他端末の投稿を取り込んだら、バッジ更新・お知らせ・一覧の末尾へ */
+if(typeof syncPullAcct==="function"){ const __spa3=syncPullAcct;
+  syncPullAcct=async function(initial){ const before=v16MsgAll().length; const r=await __spa3.apply(this,arguments);
+    try{ if(!initial){ const after=v16MsgAll().length; if(after>before){ const U=v16Unread(); try{ notifBadge(); }catch(e){}
+        if(typeof cur!=="undefined"&&cur==="msg"){ const ml=document.getElementById("mlist"); if(ml) ml.scrollTop=ml.scrollHeight; }
+        else if(U.length){ const last=U[U.length-1]; toast(`📨 新着メッセージ ${after-before}件（${last.who}）— 「やりとり」で確認できます`); }
+        try{ if(typeof notifBrowserPush==="function") notifBrowserPush(); }catch(e){} } } }catch(e){}
+    return r; }; }
+/* ② 入力欄のタブ ⇄ 一覧の絞り込みを連動 */
+function v16MsgTabsSync(){
+  const tabs=[...document.querySelectorAll("[data-mscope]")]; if(!tabs.length) return;
+  const tops=[...document.querySelectorAll("#well button[onclick*='msgScope=']")];
+  const paintTop=()=>tops.forEach(x=>{ const m=String(x.getAttribute("onclick")||"").match(/msgScope='([^']*)'/); x.className="btn"+((m&&m[1]===msgScope)?"":" g"); });
+  tabs.forEach(b=>{ if(b.__v16tab) return; b.__v16tab=1;
+    b.addEventListener("click",()=>{ const s=b.dataset.mscope; if(!s) return; msgScope=s; paintTop(); if(typeof mRows==="function") mRows(); }); });
+  /* 一覧側で「社内のみ／共有／AIに質問」を選んだときは、投稿先タブも合わせる */
+  if(msgScope!=="all"&&typeof msgNewScope!=="undefined"&&msgNewScope!==msgScope&&tabs.some(b=>b.dataset.mscope===msgScope)){
+    msgNewScope=msgScope; tabs.forEach(x=>{ x.className="btn"+(x.dataset.mscope===msgNewScope?"":" g"); }); const n=document.getElementById("mscopeNow"); if(n) n.textContent=msgNewScope; }
+}
+/* 一覧描画のたび：既読を付け、タブを連動 */
+if(typeof mRows==="function"){ const __mRows3=mRows; mRows=function(){ __mRows3.apply(this,arguments); try{ v16MarkRead(); }catch(e){} }; }
+const __render16f3=render;
+render=function(){ __render16f3.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="msg"){ v16MsgTabsSync(); const ml=document.getElementById("mlist"); if(ml) ml.scrollTop=ml.scrollHeight; } }catch(e){} };
+
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
    選択中の言語に置き換える（MutationObserver で描画のたびに自動適用）。辞書に無い文言（AIの回答文・長文説明）は日本語のまま。
@@ -19877,6 +19966,7 @@ I18N_ROWS2.push(
 ["登録済みの商品ではありません","This is not a registered product","这不是已登记的商品","No es un producto registrado"],["登録済みの商品に戻る","Back to registered products","返回已登记商品","Volver a los productos registrados"],["デモ商材・架空","demo product (fictional)","演示商品・虚构","producto de demostración (ficticio)"],["サンプル","sample","样本","muestra"],
 ["質問を入力（Enterで送信・Shift+Enterで改行）","Type a question (Enter to send, Shift+Enter for a new line)","输入问题（Enter发送・Shift+Enter换行）","Escribe una pregunta (Enter envía, Shift+Enter salto de línea)"],
 ["共有","Share","共享","Compartir"],["アカウント","Account","账号","Cuenta"],["会社","Company","公司","Empresa"],["状態","Status","状态","Estado"],["共有中","Shared","共享中","Compartido"],["この端末のみ","This device only","仅此设备","Solo este dispositivo"],
+["🤖 AIとのやりとり","🤖 AI Q&A","🤖 与AI的往来","🤖 Conversación con la IA"],["「やりとり」を開くと既読になります","Opens as read when you open Messages","打开「往来」后即为已读","Se marca como leído al abrir Mensajes"],
 ["希望価格","Target price","希望价格","Precio deseado"],["商談中","In talks","洽谈中","En negociación"],["⛶ 拡大","⛶ Expand","⛶ 放大","⛶ Ampliar"],
 ["導入時の初期タスク","Onboarding tasks","导入初期任务","Tareas de inicio"],["定例会の準備（毎月）","Monthly review prep","例会准备（每月）","Preparar la reunión mensual"],["展示会の準備","Trade-show prep","展会准备","Preparar la feria"],["国別輸出の定型手順","Export routine by country","按国家的出口流程","Rutina de exportación por país"],["新規バイヤー対応","New buyer follow-up","新买家跟进","Seguimiento de nuevo comprador"],
 /* 承認・公開・対訳 */
@@ -19924,6 +20014,8 @@ I18N_PAT2.push(
  {re:/^🌐 翻訳（(.+)）$/,en:"🌐 Translation ($1)",zh:"🌐 翻译（$1）",es:"🌐 Traducción ($1)"},
  {re:/^📱 (.+)で返信$/,en:"📱 Reply on $1",zh:"📱 用$1回复",es:"📱 Responder por $1"},
  {re:/^(.+)に翻訳しました$/,en:"Translated into $1",zh:"已翻译为$1",es:"Traducido al $1"},
+ {re:/^新着メッセージ (\d+)件（(.+)）$/,en:"$1 new messages ($2)",zh:"新消息 $1条（$2）",es:"$1 mensajes nuevos ($2)"},
+ {re:/^📨 新着メッセージ (\d+)件（(.+)）— 「やりとり」で確認できます$/,en:"📨 $1 new messages ($2) — see Messages",zh:"📨 新消息 $1条（$2）— 请在「往来」查看",es:"📨 $1 mensajes nuevos ($2) — ver en Mensajes"},
  {re:/^（([+-]?\d+)日・(高|中|低)）$/,en:(m,d)=>`(${m[1]} d · ${d[m[2]]||m[2]})`,zh:(m,d)=>`（${m[1]}天・${d[m[2]]||m[2]}）`,es:(m,d)=>`(${m[1]} d · ${d[m[2]]||m[2]})`},
  {re:/^(\d{4}-\d{2}-\d{2})・(高|中|低)$/,en:(m,d)=>`${m[1]} · ${d[m[2]]||m[2]}`,zh:(m,d)=>`${m[1]}・${d[m[2]]||m[2]}`,es:(m,d)=>`${m[1]} · ${d[m[2]]||m[2]}`}
 );
