@@ -18501,7 +18501,7 @@ function memoSumLocal(text){
   const dec=[],todo=[]; const seen=new Set();
   lines.forEach(l=>{ if(l.length>140||seen.has(l)) return;
     if(/決定|決まり|合意|確定|承認|了承|方針/.test(l)){ seen.add(l); dec.push(l); return; }
-    if(/宿題|TODO|ToDo|対応|確認|送付|送る|作成|準備|依頼|提出|回答|連絡|手配|検討|調整|までに|まで$|する$|すること$|お願い|next|action|follow/i.test(l)){ seen.add(l);
+    if(/宿題|TODO|ToDo|対応|確認|送付|送る|作成|準備|依頼|提出|提示|見積|発注|出荷|納品|支払|入金|契約|申請|取得|翻訳|登録|回答|連絡|手配|検討|調整|までに|まで$|する$|すること$|お願い|next|action|follow/i.test(l)){ seen.add(l);
       todo.push({t:l.slice(0,90),who:((l.match(/[（(]([^（()）]{1,12})[)）]/)||[])[1]||"").replace(/^(担当者|担当|責任者|owner)[：:]\s*/i,""),due:(l.match(/(\d{1,2}\/\d{1,2}|\d{1,2}月\d{1,2}日|来週|今週|月末)/)||[])[1]||""}); } });
   const head=lines.slice(0,3).join(" ／ ").slice(0,200);
   return {txt:head||"（本文が短いため要約はありません）",dec:dec.slice(0,8),todo:todo.slice(0,12),ai:0,at:Date.now()};
@@ -19325,6 +19325,74 @@ function ux17BarInit(){
   try{ if(typeof ux2ApplyZoom==="function") ux2ApplyZoom(); }catch(e){}
 }
 setTimeout(()=>{ try{ ux17BarInit(); ux17BarLayout(); ux17Guide(); ux17Tabs(); }catch(e){} },300);
+
+/* ═══════════ v17.1（2026-09-07）：データ生命周期の総点検で見つかった2件の修正 ═══════════
+   ①削除が他端末から復活する：v16.4 の結合同期は「相手側にだけある項目を足す」ため、片方で削除した会議メモ・定型セット・商品が
+     もう片方の端末から戻ってきてしまう → 削除の記録（墓標：bc20_tomb_<code>）を同期し、結合時に墓標より古い同名項目を落とす（45日で失効）
+   ②AI商社マンの成長レベルが端末ごとに違う：対話回数・Web検索・資料登録などの利用カウンタは端末内の台帳にしかなく、同じアカウントでも
+     PCとスマホでレベルが食い違う → 端末別の利用カウンタ（bc20_grow_<code>）を同期し、自端末＋他端末の合計で採点する */
+function v17Code(){ return (typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.code)||""; }
+function v17TombKey(){ const c=v17Code(); return c?"bc20_tomb_"+c:""; }
+function v17TombParse(raw){ let o=null; try{ o=JSON.parse(raw||"{}"); }catch(e){ o=null; } o=o&&typeof o==="object"?o:{}; ["ten","memos","presets"].forEach(k=>{ if(!o[k]||typeof o[k]!=="object") o[k]={}; }); return o; }
+function v17TombGet(){ const k=v17TombKey(); return v17TombParse(k?localStorage.getItem(k):""); }
+function v17TombSave(o){ const k=v17TombKey(); if(!k) return; const lim=Date.now()-45*864e5; ["ten","memos","presets"].forEach(t=>Object.keys(o[t]).forEach(id=>{ if(+o[t][id]<lim) delete o[t][id]; })); try{ localStorage.setItem(k,JSON.stringify(o)); }catch(e){} }
+function v17TombAdd(type,id){ if(!v17TombKey()||!id) return; const o=v17TombGet(); o[type][id]=Date.now(); v17TombSave(o); }
+function v17TombDrop(type,id){ if(!v17TombKey()||!id) return; const o=v17TombGet(); if(o[type][id]){ delete o[type][id]; v17TombSave(o); } }
+function v17TombUnion(a,b){ const o=v17TombParse("{}"); ["ten","memos","presets"].forEach(t=>{ Object.assign(o[t],a[t]||{}); Object.entries(b[t]||{}).forEach(([k,v])=>{ if(!o[t][k]||+o[t][k]<+v) o[t][k]=v; }); }); return o; }
+function v17TenSig(t){ return [t&&t.co||"",t&&t.item||""].join("|"); }
+function v17Stamp(list){ (list||[]).forEach(t=>{ if(!t) return; if(!t.at) t.at=Date.now(); (t.memos||[]).forEach(m=>{ if(m&&!m.at) m.at=Date.now(); }); (t.presets||[]).forEach(p=>{ if(p&&!p.at) p.at=Date.now(); }); }); }
+/* 一覧から墓標に該当するものを除く（削除より後に作られたものは残す） */
+function v17PruneList(list,tomb){
+  if(!Array.isArray(list)) return false; tomb=tomb||v17TombGet(); let changed=false; const keep=[];
+  list.forEach(t=>{ if(!t){ return; } const ts=tomb.ten[v17TenSig(t)]; if(ts&&!(t.at&&+t.at>+ts)){ changed=true; return; }
+    if(Array.isArray(t.memos)){ const pm=t.memos.filter(m=>{ const d=m&&tomb.memos[m.id]; return !(d&&!(m.at&&+m.at>+d)); }); if(pm.length!==t.memos.length){ t.memos=pm; changed=true; } }
+    if(Array.isArray(t.presets)){ const pp=t.presets.filter(p=>{ const d=p&&tomb.presets[p.id]; return !(d&&!(p.at&&+p.at>+d)); }); if(pp.length!==t.presets.length){ t.presets=pp; changed=true; } }
+    keep.push(t); });
+  if(changed){ list.length=0; keep.forEach(x=>list.push(x)); }
+  return changed;
+}
+function v17PruneRaw(raw,tomb){ try{ const o=JSON.parse(raw); if(!o||!Array.isArray(o.list)) return raw; if(v17PruneList(o.list,tomb)){ o.idx=Math.max(0,Math.min(+o.idx||0,o.list.length-1)); return JSON.stringify(o); } }catch(e){} return raw; }
+/* スナップショット（受信）に墓標を合流させ、両側の一覧を掃除する */
+function v17MergeTomb(snap){
+  const k=v17TombKey(); if(!k||!snap||!snap.items) return;
+  const loc=v17TombGet(); const rem=v17TombParse(snap.items[k]||"{}"); const u=v17TombUnion(loc,rem);
+  v17TombSave(u); snap.items[k]=JSON.stringify(u);
+  const tk="bc20_ten_"+v17Code(); if(snap.items[tk]) snap.items[tk]=v17PruneRaw(snap.items[tk],u);
+  try{ const lv=localStorage.getItem(tk); if(lv){ const pr=v17PruneRaw(lv,u); if(pr!==lv) localStorage.setItem(tk,pr); } }catch(e){}
+}
+/* ── ② 利用カウンタ（端末別バケット） ── */
+function v17GrowKey(){ const c=v17Code(); return c?"bc20_grow_"+c:""; }
+function v17DevId(){ try{ if(typeof syncDev==="function"){ const d=syncDev(); if(d&&d.id) return String(d.id); } }catch(e){} try{ let id=localStorage.getItem("bc20_devid"); if(!id){ id=Math.random().toString(36).slice(2,10); localStorage.setItem("bc20_devid",id); } return id; }catch(e){ return "dev"; } }
+function v17GrowParse(raw){ let o=null; try{ o=JSON.parse(raw||"{}"); }catch(e){ o=null; } o=o&&typeof o==="object"?o:{}; if(!o.dev||typeof o.dev!=="object") o.dev={}; return o; }
+function v17GrowGet(){ const k=v17GrowKey(); return v17GrowParse(k?localStorage.getItem(k):""); }
+function v17GrowMine(){
+  const k=v17GrowKey(); if(!k) return; try{ const u=(typeof acct==="function")?acct().usage:null; if(!u) return; const o=v17GrowGet();
+    o.dev[v17DevId()]={at:Date.now(),logins:+u.logins||0,uploads:+u.uploads||0,aiQ:+u.aiQ||0,webQ:+u.webQ||0,fills:+u.fills||0,screens:Object.assign({},u.screens||{}),events:(u.events||[]).slice(0,80)};
+    localStorage.setItem(k,JSON.stringify(o)); }catch(e){}
+}
+function v17GrowUnion(a,b){ const o={dev:{}}; Object.assign(o.dev,a.dev||{}); Object.entries(b.dev||{}).forEach(([d,v])=>{ if(!o.dev[d]||(+o.dev[d].at||0)<(+v.at||0)) o.dev[d]=v; }); return o; }
+function v17MergeGrow(snap){ const k=v17GrowKey(); if(!k||!snap||!snap.items) return; const u=v17GrowUnion(v17GrowGet(),v17GrowParse(snap.items[k]||"{}")); try{ localStorage.setItem(k,JSON.stringify(u)); }catch(e){} snap.items[k]=JSON.stringify(u); }
+if(typeof growUsage==="function"){ const __gu17=growUsage;
+  growUsage=function(){ const u=__gu17.apply(this,arguments)||{}; try{ const k=v17GrowKey(); if(!k) return u; const o=v17GrowGet(); const me=v17DevId();
+      const tot={logins:+u.logins||0,uploads:+u.uploads||0,aiQ:+u.aiQ||0,webQ:+u.webQ||0,fills:+u.fills||0,screens:Object.assign({},u.screens||{}),events:(u.events||[]).slice(),lastActive:u.lastActive,first:u.first,other:0};
+      Object.entries(o.dev).forEach(([d,v])=>{ if(d===me||!v) return; tot.other++; ["logins","uploads","aiQ","webQ","fills"].forEach(x=>tot[x]+=+v[x]||0); if(v.screens&&typeof v.screens==="object") Object.entries(v.screens).forEach(([k,n])=>{ tot.screens[k]=Math.max(+tot.screens[k]||0,+n||0); }); tot.events=tot.events.concat(Array.isArray(v.events)?v.events:[]); });
+      return tot; }catch(e){ return u; } }; }
+if(typeof logU==="function"){ const __logU17=logU; logU=function(type,detail){ const r=__logU17.apply(this,arguments); try{ if(v17GrowKey()){ v17GrowMine(); if(type!=="screen"&&typeof syncSchedule==="function") syncSchedule("acct"); } }catch(e){} return r; }; }
+/* ── 同期経路に組み込む ── */
+if(typeof syncSnapshot==="function"){ const __snap17=syncSnapshot;
+  syncSnapshot=function(){ const o=__snap17.apply(this,arguments); try{ v17GrowMine(); [v17TombKey(),v17GrowKey()].forEach(k=>{ if(!k) return; const v=localStorage.getItem(k); if(v!=null) o.items[k]=v; }); }catch(e){} return o; }; }
+if(typeof syncApply==="function"){ const __apply17=syncApply; syncApply=function(snap){ try{ v17MergeTomb(snap); v17MergeGrow(snap); }catch(e){} return __apply17.apply(this,arguments); }; }
+if(typeof v16MergeIntoLocal==="function"){ const __mil17=v16MergeIntoLocal; v16MergeIntoLocal=function(snap){ try{ v17MergeTomb(snap); v17MergeGrow(snap); }catch(e){} return __mil17.apply(this,arguments); }; }
+if(typeof v16UnionInto==="function"){ const __union17=v16UnionInto; v16UnionInto=function(DST,SRC){ let pruned=false; try{ const tomb=v17TombGet(); pruned=v17PruneList(DST,tomb); v17PruneList(SRC,tomb); }catch(e){} const c=__union17.apply(this,arguments); return c||pruned; }; }
+if(typeof saveTen==="function"){ const __st17=saveTen; saveTen=function(){ try{ if(typeof TENS!=="undefined") v17Stamp(TENS); }catch(e){} return __st17.apply(this,arguments); }; }
+/* ── 削除の記録 ── */
+if(typeof memoDelete==="function"){ const __md17=memoDelete; memoDelete=function(id){ const r=__md17.apply(this,arguments); try{ if(id&&typeof memoFind==="function"&&!memoFind(id)) v17TombAdd("memos",id); }catch(e){} return r; }; }
+if(typeof resetTen==="function"){ const __rt17=resetTen; resetTen=function(){ let sig="",n=0; try{ sig=(typeof TEN!=="undefined"&&TEN)?v17TenSig(TEN):""; n=(typeof TENS!=="undefined")?TENS.length:0; }catch(e){} const r=__rt17.apply(this,arguments); try{ if(sig&&typeof TENS!=="undefined"&&TENS.length<n){ v17TombAdd("ten",sig); if(typeof syncSchedule==="function") syncSchedule("acct"); } }catch(e){} return r; }; }
+/* 元に戻す／再作成されたら墓標を外す */
+if(typeof ux17Undo==="function"){ const __undo17=ux17Undo; ux17Undo=function(msg,fn){ return __undo17.call(this,msg,function(){ const r=fn(); try{ const t=v16Ten(); if(t){ (t.memos||[]).forEach(m=>m&&v17TombDrop("memos",m.id)); (t.presets||[]).forEach(p=>p&&v17TombDrop("presets",p.id)); } }catch(e){} return r; }); }; }
+if(typeof openPresets==="function"){ const __op17s=openPresets; openPresets=function(){ const before=(function(){ try{ return presetStore().map(p=>p.id); }catch(e){ return []; } })(); const r=__op17s.apply(this,arguments);
+  try{ document.querySelectorAll("[data-psdel]").forEach(b=>{ const prev=b.onclick; b.onclick=function(){ const id=b.dataset.psdel; const r2=prev?prev.apply(this,arguments):undefined; try{ if(!presetStore().find(p=>p.id===id)) v17TombAdd("presets",id); }catch(e){} return r2; }; }); }catch(e){} return r; }; }
+if(typeof memoSave==="function"){ const __ms17=memoSave; memoSave=function(){ const m=__ms17.apply(this,arguments); try{ if(m&&m.id){ if(!m.at) m.at=Date.now(); v17TombDrop("memos",m.id); } }catch(e){} return m; }; }
 
 /* ═══════════ v15.23：多言語表示（日本語／English／中文／Español） ═══════════
    方式＝描画後のDOM置換。テンプレートは日本語のまま、辞書に一致するテキストノード・属性（placeholder/title/aria-label）を
