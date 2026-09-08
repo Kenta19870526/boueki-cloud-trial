@@ -2134,6 +2134,12 @@ function applyStructured(t,PT,QA){
     /* 推定値（カテゴリ既定のHS・本文からの推定カテゴリ）は資料の実値で置き換える */
     if(p0.hs&&t.hsGuess){ t.hs=""; }
     if(p0.cat){ t.cat=""; t.catKey=null; }
+    /* v18.5e：商品一覧表そのもの・質問票を「価格表／寸法／成分表」として抱えていたら外す（商品ごとの整った表に置き換えるため） */
+    const isProdOrQa=cols=>{ if(!Array.isArray(cols)||!cols.length) return false; const N=cols.map(norm);
+      if(mapProductCols(cols).item) return true;
+      return N.some(c=>/^(項目|質問|設問|確認事項)$/.test(c))&&N.some(c=>/^(回答|ご回答|回答内容|回答例)$/.test(c)); };
+    ["price","dim","comp"].forEach(k=>{ if(isProdOrQa(t[k+"Cols"])){ t[k+"Cols"]=[]; t[k+"Rows"]=[]; } });
+    t.nTables=Math.max(1,(t.nTables||0));
     const x=Object.assign({co:t.co,coEn:t.coEn,origin:t.origin,term:t.term,pay:t.pay,pol:t.pol,targets:t.targets||[]},p0);
     if(!x.origin&&p0.origin) x.origin=p0.origin;
     x._multi=PT.prods; x._summary=PT.summary; x._doc="商品一覧（表）"; x._notes=PT.notes;
@@ -21248,5 +21254,86 @@ function msg18Decorate(){
   if(MSG18.q.length) msg18Pump();
 }
 if(typeof mRows==="function"){ const __mr18=mRows; mRows=function(){ const r=__mr18.apply(this,arguments); try{ msg18Decorate(); }catch(e){} return r; }; }
+
+/* ═══════════ v18.5b（2026-09-09）：読み取り確認中に商品が消える不具合の修正 ═══════════
+   症状：Excelを読み込み「反映してよろしいでしょうか？」に「はい」と答えたのに「反映せず、ゼロから」になり、商品名 未登録のまま。
+   原因：同じアカウントを別タブ／別端末でも開いていると、①別タブの保存（saveTen）が localStorage を古い一覧で上書き
+         ②90秒ごとの同期（syncReloadState→loadTen）がメモリ上の一覧を localStorage から作り直す
+         → 確認待ち（_pend）を持つ新しい商品オブジェクトごと消え、pendApply が「反映待ちなし」と判断していた。
+   対策：A) 商品に uid／_born を付け、このタブで作った商品は同期の作り直しで落とさない（表示中の商品も維持）
+         B) 確認待ちの内容と商品オブジェクトを FILL 側にも控え、消えていたら復元してから反映する
+         C) saveTen は localStorage 側にだけある「最近作られた商品」を捨てずに合流させる（別タブの上書き防止）
+         D) 同じファイルの読み直しは、未整備（商品名・強みなし）の古いスロットを置き換える（重複防止） */
+const V185_BORN=new Set(); let V185_LOADED_AT=Date.now();
+function v185Uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function v185Stamp(t,born){ if(!t) return; if(!t.uid) t.uid=v185Uid(); if(born){ if(!t._born) t._born=Date.now(); V185_BORN.add(t.uid); } }
+function v185Has(v){ return Array.isArray(v)?v.length>0:!!(v&&String(v).trim()); }
+function v185Tomb(x){ try{ if(typeof v17TombGet!=="function"||typeof v17TenSig!=="function") return false; const ts=v17TombGet().ten[v17TenSig(x)]; return !!(ts&&!(x.at&&+x.at>+ts)); }catch(e){ return false; } }
+if(typeof pushTen==="function"){ const __pt185=pushTen; pushTen=function(t){ v185Stamp(t,true); return __pt185.apply(this,arguments); }; }
+if(typeof loadTen==="function"){ const __lt185=loadTen; loadTen=function(){ const r=__lt185.apply(this,arguments); V185_LOADED_AT=Date.now(); return r; }; }
+/* C) 保存：別タブが後から作った商品を落とさない */
+if(typeof saveTen==="function"){ const __st185=saveTen;
+  saveTen=function(){
+    try{ if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&typeof TENS!=="undefined"){
+      TENS.forEach(x=>{ if(x&&!x.uid) x.uid=v185Uid(); });
+      const raw=localStorage.getItem("bc20_ten_"+SES.code); const j=raw?JSON.parse(raw):null;
+      if(j&&Array.isArray(j.list)) j.list.forEach(x=>{ if(!x||!x.uid||!x._born) return;
+        if(+x._born>V185_LOADED_AT-2000&&!TENS.some(y=>y&&y.uid===x.uid)&&!v185Tomb(x)) TENS.push(x); });
+    } }catch(e){}
+    return __st185.apply(this,arguments); }; }
+/* A) 同期の作り直し：このタブで作った商品・表示中の商品・確認待ちの商品を維持 */
+if(typeof syncReloadState==="function"){ const __srs185=syncReloadState;
+  syncReloadState=function(){
+    const mem=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS.slice():[]; const memTen=(typeof TEN!=="undefined")?TEN:null;
+    const pendTen=(typeof FILL!=="undefined"&&FILL&&FILL.cur&&FILL.cur.k==="_pend"&&FILL.pendTen)||null;
+    const r=__srs185.apply(this,arguments);
+    try{ let changed=false;
+      mem.forEach(t=>{ if(!t||!t.uid||!V185_BORN.has(t.uid)) return; if(!TENS.some(x=>x&&x.uid===t.uid)&&!v185Tomb(t)){ TENS.push(t); changed=true; } });
+      if(pendTen){ let i=TENS.findIndex(x=>x&&x.uid===pendTen.uid);
+        if(i<0){ TENS.push(pendTen); i=TENS.length-1; changed=true; } else if(TENS[i]!==pendTen){ TENS[i]=pendTen; changed=true; }
+        if(!pendTen._pend&&FILL.pendBak) pendTen._pend=FILL.pendBak;
+        TIDX=i; TEN=pendTen; PID="custom"; if(typeof syncTenant==="function") syncTenant(); }
+      else if(memTen&&memTen.uid&&TEN&&TEN.uid!==memTen.uid){ const i=TENS.findIndex(x=>x&&x.uid===memTen.uid);
+        if(i>=0){ TIDX=i; TEN=TENS[i]; PID="custom"; if(typeof syncTenant==="function") syncTenant(); } }
+      if(changed&&typeof saveTen==="function") saveTen();
+      if(typeof buildNav==="function") buildNav(); if(typeof render==="function") render();
+    }catch(e){}
+    return r; }; }
+/* D) 取り込み：同じファイルの未整備スロットを置き換え＋確認待ちの控え */
+if(typeof adoptReal==="function"){ const __ar185=adoptReal;
+  adoptReal=function(t,info){
+    try{ const i=TENS.findIndex(x=>x&&x!==t&&x.src==="upload"&&x.file===t.file&&!v185Has(x.item)&&!v185Has(x.itemEn)&&!v185Has(x.sku));
+      if(i>=0){ const old=TENS[i]; TENS.splice(i,1); if(TIDX>i) TIDX--; else if(TIDX>=TENS.length) TIDX=Math.max(0,TENS.length-1);
+        try{ if(typeof v17TombAdd==="function"&&typeof v17TenSig==="function"){ v17TombAdd("ten",v17TenSig(old)); t.at=Date.now()+5; } }catch(e){} }
+    }catch(e){}
+    const r=__ar185.apply(this,arguments);
+    try{ if(typeof FILL!=="undefined"&&FILL&&TEN&&TEN._pend){ FILL.pendTen=TEN; FILL.pendBak=TEN._pend; } if(typeof saveTen==="function") saveTen(); }catch(e){}
+    return r; }; }
+/* B') 回答の受付：確認待ちの商品が消えていたら、回答を解釈する前に復元する（「はい」→全件反映 の判定を正しく行うため） */
+function v185RestorePend(){
+  try{ if(typeof FILL==="undefined"||!FILL||!FILL.cur||FILL.cur.k!=="_pend"||!FILL.pendTen||!FILL.pendBak) return false;
+    if(TEN&&TEN._pend&&TEN===FILL.pendTen) return false;
+    const pt=FILL.pendTen; let i=TENS.findIndex(x=>x&&x.uid&&x.uid===pt.uid);
+    if(i>=0) TENS[i]=pt; else { TENS.push(pt); i=TENS.length-1; }
+    TIDX=i; TEN=pt; PID="custom"; if(!TEN._pend) TEN._pend=FILL.pendBak;
+    if(typeof syncTenant==="function") syncTenant(); return true; }catch(e){ return false; }
+}
+if(typeof fillAnswer==="function"){ const __fa185=fillAnswer; fillAnswer=function(v){ v185RestorePend(); return __fa185.apply(this,arguments); }; }
+/* B) 反映：確認待ちが消えていたら復元してから反映する */
+if(typeof pendApply==="function"){ const __pa185=pendApply;
+  pendApply=function(mode){
+    let restored=false;
+    try{ if((!TEN||!TEN._pend)&&typeof FILL!=="undefined"&&FILL&&FILL.pendBak&&FILL.pendTen){
+        const pt=FILL.pendTen; let i=TENS.findIndex(x=>x&&x.uid&&x.uid===pt.uid);
+        if(i>=0) TENS[i]=pt; else { TENS.push(pt); i=TENS.length-1; }
+        TIDX=i; TEN=pt; PID="custom"; TEN._pend=FILL.pendBak; restored=true;
+        if(typeof syncTenant==="function") syncTenant(); } }catch(e){}
+    const r=__pa185.apply(this,arguments);
+    try{ if(typeof FILL!=="undefined"&&FILL){ FILL.pendBak=null; FILL.pendTen=null; }
+      TENS.forEach(x=>{ if(x&&!x.uid) v185Stamp(x,true); });
+      if(typeof saveTen==="function") saveTen();
+      if(restored&&typeof buildNav==="function") buildNav(); if(restored&&typeof render==="function") render();
+    }catch(e){}
+    return r; }; }
 
 </script>
