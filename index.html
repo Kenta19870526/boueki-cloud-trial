@@ -674,80 +674,25 @@ body.dwopen #tabbar,body.kbopen #tabbar,body.locked #tabbar{display:none}
 .fqtab.on{background:var(--or);color:#fff;border-color:var(--or)}
 .fqpane[hidden]{display:none}
 .fqrow{cursor:pointer}.fqrow:hover td{background:var(--or-soft)}
-.fqbox{margin-top:10px}
-/* ── v18：タイポグラフィ（20社の共通点：1書体・限られた段階・数字は等幅・日本語は行間広め・11px未満を使わない） ── */
-/* 書体：ブランド書体 Noto Sans JP を第一候補に（Google Fonts・swap）。未ロード／オフライン時は各OSの日本語UI書体へ。Lato 指定は未ロードで環境差の原因だったため廃止 */
-body,button,input,select,textarea,kbd{font-family:"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,-apple-system,"Segoe UI",sans-serif}
-body{font-feature-settings:"palt" 0;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
-/* 見出し・ラベル・数値だけ詰め組み（本文は標準の字送りで読みやすく） */
-h1,h2,h3,h4,.lbl,.ngrp,.kv,.tot,.dscope .dsn,.logo b{font-feature-settings:"palt" 1}
-h1,h2,h3,h4{line-height:1.35;letter-spacing:0}
-.ph h1{font-weight:700}
-/* 数字は等幅（表・KPI・金額・コード） */
-table,td,th,.kv,.tot,.num,.n,.acode,.kpi .kv,.regs,.tbn,.bdg{font-variant-numeric:tabular-nums}
-.kv{font-weight:500;letter-spacing:-.02em}
-/* 日本語の改行：文節単位（対応ブラウザ）・段落は読みやすい折返し・長いURLは折る */
-p,.nn,.cando,.gmsg,.bb,.kd,.ti,.nf,li{word-break:auto-phrase;text-wrap:pretty}
-.bb,.ci,.nf{overflow-wrap:anywhere}
-/* 底上げ層（v15.23）の外に残っていた小さい文字を 11px 以上に */
-.ngrp{font-size:11px}
-.lyn{font-size:11px}
-#lgpill{font-size:10.5px!important}
-#tabbar .tb{font-size:11px}
-.stp .t{font-size:11.5px}
-.doc table{font-size:11.5px}
-.fwdcmp table th,.fwdcmp table td{font-size:12px}
-.side [style*="font-size:9"],.side [style*="font-size:10px"],.bar [style*="font-size:9"],.bar [style*="font-size:10px"],#tabbar [style*="font-size:9"]{font-size:11px!important}
-#well [style*="font-size:8px"],#pn [style*="font-size:8px"],#well [style*="font-size:7px"],#pn [style*="font-size:7px"]{font-size:10.5px!important}
-/* 表：行間と見出しの可読性 */
-td{line-height:1.5}
-th{letter-spacing:.02em}
-/* 本文の行間（日本語は 1.7、表・チップ・ボタンは 1.45） */
-.nn,.cando,.gmsg,.kd,.bb{line-height:1.7}
-.btn,.q,.p,.tb{line-height:1.45}
-/* スマホ：本文は 14px を維持し、下部タブ・案内・チップは一段だけ大きく */
-@media (max-width:820px){
-  #tabbar .tb{font-size:11px}
-  #guide .gst{font-size:12px}
-  #psw{font-size:12.5px}
-  .q{font-size:13px}
-  #guide.gmin #gai{font-size:11.5px}
-}
-/* 監査で残っていた 11px 未満（ダッシュボードのヒント・サンプルカードの補足・ページ内目次のラベル・商品カードの充足度） */
-.ddhint{font-size:11px}
-.smp .co,.smp .fl{font-size:11px}
-.smp ul{font-size:11.5px}
-#uxsec .uxsl{font-size:11px}
-.regs{font-size:11px}
-#guide .gst i{font-size:10px}
-small{font-size:max(11px,.86em)}
-.uxchips .q,.uxfb .q{font-size:11.5px}
-/* 8.5px 指定の底上げ先を 10.5px → 11px に（他の段と揃える） */
-#well [style*="font-size:8.5px"],#pn [style*="font-size:8.5px"],#guide [style*="font-size:8.5px"]{font-size:11px!important}
-/* 上部バー：1181〜1400px では詰めて1行に収める（会社名はアバターのみ・Ctrl+K表記と「スマホ表示」は省略・言語は短く） */
-@media (max-width:1400px){
-  .uxsb kbd{display:none}
-  #psw{max-width:170px}
-  #tenant{flex:0 0 auto;min-width:0} #tenant>span:not(.av){display:none}
-  #mob{display:none}
-  #lang{max-width:72px}
-  .tgl{padding:4px 9px}
-  .bar>.usr.hm:not(#tenant){flex:0 0 auto;max-width:150px;min-width:60px}
-}
-.bar>.usr{flex:0 1 auto}
-/* v18.2：言語ごとの書体。中国語は簡体字の字形（Noto Sans SC）、英語・スペイン語はラテン専用の Noto Sans（字幅・数字が整う）。日本語は Noto Sans JP のまま。フォントは使われる言語のときだけ読み込まれる */
-:lang(zh) body,:lang(zh) button,:lang(zh) input,:lang(zh) select,:lang(zh) textarea{font-family:"Noto Sans SC","Noto Sans JP","PingFang SC","Microsoft YaHei","Hiragino Sans",system-ui,sans-serif}
-:lang(en) body,:lang(en) button,:lang(en) input,:lang(en) select,:lang(en) textarea,:lang(es) body,:lang(es) button,:lang(es) input,:lang(es) select,:lang(es) textarea{font-family:"Noto Sans","Noto Sans JP","Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif}
-:lang(en) body,:lang(es) body{font-feature-settings:normal;word-break:normal}
-/* 下部タブの名称は1行に（長い言語でも折り返さない） */
-#tabbar .tbl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:block;text-align:center}
-/* ダッシュボードの集計範囲セレクター：スマホ幅で3pxはみ出していた（英語の長いラベル） */
-@media (max-width:820px){.dscope .dsf,.dscope .dsl,.dscope .dsl .sel{max-width:100%;min-width:0;box-sizing:border-box}}
-/* v18.3：AI翻訳の状態表示とやりとりの翻訳ブロック */
-#ai18nst{position:fixed;left:12px;bottom:calc(var(--tabbar-h,0px) + 12px);z-index:70;background:var(--ink);color:var(--canvas);font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;opacity:.85;pointer-events:none}
-#ai18nst[hidden]{display:none}
-.msgtrb{border-left:3px solid var(--bl,#2e5aac)!important;border-radius:0 8px 8px 0!important;font-size:12px!important}
-.msgtrl{display:block;font-size:10.5px;font-weight:700;color:var(--bl,#2e5aac);margin-bottom:2px}
+/* v18.4：AI見積の相談欄を目立つカードに（オレンジの見出し＋AIアバター・案内文・大きい入力欄と質問ボタン） */
+.fqbox{margin-top:14px;border:1.5px solid var(--or)!important;background:var(--or-soft)!important;box-shadow:0 3px 14px rgba(248,149,29,.18);overflow:hidden}
+.fqbox>summary{background:var(--or);color:#fff!important;font-size:13.5px!important;padding:10px 13px;gap:9px;align-items:center}
+.fqbox>summary::before{color:#fff;opacity:.9}
+.fqbox>summary .fqav{width:26px;height:26px;border-radius:50%;background:#fff;color:var(--or-deep);font-size:11px;font-weight:800;display:grid;place-items:center;flex:none}
+.fqbox>summary .fqttl{min-width:0}
+.fqbox>summary .fqhint{margin-left:auto;font-size:11px;font-weight:600;opacity:.92;white-space:nowrap;border:1px solid rgba(255,255,255,.7);border-radius:999px;padding:2px 9px}
+.fqbox>div{padding:10px 12px 12px!important}
+.fqbox .fqlead{margin:0 0 8px;font-size:12.5px;line-height:1.6;color:var(--ink-2)}
+.fqbox .fqchat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:8px;min-height:44px}
+.fqbox .qb .q{background:#fff;border:1px solid var(--or);color:var(--or-deep);font-weight:600;font-size:12px}
+.fqbox .fqin{min-height:42px;font-size:13.5px;border:1.5px solid var(--or);background:#fff}
+.fqbox .fqgo{min-height:42px;padding:0 16px;font-weight:700;font-size:13px}
+/* まとめ表：標準幅のパネル（440px）で国名が1文字ずつ折れないよう最小幅を与えて横スクロール */
+.fqpane .tw table{min-width:560px}
+.fqpane .tw td:first-child b,.fqpane .tw th{white-space:nowrap}
+.fqjumprow{justify-content:flex-end;margin:2px 0 8px}
+.fqjump{border:1px solid var(--or);color:var(--or-deep);background:var(--or-soft);font-weight:600}
+@media (max-width:820px){ .fqbox .fqask{flex-wrap:wrap} .fqbox .fqgo{width:100%;flex:1 1 100%!important} .fqbox>summary .fqhint{display:none} .fqjumprow{justify-content:stretch} .fqjump{width:100%} }
 </style>
 
 <style>
@@ -19648,8 +19593,12 @@ if(typeof memoSave==="function"){ const __ms17=memoSave; memoSave=function(){ co
    ①「この見積についてAI商社マンに相談」で返信が出ない：接続AIの応答待ち（最大25〜45秒）の間に目立つ表示が無く、
      空回答・例外のときに何も出なかった → 待機表示・45秒で内蔵回答へ切替・空回答／例外は内蔵回答＋注記で必ず返す
    ② 国ごとの見積が縦に長く見づらい → 「📋 まとめ」タブ（国／物流会社／金額／所要日数／有効期限／状態）＋国別タブ
-   ③ 相談欄が1か国目のカードの中に入り込んでいた（挿入位置のバグ）→ まとめタブと各国タブに1つずつ、その国の見積を根拠に回答 */
-const FQ17={tab:{}};
+   ③ 相談欄が1か国目のカードの中に入り込んでいた（挿入位置のバグ）→ まとめタブと各国タブに1つずつ、その国の見積を根拠に回答
+   ═══ v18.4（2026-09-08）：接続AIの回答（10〜30秒）を待つ間に 30秒同期が FWDB を差し替える（logic_sync.js の fwdMerge → FWDB=merged）と、
+   回答が古い依頼オブジェクトに付いて保存されず、再描画で待機表示も消えて「返事が来ない」ように見えた。
+   → 回答が返ったら現在の FWDB から依頼を引き直して追記・保存（_m を更新して同期の取り違えも防ぐ）・現在のDOMの相談欄へ描画。
+     待機中は FQ17.pend に記録し、描画し直されても待機表示が出る。相談欄は目立つカード（オレンジの見出し・大きい入力欄）に変更 */
+const FQ17={tab:{},pend:{}};
 function fq17Req(id){ try{ if((typeof FWDB==="undefined"||!FWDB)&&typeof fwdLoad==="function") fwdLoad(); return (typeof FWDB!=="undefined"&&FWDB)?(FWDB.reqs.find(x=>x.id===id)||null):null; }catch(e){ return null; } }
 function fq17Held(r,l){ try{ return (typeof fwdLegHeld==="function")?!!fwdLegHeld(r,l):!!l.hold; }catch(e){ return !!l.hold; } }
 function fq17Summary(r){
@@ -19665,18 +19614,22 @@ function fq17Summary(r){
   return `<div class="tw" style="max-height:none"><table><thead><tr><th>国</th><th>物流会社（推奨／選択中）</th><th class="num">金額（合計）</th><th class="num">所要日数</th><th>有効期限</th><th>状態</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
     ${ok.length>1?`<p class="nn" style="margin-top:6px">${ok.length}か国の合計：<b>¥${tot.toLocaleString()}</b>（各国の推奨／選択中の物流会社の合計・仮押さえは国ごとに選べます）</p>`:""}`;
 }
+/* 現在DOMにある相談欄（パネルが描き直されていたら新しい方）を返す */
+function fq17CurBox(cty,box){ try{ const cur=document.querySelector(`#pn .fqbox[data-fqcty="${CSS.escape(cty||"")}"]`); if(cur&&cur.isConnected) return cur; }catch(e){} return box; }
 function fq17Render(id,cty,box){
   const r=fq17Req(id); const chat=box&&box.querySelector(".fqchat"); if(!r||!chat) return;
-  const hist=(r.chat||[]).filter(m=>(m.cty||"")===cty);
+  const hist=(r.chat||[]).filter(m=>(m.cty||"")===(cty||""));
   chat.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join("")
     :`<p class="nn" style="padding:6px 2px">${cty?"例：「相場より高い？」「どの会社を選ぶべき？」「倉庫はどこが良い？」":"例：「合計を下げるには？」「仮押さえの優先順位は？」"}</p>`;
+  /* 回答待ちなら待機表示（描き直されても消えない） */
+  if(FQ17.pend[id+"|"+(cty||"")]){ const online=(typeof ppReady==="function"&&ppReady()); chat.insertAdjacentHTML("beforeend",`<div class="m a fqwait"><div class="bb"><span class="car"></span> ${online?"AI商社マンが考えています…（通常10〜30秒）":"内蔵エンジンで回答しています…"}</div></div>`); }
   chat.scrollTop=chat.scrollHeight;
 }
 async function fq17Ask(id,cty,q,box){
-  q=String(q||"").trim(); if(!q) return; const r=fq17Req(id); if(!r) return;
-  r.chat=(r.chat||[]).concat([{w:"u",t:q,cty,at:Date.now()}]).slice(-60); try{ if(typeof fwdSave==="function") fwdSave(); }catch(e){} fq17Render(id,cty,box);
-  const chat=box.querySelector(".fqchat"); const online=(typeof ppReady==="function"&&ppReady());
-  chat.insertAdjacentHTML("beforeend",`<div class="m a fqwait"><div class="bb"><span class="car"></span> ${online?"AI商社マンが考えています…（通常10〜30秒）":"内蔵エンジンで回答しています…"}</div></div>`); chat.scrollTop=chat.scrollHeight;
+  q=String(q||"").trim(); if(!q) return; let r=fq17Req(id); if(!r) return; cty=cty||"";
+  const key=id+"|"+cty; if(FQ17.pend[key]){ try{ toast("前の質問の回答を待っています…"); }catch(e){} return; }
+  r.chat=(r.chat||[]).concat([{w:"u",t:q,cty,at:Date.now()}]).slice(-60); r._m=Date.now(); try{ if(typeof fwdSave==="function") fwdSave(); }catch(e){}
+  FQ17.pend[key]=1; fq17Render(id,cty,fq17CurBox(cty,box));
   let ans=null, l=null;
   try{
     l=cty?((r.legs||[]).find(x=>x.cty===cty)||null):((typeof fwdqLeg==="function")?fwdqLeg(r,q):null);
@@ -19687,17 +19640,22 @@ async function fq17Ask(id,cty,q,box){
     if(!ans||ans.timeout){ ans=(typeof fwdqAnswerLocal==="function")?fwdqAnswerLocal(q,r,l):{a:"回答を取得できませんでした。",c:""}; ans.c=(ans.c||"")+"／⚠ 接続AIの応答が45秒以内に返らなかったため内蔵エンジンで回答"; }
     else if(!plain(ans.a)){ const loc=(typeof fwdqAnswerLocal==="function")?fwdqAnswerLocal(q,r,l):{a:"回答を取得できませんでした。",c:""}; loc.c=(loc.c||"")+"／⚠ 接続AIの回答が空だったため内蔵エンジンで回答"; ans=loc; }
   }catch(e){ ans={a:"うまく処理できませんでした。もう一度お試しください。（"+esc(String((e&&e.message)||e).slice(0,60))+"）",c:"内部エラー"}; }
-  r.chat=(r.chat||[]).concat([{w:"a",t:ans.a,c:ans.c,cty,at:Date.now()}]).slice(-60);
+  /* 回答を待つ間に同期で FWDB が差し替わっていても、現在の依頼に追記して保存する */
+  const r2=fq17Req(id)||r;
+  if(!(r2.chat||[]).some(m=>m&&m.w==="u"&&m.t===q&&(m.cty||"")===cty)) r2.chat=(r2.chat||[]).concat([{w:"u",t:q,cty,at:Date.now()}]);
+  r2.chat=(r2.chat||[]).concat([{w:"a",t:ans.a,c:ans.c,cty,at:Date.now()}]).slice(-60); r2._m=Date.now();
+  delete FQ17.pend[key];
   try{ if(typeof fwdSave==="function") fwdSave(); }catch(e){} try{ if(typeof logU==="function") logU("ai","見積相談:"+q.slice(0,24)); }catch(e){}
-  fq17Render(id,cty,box);
+  fq17Render(id,cty,fq17CurBox(cty,box));
 }
 function fq17Box(id,k){
   const cty=k==="all"?"":k; const box=document.createElement("details"); box.className="fwdx fqbox"; box.open=true; box.dataset.fqcty=cty;
   const ex=cty?["この見積は相場より高い？安い？","どの物流会社を選ぶべき？","最適な倉庫・配送拠点は？","LCLとFCLどちらが得？","納期を短くするには？"]:["全体で一番の課題は？","仮押さえの優先順位は？","合計を下げる方法は？"];
-  box.innerHTML=`<summary>${cty?`💬 ${esc(cty)}向けの見積についてAI商社マンに相談`:"💬 この見積全体についてAI商社マンに相談"}</summary><div>
+  box.innerHTML=`<summary><span class="fqav">AI</span><span class="fqttl">${cty?`💬 ${esc(cty)}向けの見積についてAI商社マンに相談`:"💬 この見積全体についてAI商社マンに相談"}</span><span class="fqhint">何でも質問できます</span></summary><div>
+    <p class="fqlead">${cty?`${esc(cty)}向けの見積について、相場・物流会社の選び方・倉庫・納期など何でも聞けます。回答はこの下に表示されます。`:"合計を下げる方法・仮押さえの優先順位・値下げ交渉のポイントなど、この見積全体について何でも聞けます。回答はこの下に表示されます。"}</p>
     <div class="chat fqchat" style="max-height:300px;margin-top:6px"></div>
-    <div class="qb" style="margin-top:7px">${ex.map(x=>`<button class="q" data-fqq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
-    <div class="rw" style="margin-top:7px;gap:6px"><input class="sel fqin" placeholder="${cty?`${esc(cty)}向けの見積について質問（Enterで送信）`:"見積全体について質問（Enterで送信）"}" style="flex:1;min-width:0"><button class="btn fqgo" style="flex:none">質問する</button></div>
+    <div class="qb" style="margin-top:8px">${ex.map(x=>`<button class="q" data-fqq="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <div class="rw fqask" style="margin-top:8px;gap:6px"><input class="sel fqin" placeholder="${cty?`${esc(cty)}向けの見積について質問（Enterで送信）`:"見積全体について質問（Enterで送信）"}" style="flex:1;min-width:0"><button class="btn fqgo" style="flex:none">🤖 AI商社マンに質問する</button></div>
     <p class="nn" style="margin-top:5px">根拠：AI物流マンの見積・登録レート・内蔵の参考レーン表（目安）。AI接続時はWeb検索の実勢も参照します（未接続時はその旨を明示）。</p></div>`;
   const go=()=>{ const i=box.querySelector(".fqin"); const v=(i.value||"").trim(); if(!v) return; i.value=""; fq17Ask(id,cty,v,box); };
   box.querySelector(".fqgo").onclick=go; box.querySelector(".fqin").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); go(); } };
@@ -19720,7 +19678,10 @@ function fq17Build(id){
   paneAll.innerHTML=`<p class="nn" style="margin:4px 0 8px">各国の推奨（または選択中）の物流会社と金額・所要日数・有効期限の一覧です。行をクリックすると、その国の詳細（相見積・仮押さえ・再見積）と相談欄に移ります。</p>${fq17Summary(r)}`;
   wrap.appendChild(paneAll);
   r.legs.forEach((l,i)=>{ const pane=document.createElement("div"); pane.className="fqpane"; pane.dataset.fqpane=l.cty; pane.appendChild(cards[i]); wrap.appendChild(pane); });
-  wrap.querySelectorAll(".fqpane").forEach(p=>p.appendChild(fq17Box(r.id,p.dataset.fqpane)));
+  wrap.querySelectorAll(".fqpane").forEach(p=>{ const bx=fq17Box(r.id,p.dataset.fqpane); p.appendChild(bx);
+    /* 国別タブは見積カードが長いので、先頭に相談欄へのジャンプを置く */
+    if(p.dataset.fqpane!=="all"){ const j=document.createElement("div"); j.className="rw fqjumprow"; j.innerHTML=`<button class="q fqjump">💬 この国の見積についてAI商社マンに相談 ↓</button>`; p.insertAdjacentElement("afterbegin",j);
+      j.querySelector(".fqjump").onclick=()=>{ try{ bx.open=true; bx.scrollIntoView({block:"start"}); const i=bx.querySelector(".fqin"); if(i) i.focus(); }catch(e){} }; } });
   const sel=k=>{ if(!wrap.querySelector(`[data-fqpane="${CSS.escape(k)}"]`)) k="all"; FQ17.tab[r.id]=k; wrap.querySelectorAll(".fqtab").forEach(b=>b.classList.toggle("on",b.dataset.fqtab===k)); wrap.querySelectorAll(".fqpane").forEach(p=>p.hidden=p.dataset.fqpane!==k); };
   wrap.querySelectorAll(".fqtab").forEach(b=>b.onclick=()=>sel(b.dataset.fqtab));
   wrap.querySelectorAll("[data-fqgo]").forEach(tr=>tr.onclick=e=>{ if(e.target.closest("button,a")) return; sel(tr.dataset.fqgo); });
@@ -20773,6 +20734,12 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.4：AI見積の相談欄 ── */
+["何でも質問できます","Ask anything","可提出任何问题","Pregunte lo que quiera"],
+["🤖 AI商社マンに質問する","🤖 Ask the AI Trade Agent","🤖 向AI商社专员提问","🤖 Preguntar a la IA comercial"],
+["💬 この国の見積についてAI商社マンに相談 ↓","💬 Ask the AI Trade Agent about this country's quote ↓","💬 就该国报价咨询AI商社专员 ↓","💬 Consultar a la IA sobre la cotización de este país ↓"],
+["合計を下げる方法・仮押さえの優先順位・値下げ交渉のポイントなど、この見積全体について何でも聞けます。回答はこの下に表示されます。","Ask anything about this quote as a whole: how to lower the total, which holds to prioritize, negotiation points and more. Answers appear below.","可就整份报价提出任何问题：如何降低合计、暂定的优先顺序、议价要点等。回答显示在下方。","Pregunte lo que quiera sobre esta cotización: cómo bajar el total, qué reservas priorizar, puntos de negociación y más. Las respuestas aparecen abajo."],
+["前の質問の回答を待っています…","Waiting for the answer to the previous question…","正在等待上一个问题的回答…","Esperando la respuesta a la pregunta anterior…"],
 ["作成待ち","Awaiting creation","待创建","Pendiente de crear"],["想定シナリオ","Hypothetical scenario","假设场景","Escenario hipotético"],
 ["の作成を始める",": start creating","开始制作","empezar a preparar"],["に着手する",": get started","着手处理","ponerse en marcha"],["台湾向け","For Taiwan","面向台湾","Para Taiwán"],
 /* ── みなと酒造：強み・今日やること ── */
@@ -20858,6 +20825,7 @@ const PRI=[
 ];
 PRI.slice().reverse().forEach(p=>I18N_PAT2.unshift(p));
 I18N_PAT2.push(
+ {re:/^(.+?)向けの見積について、相場・物流会社の選び方・倉庫・納期など何でも聞けます。回答はこの下に表示されます。$/,en:(m,d)=>"Ask anything about the quote for "+T(m[1],d)+": market rates, choosing a forwarder, warehouses, lead times and more. Answers appear below.",zh:(m,d)=>"可就面向"+T(m[1],d)+"的报价提出任何问题：行情、物流公司的选择、仓库、交期等。回答显示在下方。",es:(m,d)=>"Pregunte lo que quiera sobre la cotización para "+T(m[1],d)+": tarifas de mercado, elección de transportista, almacenes, plazos y más. Las respuestas aparecen abajo."},
  {re:/^強みを(\d+)点$/,en:"$1 strengths",zh:"$1项优势",es:"$1 fortalezas"},
  {re:/^(\d+)行$/,en:"$1 rows",zh:"$1行",es:"$1 filas"},
  {re:/^(\d+)項目$/,en:"$1 items",zh:"$1项",es:"$1 elementos"},
