@@ -743,6 +743,11 @@ small{font-size:max(11px,.86em)}
 #tabbar .tbl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:block;text-align:center}
 /* ダッシュボードの集計範囲セレクター：スマホ幅で3pxはみ出していた（英語の長いラベル） */
 @media (max-width:820px){.dscope .dsf,.dscope .dsl,.dscope .dsl .sel{max-width:100%;min-width:0;box-sizing:border-box}}
+/* v18.3：AI翻訳の状態表示とやりとりの翻訳ブロック */
+#ai18nst{position:fixed;left:12px;bottom:calc(var(--tabbar-h,0px) + 12px);z-index:70;background:var(--ink);color:var(--canvas);font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;opacity:.85;pointer-events:none}
+#ai18nst[hidden]{display:none}
+.msgtrb{border-left:3px solid var(--bl,#2e5aac)!important;border-radius:0 8px 8px 0!important;font-size:12px!important}
+.msgtrl{display:block;font-size:10.5px;font-weight:700;color:var(--bl,#2e5aac);margin-bottom:2px}
 </style>
 
 <style>
@@ -18475,7 +18480,7 @@ function ux2SecNav(){
   const well=document.getElementById("well"); if(!well) return; const old=document.getElementById("uxsec"); if(old) old.remove();
   const cards=[...well.querySelectorAll(":scope > .c, :scope > .g2 > .c, :scope > .admgrid2 > .c, :scope > div > .c")].filter(c=>c.querySelector("h3")&&c.getBoundingClientRect().height>60);
   const items=[]; const seen=new Set();
-  cards.forEach((c,i)=>{ const h=c.querySelector("h3"); let t=((h.childNodes[0]&&h.childNodes[0].nodeType===3&&h.childNodes[0].nodeValue.trim())?h.childNodes[0].nodeValue:(h.textContent||"")).replace(/\s+/g," ").replace(/この版で(新規|強化)/g,"").replace(/^[^\p{L}\p{N}]+/u,"").trim(); t=t.replace(/\s*\d+(件|社|本|レーン|商品)\s*$/,"").slice(0,22); try{ if(typeof I18N!=="undefined"&&I18N.lang!=="ja"&&typeof i18nStr==="function"){ const tt=i18nStr(t,I18N.dict[I18N.lang]); if(tt) t=tt; } }catch(e){} if(!t||seen.has(t)) return; seen.add(t); if(!c.id) c.id="sec-"+i; items.push({id:c.id,t}); });
+  cards.forEach((c,i)=>{ const h=c.querySelector("h3"); let t=((h.childNodes[0]&&h.childNodes[0].nodeType===3&&h.childNodes[0].nodeValue.trim())?h.childNodes[0].nodeValue:(h.textContent||"")).replace(/\s+/g," ").replace(/この版で(新規|強化)/g,"").replace(/^[^\p{L}\p{N}]+/u,"").trim(); t=t.replace(/\s*\d+(件|社|本|レーン|商品)\s*$/,""); try{ if(typeof I18N!=="undefined"&&I18N.lang!=="ja"&&typeof i18nStr==="function"){ const tt=i18nStr(t,I18N.dict[I18N.lang]); if(tt) t=tt; } }catch(e){} t=t.slice(0,(typeof I18N!=="undefined"&&I18N.lang!=="ja")?36:22);   /* v18.3：訳してから切り詰める（切り詰め後は辞書に当たらない） */ if(!t||seen.has(t)) return; seen.add(t); if(!c.id) c.id="sec-"+i; items.push({id:c.id,t}); });
   if(items.length<3) return;
   const bar=document.createElement("div"); bar.id="uxsec"; bar.innerHTML=`<span class="uxsl">このページの内容</span>${items.map(it=>`<button class="uxsc" data-sec="${it.id}">${it.t}</button>`).join("")}`;
   well.insertAdjacentElement("afterbegin",bar);
@@ -19907,6 +19912,8 @@ try{ document.documentElement.setAttribute("data-lang",I18N.lang); if(I18N.lang!
 /* v15.23b 翻訳辞書（追加分）1/4：ダッシュボード・商品情報を登録・今日やること
    I18N_ROWS2 = 文字列単位 [ja,en,zh,es]／I18N_EL_ROWS = 段落単位（同じインラインタグ構成）／I18N_PAT2 = 数字入り定型 */
 const I18N_ROWS2=[]; const I18N_EL_ROWS=[]; const I18N_PAT2=[];
+/* v18.3：パターン出力の中の可変部（国名・会社名・プラン名など）も辞書で訳す補助。gs＝辞書を通すグループ番号 */
+function I18N_T(tpl,gs){ return (m,d)=>tpl.replace(/\$(\d)/g,(x,i)=>{ const v=m[+i]==null?"":m[+i]; return (gs||[]).includes(+i)?(d[v]||v):v; }); }
 I18N_ROWS2.push(
 /* 国名 */
 ["香港","Hong Kong","香港","Hong Kong"],["台湾","Taiwan","台湾","Taiwán"],["アメリカ","United States","美国","Estados Unidos"],["シンガポール","Singapore","新加坡","Singapur"],
@@ -20033,13 +20040,13 @@ I18N_PAT2.push(
  {re:/^（あと(\d+)件）$/,en:"($1 more)",zh:"（还可添加$1个）",es:"($1 más)"},
  {re:/^他(\d+)社は上部の切替メニュー／🔍検索で$/,en:"Other $1 companies: use the switch menu above or 🔍 search",zh:"其他$1家公司请使用上方切换菜单／🔍搜索",es:"Las otras $1 empresas: menú superior o 🔍 búsqueda"},
  {re:/^業種サンプル：(.+)$/,en:"Industry sample: $1",zh:"行业样例：$1",es:"Ejemplo de sector: $1"},
- {re:/^📌 (.+)｜今日やること$/,en:"📌 $1 | Today's tasks",zh:"📌 $1｜今日待办",es:"📌 $1 | Tareas de hoy"},
+ {re:/^📌 (.+)｜今日やること$/,en:I18N_T("📌 $1 | Today's tasks",[1]),zh:I18N_T("📌 $1｜今日待办",[1]),es:I18N_T("📌 $1 | Tareas de hoy",[1])},
  {re:/^🏢 (.+) · 最終調査$/,en:"🏢 $1 · Last research",zh:"🏢 $1 · 最近调查",es:"🏢 $1 · Última investigación"},
  {re:/^（AI自動選択（(\d+)社）・データ全体＋Web検索・毎日自動更新）$/,en:"(AI auto-selected ($1 cos.) · all data + web search · refreshed daily)",zh:"（AI自动选择（$1家）・全部数据＋网络搜索・每日自动更新）",es:"(selección automática IA ($1) · todos los datos + web · actualización diaria)"},
  {re:/^進捗 (\d+)\/(\d+)$/,en:"Progress $1/$2",zh:"进度 $1/$2",es:"Progreso $1/$2"},
  {re:/^▸ やるべきタスク一覧（(\d+)件・残り(\d+)）$/,en:"▸ Task list ($1 · $2 left)",zh:"▸ 待办任务列表（$1项・剩余$2）",es:"▸ Lista de tareas ($1 · quedan $2)"},
  {re:/^🔗 「(.+)」で進める$/,en:(m,d)=>"🔗 Continue in “"+(d[m[1]]||m[1])+"”",zh:(m,d)=>"🔗 在“"+(d[m[1]]||m[1])+"”中推进",es:(m,d)=>"🔗 Continuar en “"+(d[m[1]]||m[1])+"”"},
- {re:/^🌐 Web調査メモ（([\d-]+)・(.+?)の海外展開・最新動向）$/,en:"🌐 Web research memo ($1 · $2: overseas expansion & latest news)",zh:"🌐 网络调查备忘（$1・$2的海外拓展・最新动向）",es:"🌐 Memo de investigación web ($1 · $2: expansión y novedades)"}
+ {re:/^🌐 Web調査メモ（([\d-]+)・(.+?)の海外展開・最新動向）$/,en:I18N_T("🌐 Web research memo ($1 · $2: overseas expansion & latest news)",[2]),zh:I18N_T("🌐 网络调查备忘（$1・$2的海外拓展・最新动向）",[2]),es:I18N_T("🌐 Memo de investigación web ($1 · $2: expansión y novedades)",[2])}
 );
 
 /* v15.23b 翻訳辞書（追加分）2/4：商品情報・取り込んだ情報・商談記録・営業資料 */
@@ -20195,8 +20202,8 @@ I18N_PAT2.push(
  {re:/^納品可能なレベルに必要な情報が、あと(\d+)項目足りません。$/,en:"$1 more item(s) are needed to reach delivery level.",zh:"距交付级别还缺$1项信息。",es:"Faltan $1 elementos para el nivel de entrega."},
  {re:/^🤖 AI商社マンと埋める（必須 残り(\d+)件）$/,en:"🤖 Fill in with the AI (required: $1 left)",zh:"🤖 与AI商社专员补齐（必填 剩余$1项）",es:"🤖 Completar con la IA (obligatorios: quedan $1)"},
  {re:/^商品写真(\d+)$/,en:"Product photo $1",zh:"商品照片$1",es:"Foto de producto $1"},
- {re:/^資料に入る内容（(.+)）$/,en:"What goes into the deck ($1)",zh:"资料包含的内容（$1）",es:"Contenido del material ($1)"},
- {re:/^強み(\d+)件・価格表(\d+)行・(.+?)(\d+)項目・規制(\d+)か国ぶんを自動レイアウトします。写真枠はプレースホルダー（PowerPoint上で貴社の製品写真に差し替え）です。$/,en:"Auto-lays out $1 strengths, $2 price rows, $4 spec items ($3) and regulations for $5 countries. Photo frames are placeholders (replace with your photos in PowerPoint).",zh:"自动排版优势$1项・价格表$2行・$3$4项・法规$5国。照片框为占位符（请在PowerPoint中替换为贵公司产品照片）。",es:"Maqueta automáticamente $1 fortalezas, $2 filas de precios, $4 datos ($3) y normativa de $5 países. Los marcos de foto son marcadores (sustitúyelos en PowerPoint)."}
+ {re:/^資料に入る内容（(.+)）$/,en:I18N_T("What goes into the deck ($1)",[1]),zh:I18N_T("资料包含的内容（$1）",[1]),es:I18N_T("Contenido del material ($1)",[1])},
+ {re:/^強み(\d+)件・価格表(\d+)行・(.+?)(\d+)項目・規制(\d+)か国ぶんを自動レイアウトします。写真枠はプレースホルダー（PowerPoint上で貴社の製品写真に差し替え）です。$/,en:I18N_T("Auto-lays out $1 strengths, $2 price rows, $4 spec items ($3) and regulations for $5 countries. Photo frames are placeholders (replace with your photos in PowerPoint).",[3]),zh:I18N_T("自动排版优势$1项・价格表$2行・$3$4项・法规$5国。照片框为占位符（请在PowerPoint中替换为贵公司产品照片）。",[3]),es:I18N_T("Maqueta automáticamente $1 fortalezas, $2 filas de precios, $4 datos ($3) y normativa de $5 países. Los marcos de foto son marcadores (sustitúyelos en PowerPoint).",[3])}
 );
 
 /* v15.23b 翻訳辞書（追加分）3/4：タスク・貿易実務・書類・出荷・契約書 */
@@ -20295,7 +20302,6 @@ I18N_PAT2.push(
  {re:/^承認タスク（(\d+)）$/,en:"Approval tasks ($1)",zh:"审批任务（$1）",es:"Tareas de aprobación ($1)"},
  {re:/^(\d+)月$/,en:(m)=>["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[1]-1]||m[0],zh:"$1月",es:(m)=>["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][+m[1]-1]||m[0]},
  {re:/^(.+)の規制調査$/,en:(m,d)=>"Regulatory research: "+(d[m[1]]||m[1]),zh:(m,d)=>(d[m[1]]||m[1])+"法规调查",es:(m,d)=>"Normativa: "+(d[m[1]]||m[1])},
- {re:/^オレンジの縦線が今日（(.+?)）です。親タスクの下に、細かい手順が子タスクとしてぶら下がります。$/,en:"The orange line marks today ($1). Detailed steps hang under each parent task as subtasks.",zh:"橙色竖线为今天（$1）。父任务下挂有作为子任务的详细步骤。",es:"La línea naranja es hoy ($1). Los pasos detallados cuelgan de cada tarea principal como subtareas."},
  {re:/^([\d-]+) 現在$/,en:"as of $1",zh:"截至 $1",es:"a $1"},
  {re:/^(.+)（(\d+)シート）$/,en:"$1 ($2 sheets)",zh:"$1（$2个工作表）",es:"$1 ($2 hojas)"},
  {re:/^ステップ (\d+) \/ (\d+)[　 ]+(.+)$/,en:(m,d)=>"Step "+m[1]+" / "+m[2]+" · "+(d[m[3].trim()]||m[3]),zh:(m,d)=>"步骤 "+m[1]+" / "+m[2]+"・"+(d[m[3].trim()]||m[3]),es:(m,d)=>"Paso "+m[1]+" / "+m[2]+" · "+(d[m[3].trim()]||m[3])},
@@ -20433,7 +20439,7 @@ I18N_PAT2.push(
  {re:/^配点 (\d+)点・寄与 (\d+)点$/,en:"Weight $1 · Contribution $2",zh:"配分$1分・贡献$2分",es:"Peso $1 · Aporte $2"},
  {re:/^🔑 (\d+\/\d+) ログイン$/,en:"🔑 Login $1",zh:"🔑 $1 登录",es:"🔑 Inicio de sesión $1"},
  {re:/^＋(\d+)万円\/月$/,en:(m)=>"+¥"+(m[1]*10000).toLocaleString("en-US")+"/mo",zh:"＋$1万日元/月",es:(m)=>"+¥"+(m[1]*10000).toLocaleString("en-US")+"/mes"},
- {re:/^(.+) 専用$/,en:"For $1 only",zh:"$1 专用",es:"Solo para $1"},
+ {re:/^(.+) 専用$/,en:I18N_T("For $1 only",[1]),zh:I18N_T("$1 专用",[1]),es:I18N_T("Solo para $1",[1])},
  {re:/^HS ([\d.]+)・(\d+)年分$/,en:"HS $1 · $2 years",zh:"HS $1・$2年",es:"HS $1 · $2 años"},
  {re:/^(\d+)件・添付(\d+)件$/,en:"$1 · $2 attachments",zh:"$1件・附件$2件",es:"$1 · $2 adjuntos"},
  {re:/^レート(\d+)本・依頼(\d+)件$/,en:"$1 rates · $2 requests",zh:"费率$1条・询价$2件",es:"$1 tarifas · $2 solicitudes"},
@@ -20470,7 +20476,7 @@ I18N_EL_ROWS.push(
  "📌 <b>Las tareas de hoy</b> tienen su propia página: el agente IA las propone <b>cada día</b> por producto con los datos más recientes y búsqueda web."]
 );
 I18N_PAT2.push(
- {re:/^🏢 (.+?)[　 ]+·[　 ]+最終調査$/,en:"🏢 $1 · Last research",zh:"🏢 $1 · 最近调查",es:"🏢 $1 · Última investigación"},
+ {re:/^🏢 (.+?)[　 ]+·[　 ]+最終調査$/,en:(m,d)=>"🏢 "+m[1].split("／").map(x=>d[x]||x).join(" / ")+" · Last research",zh:(m,d)=>"🏢 "+m[1].split("／").map(x=>d[x]||x).join("／")+" · 最近调查",es:(m,d)=>"🏢 "+m[1].split("／").map(x=>d[x]||x).join(" / ")+" · Última investigación"},
  {re:/^レイヤー([①-⑩]+)　(.+)$/,en:(m,d)=>"Layer "+m[1]+" · "+(d[m[2]]||m[2]),zh:(m,d)=>"层"+m[1]+"・"+(d[m[2]]||m[2]),es:(m,d)=>"Capa "+m[1]+" · "+(d[m[2]]||m[2])},
  {re:/^オレンジの縦線が今日（(.+?)）です。親タスクの下に、細かい手順が子タスクとしてぶら下がります。$/,en:(m)=>"The orange line marks today ("+m[1].replace(/(\d+)年(\d+)月(\d+)日/,"$1-$2-$3")+"). Detailed steps hang under each parent task as subtasks.",zh:"橙色竖线为今天（$1）。父任务下挂有作为子任务的详细步骤。",es:(m)=>"La línea naranja es hoy ("+m[1].replace(/(\d+)年(\d+)月(\d+)日/,"$1-$2-$3")+"). Los pasos detallados cuelgan de cada tarea principal como subtareas."},
  {re:/^充足度(\d+)%・表示中$/,en:"Completeness $1% · showing",zh:"完整度$1%・显示中",es:"Completitud $1% · en pantalla"},
@@ -20539,7 +20545,7 @@ I18N_ROWS2.push(
 ["（各国の推奨／選択中の物流会社の合計・仮押さえは国ごとに選べます）","(sum of the recommended / selected forwarders; holds can be chosen per country)","（各国推荐／已选物流公司的合计・可按国家分别保留）","(suma de los transportistas recomendados / seleccionados; la reserva se elige por país)"],
 ["💬 この見積全体についてAI商社マンに相談","💬 Ask the AI Trade Agent about this quote as a whole","💬 就整体报价咨询AI商社专员","💬 Consultar a la IA sobre la cotización completa"],["見積全体について質問（Enterで送信）","Ask about the whole quote (Enter to send)","就整体报价提问（Enter发送）","Pregunte sobre la cotización completa (Enter para enviar)"],["全体で一番の課題は？","What is the biggest issue overall?","整体上最大的问题是什么？","¿Cuál es el mayor problema en general?"],["仮押さえの優先順位は？","Which country should I hold first?","优先保留哪个国家？","¿Qué país reservar primero?"],["合計を下げる方法は？","How can I lower the total?","如何降低合计金额？","¿Cómo bajar el total?"],
 ["例：「相場より高い？」「どの会社を選ぶべき？」「倉庫はどこが良い？」","e.g. “Is it above market?” “Which forwarder?” “Where to warehouse?”","例：「高于行情吗？」「选哪家？」「仓库放哪？」","p. ej. “¿Está por encima del mercado?” “¿Qué transportista?” “¿Dónde almacenar?”"],["例：「合計を下げるには？」「仮押さえの優先順位は？」","e.g. “How to lower the total?” “Which to hold first?”","例：「如何降低合计？」「先保留哪个？」","p. ej. “¿Cómo bajar el total?” “¿Qué reservar primero?”"],["AI商社マンが考えています…（通常10〜30秒）","The AI Trade Agent is thinking… (usually 10–30 s)","AI商社专员思考中…（通常10〜30秒）","La IA está pensando… (normalmente 10–30 s)"],["内蔵エンジンで回答しています…","Answering with the built-in engine…","正在用内置引擎回答…","Respondiendo con el motor integrado…"],
-["所要","Transit","所需","Tránsito"],["希望納期","Requested date","希望交期","Fecha deseada"],["総合点・特徴","Score / notes","综合分・特点","Puntuación / notas"],["情勢","Situation","形势","Situación"],["対応が必要です","Action required","需要应对","Requiere acción"],["未取得","Not obtained","未取得","No obtenido"],["未対応（EU）","Not addressed (EU)","未应对（欧盟）","Pendiente (UE)"],["未対応（米国）","Not addressed (US)","未应对（美国）","Pendiente (EE. UU.)"],["備案未取得（中国）","Filing not obtained (China)","备案未取得（中国）","Registro no obtenido (China)"],["登録未対応（UAE）","Registration pending (UAE)","未完成注册（阿联酋）","Registro pendiente (EAU)"],["AI提案（規制の警告）","AI suggestion (regulatory warning)","AI建议（法规警示）","Sugerencia de la IA (aviso normativo)"],["③ 成分・スペック表","③ Ingredients / spec sheet","③ 成分・规格表","③ Ingredientes / especificaciones"],["3行","3 rows","3行","3 filas"],["最小ロット未達","Below minimum lot","未达最小订量","Por debajo del lote mínimo"],["賞味期限が短い","Short shelf life","保质期短","Vida útil corta"],["ハラル認証","Halal certification","清真认证","Certificación halal"],["原産地証明書","Certificate of origin","原产地证明书","Certificado de origen"],["届出・","Notification / ","备案・","Notificación / "],["の対応"," – action","的应对"," – acción"],["米国拠点の Miller が現地でフォローします","Miller at our US office will follow up locally","美国据点的 Miller 将在当地跟进","Miller, de nuestra base en EE. UU., hará el seguimiento local"],["新しい商品を登録する","Add a new product","登记新产品","Añadir un producto"],["すべての項目が揃っています。","All items are complete.","所有项目已齐全。","Todos los datos están completos."],["この下から別の資料に差し替えることもできます。","You can also replace it with another document below.","也可以在下方替换为其他资料。","También puede sustituirlo por otro documento abajo."],["🤖 AI追加ヒアリングを開始","🤖 Start AI follow-up interview","🤖 开始AI补充问询","🤖 Iniciar la entrevista adicional de la IA"],["ギフトの発注は9月上旬が締切です","Gift orders close in early September","礼品订单截止于9月上旬","Los pedidos de regalo cierran a principios de septiembre"],["（米国）に対応するか決める","Decide whether to address it (US)","决定是否应对（美国）","Decidir si se aborda (EE. UU.)"],["期間1〜2ヶ月・費用20万円。失注1件・見込み3社が待っています","1–2 months, about ¥200,000. One lost deal and three prospects are waiting","需1〜2个月・费用20万日元。已失1单，3家潜在客户在等待","1–2 meses, unos ¥200.000. Un trato perdido y tres prospectos esperan"],["1,000本の引き合い。エビデンスが決め手になります","An inquiry for 1,000 units; evidence will be decisive","1,000瓶的询盘。证据将是关键","Consulta por 1.000 unidades; la evidencia será decisiva"],["台湾へ見積を出す","Send a quote to Taiwan","向台湾报价","Enviar cotización a Taiwán"],["韓国向けに臨床データの英訳を用意する","Prepare an English translation of the clinical data for Korea","为韩国准备临床数据的英文翻译","Preparar la traducción al inglés de los datos clínicos para Corea"],["何でも検索して画面・商品・操作へ移動","Search anything and jump to a screen, product or action","搜索并跳转到页面・产品・操作","Buscar y saltar a una pantalla, producto o acción"],["この一覧を表示","Show this list","显示此列表","Mostrar esta lista"],["パネル・検索・ドロワーを閉じる","Close panels, search and drawers","关闭面板・搜索・抽屉","Cerrar paneles, búsqueda y cajones"],["やりとりのメッセージを送信","Send a message in Messages","发送沟通消息","Enviar un mensaje"],["AI商社マン／右パネルの質問を送信（Shift+Enterで改行）","Send a question to the AI Trade Agent / side panel (Shift+Enter for a new line)","向AI商社专员／右侧面板发送问题（Shift+Enter换行）","Enviar una pregunta a la IA / panel lateral (Shift+Enter para salto de línea)"],["検索候補の移動と決定","Move through search results and select","移动并选择搜索结果","Moverse por los resultados y seleccionar"],["次の項目へ（フォーカス位置は枠線で表示）","Next item (focus is shown with an outline)","下一项（焦点以边框显示）","Siguiente elemento (el foco se muestra con un contorno)"],["Ctrl+K／⌘K","Ctrl+K / ⌘K","Ctrl+K／⌘K","Ctrl+K / ⌘K"],["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
+["所要","Transit","所需","Tránsito"],["希望納期","Requested date","希望交期","Fecha deseada"],["総合点・特徴","Score / notes","综合分・特点","Puntuación / notas"],["情勢","Situation","形势","Situación"],["対応が必要です","Action required","需要应对","Requiere acción"],["未取得","Not obtained","未取得","No obtenido"],["未対応（EU）","Not addressed (EU)","未应对（欧盟）","Pendiente (UE)"],["未対応（米国）","Not addressed (US)","未应对（美国）","Pendiente (EE. UU.)"],["備案未取得（中国）","Filing not obtained (China)","备案未取得（中国）","Registro no obtenido (China)"],["登録未対応（UAE）","Registration pending (UAE)","未完成注册（阿联酋）","Registro pendiente (EAU)"],["AI提案（規制の警告）","AI suggestion (regulatory warning)","AI建议（法规警示）","Sugerencia de la IA (aviso normativo)"],["③ 成分・スペック表","③ Ingredients / spec sheet","③ 成分・规格表","③ Ingredientes / especificaciones"],["3行","3 rows","3行","3 filas"],["最小ロット未達","Below minimum lot","未达最小订量","Por debajo del lote mínimo"],["賞味期限が短い","Short shelf life","保质期短","Vida útil corta"],["ハラル認証","Halal certification","清真认证","Certificación halal"],["原産地証明書","Certificate of origin","原产地证明书","Certificado de origen"],["届出・","Notification / ","备案・","Notificación / "],["の対応"," – action","的应对"," – acción"],["米国拠点の Miller が現地でフォローします","Miller at our US office will follow up locally","美国据点的 Miller 将在当地跟进","Miller, de nuestra base en EE. UU., hará el seguimiento local"],["新しい商品を登録する","Add a new product","登记新产品","Añadir un producto"],["すべての項目が揃っています。","All items are complete.","所有项目已齐全。","Todos los datos están completos."],["この下から別の資料に差し替えることもできます。","You can also replace it with another document below.","也可以在下方替换为其他资料。","También puede sustituirlo por otro documento abajo."],["🤖 AI追加ヒアリングを開始","🤖 Start AI follow-up interview","🤖 开始AI补充问询","🤖 Iniciar la entrevista adicional de la IA"],["ギフトの発注は9月上旬が締切です","Gift orders close in early September","礼品订单截止于9月上旬","Los pedidos de regalo cierran a principios de septiembre"],["（米国）に対応するか決める","Decide whether to address it (US)","决定是否应对（美国）","Decidir si se aborda (EE. UU.)"],["期間1〜2ヶ月・費用20万円。失注1件・見込み3社が待っています","1–2 months, about ¥200,000. One lost deal and three prospects are waiting","需1〜2个月・费用20万日元。已失1单，3家潜在客户在等待","1–2 meses, unos ¥200.000. Un trato perdido y tres prospectos esperan"],["1,000本の引き合い。エビデンスが決め手になります","An inquiry for 1,000 units; evidence will be decisive","1,000瓶的询盘。证据将是关键","Consulta por 1.000 unidades; la evidencia será decisiva"],["台湾へ見積を出す","Send a quote to Taiwan","向台湾报价","Enviar cotización a Taiwán"],["韓国向けに臨床データの英訳を用意する","Prepare an English translation of the clinical data for Korea","为韩国准备临床数据的英文翻译","Preparar la traducción al inglés de los datos clínicos para Corea"],["何でも検索して画面・商品・操作へ移動","Search anything and jump to a screen, product or action","搜索并跳转到页面・产品・操作","Buscar y saltar a una pantalla, producto o acción"],["この一覧を表示","Show this list","显示此列表","Mostrar esta lista"],["パネル・検索・ドロワーを閉じる","Close panels, search and drawers","关闭面板・搜索・抽屉","Cerrar paneles, búsqueda y cajones"],["やりとりのメッセージを送信","Send a message in Messages","发送沟通消息","Enviar un mensaje"],["AI商社マン／右パネルの質問を送信（Shift+Enterで改行）","Send a question to the AI Trade Agent / side panel (Shift+Enter for a new line)","向AI商社专员／右侧面板发送问题（Shift+Enter换行）","Enviar una pregunta a la IA / panel lateral (Shift+Enter para salto de línea)"],["検索候補の移動と決定","Move through search results and select","移动并选择搜索结果","Moverse por los resultados y seleccionar"],["次の項目へ（フォーカス位置は枠線で表示）","Next item (focus is shown with an outline)","下一项（焦点以边框显示）","Siguiente elemento (el foco se muestra con un contorno)"],["Ctrl+K／⌘K","Ctrl+K / ⌘K","Ctrl+K／⌘K","Ctrl+K / ⌘K"],["一人前に到達","Reached full-fledged","已达到独当一面","Nivel completo alcanzado"],["一人前に到達しました","You have reached the full-fledged level","已达到独当一面的水平","Ha alcanzado el nivel completo"],["最上位の段階です","This is the top stage","这是最高阶段","Es la etapa más alta"],["この商品、どの国に売れますか？","Which countries could this product sell to?","这款产品能卖到哪些国家？","¿A qué países se podría vender este producto?"],["明日の商談、何を聞かれそうですか？","What might I be asked in tomorrow's meeting?","明天的商谈可能会被问到什么？","¿Qué podrían preguntarme en la reunión de mañana?"],["なぜ話が止まったのか、まとめてください。","Summarize why the talks stalled.","请总结一下谈判为何停滞。","Resuma por qué se estancaron las conversaciones."],["こんにちは。","Hello.","您好。","Hola."],["さん専用のAIです。"," — this AI is dedicated to your company.","专属的AI。"," — esta IA es exclusiva para su empresa."],["について、"," — regarding ","：关于",": sobre "],["を読み込んでいます。下の入力欄から自由に質問してください。"," has been loaded. Ask anything in the box below.","已读取。请在下方输入框自由提问。"," está cargado. Pregunte lo que quiera en el cuadro de abajo."],["🌐 翻訳を隠す","🌐 Hide translations","🌐 隐藏翻译","🌐 Ocultar traducciones"],["🌐 翻訳を表示","🌐 Show translations","🌐 显示翻译","🌐 Mostrar traducciones"],["翻訳はAI接続時に自動表示されます","Translations appear automatically when an AI engine is connected","连接AI引擎后会自动显示翻译","Las traducciones aparecen automáticamente cuando hay un motor de IA conectado"],["この表示言語では、辞書に無い文言（サンプルデータ・AIの回答）はAI接続時に翻訳されます","In this language, text not in the built-in dictionary (sample data, AI answers) is translated when an AI engine is connected","在此显示语言下，词典中没有的文字（示例数据・AI回答）会在连接AI引擎后翻译","En este idioma, el texto que no está en el diccionario (datos de muestra, respuestas de la IA) se traduce cuando hay un motor de IA conectado"],["🌐 データ・AI回答のAI翻訳（表示言語が日本語以外のとき）","🌐 AI translation of data & AI answers (when the display language is not Japanese)","🌐 数据・AI回答的AI翻译（显示语言非日语时）","🌐 Traducción por IA de datos y respuestas (cuando el idioma no es japonés)"],["今日やること Daily調査","Today's tasks: daily check","今日待办 每日调查","Tareas de hoy: revisión diaria"],["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
 ["🎫 アカウントを発行する","🎫 Issue an account","🎫 发放账号","🎫 Emitir una cuenta"],["会社名・担当者・期間を入れて「発行する」。コードをお客様に渡すだけで始められます。","Enter company, contact and period, then “Issue”. Hand the code to the customer and they can start.","输入公司・负责人・期限后点击“发放”。把代码交给客户即可开始。","Introduzca empresa, contacto y periodo y pulse “Emitir”. Entregue el código al cliente y podrá empezar."],["📊 利用状況を見る","📊 See usage","📊 查看使用情况","📊 Ver el uso"],["一覧の「詳細」で画面別の利用回数と行動の時系列。期限切れ・無効の絞り込みもできます。","“Details” in the list shows usage per screen and a timeline. You can also filter expired or disabled accounts.","列表中的“详情”可查看各页面的使用次数和时间线，还可筛选过期・停用账号。","“Detalles” en la lista muestra el uso por pantalla y la cronología. También puede filtrar cuentas caducadas o desactivadas."],["🔐 AI接続を共有する","🔐 Share the AI connection","🔐 共享AI连接","🔐 Compartir la conexión de IA"],["「📱 AI接続の共有」をONにすると、そのアカウントのスマホ・別PCでも実AIが使えます。","Turn on “📱 Share AI connection” and that account can use the real AI on phones and other PCs too.","开启“📱 共享AI连接”后，该账号在手机・其他电脑上也能使用真实AI。","Active “📱 Compartir conexión de IA” y esa cuenta podrá usar la IA real también en móviles y otros PC."],
 ["📥 見積依頼を受け取る","📥 Receive quote requests","📥 接收报价请求","📥 Recibir solicitudes de cotización"],["受信箱に荷主からの依頼が届きます。AI物流マンが返答の下書きを用意します。","Requests from shippers arrive in the inbox. The AI Logistics Agent drafts a reply.","货主的请求会送达收件箱。AI物流专员会准备回复草稿。","Las solicitudes de los cargadores llegan a la bandeja. El agente logístico de IA redacta una respuesta."],["🚚 レートを整える","🚚 Maintain your rates","🚚 维护费率","🚚 Mantener sus tarifas"],["物流レート管理に自社のレートを入れるほど、見積の精度が上がります。","The more of your own rates you enter in rate management, the more accurate the quotes.","在物流费率管理中录入越多自家费率，报价越准确。","Cuantas más tarifas propias introduzca, más precisas serán las cotizaciones."],["📊 相見積・AI推奨で速く返す","📊 Reply faster with comparison & AI advice","📊 用比价和AI推荐更快回复","📊 Responder más rápido con comparación e IA"],["相見積の比較とAI物流マンの推奨で、返答までの時間を短くします。","Compare quotes and use the AI Logistics Agent's recommendation to shorten response time.","通过比价和AI物流专员的推荐，缩短回复时间。","Compare cotizaciones y use la recomendación de la IA para acortar el tiempo de respuesta."],
 ["🗂 商品資料をアップロード","🗂 Upload product documents","🗂 上传产品资料","🗂 Subir documentos del producto"],["💬 足りない情報に答える","💬 Answer what is missing","💬 补充缺失信息","💬 Responder lo que falta"],["🤝 あとはAIに聞く・任せる","🤝 Then ask or delegate to the AI","🤝 之后交给AI","🤝 Luego pregunte o delegue a la IA"],
@@ -20588,13 +20594,26 @@ I18N_EL_ROWS.push(
 ["ONにすると、タスク・商談記録・受注・やりとり・会議メモの要約を<b>平文のスナップショット</b>として同期サーバーに置き、STANDAGEが発行する読み取り専用トークンで外部ツール（Claude等）から取得できます。<b>通常の同期データは暗号化のままです。</b>OFFにすると削除されます。","When on, a <b>plain-text snapshot</b> of tasks, deal records, orders, messages and meeting summaries is placed on the sync server, retrievable by external tools (e.g. Claude) with a read-only token issued by STANDAGE. <b>Regular sync data stays encrypted.</b> Turning it off deletes the snapshot.","开启后，任务・商谈记录・订单・往来・会议摘要会以<b>明文快照</b>放在同步服务器上，外部工具（如Claude）可用STANDAGE发放的只读令牌获取。<b>常规同步数据仍保持加密。</b>关闭后即删除。","Al activarlo, una <b>instantánea en texto plano</b> de tareas, registros, pedidos, mensajes y resúmenes de reuniones se coloca en el servidor de sincronización, accesible con un token de solo lectura emitido por STANDAGE. <b>Los datos de sincronización normales siguen cifrados.</b> Al desactivarlo se elimina."]
 );
 I18N_PAT2.push(
+ {re:/^Lv\.(\d+) 見習い$/,en:"Lv.$1 Trainee",zh:"Lv.$1 见习",es:"Nv.$1 Aprendiz"},
+ {re:/^Lv\.(\d+) 駆け出し$/,en:"Lv.$1 Junior",zh:"Lv.$1 新手",es:"Nv.$1 Junior"},
+ {re:/^Lv\.(\d+) 中堅$/,en:"Lv.$1 Mid-level",zh:"Lv.$1 中坚",es:"Nv.$1 Intermedio"},
+ {re:/^Lv\.(\d+) ベテラン候補$/,en:"Lv.$1 Senior candidate",zh:"Lv.$1 资深候补",es:"Nv.$1 Candidato sénior"},
+ {re:/^Lv\.(\d+) 一人前$/,en:"Lv.$1 Full-fledged",zh:"Lv.$1 独当一面",es:"Nv.$1 Completo"},
+ {re:/^(\d+\/\d+) AI見積依頼:(.+)$/,en:"$1 AI quote request: $2",zh:"$1 AI报价请求：$2",es:"$1 Solicitud de cotización IA: $2"},
+ {re:/^(\d+\/\d+) （サイドバー）(.+)$/,en:"$1 (side panel) $2",zh:"$1（侧栏）$2",es:"$1 (panel lateral) $2"},
+ {re:/^(\d+\/\d+) 今日やること Daily調査$/,en:"$1 Today's tasks: daily check",zh:"$1 今日待办 每日调查",es:"$1 Tareas de hoy: revisión diaria"},
+ {re:/^AI自動選択（(\d+)社）接続中・(.+)$/,en:I18N_T("AI auto-select ($1 engines) connected · $2",[2]),zh:I18N_T("AI自动选择（$1家）已连接・$2",[2]),es:I18N_T("Selección automática de IA ($1 motores) conectada · $2",[2])},
+ {re:/^商品マスタ（価格(\d+)行・寸法(\d+)行）$/,en:"product master (prices $1 rows / dimensions $2 rows)",zh:"商品主数据（价格$1行・尺寸$2行）",es:"maestro de producto (precios $1 filas / medidas $2 filas)"},
+ {re:/^／規制調査 (\d+)か国$/,en:"/ regulations for $1 countries",zh:"／法规调查 $1国",es:"/ normativa de $1 países"},
+ {re:/^／商談記録 (\d+)件$/,en:"/ $1 deal records",zh:"／商谈记录 $1件",es:"/ $1 registros de negociación"},
+ {re:/^For (.+) only$/,en:I18N_T("For $1 only",[1]),zh:I18N_T("仅限 $1",[1]),es:I18N_T("Solo para $1",[1])},
  {re:/^(\d+)月(\d+)日まで$/,en:"until $1/$2",zh:"截至$1月$2日",es:"hasta el $2/$1"},
  {re:/^(\d+)月(\d+)日$/,en:"$1/$2",zh:"$1月$2日",es:"$2/$1"},
  {re:/^価格が競合比\+(\d+)%$/,en:"Price +$1% vs competitors",zh:"价格比竞品高$1%",es:"Precio +$1 % frente a competidores"},
  {re:/^【(.+)】(.*)$/,en:"[$1] $2",zh:"【$1】$2",es:"[$1] $2"},
  {re:/^(.+)を取るかどうか決める$/,en:"Decide whether to obtain $1",zh:"决定是否取得$1",es:"Decidir si se obtiene $1"},
  {re:/^(\d+)件を逃した理由。見込み客(\d+)社が同じ壁で止まっています$/,en:"Why $1 deals were lost: $2 prospects are stuck at the same wall",zh:"错失$1件的原因：$2家潜在客户卡在同一道坎",es:"Por qué se perdieron $1 tratos: $2 prospectos chocan con el mismo muro"},
- {re:/^(.+)で断られた理由。同じ条件の引き合いが他に(\d+)社$/,en:"Why $1 declined: $2 other inquiries share the same conditions",zh:"$1拒绝的原因：另有$2家询盘条件相同",es:"Por qué $1 rechazó: otras $2 consultas tienen las mismas condiciones"},
+ {re:/^(.+)で断られた理由。同じ条件の引き合いが他に(\d+)社$/,en:I18N_T("Why $1 declined: $2 other inquiries share the same conditions",[1]),zh:I18N_T("$1拒绝的原因：另有$2家询盘条件相同",[1]),es:I18N_T("Por qué $1 rechazó: otras $2 consultas tienen las mismas condiciones",[1])},
  {re:/^(.+)に送ったサンプルの到着確認$/,en:"Confirm arrival of the sample sent to $1",zh:"确认寄往$1的样品是否到达",es:"Confirmar la llegada de la muestra enviada a $1"},
  {re:/^賞味期限を(\d+)ヶ月にできるか製造部門に確認$/,en:"Ask production whether shelf life can be $1 months",zh:"向生产部门确认保质期能否延长至$1个月",es:"Preguntar a producción si la vida útil puede ser de $1 meses"},
  {re:/^合計（(\d+(?:\.\d+)?)m³ (.+)）$/,en:"Total ($1 m³ $2)",zh:"合计（$1m³ $2）",es:"Total ($1 m³ $2)"},
@@ -20619,6 +20638,264 @@ I18N_PAT2.push(
  {re:/^（([+-]?\d+)日・(高|中|低)）$/,en:(m,d)=>`(${m[1]} d · ${d[m[2]]||m[2]})`,zh:(m,d)=>`（${m[1]}天・${d[m[2]]||m[2]}）`,es:(m,d)=>`(${m[1]} d · ${d[m[2]]||m[2]})`},
  {re:/^(\d{4}-\d{2}-\d{2})・(高|中|低)$/,en:(m,d)=>`${m[1]} · ${d[m[2]]||m[2]}`,zh:(m,d)=>`${m[1]}・${d[m[2]]||m[2]}`,es:(m,d)=>`${m[1]} · ${d[m[2]]||m[2]}`}
 );
+
+/* v18.3：辞書追加（AI接続が無い端末でも日本語が残らないように）
+   ・AIページの案内文（吹き出し）・登録サマリー・成長ログ・バイヤーDBの行・フィルタ
+   ・サンプル2社（みなと酒造／メディコア衛生材料）の商品データ・今日やること・強み
+   ・パターン出力の可変部（会社名・商品名・国名・プラン名）は I18N_T／関数で辞書を通す */
+I18N_ROWS2.push(
+/* ── アカウント・AIページ ── */
+["トライアル環境／（お客様デモ用の共通アカウント）","Trial environment (shared account for customer demos)","试用环境／（客户演示用共享账户）","Entorno de prueba (cuenta compartida para demostraciones)"],
+["🔄 いま再調査する","🔄 Re-run the research now","🔄 立即重新调查","🔄 Volver a investigar ahora"],
+["構成・規格表","Composition / spec sheet","构成・规格表","Composición / especificaciones"],
+["成分・スペック表","Ingredients / spec sheet","成分・规格表","Ingredientes / especificaciones"],
+["成分表・分析表","Ingredients / analysis sheet","成分表・分析表","Ingredientes / análisis"],
+["全成分表（INCI）・規制対応","Full ingredients (INCI) / regulatory","全成分表（INCI）・法规应对","Ingredientes completos (INCI) / normativa"],
+["材質・素材表／環境規制対応","Materials / environmental compliance","材质・素材表／环境法规应对","Materiales / cumplimiento ambiental"],
+["③ 構成・規格表","③ Composition / spec sheet","③ 构成・规格表","③ Composición / especificaciones"],
+["③ 成分表・分析表","③ Ingredients / analysis sheet","③ 成分表・分析表","③ Ingredientes / análisis"],
+["③ 全成分表（INCI）・規制対応","③ Full ingredients (INCI) / regulatory","③ 全成分表（INCI）・法规应对","③ Ingredientes completos (INCI) / normativa"],
+["③ 材質・素材表／環境規制対応","③ Materials / environmental compliance","③ 材质・素材表／环境法规应对","③ Materiales / cumplimiento ambiental"],
+["資料から","From the documents, ","从资料中","De los documentos, "],
+["価格表は","Price list: ","价格表：","Lista de precios: "],
+["寸法・重量は","Dimensions & weight: ","尺寸・重量：","Dimensiones y peso: "],
+["成分・スペック表は","Ingredients / spec sheet: ","成分・规格表：","Ingredientes / especificaciones: "],
+["構成・規格表は","Composition / spec sheet: ","构成・规格表：","Composición / especificaciones: "],
+["全成分表（INCI）・規制対応は","Full ingredients (INCI) / regulatory: ","全成分表（INCI）・法规应对：","Ingredientes completos (INCI) / normativa: "],
+["材質・素材表／環境規制対応は","Materials / environmental compliance: ","材质・素材表／环境法规应对：","Materiales / cumplimiento ambiental: "],
+["は",": ","：",": "],
+["運賃の見積依頼と梱包明細の自動作成","freight quote requests and automatic packing lists","运费询价与装箱单自动生成","solicitudes de flete y listas de empaque automáticas"],
+["ができます。",".","。","."],
+["。関税率と必要書類がここから決まります。",". Tariff rates and required documents follow from this.","。关税率与所需单证由此确定。",". De aquí se derivan los aranceles y los documentos necesarios."],
+["は商品名から"," was estimated from the product name as ","根据产品名称推定为","se estimó a partir del nombre del producto como "],
+["必要な情報はすべて揃っています。","All required information is in place.","所需信息已全部齐全。","Toda la información necesaria está completa."],
+["貿易クラウドはフルパワーで動きます。","Trade Cloud is running at full power.","贸易云已全力运转。","Trade Cloud funciona a plena potencia."],
+["高速AIモデル","Fast AI model","高速AI模型","Modelo de IA rápido"],["最上位AIモデル","Top-tier AI model","最高级AI模型","Modelo de IA superior"],
+["スタンダード","Standard","标准版","Estándar"],["ライト","Lite","轻量版","Lite"],["プロ","Pro","专业版","Pro"],["ビジネス","Business","商务版","Business"],
+["一人前ライン","Full-fledged line","独当一面线","Línea de nivel completo"],
+["を取るかどうか決める",": decide whether to obtain it","：决定是否取得",": decidir si se obtiene"],
+/* ── 成長ログの項目（先頭の語） ── */
+["ログイン","Login","登录","Inicio de sesión"],["招待メンバー","invited member","受邀成员","miembro invitado"],
+["会議メモ→タスク","Meeting memo → tasks","会议备忘→任务","Memo de reunión → tareas"],["会議メモ","Meeting memo","会议备忘","Memo de reunión"],
+["商談記録","Meeting record","商谈记录","Registro de negociación"],["見積相談","Quote consultation","报价咨询","Consulta de cotización"],
+["推奨FOB","Recommended FOB","推荐FOB","FOB recomendado"],["DDP試算","DDP estimate","DDP试算","Estimación DDP"],["DDP確定","DDP confirmed","DDP确定","DDP confirmado"],
+["発注書取込","PO imported","导入订单","OC importada"],["営業資料用画像","Sales deck image","销售资料图片","Imagen del material comercial"],
+["全データExcelエクスポート","Full Excel export","全部数据Excel导出","Exportación completa a Excel"],
+["ヒアリング中に追加","Added during interview","问询中添加","Añadido durante la entrevista"],["ヒアリング中に一式取込","Set imported during interview","问询中导入一套","Conjunto importado durante la entrevista"],
+["AI相談への添付","Attachment to AI consultation","AI咨询附件","Adjunto a la consulta de IA"],["AI抽出を反映","AI extraction applied","已应用AI提取","Extracción de IA aplicada"],
+["メンバー招待","Member invited","邀请成员","Miembro invitado"],["物流会社を選択","Forwarder selected","已选择物流公司","Transportista seleccionado"],
+["情勢メモ登録","Situation memo saved","已登记形势备忘","Memo de situación guardado"],["再見積依頼","Re-quote requested","重新询价","Nueva cotización solicitada"],
+["レート取込","Rates imported","导入运价","Tarifas importadas"],["PO案件を物流会社へ共有","PO shared with forwarder","PO项目已共享给物流公司","PO compartida con el transportista"],
+["AI見積依頼","AI quote requested","AI询价","Cotización IA solicitada"],["AI物流マンのプラン変更","AI Logistics Agent plan changed","AI物流专员方案变更","Plan del agente logístico IA cambiado"],
+["AI物流マンに質問","Asked the AI Logistics Agent","向AI物流专员提问","Pregunta al agente logístico IA"],["音声→商談記録","Voice → meeting record","语音→商谈记录","Voz → registro de negociación"],
+["表を編集","Table edited","编辑表格","Tabla editada"],["定型セット適用","Preset applied","应用模板集","Conjunto predefinido aplicado"],
+["営業資料の仕上げヒアリング入力","Sales deck finishing interview","销售资料完善问询","Entrevista final del material comercial"],
+["商談記録を承認・公開","Meeting record approved & shared","商谈记录已批准・公开","Registro aprobado y publicado"],["商談記録の承認依頼","Approval requested for meeting record","商谈记录审批申请","Aprobación solicitada para el registro"],
+["修正","Corrected","修正","Corregido"],["データ健全性チェックで修正","Fixed by data health check","数据健全性检查修正","Corregido por la comprobación de datos"],
+["受信翻訳","Incoming translation","收件翻译","Traducción de recibido"],["受信翻訳(自動)","Incoming translation (auto)","收件翻译(自动)","Traducción de recibido (auto)"],
+["必須項目の入力が完了","Required fields completed","必填项已完成","Campos obligatorios completados"],
+["LINEトーク取込","LINE chat imported","导入LINE聊天","Chat de LINE importado"],["WhatsAppトーク取込","WhatsApp chat imported","导入WhatsApp聊天","Chat de WhatsApp importado"],["チャットトーク取込","Chat imported","导入聊天","Chat importado"],
+/* ── バイヤーDB ── */
+["すべての国","All countries","所有国家","Todos los países"],["すべてのカテゴリ","All categories","所有类别","Todas las categorías"],["すべての脈あり度","All interest levels","所有意向度","Todos los niveles de interés"],["すべてのステータス","All statuses","所有状态","Todos los estados"],
+["中古車ディーラー","Used-car dealer","二手车经销商","Concesionario de coches usados"],["車両輸入商","Vehicle importer","车辆进口商","Importador de vehículos"],["フリート運行会社","Fleet operator","车队运营公司","Operador de flotas"],["カーオークション運営","Car auction operator","汽车拍卖运营商","Operador de subastas de coches"],
+["輸入商社","Importer / trading company","进口贸易公司","Importador"],["ディストリビューター","Distributor","分销商","Distribuidor"],["小売チェーン","Retail chain","零售连锁","Cadena minorista"],["ECプラットフォーム","E-commerce platform","电商平台","Plataforma de comercio electrónico"],["卸売業者","Wholesaler","批发商","Mayorista"],["専門商社","Specialized trading company","专业贸易公司","Empresa comercial especializada"],["百貨店・量販店","Department / mass retailer","百货・量贩店","Grandes almacenes / gran distribución"],
+["食品輸入商","Food importer","食品进口商","Importador de alimentos"],["レストラングループ","Restaurant group","餐饮集团","Grupo de restaurantes"],["スーパーマーケットチェーン","Supermarket chain","超市连锁","Cadena de supermercados"],["食品ディストリビューター","Food distributor","食品分销商","Distribuidor de alimentos"],["EC食品モール","Online food mall","食品电商平台","Mercado de alimentos en línea"],
+["酒類輸入ライセンス保有商社","Licensed liquor importer","持酒类进口许可的贸易公司","Importador con licencia de bebidas alcohólicas"],["レストラン・バーグループ","Restaurant & bar group","餐厅・酒吧集团","Grupo de restaurantes y bares"],["酒販チェーン","Liquor retail chain","酒类零售连锁","Cadena de licorerías"],
+["医療機器ディストリビューター","Medical device distributor","医疗器械分销商","Distribuidor de dispositivos médicos"],["薬局チェーン","Pharmacy chain","药店连锁","Cadena de farmacias"],["病院向け卸","Hospital supplier","医院供应商","Proveedor hospitalario"],
+["抹茶・日本茶","Matcha & Japanese tea","抹茶・日本茶","Matcha y té japonés"],["調味料","Seasonings","调味料","Condimentos"],["菓子","Confectionery","点心","Dulces"],["健康食品","Health foods","健康食品","Alimentos saludables"],["米・穀物","Rice & grains","大米・谷物","Arroz y cereales"],["水産加工品","Processed seafood","水产加工品","Productos del mar procesados"],["米・穀物・健康食品","Rice, grains & health foods","大米・谷物・健康食品","Arroz, cereales y alimentos saludables"],
+["スキンケア","Skincare","护肤","Cuidado de la piel"],["ヘアケア","Hair care","护发","Cuidado del cabello"],["J-Beauty全般","J-Beauty in general","J-Beauty全品类","J-Beauty en general"],["サプリメント","Supplements","保健品","Suplementos"],
+["キッチン用品","Kitchenware","厨房用品","Utensilios de cocina"],["タンブラー・ボトル","Tumblers & bottles","保温杯・水瓶","Vasos térmicos y botellas"],["文具・雑貨","Stationery & sundries","文具・杂货","Papelería y artículos varios"],["収納用品","Storage goods","收纳用品","Artículos de almacenaje"],["タオル","Towels","毛巾","Toallas"],
+["ベアリング・軸受","Bearings","轴承","Rodamientos"],["切削工具","Cutting tools","切削工具","Herramientas de corte"],["産業機械部品","Industrial machine parts","工业机械零件","Piezas de maquinaria industrial"],["金型","Molds & dies","模具","Moldes"],
+["デニム","Denim","牛仔","Denim"],["カジュアルウェア","Casual wear","休闲服","Ropa casual"],["子供服","Children's wear","童装","Ropa infantil"],["アウトドアウェア","Outdoor wear","户外服装","Ropa outdoor"],["子供服・デニム","Children's wear & denim","童装・牛仔","Ropa infantil y denim"],["アウトドアウェア・デニム","Outdoor wear & denim","户外服装・牛仔","Ropa outdoor y denim"],
+["日本酒","Sake","日本清酒","Sake"],["ウイスキー","Whisky","威士忌","Whisky"],["クラフトビール","Craft beer","精酿啤酒","Cerveza artesanal"],["梅酒","Umeshu (plum liqueur)","梅酒","Umeshu (licor de ciruela)"],
+["梅酒・クラフトビール","Umeshu & craft beer","梅酒・精酿啤酒","Umeshu y cerveza artesanal"],["梅酒・日本酒","Umeshu & sake","梅酒・日本清酒","Umeshu y sake"],["日本酒・梅酒","Sake & umeshu","日本清酒・梅酒","Sake y umeshu"],["クラフトビール・ウイスキー","Craft beer & whisky","精酿啤酒・威士忌","Cerveza artesanal y whisky"],["梅酒・ウイスキー","Umeshu & whisky","梅酒・威士忌","Umeshu y whisky"],["ウイスキー・日本酒","Whisky & sake","威士忌・日本清酒","Whisky y sake"],["日本酒・ウイスキー","Sake & whisky","日本清酒・威士忌","Sake y whisky"],["日本酒・クラフトビール","Sake & craft beer","日本清酒・精酿啤酒","Sake y cerveza artesanal"],["クラフトビール・梅酒","Craft beer & umeshu","精酿啤酒・梅酒","Cerveza artesanal y umeshu"],["ウイスキー・クラフトビール","Whisky & craft beer","威士忌・精酿啤酒","Whisky y cerveza artesanal"],
+["HV乗用車","Hybrid passenger cars","混动乘用车","Turismos híbridos"],["商用バン","Commercial vans","商用面包车","Furgonetas comerciales"],["SUV","SUV","SUV","SUV"],["トラック","Trucks","卡车","Camiones"],["SUV・商用バン","SUVs & commercial vans","SUV・商用面包车","SUV y furgonetas comerciales"],
+["救急用品","First-aid supplies","急救用品","Artículos de primeros auxilios"],["衛生材料","Hygiene materials","卫生材料","Material sanitario"],["介護用品","Nursing-care products","护理用品","Productos para el cuidado de mayores"],["検査キット","Test kits","检测试剂盒","Kits de prueba"],
+["ギフト全般","Gifts in general","礼品全品类","Regalos en general"],["ホビー","Hobby goods","爱好用品","Artículos de hobby"],["建材","Building materials","建材","Materiales de construcción"],["ペット用品","Pet supplies","宠物用品","Artículos para mascotas"],
+["食品","Food","食品","Alimentos"],["美容・健康","Beauty & health","美容・健康","Belleza y salud"],["日用雑貨","Daily goods","日用杂货","Artículos del hogar"],["工業部品","Industrial parts","工业零件","Piezas industriales"],["アパレル","Apparel","服装","Ropa"],["酒類","Liquor","酒类","Bebidas alcohólicas"],["中古車・車両","Used cars & vehicles","二手车・车辆","Coches usados y vehículos"],["医療・衛生","Medical & hygiene","医疗・卫生","Médico y sanitario"],["医療・衛生用品","Medical & hygiene supplies","医疗・卫生用品","Suministros médicos y sanitarios"],["化粧品","Cosmetics","化妆品","Cosméticos"],["その他","Other","其他","Otros"],
+["年商 $1M未満","Revenue under $1M","年营收 $1M以下","Facturación inferior a $1M"],["年商 $1〜5M","Revenue $1–5M","年营收 $1〜5M","Facturación $1–5M"],["年商 $5〜20M","Revenue $5–20M","年营收 $5〜20M","Facturación $5–20M"],["年商 $20M超","Revenue over $20M","年营收 $20M以上","Facturación superior a $20M"],
+["モンゴル","Mongolia","蒙古","Mongolia"],["EU","EU","欧盟","UE"],
+["食品・日用品の小売/量販チャネル開拓","Retail / mass-market channel development for food & daily goods","食品・日用品的零售/量贩渠道开拓","Desarrollo de canales minoristas para alimentos y artículos del hogar"],
+["規制対応・見本市の同行商談","Regulatory support & accompanied trade-fair meetings","法规应对・展会陪同商谈","Apoyo normativo y reuniones acompañadas en ferias"],
+["🗣 広東語・英語・日本語／経験 商社12年／貿易クラウド対応実績","🗣 Cantonese, English, Japanese / 12 years at a trading company / Trade Cloud experience","🗣 粤语・英语・日语／经验 贸易公司12年／贸易云对应实绩","🗣 Cantonés, inglés, japonés / 12 años en una trading / experiencia en Trade Cloud"],
+["🗣 日本語・英語・中国語／経験 貿易実務8年／貿易クラウド対応実績","🗣 Japanese, English, Chinese / 8 years of trade operations / Trade Cloud experience","🗣 日语・英语・中文／经验 贸易实务8年／贸易云对应实绩","🗣 Japonés, inglés, chino / 8 años de operaciones comerciales / experiencia en Trade Cloud"],
+["陳 美玲（Chan Mei-ling）","Chan Mei-ling","陈 美玲（Chan Mei-ling）","Chan Mei-ling"],["佐々木 蓮","Ren Sasaki","佐佐木 莲","Ren Sasaki"],
+/* ── サンプル会社・商品（8社） ── */
+["株式会社みなと酒造","Minato Sake Brewery Co., Ltd.","港酒造株式会社","Minato Sake Brewery Co., Ltd."],
+["株式会社倉敷デニムワークス","Kurashiki Denim Works Co., Ltd.","仓敷牛仔工坊株式会社","Kurashiki Denim Works Co., Ltd."],
+["オートリンク貿易株式会社","Autolink Trading Co., Ltd.","Autolink贸易株式会社","Autolink Trading Co., Ltd."],
+["株式会社メディコア衛生材料","Medicore Hygiene Materials Co., Ltd.","Medicore卫生材料株式会社","Medicore Hygiene Materials Co., Ltd."],
+["スドウ金属工業株式会社","Sudo Metal Industries Co., Ltd.","须藤金属工业株式会社","Sudo Metal Industries Co., Ltd."],
+["株式会社みどり製茶","Midori Tea Co., Ltd.","绿制茶株式会社","Midori Tea Co., Ltd."],
+["株式会社ルミエール化研","Lumière Kaken Co., Ltd.","Lumière化研株式会社","Lumière Kaken Co., Ltd."],
+["東邦精密工業株式会社","Toho Precision Industries Co., Ltd.","东邦精密工业株式会社","Toho Precision Industries Co., Ltd."],
+["純米大吟醸 湊 720ml","Junmai Daiginjo MINATO 720ml","纯米大吟酿 湊 720ml","Junmai Daiginjo MINATO 720ml"],
+["セルビッジデニム 5Pジーンズ 14.8oz","Selvedge denim 5-pocket jeans 14.8oz","赤耳牛仔 五袋牛仔裤 14.8oz","Vaqueros selvedge 5 bolsillos 14.8oz"],
+["中古乗用車 トヨタ・アクア(2019年式・HV)","Used car Toyota Aqua (2019, hybrid)","二手乘用车 丰田Aqua(2019年款・混动)","Coche usado Toyota Aqua (2019, híbrido)"],
+["滅菌ガーゼ・ファーストエイドキット","Sterile gauze & first-aid kit","灭菌纱布・急救包","Gasa estéril y botiquín de primeros auxilios"],
+["ステンレス真空断熱タンブラー 350ml","Stainless vacuum-insulated tumbler 350ml","不锈钢真空保温杯 350ml","Vaso térmico de acero inoxidable 350ml"],
+["有機抹茶パウダー 100g","Organic matcha powder 100g","有机抹茶粉 100g","Matcha orgánico en polvo 100g"],
+["ライスファーメント セラム 30mL","Rice ferment serum 30mL","米发酵精华液 30mL","Sérum de arroz fermentado 30mL"],
+["深溝玉軸受 TP-6204ZZ","Deep-groove ball bearing TP-6204ZZ","深沟球轴承 TP-6204ZZ","Rodamiento rígido de bolas TP-6204ZZ"],
+["有機抹茶パウダー","Organic matcha powder","有机抹茶粉","Matcha orgánico en polvo"],["ライスファーメント","Rice ferment","米发酵","Arroz fermentado"],
+["兵庫県神戸市","Kobe, Hyogo","兵库县神户市","Kobe, Hyogo"],["大阪府大阪市","Osaka","大阪府大阪市","Osaka"],["静岡県掛川市","Kakegawa, Shizuoka","静冈县挂川市","Kakegawa, Shizuoka"],["新潟県三条市","Sanjo, Niigata","新潟县三条市","Sanjo, Niigata"],["長野県諏訪市","Suwa, Nagano","长野县诹访市","Suwa, Nagano"],
+["契約茶園の一番茶100%・有機JAS・石臼挽き5μm","100% first-flush tea from contracted farms · organic JAS · stone-milled 5μm","签约茶园一番茶100%・有机JAS・石磨研磨5μm","100% primera cosecha de plantaciones contratadas · JAS orgánico · molido en piedra 5μm"],
+["国産米ぬか発酵エキス30%・無香料・動物実験非実施","30% domestic rice-bran ferment extract · fragrance-free · not tested on animals","国产米糠发酵精华30%・无香料・未做动物实验","30% extracto fermentado de salvado de arroz nacional · sin fragancia · no testado en animales"],
+["内部すきま±2μm・低トルク保持器・在庫品10日出荷","Internal clearance ±2μm · low-torque cage · stock items ship in 10 days","内部游隙±2μm・低扭矩保持架・库存品10天发货","Holgura interna ±2μm · jaula de bajo par · stock enviado en 10 días"],
+["アメリカに送ったサンプルの到着確認","Confirm arrival of the sample sent to the US","确认寄往美国的样品到货","Confirmar la llegada de la muestra enviada a EE. UU."],
+["賞味期限を18ヶ月にできるか製造部門に確認","Check with production whether shelf life can be 18 months","向生产部门确认保质期能否延长至18个月","Consultar a producción si la vida útil puede ser de 18 meses"],
+/* ── 商品情報ページ（共通ラベル） ── */
+["数量帯","Quantity tier","数量区间","Tramo de cantidad"],["寸法","Dimensions","尺寸","Dimensiones"],["重量","Weight","重量","Peso"],["単品","Unit","单品","Unidad"],["単品(瓶)","Unit (bottle)","单品(瓶)","Unidad (botella)"],["化粧箱","Gift box","礼盒","Caja de regalo"],["化粧箱入り","In gift box","含礼盒","En caja de regalo"],
+["外装カートン(12入)","Outer carton (12 pcs)","外箱(12入)","Caja exterior (12 uds.)"],["外装カートン(50入)","Outer carton (50 pcs)","外箱(50入)","Caja exterior (50 uds.)"],["パレット","Pallet","托盘","Palé"],["外装48ケース","48 outer cases","外箱48箱","48 cajas exteriores"],
+["年間契約","Annual contract","年度合同","Contrato anual"],["OEM対応","OEM available","支持OEM","OEM disponible"],["現地語表示対応","Local-language labeling available","支持当地语言标示","Etiquetado en idioma local disponible"],
+["原料米","Rice","原料米","Arroz"],["精米歩合","Polishing ratio","精米步合","Grado de pulido"],["アルコール分","Alcohol content","酒精度","Graduación alcohólica"],["日本酒度","Sake meter value","日本酒度","Índice de sake (SMV)"],["酸度","Acidity","酸度","Acidez"],["賞味期限","Best-before","保质期","Consumo preferente"],["裏ラベル記載","Shown on back label","背标标示","Indicado en la contraetiqueta"],
+["山田錦(兵庫県産100%)","Yamada Nishiki (100% Hyogo)","山田锦(兵库县产100%)","Yamada Nishiki (100% de Hyogo)"],["やや辛口","Slightly dry","略辛口","Ligeramente seco"],["製造から12ヶ月","12 months from production","生产后12个月","12 meses desde la producción"],["製造から3年","3 years from production","生产后3年","3 años desde la producción"],
+["〜499本","Up to 499 bottles","〜499瓶","Hasta 499 botellas"],["500〜1,999本","500–1,999 bottles","500〜1,999瓶","500–1.999 botellas"],["2,000本〜","2,000+ bottles","2,000瓶以上","2.000+ botellas"],
+["〜999セット","Up to 999 sets","〜999套","Hasta 999 juegos"],["1,000〜4,999セット","1,000–4,999 sets","1,000〜4,999套","1.000–4.999 juegos"],["5,000セット〜","5,000+ sets","5,000套以上","5.000+ juegos"],
+["各国の規制に合っているかを判定する土台です。アルコール分・原料・保存条件がここに入ります。","The basis for judging compliance with each country's regulations. Alcohol content, ingredients and storage conditions go here.","这是判断是否符合各国法规的基础。酒精度・原料・保存条件填在这里。","Base para juzgar el cumplimiento normativo de cada país. Aquí van la graduación, los ingredientes y las condiciones de conservación."],
+["各国の規制に合っているかを判定する土台です。規格・滅菌・クラス分類がここに入ります。","The basis for judging compliance with each country's regulations. Standards, sterilization and classification go here.","这是判断是否符合各国法规的基础。规格・灭菌・分类填在这里。","Base para juzgar el cumplimiento normativo de cada país. Aquí van las normas, la esterilización y la clasificación."],
+["価格表とHSコードが揃うと自動計算されます","Calculated automatically once the price list and HS code are in place","价格表与HS编码齐全后自动计算","Se calcula automáticamente cuando hay lista de precios y código HS"],
+["0%（アルコール30%以下）","0% (alcohol ≤30%)","0%（酒精度30%以下）","0% (alcohol ≤30%)"],["20%＋酒税","20% + liquor tax","20%＋酒税","20% + impuesto sobre el alcohol"],["0%＋酒税S$88/L（純アルコール）","0% + liquor tax S$88/L (pure alcohol)","0%＋酒税S$88/L（纯酒精）","0% + impuesto S$88/L (alcohol puro)"],["従量税＋州税","Specific duty + state tax","从量税＋州税","Derecho específico + impuesto estatal"],["0%＋EU酒税","0% + EU excise duty","0%＋欧盟酒税","0% + impuesto especial de la UE"],
+["インボイス","Invoice","发票","Factura"],["パッキングリスト","Packing list","装箱单","Lista de empaque"],["成分分析表","Certificate of analysis","成分分析表","Certificado de análisis"],["通関 1〜2営業日","Customs clearance 1–2 business days","清关 1〜2个工作日","Despacho aduanero 1–2 días hábiles"],
+["酒税は輸入者側で発生します。見積書に「酒税別」であることを明記してください。","Liquor tax is incurred by the importer. State clearly on the quotation that liquor tax is excluded.","酒税由进口方承担。请在报价单中注明“酒税另计”。","El impuesto sobre el alcohol lo asume el importador. Indique en la cotización que no está incluido."],
+["上の表は概算。詳細はAI調査と社内規制DBのレポートで確認できます。","The table above is an estimate. Details are available in the AI research and the internal regulatory DB report.","上表为概算。详情可在AI调查与公司内部法规数据库报告中确认。","La tabla es una estimación. Los detalles están en la investigación de la IA y el informe de la base normativa interna."],
+["見積から入金まで、1本の流れとして追えます。","Track everything from quotation to payment as a single flow.","从报价到收款，可作为一条流程追踪。","Siga todo, desde la cotización hasta el cobro, como un único flujo."],
+["商品と国を選ぶだけ。以前は毎回、人が調べていました。さらに","Just pick a product and a country. This used to be researched manually every time. In addition, ","只需选择产品和国家。以前每次都要人工调查。此外，","Solo elija un producto y un país. Antes esto se investigaba a mano cada vez. Además, "],
+["STANDAGE規制データベース（社内ポータル）の調査レポート","the STANDAGE regulatory database (internal portal) research report","STANDAGE法规数据库（内部门户）的调查报告","el informe de la base de datos normativa STANDAGE (portal interno)"],
+["と、"," and ","以及","y"],["AIによる最新規制の詳細調査","a detailed AI investigation of the latest regulations","AI对最新法规的详细调查","la investigación detallada de la IA sobre la normativa más reciente"],
+["にも、ここから直接つながります。"," are also directly accessible from here.","也可从此处直接访问。"," también son accesibles directamente desde aquí."],
+["（想定）香港の輸入商社","(Hypothetical) Hong Kong importer","（假设）香港进口商","(Hipotético) Importador de Hong Kong"],["AI提案（受注の確定）","AI suggestion (confirm the order)","AI建议（确定订单）","Sugerencia de la IA (confirmar el pedido)"],
+["ISO13485証明書","ISO 13485 certificate","ISO13485证书","Certificado ISO 13485"],["滅菌証明書（該当品）","Sterilization certificate (applicable items)","灭菌证书（适用产品）","Certificado de esterilización (artículos aplicables)"],
+["タイFDA医療機器登録（クラス別）","Thai FDA medical device registration (by class)","泰国FDA医疗器械注册（按类别）","Registro de dispositivos médicos en la FDA tailandesa (por clase)"],
+["医療機器の分類（クラス）は国ごとに異なります。クラスIでも登録・届出が必要な国が多く、現地輸入者のライセンスが前提です。","Medical device classes differ by country. Many countries require registration or notification even for Class I, and a licensed local importer is a prerequisite.","医疗器械的分类（等级）因国家而异。即使是I类，许多国家也需要注册・备案，并以当地进口商持有许可为前提。","La clase de los dispositivos médicos varía según el país. Muchos exigen registro o notificación incluso para la clase I, y se requiere un importador local con licencia."],
+["（想定）タイの輸入商社","(Hypothetical) Thailand importer","（假设）泰国进口商","(Hipotético) Importador de Tailandia"],
+["⚠ 会社・ブランドロゴ（必須）","⚠ Company / brand logo (required)","⚠ 公司・品牌标志（必填）","⚠ Logotipo de la empresa / marca (obligatorio)"],
+["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
+["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
+["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+["作成待ち","Awaiting creation","待创建","Pendiente de crear"],["想定シナリオ","Hypothetical scenario","假设场景","Escenario hipotético"],
+["の作成を始める",": start creating","开始制作","empezar a preparar"],["に着手する",": get started","着手处理","ponerse en marcha"],["台湾向け","For Taiwan","面向台湾","Para Taiwán"],
+/* ── みなと酒造：強み・今日やること ── */
+["IWC2025(インターナショナル・ワイン・チャレンジ)SAKE部門 GOLD","IWC 2025 (International Wine Challenge) Sake category GOLD","IWC2025(国际葡萄酒挑战赛)清酒组 金奖","IWC 2025 (International Wine Challenge) categoría Sake ORO"],
+["海外バイヤーへの説明が1行で済む受賞歴","An award that explains itself to overseas buyers in one line","一句话即可向海外买家说明的获奖经历","Un premio que se explica a los compradores en una sola línea"],
+["兵庫県産 山田錦100%・精米歩合45%","100% Hyogo Yamada Nishiki · 45% polishing ratio","兵库县产山田锦100%・精米步合45%","100% Yamada Nishiki de Hyogo · pulido al 45%"],
+["酒米の王様を高精白。香りで選ばれる一本","The king of sake rice, highly polished. Chosen for its aroma","将酒米之王高度精磨，以香气取胜的一款","El rey del arroz para sake, muy pulido. Elegido por su aroma"],
+["輸出向けは火入れ1回・急冷充填","Export lots are pasteurized once and rapidly chilled at bottling","出口品为一次火入・急冷灌装","Los lotes de exportación se pasteurizan una vez y se embotellan en frío"],
+["現地までフレッシュな香味を保つ設計","Designed to keep the fresh flavor all the way to the destination","设计上可将新鲜风味保持到当地","Diseñado para conservar el sabor fresco hasta el destino"],
+["リーファー(冷蔵)コンテナの混載輸送ノウハウ","Know-how in reefer (refrigerated) LCL shipping","冷藏集装箱拼箱运输经验","Experiencia en grupaje en contenedor refrigerado"],
+["5℃管理のまま香港・シンガポールへ毎月出荷実績","Monthly shipments to Hong Kong and Singapore kept at 5°C","保持5℃每月发往香港・新加坡的实绩","Envíos mensuales a Hong Kong y Singapur a 5 °C"],
+["英語裏ラベル・成分表示は対応済み","English back label and ingredient listing already done","已完成英文背标・成分标示","Contraetiqueta en inglés y lista de ingredientes ya preparadas"],
+["輸入者名の差し替えだけで販売開始できる","Sales can start by simply replacing the importer name","只需替换进口商名称即可开始销售","Se puede empezar a vender con solo cambiar el nombre del importador"],
+["香港300本の受注内容を確認する","Confirm the 300-bottle Hong Kong order details","确认香港300瓶订单内容","Confirmar los detalles del pedido de 300 botellas de Hong Kong"],
+["出荷案件はステップ1/7で受注未確定。まず想定輸入商社へ数量・","The shipment is at step 1/7 with the order not yet confirmed. First confirm quantity, ","出货项目处于步骤1/7，订单未确定。请先向预定进口商确认数量・","El envío está en el paso 1/7 sin pedido confirmado. Primero confirme cantidad, "],
+["神戸・納期・冷蔵条件を確認する。","Kobe, delivery date and refrigeration terms with the prospective importer.","神户・交期・冷藏条件。","Kobe, plazo y condiciones de refrigeración con el importador previsto."],
+["香港向け見積書を作成する","Prepare the quotation for Hong Kong","制作面向香港的报价单","Preparar la cotización para Hong Kong"],
+["300本は単価US$18、合計US$5,400。香港は関税0%だが酒税別のため、酒税別記載で初回見積を作る。","300 bottles at US$18 each, US$5,400 in total. Hong Kong has 0% duty but liquor tax is separate, so state it as excluded in the first quotation.","300瓶单价US$18，合计US$5,400。香港关税0%但酒税另计，首次报价需注明酒税另计。","300 botellas a US$18, US$5.400 en total. Hong Kong tiene 0% de arancel pero el impuesto sobre el alcohol es aparte; indíquelo como excluido."],
+["香港案件の冷蔵輸送を見積依頼する","Request a quote for refrigerated transport on the Hong Kong deal","为香港项目询价冷藏运输","Solicitar cotización de transporte refrigerado para Hong Kong"],
+["輸出品は要冷蔵で、希望着荷は10/8。まず登録物流会社へ神戸港発リーファー混載の相見積を依頼する。","The goods need refrigeration and are due to arrive 10/8. First request competing quotes for reefer LCL from Kobe port from registered forwarders.","出口品需冷藏，希望到货日为10/8。请先向已登记的物流公司询价神户港出发的冷藏拼箱。","La mercancía requiere frío y debe llegar el 8/10. Solicite primero cotizaciones de grupaje refrigerado desde Kobe a los transportistas registrados."],
+["台湾対応は期限9/16で未着手。台湾には233名の登録バイヤーがいるため、まず必要書類と申請担当を確認する。","The Taiwan task is due 9/16 and not started. Taiwan has 233 registered buyers, so first confirm the required documents and who files them.","台湾应对截止9/16尚未着手。台湾有233名登记买家，请先确认所需文件与申请负责人。","La tarea de Taiwán vence el 16/9 y no ha empezado. Taiwán tiene 233 compradores registrados; confirme primero los documentos y el responsable."],
+["香港バイヤーへの接触候補を絞る","Shortlist Hong Kong buyers to contact","筛选香港买家的接触候选","Preseleccionar compradores de Hong Kong a contactar"],
+["香港の酒類バイヤー登録は710名で、商品はIWC2025 GOLD。まず酒類カテゴリの匿名見本から候補を抽出する。","There are 710 registered liquor buyers in Hong Kong and the product won IWC 2025 GOLD. First extract candidates from the anonymized liquor-category samples.","香港酒类买家登记710名，产品为IWC2025金奖。请先从酒类类别的匿名样本中抽取候选。","Hay 710 compradores de licores registrados en Hong Kong y el producto ganó ORO en IWC 2025. Extraiga candidatos de las muestras anónimas de la categoría."],
+["期限9/13で未着手、香港案件は300本・10/8着希望。まずインボイス等と商品情報を揃え、証明書申請要件を確認する。","Due 9/13 and not started; the Hong Kong deal is 300 bottles due 10/8. First prepare the invoice and product information, then check the certificate application requirements.","截止9/13尚未着手，香港项目为300瓶・希望10/8到货。请先备齐发票等与产品信息，确认证书申请要件。","Vence el 13/9 y no ha empezado; el pedido de Hong Kong es de 300 botellas para el 8/10. Prepare la factura y la información del producto y revise los requisitos del certificado."],
+/* ── メディコア衛生材料：強み・規格・今日やること ── */
+["ISO13485認証の自社工場で製造","Made in our own ISO 13485-certified plant","在通过ISO13485认证的自有工厂生产","Fabricado en planta propia certificada ISO 13485"],
+["医療機器の品質マネジメントを工場ごと証明できる","Quality management for medical devices can be certified at plant level","可整厂证明医疗器械质量管理","La gestión de calidad de dispositivos médicos se certifica a nivel de planta"],
+["クラスI(一般医療機器)中心の構成","Mainly Class I (general medical devices)","以I类(一般医疗器械)为主","Principalmente clase I (dispositivos médicos generales)"],
+["多くの国で登録・届出の負担が軽く、参入が速い","Light registration burden in many countries, so market entry is fast","在许多国家注册・备案负担轻，进入市场快","Registro sencillo en muchos países, entrada rápida al mercado"],
+["EOG滅菌を自社工程で実施(SAL 10⁻⁶)","EtO sterilization done in-house (SAL 10⁻⁶)","自有工序实施EO灭菌(SAL 10⁻⁶)","Esterilización EtO en proceso propio (SAL 10⁻⁶)"],
+["滅菌バリデーション報告書を提出可能","Sterilization validation report available","可提供灭菌验证报告","Informe de validación de esterilización disponible"],
+["現地語パッケージ・OEMに対応","Local-language packaging and OEM available","支持当地语言包装・OEM","Envase en idioma local y OEM disponibles"],
+["薬局チェーンのPB(プライベートブランド)実績あり","Track record of private-label products for pharmacy chains","有药店连锁自有品牌(PB)实绩","Experiencia en marca blanca para cadenas de farmacias"],
+["有効期限3年","3-year shelf life","有效期3年","Caducidad de 3 años"],
+["長い販売期間がとれ、輸入者の在庫リスクが低い","Long selling window, low inventory risk for the importer","销售期长，进口商库存风险低","Largo periodo de venta y bajo riesgo de inventario para el importador"],
+["滅菌ガーゼ 10枚","Sterile gauze ×10","灭菌纱布 10片","Gasa estéril ×10"],["EOG滅菌","EtO sterilized","EO灭菌","Esterilizado con EtO"],["救急絆創膏 20枚","Adhesive bandages ×20","急救创可贴 20片","Tiritas ×20"],["防水タイプ","Waterproof type","防水型","Tipo impermeable"],
+["サージカルテープ 1巻","Surgical tape ×1","医用胶带 1卷","Esparadrapo ×1"],["低刺激アクリル系粘着","Hypoallergenic acrylic adhesive","低刺激丙烯酸类粘合剂","Adhesivo acrílico hipoalergénico"],["伸縮包帯 2巻","Elastic bandages ×2","弹性绷带 2卷","Vendas elásticas ×2"],
+["製造","Manufacturing","生产","Fabricación"],["ISO13485認証工場","ISO 13485-certified plant","ISO13485认证工厂","Planta certificada ISO 13485"],["証明書提出可","Certificate available","可提供证书","Certificado disponible"],["分類","Classification","分类","Clasificación"],
+["クラスI(一般医療機器)相当","Equivalent to Class I (general medical device)","相当于I类(一般医疗器械)","Equivalente a clase I (dispositivo médico general)"],["国により要確認","Check by country","需按国家确认","Verificar según el país"],["ロット管理","Lot control","批号管理","Control por lotes"],
+["タイ案件の受注条件を正す","Correct the order terms on the Thailand deal","修正泰国项目的订单条件","Corregir las condiciones del pedido de Tailandia"],
+["1,000セットは価格表上US$3.70で、想定単価US$4.20と不一致。見積をUS$3,700","1,000 sets are US$3.70 on the price list, which conflicts with the assumed US$4.20. Correct the quotation to US$3,700","1,000套在价格表上为US$3.70，与假设单价US$4.20不符。将报价修正为US$3,700","1.000 juegos figuran a US$3,70 en la lista, lo que no coincide con los US$4,20 previstos. Corrija la cotización a US$3.700"],
+["大阪港へ修正する"," from Osaka port."," 大阪港出发。"," desde el puerto de Osaka."],
+["タイ出荷の必要書類を揃える","Prepare the documents for the Thailand shipment","备齐泰国出货所需文件","Preparar los documentos del envío a Tailandia"],
+["希望着荷は10月8日、出荷はステップ1/7。インボイス、パッキングリスト、ISO13485・滅菌証明書の草案を作る","Requested arrival is October 8 and the shipment is at step 1/7. Draft the invoice, packing list, ISO 13485 and sterilization certificates","希望到货日为10月8日，出货处于步骤1/7。起草发票、装箱单、ISO13485・灭菌证书","Llegada solicitada el 8 de octubre; el envío está en el paso 1/7. Redacte la factura, la lista de empaque y los certificados ISO 13485 y de esterilización"],
+["タイFDA登録状況を確認する","Check the Thai FDA registration status","确认泰国FDA注册状况","Verificar el registro en la FDA tailandesa"],
+["タイはクラス別のタイFDA医療機器登録と現地輸入者ライセンスが必要。対応中の規制調査で登録要件を確認する","Thailand requires class-based Thai FDA device registration and a local importer license. Confirm the requirements in the ongoing regulatory research","泰国需要按类别进行泰国FDA医疗器械注册及当地进口商许可。在进行中的法规调查中确认注册要件","Tailandia exige registro de dispositivos en la FDA por clase y licencia de importador local. Confirme los requisitos en la investigación normativa en curso"],
+["タイ向け船積み日程を確定する","Fix the shipping schedule for Thailand","确定面向泰国的装船日程","Fijar el calendario de embarque a Tailandia"],
+["選択済み物流は大阪港発、14日・44,000円。10月8日着から逆算し、受注確定後の集荷日を確認する","The selected logistics is from Osaka port, 14 days, ¥44,000. Count back from the October 8 arrival and confirm the pickup date after order confirmation","已选物流为大阪港出发，14天・44,000日元。从10月8日到货倒推，确认订单确定后的取货日","La logística elegida sale de Osaka, 14 días, ¥44.000. Calcule hacia atrás desde el 8 de octubre y confirme la recogida tras confirmar el pedido"],
+["ベトナム規制調査を着手する","Start the Vietnam regulatory research","着手越南法规调查","Iniciar la investigación normativa de Vietnam"],
+["ベトナム調査は未着手だが期限は9月29日。MOHクラスA届出と現地輸入者要件の確認項目を作る","The Vietnam research has not started and is due September 29. Draw up the checklist for the MOH Class A notification and local importer requirements","越南调查尚未着手，截止日为9月29日。制作MOH A类备案与当地进口商要件的确认项目","La investigación de Vietnam no ha empezado y vence el 29 de septiembre. Prepare la lista de la notificación clase A del MOH y los requisitos del importador"],
+["海外候補へ初回提案を送る","Send the first proposal to overseas candidates","向海外候选发送首次提案","Enviar la primera propuesta a los candidatos en el extranjero"],
+["医療・衛生カテゴリの登録バイヤーは約455名。まずタイ199名とベトナム135名向けにMC-FA100資料を準備する","About 455 registered buyers are in the medical & hygiene category. First prepare MC-FA100 materials for the 199 in Thailand and 135 in Vietnam","医疗・卫生类别的登记买家约455名。请先为泰国199名与越南135名准备MC-FA100资料","Hay unos 455 compradores registrados en la categoría médico-sanitaria. Prepare primero el material MC-FA100 para los 199 de Tailandia y los 135 de Vietnam"],
+["Webでは確認できませんでした。株式会社メディコア衛生材料、MC-FA100および同カテゴリの海外展開に関する最新の公開情報は確認できませんでした。","Nothing could be confirmed on the web. No recent public information was found on Medicore Hygiene Materials, MC-FA100 or overseas expansion in this category.","网络上未能确认。未找到关于Medicore卫生材料株式会社、MC-FA100及同类别海外拓展的最新公开信息。","No se pudo confirmar nada en la web. No se encontró información pública reciente sobre Medicore Hygiene Materials, MC-FA100 ni la expansión de esta categoría."],
+["Webでは確認できませんでした。株式会社みなと酒造および「純米大吟醸 湊 720ml」の海外展開に関する最新動向を確認できませんでした。","Nothing could be confirmed on the web. No recent developments were found on Minato Sake Brewery or the overseas expansion of “Junmai Daiginjo MINATO 720ml”.","网络上未能确认。未找到关于港酒造株式会社及“纯米大吟酿 湊 720ml”海外拓展的最新动态。","No se pudo confirmar nada en la web. No se encontraron novedades sobre Minato Sake Brewery ni la expansión de “Junmai Daiginjo MINATO 720ml”."]
+);
+/* ── パターン（可変部つき）。関数出力は (m,d) を受け取る。
+   T：辞書の行だけ／TS：行＋他のパターンも通す（i18nStr）／TP：先頭の絵文字・記号を残して残りを TS で訳す
+   先頭に差し込む（unshift）分は、既存の広いパターンより先に当てたいもの（[商品名 n] 接頭・（サンプル）接尾・カテゴリ／商品名） */
+{
+const T=(s,d)=>d[s]||s;
+const TS=(s,d)=>{ try{ const r=i18nStr(s,d); return r==null?s:r; }catch(e){ return s; } };
+const TP=(s,d)=>{ const mm=String(s).match(/^([^\p{L}\p{N}]*)([\s\S]*)$/u); return mm?mm[1]+TS(mm[2],d):TS(s,d); };
+const PRI=[
+ /* ダッシュボード「今後30日」：原文は【商品名 n】タスク名（既存パターンは [ ] に変えるだけで中身を訳さない） */
+ {re:/^【(.+?) (\d+)】\s*([\s\S]+)$/,en:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"] "+TS(m[3],d),zh:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"] "+TS(m[3],d),es:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"] "+TS(m[3],d)},
+ {re:/^【(.+?) (\d+)】$/,en:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"]",zh:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"]",es:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"]"},
+ {re:/^【(.+?) 】\s*([\s\S]*)$/,en:(m,d)=>"["+TS(m[1],d)+" ] "+TS(m[2],d),zh:(m,d)=>"["+TS(m[1],d)+" ] "+TS(m[2],d),es:(m,d)=>"["+TS(m[1],d)+" ] "+TS(m[2],d)},
+ {re:/^（想定）(.+?)の輸入商社$/,en:(m,d)=>"(Hypothetical) "+T(m[1],d)+" importer",zh:(m,d)=>"（假设）"+T(m[1],d)+"进口商",es:(m,d)=>"(Hipotético) Importador de "+T(m[1],d)},
+ {re:/^通関 (\d+)〜(\d+)営業日$/,en:"Customs clearance $1–$2 business days",zh:"清关 $1〜$2个工作日",es:"Despacho aduanero $1–$2 días hábiles"},
+ {re:/^(\d[\d,]*)個$/,en:"$1 pcs",zh:"$1个",es:"$1 uds."},
+ {re:/^\[(.+?) (\d+)\] ([\s\S]+)$/,en:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"] "+TS(m[3],d),zh:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"] "+TS(m[3],d),es:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"] "+TS(m[3],d)},
+ {re:/^\[(.+?) (\d+)\]$/,en:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"]",zh:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"]",es:(m,d)=>"["+TS(m[1],d)+" "+m[2]+"]"},
+ {re:/^\[(.+?) \]$/,en:(m,d)=>"["+TS(m[1],d)+" ]",zh:(m,d)=>"["+TS(m[1],d)+" ]",es:(m,d)=>"["+TS(m[1],d)+" ]"},
+ {re:/^(.+?)（サンプル）$/,en:(m,d)=>TP(m[1],d)+" (sample)",zh:(m,d)=>TP(m[1],d)+"（样例）",es:(m,d)=>TP(m[1],d)+" (muestra)"},
+ {re:/^(.+?)（デモ）$/,en:(m,d)=>TP(m[1],d)+" (demo)",zh:(m,d)=>TP(m[1],d)+"（演示）",es:(m,d)=>TP(m[1],d)+" (demo)"},
+ {re:/^(.+?)（(.+?)・サンプル）$/,en:(m,d)=>TP(m[1],d)+" ("+TS(m[2],d)+" · sample)",zh:(m,d)=>TP(m[1],d)+"（"+TS(m[2],d)+"・样例）",es:(m,d)=>TP(m[1],d)+" ("+TS(m[2],d)+" · muestra)"},
+ {re:/^(.+?)（(.+?)・デモ）$/,en:(m,d)=>TP(m[1],d)+" ("+TS(m[2],d)+" · demo)",zh:(m,d)=>TP(m[1],d)+"（"+TS(m[2],d)+"・演示）",es:(m,d)=>TP(m[1],d)+" ("+TS(m[2],d)+" · demo)"},
+ {re:/^(.+?)／(.+?)（(.+?)）／$/,en:(m,d)=>TP(m[1],d)+" / "+TS(m[2],d)+" ("+TS(m[3],d)+") / ",zh:(m,d)=>TP(m[1],d)+"／"+TS(m[2],d)+"（"+TS(m[3],d)+"）／",es:(m,d)=>TP(m[1],d)+" / "+TS(m[2],d)+" ("+TS(m[3],d)+") / "},
+ {re:/^(食品|化粧品|工業部品|酒類|医療・衛生用品|アパレル|日用雑貨|中古車・車両)\s+(.+)$/,en:(m,d)=>T(m[1],d)+" · "+TS(m[2],d),zh:(m,d)=>T(m[1],d)+" "+TS(m[2],d),es:(m,d)=>T(m[1],d)+" · "+TS(m[2],d)},
+ {re:/^①商品情報・強み（(\d+)項目）\s*②価格表・寸法（(\d+)SKU）\s*③(.+?)（(\d+)項目）$/,en:(m,d)=>"① Product info & strengths ("+m[1]+" items) ② Price list & dimensions ("+m[2]+" SKUs) ③ "+T(m[3],d)+" ("+m[4]+" items)",zh:(m,d)=>"①产品信息・优势（"+m[1]+"项） ②价格表・尺寸（"+m[2]+"个SKU） ③"+T(m[3],d)+"（"+m[4]+"项）",es:(m,d)=>"① Información y fortalezas ("+m[1]+") ② Precios y dimensiones ("+m[2]+" SKU) ③ "+T(m[3],d)+" ("+m[4]+")"},
+ {re:/^(.+) 向け出荷の準備$/,en:(m,d)=>"Prepare the shipment for "+TS(m[1],d),zh:(m,d)=>"准备面向"+TS(m[1],d)+"的出货",es:(m,d)=>"Preparar el envío para "+TS(m[1],d)},
+ {re:/^こんにちは。(.+?)さん専用のAIです。$/,en:(m,d)=>"Hello. This AI is dedicated to "+TS(m[1],d)+".",zh:(m,d)=>"您好。这是"+TS(m[1],d)+"的专属AI。",es:(m,d)=>"Hola. Esta IA es exclusiva para "+TS(m[1],d)+"."}
+];
+PRI.slice().reverse().forEach(p=>I18N_PAT2.unshift(p));
+I18N_PAT2.push(
+ {re:/^強みを(\d+)点$/,en:"$1 strengths",zh:"$1项优势",es:"$1 fortalezas"},
+ {re:/^(\d+)行$/,en:"$1 rows",zh:"$1行",es:"$1 filas"},
+ {re:/^(\d+)項目$/,en:"$1 items",zh:"$1项",es:"$1 elementos"},
+ {re:/^読み取りました。\s*([\s\S]+?)\s*(ほか)?。\s*AIはここを引用して商談準備の答えを作ります。$/,
+  en:(m,d)=>"were read: "+m[1].replace(/「([^」]+)」/g,(x,q)=>"“"+TS(q,d)+"”")+(m[2]?" and more":"")+". The AI cites these when preparing answers for meetings.",
+  zh:(m,d)=>"已读取："+m[1].replace(/「([^」]+)」/g,(x,q)=>"“"+TS(q,d)+"”")+(m[2]?" 等":"")+"。AI会引用这些内容来准备商谈答复。",
+  es:(m,d)=>"se leyeron: "+m[1].replace(/「([^」]+)」/g,(x,q)=>"“"+TS(q,d)+"”")+(m[2]?" y más":"")+". La IA las cita al preparar las reuniones."},
+ {re:/^を取り込みました。\s*数量帯があるので、「その数量ならいくら」を即答できます。$/,en:" imported. With quantity tiers, the AI can instantly answer “how much for that quantity”.",zh:"已导入。因有数量区间，可立即回答“该数量多少钱”。",es:" importadas. Con tramos de cantidad, la IA responde al instante “cuánto por esa cantidad”."},
+ {re:/^を取り込みました。\s*数量帯があるとさらに精度が上がります。$/,en:" imported. Adding quantity tiers improves accuracy further.",zh:"已导入。加入数量区间后精度会更高。",es:" importadas. Añadir tramos de cantidad mejora aún más la precisión."},
+ {re:/^。\s*これで$/,en:". This enables ",zh:"。这样即可",es:". Esto permite "},
+ {re:/^。\s*各国の規制に通るかどうかの判定に使います。$/,en:". Used to judge whether it passes each country's regulations.",zh:"。用于判断是否符合各国法规。",es:". Se usa para juzgar si cumple la normativa de cada país."},
+ {re:/^と推定しました。\s*正式な分類は税関の事前教示で確定できます。$/,en:". The official classification can be confirmed through a customs advance ruling.",zh:"。正式分类可通过海关预裁定确定。",es:". La clasificación oficial puede confirmarse con una resolución anticipada de aduanas."},
+ {re:/^商品マスタ（価格(\d+)行・寸法(\d+)行）／(.+?) (\d+)項目／規制調査 (\d+)か国／商談記録 (\d+)件$/,
+  en:(m,d)=>"product master (price "+m[1]+" rows · dimensions "+m[2]+" rows) / "+T(m[3],d)+" "+m[4]+" items / regulatory research "+m[5]+" countries / meeting records "+m[6],
+  zh:(m,d)=>"产品主数据（价格"+m[1]+"行・尺寸"+m[2]+"行）／"+T(m[3],d)+" "+m[4]+"项／法规调查 "+m[5]+"个国家／商谈记录 "+m[6]+"件",
+  es:(m,d)=>"maestro de productos (precio "+m[1]+" filas · dimensiones "+m[2]+" filas) / "+T(m[3],d)+" "+m[4]+" elementos / investigación normativa "+m[5]+" países / registros "+m[6]},
+ {re:/^高速AIモデル（(.+)）$/,en:"Fast AI model ($1)",zh:"高速AI模型（$1）",es:"Modelo de IA rápido ($1)"},
+ {re:/^最上位AIモデル（(.+)）$/,en:"Top-tier AI model ($1)",zh:"最高级AI模型（$1）",es:"Modelo de IA superior ($1)"},
+ {re:/^一人前ライン (\d+)%$/,en:"Full-fledged line $1%",zh:"独当一面线 $1%",es:"Línea de nivel completo $1%"},
+ /* 成長ログ：「アイコン 月/日 内容」。内容は「見出し:詳細」の見出しだけ訳す（詳細はデータ） */
+ {re:/^(\S+) (\d+\/\d+) ([\s\S]+)$/,
+  en:(m,d)=>{ const t=m[3]; let h=null; const lg=t.match(/^ログイン（(.+?)）$/); if(lg) h="Login ("+lg[1].split("・").map(x=>T(x,d)).join(" · ")+")"; else if(d[t]) h=d[t]; else { const i=t.indexOf(":"); if(i>0){ const hd=t.slice(0,i), rs=t.slice(i+1); if(d[hd]) h=d[hd]+": "+TS(rs.replace(/^(\d+)件$/,"$1"),d); } } return h?m[1]+" "+m[2]+" "+h:null; },
+  zh:(m,d)=>{ const t=m[3]; let h=null; const lg=t.match(/^ログイン（(.+?)）$/); if(lg) h="登录（"+lg[1].split("・").map(x=>T(x,d)).join("・")+"）"; else if(d[t]) h=d[t]; else { const i=t.indexOf(":"); if(i>0){ const hd=t.slice(0,i), rs=t.slice(i+1); if(d[hd]) h=d[hd]+"："+TS(rs,d); } } return h?m[1]+" "+m[2]+" "+h:null; },
+  es:(m,d)=>{ const t=m[3]; let h=null; const lg=t.match(/^ログイン（(.+?)）$/); if(lg) h="Inicio de sesión ("+lg[1].split("・").map(x=>T(x,d)).join(" · ")+")"; else if(d[t]) h=d[t]; else { const i=t.indexOf(":"); if(i>0){ const hd=t.slice(0,i), rs=t.slice(i+1); if(d[hd]) h=d[hd]+": "+TS(rs.replace(/^(\d+)件$/,"$1"),d); } } return h?m[1]+" "+m[2]+" "+h:null; }},
+ /* バイヤーDB */
+ {re:/^ID ([A-Z]{2}-\d+)・正式契約後に開示$/,en:"ID $1 · disclosed after contract",zh:"ID $1・正式签约后公开",es:"ID $1 · se revela tras el contrato"},
+ {re:/^🔒 (.+?)の(.+)$/,en:(m,d)=>"🔒 "+T(m[2],d)+" in "+T(m[1],d),zh:(m,d)=>"🔒 "+T(m[1],d)+"的"+T(m[2],d),es:(m,d)=>"🔒 "+T(m[2],d)+" en "+T(m[1],d)},
+ {re:/^年商 (.+)$/,en:"Revenue $1",zh:"年营收 $1",es:"Facturación $1"},
+ {re:/^①商品情報・強み（(\d+)項目） ②価格表・寸法（(\d+)SKU） ③(.+?)（(\d+)項目）$/,en:(m,d)=>"① Product info & strengths ("+m[1]+" items) ② Price list & dimensions ("+m[2]+" SKUs) ③ "+T(m[3],d)+" ("+m[4]+" items)",zh:(m,d)=>"①产品信息・优势（"+m[1]+"项） ②价格表・尺寸（"+m[2]+"个SKU） ③"+T(m[3],d)+"（"+m[4]+"项）",es:(m,d)=>"① Información y fortalezas ("+m[1]+") ② Precios y dimensiones ("+m[2]+" SKU) ③ "+T(m[3],d)+" ("+m[4]+")"},
+ {re:/^(\d[\d,]*)本$/,en:"$1 bottles",zh:"$1瓶",es:"$1 botellas"},
+ {re:/^(\d[\d,]*)セット$/,en:"$1 sets",zh:"$1套",es:"$1 juegos"},
+ {re:/^〜(\d[\d,]*)本（(US\$[\d.,]+)）$/,en:"Up to $1 bottles ($2)",zh:"〜$1瓶（$2）",es:"Hasta $1 botellas ($2)"},
+ {re:/^(\d[\d,]*)〜(\d[\d,]*)本（(US\$[\d.,]+)）$/,en:"$1–$2 bottles ($3)",zh:"$1〜$2瓶（$3）",es:"$1–$2 botellas ($3)"},
+ {re:/^(\d[\d,]*)本〜（(US\$[\d.,]+)）$/,en:"$1+ bottles ($2)",zh:"$1瓶以上（$2）",es:"$1+ botellas ($2)"},
+ /* 「A／B」：どちらかが訳せるときだけ（先頭の絵文字は残す） */
+ {re:/^([^／]+)／([^／]+)$/,en:(m,d)=>{ const a=TP(m[1],d), b=TS(m[2],d); return (a!==m[1]||b!==m[2])?a+" / "+b:null; },zh:(m,d)=>{ const a=TP(m[1],d), b=TS(m[2],d); return (a!==m[1]||b!==m[2])?a+"／"+b:null; },es:(m,d)=>{ const a=TP(m[1],d), b=TS(m[2],d); return (a!==m[1]||b!==m[2])?a+" / "+b:null; }}
+);
+}
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -20677,5 +20954,119 @@ const __i18nRestoreEl0=i18nRestore;
 i18nRestore=function(){ __i18nRestoreEl0.apply(this,arguments); try{ I18N.elIns.forEach(n=>{ try{ n.remove(); }catch(e){} }); }catch(e){} I18N.elIns=[]; I18N.elNodes=new WeakSet(); I18N.elDone=new WeakSet(); };
 /* re-apply once now (the language may already be non-ja at load / after F5) */
 try{ if(I18N.lang!=="ja") i18nApply(document.body); }catch(e){}
+
+/* ═══════════ v18.3（2026-09-08）：表示言語が日本語以外のとき、辞書に無い文言を接続AIで翻訳する層 ＋ やりとりの「原文＋AI翻訳」 ═══════════
+   原因：翻訳エンジン（logic_i18n.js）は「辞書に載っている文言」だけを置き換えるため、サンプルデータ（商談記録・今日やること・タスク・強み）、
+   内蔵AIの回答、動的に組み立てた文章（成長ログ・AIの案内文）、相手が書いたやりとり本文は日本語のまま残っていた。
+   さらに、エンジンは自分が管理するノードを再走査するたびに「辞書に無い＝原文へ戻す」ため、後から差し替えた翻訳が元に戻る競合があった。
+   対応：①表示中の画面から日本語のテキストを集め、接続AIにまとめて翻訳させて差し替える（結果は端末にキャッシュ・言語を戻すと原文に復元）
+          差し替えたノードは AI18N.map で管理し、エンジンの再走査（i18nText）では触らせない。キャッシュ済みは描画直後に同期で反映（ちらつき無し）
+        ②やりとりは「原文（正）＋表示言語へのAI翻訳」をセットで表示。翻訳はメッセージに保存され他端末にも同期。全体で翻訳を隠す切替つき
+        ③AI未接続の端末では辞書分のみ（その旨を1回だけ表示）。ヘルプパネルからこの層をOFFにできる */
+const AI18N={cache:{},lang:"",busy:false,timer:0,noted:false,mo:null,fails:0,map:new Map()};
+const AI18N_LANGN={en:"English",zh:"Simplified Chinese",es:"Spanish",ja:"Japanese"};
+const AI18N_ST={en:"🌐 AI translating…",zh:"🌐 AI 翻译中…",es:"🌐 Traduciendo con IA…"};
+function ai18nOn(){ try{ return localStorage.getItem("bc20_ai18n")!=="0"; }catch(e){ return true; } }
+function ai18nSetOn(v){ try{ localStorage.setItem("bc20_ai18n",v?"1":"0"); }catch(e){} if(v){ ai18nSync(); ai18nKick(80); } else { ai18nRestore(); } }
+function ai18nLang(){ return (typeof I18N!=="undefined"&&I18N&&I18N.lang)||"ja"; }
+function ai18nOnline(){ try{ return typeof v16Online==="function"&&v16Online(); }catch(e){ return false; } }
+function ai18nNeeds(s){ return ai18nLang()==="zh"?/[぀-ヿ]/.test(s):/[぀-ヿ一-鿿]/.test(s); }
+function ai18nLoad(){ const L=ai18nLang(); if(AI18N.lang===L) return AI18N.cache; try{ AI18N.cache=JSON.parse(localStorage.getItem("bc20_ai18n_"+L)||"{}")||{}; }catch(e){ AI18N.cache={}; } AI18N.lang=L; return AI18N.cache; }
+function ai18nSave(){ try{ const ks=Object.keys(AI18N.cache); if(ks.length>5000) ks.slice(0,ks.length-5000).forEach(k=>delete AI18N.cache[k]); localStorage.setItem("bc20_ai18n_"+AI18N.lang,JSON.stringify(AI18N.cache)); }catch(e){} }
+const AI18N_SKIP=/^(SCRIPT|STYLE|TEXTAREA|INPUT|CODE|PRE|KBD|SVG|PATH)$/i;
+const AI18N_ROOTS="#well,#pn,#guide,.side,#tabbar,#barmenu";
+function ai18nKeyOf(s){ return String(s).replace(/\s+/g," ").trim(); }
+function ai18nNodes(){
+  const out=[]; if(ai18nLang()==="ja") return out;
+  document.querySelectorAll(AI18N_ROOTS).forEach(root=>{
+    const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>{ const p=n.parentElement; if(!p||AI18N_SKIP.test(p.nodeName)||p.namespaceURI==="http://www.w3.org/2000/svg") return NodeFilter.FILTER_REJECT;   /* SVG内（地図の国名ツールチップ・グラフ）は対象外 */
+      if(p.closest("[data-noi18n],[data-ai18n-skip],#uxpq,.acode,.msgtr,.logo")) return NodeFilter.FILTER_REJECT;   /* やりとりの本文（相手の原文）は data-ai18n-skip で除外 */
+      const k=ai18nKeyOf(n.nodeValue); if(k.length<2||!ai18nNeeds(k)) return NodeFilter.FILTER_REJECT; return NodeFilter.FILTER_ACCEPT; }});
+    while(w.nextNode()) out.push(w.currentNode); });
+  return out;
+}
+function ai18nApplyNode(n,t){ try{ const v=n.nodeValue; const a=(v.match(/^\s*/)||[""])[0], b=(v.match(/\s*$/)||[""])[0]; const nv=a+t+b; if(nv===v) return; AI18N.map.set(n,{o:v,t:nv}); n.nodeValue=nv; }catch(e){} }
+function ai18nRestore(){ AI18N.map.forEach((rec,n)=>{ try{ if(n.isConnected&&n.nodeValue===rec.t) n.nodeValue=rec.o; }catch(e){} }); AI18N.map=new Map(); }
+/* キャッシュ済みの翻訳を同期で反映（描画直後・DOM追加直後）。戻り値＝未翻訳の残り件数 */
+function ai18nApplyCached(){ if(!ai18nOn()||ai18nLang()==="ja") return 0; const cache=ai18nLoad(); let pend=0; ai18nNodes().forEach(n=>{ const k=ai18nKeyOf(n.nodeValue); if(cache[k]) ai18nApplyNode(n,cache[k]); else pend++; }); return pend; }
+/* 描画直後：先に辞書（エンジン）を当ててから、残りにキャッシュを当てる（辞書の訳語が優先・AIの呼び出しを節約） */
+function ai18nSync(){ if(ai18nLang()==="ja") return 0; try{ if(typeof i18nApply==="function") document.querySelectorAll(AI18N_ROOTS).forEach(r=>i18nApply(r)); }catch(e){} ai18nDictBB(); return ai18nApplyCached(); }
+/* AIの吹き出し（.bb）はエンジンが素通しするため、辞書に載っている定型文（案内文・成長ログなど）だけここで当てる。1回処理した吹き出しは印を付けて再走査しない */
+function ai18nDictBB(){ try{ if(ai18nLang()==="ja"||typeof i18nText!=="function") return; const d=I18N.dict[I18N.lang]; if(!d) return;
+  document.querySelectorAll("#well .bb:not([data-ai18n-d]),#pn .bb:not([data-ai18n-d])").forEach(bb=>{ bb.setAttribute("data-ai18n-d","1"); if(bb.closest("[data-noi18n],[data-ai18n-skip]")) return;
+    const w=document.createTreeWalker(bb,NodeFilter.SHOW_TEXT,{acceptNode:n=>{ const p=n.parentElement; if(!p||AI18N_SKIP.test(p.nodeName)||p.namespaceURI==="http://www.w3.org/2000/svg") return NodeFilter.FILTER_REJECT; if(p.closest("[data-noi18n],[data-ai18n-skip]")) return NodeFilter.FILTER_REJECT; return ai18nNeeds(n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT; }});
+    const L=[]; while(w.nextNode()) L.push(w.currentNode); L.forEach(n=>i18nText(n,d)); }); }catch(e){} }
+function ai18nStatus(on){ let el=document.getElementById("ai18nst"); if(!el){ el=document.createElement("div"); el.id="ai18nst"; el.setAttribute("data-noi18n",""); document.body.appendChild(el); } el.textContent=AI18N_ST[ai18nLang()]||AI18N_ST.en; el.hidden=!on; el.style.display=on?"":"none"; }
+/* 接続AIへまとめて依頼（JSON配列で返させる） */
+async function ai18nTranslateBatch(list,lang){
+  const sys=`You are a professional translator for a Japanese export/trade SaaS. Translate every item from Japanese into ${AI18N_LANGN[lang]||lang}. Rules: keep numbers, dates, currency, product codes, company/brand names written in Latin letters, emoji and punctuation as they are; keep HTML entities; do not add notes. Output ONLY a JSON array of strings with exactly ${list.length} items in the same order.`;
+  const r=await llmAsk("Translate:\n"+JSON.stringify(list),Math.min(6000,400+list.join("").length*3),{sys,noWeb:1,timeout:50000,task:"translate"});
+  const txt=String((r&&r.txt)||""); const a=txt.indexOf("["), b=txt.lastIndexOf("]"); if(a<0||b<a) throw new Error("no json");
+  const arr=JSON.parse(txt.slice(a,b+1)); if(!Array.isArray(arr)) throw new Error("not array"); return arr;
+}
+async function ai18nRun(){
+  if(AI18N.busy) return; if(!ai18nOn()||ai18nLang()==="ja") return;
+  const cache=ai18nLoad(); if(!ai18nApplyCached()) return;
+  let pending=[]; ai18nNodes().forEach(n=>{ const k=ai18nKeyOf(n.nodeValue); if(!cache[k]) pending.push(k); });
+  pending=[...new Set(pending)].filter(k=>k.length<=1800);
+  if(!pending.length) return;
+  if(!ai18nOnline()){ if(!AI18N.noted){ AI18N.noted=true; try{ toast("この表示言語では、辞書に無い文言（サンプルデータ・AIの回答）はAI接続時に翻訳されます"); }catch(e){} } return; }
+  if(AI18N.fails>=3) return;
+  AI18N.busy=true; ai18nStatus(true);
+  try{ const lang=ai18nLang(); let i=0;
+    while(i<pending.length){ const chunk=[]; let chars=0; while(i<pending.length&&chunk.length<40&&chars<3500){ chunk.push(pending[i]); chars+=pending[i].length; i++; }
+      let arr=null; try{ arr=await ai18nTranslateBatch(chunk,lang); AI18N.fails=0; }catch(e){ AI18N.fails++; break; }
+      chunk.forEach((k,j)=>{ const t=arr[j]; if(typeof t==="string"&&t.trim()&&!ai18nNeeds(t)) cache[k]=t; });
+      ai18nSave(); if(ai18nLang()!==lang) break;
+      ai18nApplyCached(); }
+  }finally{ AI18N.busy=false; ai18nStatus(false); }
+  /* 翻訳中に画面が変わっていたら、もう一周 */
+  if(ai18nNodes().some(n=>!cache[ai18nKeyOf(n.nodeValue)])) ai18nKick(1200);
+}
+function ai18nKick(ms){ clearTimeout(AI18N.timer); AI18N.timer=setTimeout(()=>{ ai18nRun().catch(()=>{}); },ms||300); }
+/* エンジンの再走査で差し替え済みノードを原文へ戻さない／言語を戻すときは原文へ復元 */
+if(typeof i18nText==="function"){ const __it18=i18nText; i18nText=function(n,d){ const rec=AI18N.map.get(n); if(rec){ if(n.nodeValue===rec.t) return; AI18N.map.delete(n); } return __it18.apply(this,arguments); }; }
+if(typeof i18nRestore==="function"){ const __ir18=i18nRestore; i18nRestore=function(){ ai18nRestore(); return __ir18.apply(this,arguments); }; }
+/* 描画・パネル・非同期の追加（AIの回答など）を拾う：キャッシュ済みは即時、未翻訳はまとめてAIへ */
+function ai18nAfter(){ try{ if(ai18nLang()!=="ja"&&ai18nSync()) ai18nKick(250); }catch(e){} }
+{ const __r18i=render; render=function(){ const r=__r18i.apply(this,arguments); ai18nAfter(); return r; }; }
+if(typeof openDW==="function"){ const __od18i=openDW; openDW=function(){ const r=__od18i.apply(this,arguments); ai18nAfter(); return r; }; }
+if(typeof fwdRender==="function"){ const __fr18i=fwdRender; fwdRender=function(){ const r=__fr18i.apply(this,arguments); ai18nAfter(); return r; }; }
+if(typeof renderAdmin==="function"){ const __ra18i=renderAdmin; renderAdmin=function(){ const r=__ra18i.apply(this,arguments); ai18nAfter(); return r; }; }
+try{ AI18N.mo=new MutationObserver(()=>{ try{ if(ai18nLang()==="ja"||!ai18nOn()) return; ai18nDictBB(); if(ai18nApplyCached()&&!AI18N.busy) ai18nKick(500); }catch(e){} }); AI18N.mo.observe(document.body,{childList:true,subtree:true}); }catch(e){}
+if(typeof i18nSet==="function"){ const __is18=i18nSet; i18nSet=function(l){ const r=__is18.apply(this,arguments); try{ AI18N.fails=0; AI18N.noted=false; ai18nAfter(); }catch(e){} return r; }; }
+/* ヘルプパネル：この層のON/OFF */
+if(typeof ux17Help==="function"){ const __hp18=ux17Help; ux17Help=function(){ const r=__hp18.apply(this,arguments); try{ const k=document.getElementById("hlp-keys"); const row=k&&k.parentElement; if(row&&!document.getElementById("hlp-ai18n")){
+  row.insertAdjacentHTML("afterend",`<label class="rw" style="gap:8px;margin-top:10px;font-size:12px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="hlp-ai18n" ${ai18nOn()?"checked":""} style="margin-top:3px"><span>🌐 データ・AI回答のAI翻訳（表示言語が日本語以外のとき）${ai18nOnline()?"":`<br><span class="nn" style="margin:0">翻訳はAI接続時に自動表示されます</span>`}</span></label>`);
+  document.getElementById("hlp-ai18n").onchange=e=>ai18nSetOn(e.target.checked); } }catch(e){} return r; }; }
+
+/* ── ② やりとり：原文（正）＋表示言語へのAI翻訳をセットで表示 ── */
+function msg18Lang(text){ const s=String(text||""); if(/[぀-ヿ]/.test(s)) return "ja"; if(/[一-鿿]/.test(s)) return "zh"; if(/[ñáéíóúü¿¡]/i.test(s)||(/\b(el|la|los|las|que|por|para|con|una)\b/i.test(s)&&!/\b(the|and|with|for|you|is|are)\b/i.test(s))) return "es"; return "en"; }
+function msg18Show(){ try{ return localStorage.getItem("bc20_msgtr")!=="0"; }catch(e){ return true; } }
+function msg18Toggle(){ try{ localStorage.setItem("bc20_msgtr",msg18Show()?"0":"1"); }catch(e){} if(typeof mRows==="function") mRows(); }
+const MSG18={q:[],busy:false};
+async function msg18Pump(){
+  if(MSG18.busy) return; MSG18.busy=true;
+  try{ while(MSG18.q.length){ const {m,to}=MSG18.q.shift(); if(m.tr&&m.tr[to]) continue; if(!ai18nOnline()) break;
+      try{ const t=await v16Translate(v16Plain(m.body),to); if(!String(t||"").trim()) continue; m.tr=Object.assign({},m.tr||{},{[to]:t}); if(typeof lwPersist==="function") lwPersist(); if(typeof logU==="function") logU("ai","受信翻訳(自動)"); }catch(e){ break; }
+      if(typeof mRows==="function"&&typeof cur!=="undefined"&&cur==="msg") mRows(); } }
+  finally{ MSG18.busy=false; }
+}
+/* 一覧の各行：本文は原文のまま（辞書・AIの差し替え対象外）。v16 の訳ブロック（[data-v16tr]）に言語ラベルを付け、未翻訳なら自動でAIへ。全体の表示切替つき */
+function msg18Decorate(){
+  const list=document.getElementById("mlist"); if(!list||typeof v16MsgStore!=="function") return; const store=v16MsgStore(); const ui=ai18nLang(); const show=msg18Show(); let need=0;
+  list.querySelectorAll("[data-mi]").forEach(el=>{ const m=store[+el.dataset.mi]; if(!m||m.ai||m._tmp) return;
+    el.setAttribute("data-ai18n-skip",""); const body=el.querySelector(':scope > div[style*="line-height:1.75"]'); if(body) body.setAttribute("data-noi18n","");
+    const blk=el.querySelector("[data-v16tr]"); if(!show){ if(blk) blk.style.display="none"; return; }
+    const plain=v16Plain(m.body); if(!plain.trim()) return; const src=msg18Lang(plain); if(src===ui) return;
+    const t=m.tr&&m.tr[ui];
+    if(t){ if(blk){ const box=blk.querySelector("div"); if(box&&!box.querySelector(".msgtrl")){ box.classList.add("msgtrb"); box.setAttribute("data-noi18n",""); box.insertAdjacentHTML("afterbegin",`<span class="msgtrl">🌐 ${esc(V16_LANGN[ui]||ui)}・AI</span>`); } } }
+    else { need++; if(ai18nOnline()&&!MSG18.q.some(x=>x.m===m)) MSG18.q.push({m,to:ui}); } });
+  let bar=list.querySelector("[data-v16trall]"); if(!bar&&list.querySelector("[data-mi]")){ list.insertAdjacentHTML("afterbegin",`<div data-v16trall class="rw" style="justify-content:flex-end;gap:6px"></div>`); bar=list.querySelector("[data-v16trall]"); }
+  if(bar&&!bar.querySelector("[data-msg18tg]")) bar.insertAdjacentHTML("afterbegin",`<button class="btn g" data-msg18tg style="font-size:10.5px;padding:3px 9px" onclick="msg18Toggle()">${show?"🌐 翻訳を隠す":"🌐 翻訳を表示"}</button>`);
+  if(bar&&need&&!ai18nOnline()&&!bar.querySelector("[data-msg18note]")) bar.insertAdjacentHTML("beforeend",`<span class="nn" data-msg18note style="margin:0;align-self:center">翻訳はAI接続時に自動表示されます</span>`);
+  if(MSG18.q.length) msg18Pump();
+}
+if(typeof mRows==="function"){ const __mr18=mRows; mRows=function(){ const r=__mr18.apply(this,arguments); try{ msg18Decorate(); }catch(e){} return r; }; }
 
 </script>
