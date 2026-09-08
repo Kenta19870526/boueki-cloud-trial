@@ -19585,7 +19585,9 @@ function v17MergeGrow(snap){ const k=v17GrowKey(); if(!k||!snap||!snap.items) re
 if(typeof growUsage==="function"){ const __gu17=growUsage;
   growUsage=function(){ const u=__gu17.apply(this,arguments)||{}; try{ const k=v17GrowKey(); if(!k) return u; const o=v17GrowGet(); const me=v17DevId();
       const tot={logins:+u.logins||0,uploads:+u.uploads||0,aiQ:+u.aiQ||0,webQ:+u.webQ||0,fills:+u.fills||0,screens:Object.assign({},u.screens||{}),events:(u.events||[]).slice(),lastActive:u.lastActive,first:u.first,other:0};
-      Object.entries(o.dev).forEach(([d,v])=>{ if(d===me||!v) return; tot.other++; ["logins","uploads","aiQ","webQ","fills"].forEach(x=>tot[x]+=+v[x]||0); if(v.screens&&typeof v.screens==="object") Object.entries(v.screens).forEach(([k,n])=>{ tot.screens[k]=Math.max(+tot.screens[k]||0,+n||0); }); tot.events=tot.events.concat(Array.isArray(v.events)?v.events:[]); });
+      /* v18.1：合算は「端末ごとの最大値」を採る（サーバー側の台帳も max で集計。管理PCの台帳は集計値を含むため、単純な合計だと二重計上で成長レベルが跳ね上がる） */
+      const sigE=e=>Array.isArray(e)?e.slice(0,3).join("|"):String(e); const seen=new Set(tot.events.map(sigE));
+      Object.entries(o.dev).forEach(([d,v])=>{ if(d===me||!v) return; tot.other++; ["logins","uploads","aiQ","webQ","fills"].forEach(x=>{ tot[x]=Math.max(+tot[x]||0,+v[x]||0); }); if(v.screens&&typeof v.screens==="object") Object.entries(v.screens).forEach(([k,n])=>{ tot.screens[k]=Math.max(+tot.screens[k]||0,+n||0); }); (Array.isArray(v.events)?v.events:[]).forEach(e=>{ const k=sigE(e); if(!seen.has(k)){ seen.add(k); tot.events.push(e); } }); });
       return tot; }catch(e){ return u; } }; }
 if(typeof logU==="function"){ const __logU17=logU; logU=function(type,detail){ const r=__logU17.apply(this,arguments); try{ if(v17GrowKey()){ v17GrowMine(); if(type!=="screen"&&typeof syncSchedule==="function") syncSchedule("acct"); } }catch(e){} return r; }; }
 /* ── 同期経路に組み込む ── */
