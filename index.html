@@ -4,7 +4,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   color-scheme: light;
@@ -732,9 +732,17 @@ small{font-size:max(11px,.86em)}
   #mob{display:none}
   #lang{max-width:72px}
   .tgl{padding:4px 9px}
-  .bar>.usr.hm:last-child{flex:0 0 auto;max-width:150px;min-width:60px}
+  .bar>.usr.hm:not(#tenant){flex:0 0 auto;max-width:150px;min-width:60px}
 }
 .bar>.usr{flex:0 1 auto}
+/* v18.2：言語ごとの書体。中国語は簡体字の字形（Noto Sans SC）、英語・スペイン語はラテン専用の Noto Sans（字幅・数字が整う）。日本語は Noto Sans JP のまま。フォントは使われる言語のときだけ読み込まれる */
+:lang(zh) body,:lang(zh) button,:lang(zh) input,:lang(zh) select,:lang(zh) textarea{font-family:"Noto Sans SC","Noto Sans JP","PingFang SC","Microsoft YaHei","Hiragino Sans",system-ui,sans-serif}
+:lang(en) body,:lang(en) button,:lang(en) input,:lang(en) select,:lang(en) textarea,:lang(es) body,:lang(es) button,:lang(es) input,:lang(es) select,:lang(es) textarea{font-family:"Noto Sans","Noto Sans JP","Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif}
+:lang(en) body,:lang(es) body{font-feature-settings:normal;word-break:normal}
+/* 下部タブの名称は1行に（長い言語でも折り返さない） */
+#tabbar .tbl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:block;text-align:center}
+/* ダッシュボードの集計範囲セレクター：スマホ幅で3pxはみ出していた（英語の長いラベル） */
+@media (max-width:820px){.dscope .dsf,.dscope .dsl,.dscope .dsl .sel{max-width:100%;min-width:0;box-sizing:border-box}}
 </style>
 
 <style>
@@ -19366,6 +19374,27 @@ function ux17BarLayout(){
     /* アカウント表示とログアウトは常に通知ベルの直前（injectBar と同じ位置） */
     if(bell) ["lgpill","lgout"].forEach(id=>{ const el=document.getElementById(id); if(el&&el.parentElement===bar&&(el.compareDocumentPosition(bell)&Node.DOCUMENT_POSITION_PRECEDING)) bar.insertBefore(el,bell); });
   }
+  try{ ux18BarFit(); }catch(e){}
+}
+/* v18.2：PC幅でも収まらないときは、優先度の低いものから「⋯」へ退避（英語・スペイン語は日本語より幅を取る）。余裕ができたら戻す */
+const UX18_PRI=[["rail","右パネル（AIに質問）"],["easy","やさしい説明"],["helpb","ヘルプ・使い方"],["lang","言語 / Language"]];
+function ux18BarFit(){
+  const bar=document.querySelector(".bar"); if(!bar||ux17Mob()) return;
+  let more=document.getElementById("barmore"), menu=document.getElementById("barmenu");
+  const ensure=()=>{ if(more&&menu) return; more=document.createElement("button"); more.id="barmore"; more.className="ib"; more.setAttribute("aria-label","その他のメニュー"); more.setAttribute("aria-expanded","false"); more.title="その他"; more.innerHTML='<span style="font-size:19px;line-height:1">⋯</span>';
+    menu=document.createElement("div"); menu.id="barmenu"; menu.hidden=true; menu.setAttribute("role","menu"); const usr=bar.querySelector(":scope>.usr.hm:not(#tenant)"); if(usr) bar.insertBefore(more,usr); else bar.appendChild(more); bar.appendChild(menu);
+    more.onclick=e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; more.setAttribute("aria-expanded",String(!menu.hidden)); };
+    document.addEventListener("click",e=>{ if(menu&&!menu.hidden&&!menu.contains(e.target)&&!more.contains(e.target)){ menu.hidden=true; more.setAttribute("aria-expanded","false"); } });
+    menu.addEventListener("click",e=>{ const t=e.target.closest("button,select"); if(t&&t.tagName==="BUTTON"&&t.id!=="lgout") setTimeout(()=>{ menu.hidden=true; more.setAttribute("aria-expanded","false"); },120); }); };
+  const over=()=>bar.scrollWidth>bar.clientWidth+1;
+  const inMenu=id=>{ const el=document.getElementById(id); return !!(el&&menu&&menu.contains(el)); };
+  /* 収まらない間、優先度順に退避 */
+  for(const [id,lbl] of UX18_PRI){ if(!over()) break; const el=document.getElementById(id); if(!el||inMenu(id)) continue; ensure(); if(!el.__ux17next){ el.__ux17next=(el.nextElementSibling&&el.nextElementSibling.id)||"bell"; el.__ux17nextEl=el.nextElementSibling; }
+    let row=menu.querySelector(`[data-for="${id}"]`); if(!row){ row=document.createElement("div"); row.className="bmrow"; row.dataset.for=id; row.innerHTML=`<span class="bml">${lbl}</span>`; menu.appendChild(row); } row.appendChild(el); }
+  /* 余裕ができたら、退避した順の逆に戻す（戻して溢れるならやめる） */
+  if(menu){ for(const [id] of UX18_PRI.slice().reverse()){ const el=document.getElementById(id); if(!el||!inMenu(id)) continue; const row=el.parentElement; const ne=el.__ux17nextEl; if(ne&&ne.parentElement===bar) bar.insertBefore(el,ne); else { const nx=document.getElementById(el.__ux17next||"bell"); if(nx&&nx.parentElement===bar) bar.insertBefore(el,nx); else bar.appendChild(el); }
+      if(over()){ row.appendChild(el); break; } row.remove(); }
+    if(!menu.querySelector(".bmrow")){ menu.remove(); if(more) more.remove(); } }
 }
 /* ② ガイドバー（スマホ）：完了後は1行に畳む（▾で開閉） */
 function ux17Guide(){
@@ -19381,9 +19410,13 @@ function ux17Guide(){
 function ux17Tabs(){
   const mode=ux17Mode(); let bar=document.getElementById("tabbar");
   if(!ux17Narrow()||mode==="admin"||mode==="none"||document.body.classList.contains("locked")){ if(bar) bar.remove(); document.documentElement.style.setProperty("--tabbar-h","0px"); return; }
-  const items=mode==="fwd"?[["finbox","📥","受信箱"],["frates","🚚","レート"],["fagg","📊","相見積"],["fai","🤖","AI物流マン"]]
-    :[["dash","🏠","ホーム"],["today","☀️","今日"],["msg","💬","やりとり"],["ai","🤖","AI商社マン"],["task","✅","タスク"]];
-  if(!bar){ bar=document.createElement("nav"); bar.id="tabbar"; bar.setAttribute("aria-label","主要画面"); document.body.appendChild(bar); }
+  /* v18.2：タブの短い名称は言語ごとに専用（辞書の「AI Trade Agent」等は長く2行に折れるため）。翻訳エンジンの対象外にする */
+  const L=(typeof I18N!=="undefined"&&I18N&&I18N.lang)||"ja"; const T={ja:{dash:"ホーム",today:"今日",msg:"やりとり",ai:"AI商社マン",task:"タスク",finbox:"受信箱",frates:"レート",fagg:"相見積",fai:"AI物流マン"},
+    en:{dash:"Home",today:"Today",msg:"Messages",ai:"AI Agent",task:"Tasks",finbox:"Inbox",frates:"Rates",fagg:"Compare",fai:"AI Logistics"},
+    zh:{dash:"主页",today:"今天",msg:"沟通",ai:"AI专员",task:"任务",finbox:"收件箱",frates:"费率",fagg:"比价",fai:"AI物流"},
+    es:{dash:"Inicio",today:"Hoy",msg:"Mensajes",ai:"Agente IA",task:"Tareas",finbox:"Bandeja",frates:"Tarifas",fagg:"Comparar",fai:"IA logística"}}; const N=T[L]||T.ja;
+  const items=(mode==="fwd"?[["finbox","📥"],["frates","🚚"],["fagg","📊"],["fai","🤖"]]:[["dash","🏠"],["today","☀️"],["msg","💬"],["ai","🤖"],["task","✅"]]).map(([id,ic])=>[id,ic,N[id]]);
+  if(!bar){ bar=document.createElement("nav"); bar.id="tabbar"; bar.setAttribute("aria-label","主要画面"); bar.setAttribute("data-noi18n",""); document.body.appendChild(bar); }
   const active=mode==="fwd"?((typeof fwdCur!=="undefined")?fwdCur:""):((typeof cur!=="undefined")?cur:"");
   let unread=0; try{ unread=(typeof v16Unread==="function")?v16Unread().length:0; }catch(e){}
   bar.innerHTML=items.map(([id,ic,nm])=>`<button class="tb${active===id?" on":""}" data-tb="${id}" ${active===id?'aria-current="page"':""}><span class="tbi">${ic}${(id==="msg"&&unread)?`<i class="tbn">${unread>9?"9+":unread}</i>`:""}</span><span class="tbl">${nm}</span></button>`).join("");
@@ -19674,8 +19707,9 @@ function fq17Build(id){
   const lbl=[...body.querySelectorAll(":scope > p.lbl")].find(p=>/国ごとの見積/.test(p.textContent));
   const old=document.getElementById("fwdqbox"); if(old) old.remove();   /* 旧：1か国目のカード内に入っていた相談欄 */
   const wrap=document.createElement("div"); wrap.className="fqwrap";
-  const tabs=[["all","📋 まとめ"]].concat(r.legs.map(l=>[l.cty,(l.ok?"":"⚠ ")+l.cty+(fq17Held(r,l)?" ✓":"")]));
-  wrap.innerHTML=`<div class="fqtabs" role="tablist">${tabs.map(([k,nm])=>`<button class="fqtab" role="tab" data-fqtab="${esc(k)}">${esc(nm)}</button>`).join("")}</div>`;
+  /* 国名は単独のテキストノードにして翻訳が効くように（⚠・✓ は別要素） */
+  const tabs=[["all","📋 まとめ","",""]].concat(r.legs.map(l=>[l.cty,l.cty,l.ok?"":"⚠",fq17Held(r,l)?"✓":""]));
+  wrap.innerHTML=`<div class="fqtabs" role="tablist">${tabs.map(([k,nm,pre,suf])=>`<button class="fqtab" role="tab" data-fqtab="${esc(k)}">${pre?`<span class="fqw">${pre}</span> `:""}${esc(nm)}${suf?` <span class="fqok">${suf}</span>`:""}</button>`).join("")}</div>`;
   const anchor=lbl||cards[0]; anchor.insertAdjacentElement("beforebegin",wrap); if(lbl) lbl.remove();
   const paneAll=document.createElement("div"); paneAll.className="fqpane"; paneAll.dataset.fqpane="all";
   paneAll.innerHTML=`<p class="nn" style="margin:4px 0 8px">各国の推奨（または選択中）の物流会社と金額・所要日数・有効期限の一覧です。行をクリックすると、その国の詳細（相見積・仮押さえ・再見積）と相談欄に移ります。</p>${fq17Summary(r)}`;
@@ -20505,7 +20539,7 @@ I18N_ROWS2.push(
 ["（各国の推奨／選択中の物流会社の合計・仮押さえは国ごとに選べます）","(sum of the recommended / selected forwarders; holds can be chosen per country)","（各国推荐／已选物流公司的合计・可按国家分别保留）","(suma de los transportistas recomendados / seleccionados; la reserva se elige por país)"],
 ["💬 この見積全体についてAI商社マンに相談","💬 Ask the AI Trade Agent about this quote as a whole","💬 就整体报价咨询AI商社专员","💬 Consultar a la IA sobre la cotización completa"],["見積全体について質問（Enterで送信）","Ask about the whole quote (Enter to send)","就整体报价提问（Enter发送）","Pregunte sobre la cotización completa (Enter para enviar)"],["全体で一番の課題は？","What is the biggest issue overall?","整体上最大的问题是什么？","¿Cuál es el mayor problema en general?"],["仮押さえの優先順位は？","Which country should I hold first?","优先保留哪个国家？","¿Qué país reservar primero?"],["合計を下げる方法は？","How can I lower the total?","如何降低合计金额？","¿Cómo bajar el total?"],
 ["例：「相場より高い？」「どの会社を選ぶべき？」「倉庫はどこが良い？」","e.g. “Is it above market?” “Which forwarder?” “Where to warehouse?”","例：「高于行情吗？」「选哪家？」「仓库放哪？」","p. ej. “¿Está por encima del mercado?” “¿Qué transportista?” “¿Dónde almacenar?”"],["例：「合計を下げるには？」「仮押さえの優先順位は？」","e.g. “How to lower the total?” “Which to hold first?”","例：「如何降低合计？」「先保留哪个？」","p. ej. “¿Cómo bajar el total?” “¿Qué reservar primero?”"],["AI商社マンが考えています…（通常10〜30秒）","The AI Trade Agent is thinking… (usually 10–30 s)","AI商社专员思考中…（通常10〜30秒）","La IA está pensando… (normalmente 10–30 s)"],["内蔵エンジンで回答しています…","Answering with the built-in engine…","正在用内置引擎回答…","Respondiendo con el motor integrado…"],
-["所要","Transit","所需","Tránsito"],["希望納期","Requested date","希望交期","Fecha deseada"],["総合点・特徴","Score / notes","综合分・特点","Puntuación / notas"],["情勢","Situation","形势","Situación"],["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
+["所要","Transit","所需","Tránsito"],["希望納期","Requested date","希望交期","Fecha deseada"],["総合点・特徴","Score / notes","综合分・特点","Puntuación / notas"],["情勢","Situation","形势","Situación"],["対応が必要です","Action required","需要应对","Requiere acción"],["未取得","Not obtained","未取得","No obtenido"],["未対応（EU）","Not addressed (EU)","未应对（欧盟）","Pendiente (UE)"],["未対応（米国）","Not addressed (US)","未应对（美国）","Pendiente (EE. UU.)"],["備案未取得（中国）","Filing not obtained (China)","备案未取得（中国）","Registro no obtenido (China)"],["登録未対応（UAE）","Registration pending (UAE)","未完成注册（阿联酋）","Registro pendiente (EAU)"],["AI提案（規制の警告）","AI suggestion (regulatory warning)","AI建议（法规警示）","Sugerencia de la IA (aviso normativo)"],["③ 成分・スペック表","③ Ingredients / spec sheet","③ 成分・规格表","③ Ingredientes / especificaciones"],["3行","3 rows","3行","3 filas"],["最小ロット未達","Below minimum lot","未达最小订量","Por debajo del lote mínimo"],["賞味期限が短い","Short shelf life","保质期短","Vida útil corta"],["ハラル認証","Halal certification","清真认证","Certificación halal"],["原産地証明書","Certificate of origin","原产地证明书","Certificado de origen"],["届出・","Notification / ","备案・","Notificación / "],["の対応"," – action","的应对"," – acción"],["米国拠点の Miller が現地でフォローします","Miller at our US office will follow up locally","美国据点的 Miller 将在当地跟进","Miller, de nuestra base en EE. UU., hará el seguimiento local"],["新しい商品を登録する","Add a new product","登记新产品","Añadir un producto"],["すべての項目が揃っています。","All items are complete.","所有项目已齐全。","Todos los datos están completos."],["この下から別の資料に差し替えることもできます。","You can also replace it with another document below.","也可以在下方替换为其他资料。","También puede sustituirlo por otro documento abajo."],["🤖 AI追加ヒアリングを開始","🤖 Start AI follow-up interview","🤖 开始AI补充问询","🤖 Iniciar la entrevista adicional de la IA"],["ギフトの発注は9月上旬が締切です","Gift orders close in early September","礼品订单截止于9月上旬","Los pedidos de regalo cierran a principios de septiembre"],["（米国）に対応するか決める","Decide whether to address it (US)","决定是否应对（美国）","Decidir si se aborda (EE. UU.)"],["期間1〜2ヶ月・費用20万円。失注1件・見込み3社が待っています","1–2 months, about ¥200,000. One lost deal and three prospects are waiting","需1〜2个月・费用20万日元。已失1单，3家潜在客户在等待","1–2 meses, unos ¥200.000. Un trato perdido y tres prospectos esperan"],["1,000本の引き合い。エビデンスが決め手になります","An inquiry for 1,000 units; evidence will be decisive","1,000瓶的询盘。证据将是关键","Consulta por 1.000 unidades; la evidencia será decisiva"],["台湾へ見積を出す","Send a quote to Taiwan","向台湾报价","Enviar cotización a Taiwán"],["韓国向けに臨床データの英訳を用意する","Prepare an English translation of the clinical data for Korea","为韩国准备临床数据的英文翻译","Preparar la traducción al inglés de los datos clínicos para Corea"],["何でも検索して画面・商品・操作へ移動","Search anything and jump to a screen, product or action","搜索并跳转到页面・产品・操作","Buscar y saltar a una pantalla, producto o acción"],["この一覧を表示","Show this list","显示此列表","Mostrar esta lista"],["パネル・検索・ドロワーを閉じる","Close panels, search and drawers","关闭面板・搜索・抽屉","Cerrar paneles, búsqueda y cajones"],["やりとりのメッセージを送信","Send a message in Messages","发送沟通消息","Enviar un mensaje"],["AI商社マン／右パネルの質問を送信（Shift+Enterで改行）","Send a question to the AI Trade Agent / side panel (Shift+Enter for a new line)","向AI商社专员／右侧面板发送问题（Shift+Enter换行）","Enviar una pregunta a la IA / panel lateral (Shift+Enter para salto de línea)"],["検索候補の移動と決定","Move through search results and select","移动并选择搜索结果","Moverse por los resultados y seleccionar"],["次の項目へ（フォーカス位置は枠線で表示）","Next item (focus is shown with an outline)","下一项（焦点以边框显示）","Siguiente elemento (el foco se muestra con un contorno)"],["Ctrl+K／⌘K","Ctrl+K / ⌘K","Ctrl+K／⌘K","Ctrl+K / ⌘K"],["ヘルプ・使い方","Help & how to use","帮助・使用方法","Ayuda y uso"],["❔ ヘルプ・使い方","❔ Help & how to use","❔ 帮助・使用方法","❔ Ayuda y uso"],["この画面でできること","What you can do on this screen","本页面可做的事","Qué puede hacer en esta pantalla"],["3つのステップだけ覚えてください","Just remember these 3 steps","只需记住这3个步骤","Solo recuerde estos 3 pasos"],["管理コンソールの3ステップ","The admin console in 3 steps","管理控制台的3个步骤","La consola de administración en 3 pasos"],["物流会社モードの3ステップ","Forwarder mode in 3 steps","物流公司模式的3个步骤","El modo transportista en 3 pasos"],
 ["🎫 アカウントを発行する","🎫 Issue an account","🎫 发放账号","🎫 Emitir una cuenta"],["会社名・担当者・期間を入れて「発行する」。コードをお客様に渡すだけで始められます。","Enter company, contact and period, then “Issue”. Hand the code to the customer and they can start.","输入公司・负责人・期限后点击“发放”。把代码交给客户即可开始。","Introduzca empresa, contacto y periodo y pulse “Emitir”. Entregue el código al cliente y podrá empezar."],["📊 利用状況を見る","📊 See usage","📊 查看使用情况","📊 Ver el uso"],["一覧の「詳細」で画面別の利用回数と行動の時系列。期限切れ・無効の絞り込みもできます。","“Details” in the list shows usage per screen and a timeline. You can also filter expired or disabled accounts.","列表中的“详情”可查看各页面的使用次数和时间线，还可筛选过期・停用账号。","“Detalles” en la lista muestra el uso por pantalla y la cronología. También puede filtrar cuentas caducadas o desactivadas."],["🔐 AI接続を共有する","🔐 Share the AI connection","🔐 共享AI连接","🔐 Compartir la conexión de IA"],["「📱 AI接続の共有」をONにすると、そのアカウントのスマホ・別PCでも実AIが使えます。","Turn on “📱 Share AI connection” and that account can use the real AI on phones and other PCs too.","开启“📱 共享AI连接”后，该账号在手机・其他电脑上也能使用真实AI。","Active “📱 Compartir conexión de IA” y esa cuenta podrá usar la IA real también en móviles y otros PC."],
 ["📥 見積依頼を受け取る","📥 Receive quote requests","📥 接收报价请求","📥 Recibir solicitudes de cotización"],["受信箱に荷主からの依頼が届きます。AI物流マンが返答の下書きを用意します。","Requests from shippers arrive in the inbox. The AI Logistics Agent drafts a reply.","货主的请求会送达收件箱。AI物流专员会准备回复草稿。","Las solicitudes de los cargadores llegan a la bandeja. El agente logístico de IA redacta una respuesta."],["🚚 レートを整える","🚚 Maintain your rates","🚚 维护费率","🚚 Mantener sus tarifas"],["物流レート管理に自社のレートを入れるほど、見積の精度が上がります。","The more of your own rates you enter in rate management, the more accurate the quotes.","在物流费率管理中录入越多自家费率，报价越准确。","Cuantas más tarifas propias introduzca, más precisas serán las cotizaciones."],["📊 相見積・AI推奨で速く返す","📊 Reply faster with comparison & AI advice","📊 用比价和AI推荐更快回复","📊 Responder más rápido con comparación e IA"],["相見積の比較とAI物流マンの推奨で、返答までの時間を短くします。","Compare quotes and use the AI Logistics Agent's recommendation to shorten response time.","通过比价和AI物流专员的推荐，缩短回复时间。","Compare cotizaciones y use la recomendación de la IA para acortar el tiempo de respuesta."],
 ["🗂 商品資料をアップロード","🗂 Upload product documents","🗂 上传产品资料","🗂 Subir documentos del producto"],["💬 足りない情報に答える","💬 Answer what is missing","💬 补充缺失信息","💬 Responder lo que falta"],["🤝 あとはAIに聞く・任せる","🤝 Then ask or delegate to the AI","🤝 之后交给AI","🤝 Luego pregunte o delegue a la IA"],
@@ -20554,6 +20588,15 @@ I18N_EL_ROWS.push(
 ["ONにすると、タスク・商談記録・受注・やりとり・会議メモの要約を<b>平文のスナップショット</b>として同期サーバーに置き、STANDAGEが発行する読み取り専用トークンで外部ツール（Claude等）から取得できます。<b>通常の同期データは暗号化のままです。</b>OFFにすると削除されます。","When on, a <b>plain-text snapshot</b> of tasks, deal records, orders, messages and meeting summaries is placed on the sync server, retrievable by external tools (e.g. Claude) with a read-only token issued by STANDAGE. <b>Regular sync data stays encrypted.</b> Turning it off deletes the snapshot.","开启后，任务・商谈记录・订单・往来・会议摘要会以<b>明文快照</b>放在同步服务器上，外部工具（如Claude）可用STANDAGE发放的只读令牌获取。<b>常规同步数据仍保持加密。</b>关闭后即删除。","Al activarlo, una <b>instantánea en texto plano</b> de tareas, registros, pedidos, mensajes y resúmenes de reuniones se coloca en el servidor de sincronización, accesible con un token de solo lectura emitido por STANDAGE. <b>Los datos de sincronización normales siguen cifrados.</b> Al desactivarlo se elimina."]
 );
 I18N_PAT2.push(
+ {re:/^(\d+)月(\d+)日まで$/,en:"until $1/$2",zh:"截至$1月$2日",es:"hasta el $2/$1"},
+ {re:/^(\d+)月(\d+)日$/,en:"$1/$2",zh:"$1月$2日",es:"$2/$1"},
+ {re:/^価格が競合比\+(\d+)%$/,en:"Price +$1% vs competitors",zh:"价格比竞品高$1%",es:"Precio +$1 % frente a competidores"},
+ {re:/^【(.+)】(.*)$/,en:"[$1] $2",zh:"【$1】$2",es:"[$1] $2"},
+ {re:/^(.+)を取るかどうか決める$/,en:"Decide whether to obtain $1",zh:"决定是否取得$1",es:"Decidir si se obtiene $1"},
+ {re:/^(\d+)件を逃した理由。見込み客(\d+)社が同じ壁で止まっています$/,en:"Why $1 deals were lost: $2 prospects are stuck at the same wall",zh:"错失$1件的原因：$2家潜在客户卡在同一道坎",es:"Por qué se perdieron $1 tratos: $2 prospectos chocan con el mismo muro"},
+ {re:/^(.+)で断られた理由。同じ条件の引き合いが他に(\d+)社$/,en:"Why $1 declined: $2 other inquiries share the same conditions",zh:"$1拒绝的原因：另有$2家询盘条件相同",es:"Por qué $1 rechazó: otras $2 consultas tienen las mismas condiciones"},
+ {re:/^(.+)に送ったサンプルの到着確認$/,en:"Confirm arrival of the sample sent to $1",zh:"确认寄往$1的样品是否到达",es:"Confirmar la llegada de la muestra enviada a $1"},
+ {re:/^賞味期限を(\d+)ヶ月にできるか製造部門に確認$/,en:"Ask production whether shelf life can be $1 months",zh:"向生产部门确认保质期能否延长至$1个月",es:"Preguntar a producción si la vida útil puede ser de $1 meses"},
  {re:/^合計（(\d+(?:\.\d+)?)m³ (.+)）$/,en:"Total ($1 m³ $2)",zh:"合计（$1m³ $2）",es:"Total ($1 m³ $2)"},
  {re:/^💬 (.+)向けの見積についてAI商社マンに相談$/,en:"💬 Ask the AI Trade Agent about the quote for $1",zh:"💬 就$1的报价咨询AI商社专员",es:"💬 Consultar a la IA sobre la cotización para $1"},
  {re:/^(.+)向けの見積について質問（Enterで送信）$/,en:"Ask about the quote for $1 (Enter to send)",zh:"就$1的报价提问（Enter发送）",es:"Pregunte sobre la cotización para $1 (Enter para enviar)"},
