@@ -1797,7 +1797,7 @@ function parseSheet(xml,ss){
       const ref=c.getAttribute("r")||"", ci=colNum(ref)-1, t=c.getAttribute("t");
       let v="";
       if(t==="s"){ const i=c.querySelector("v"); v=i?(ss[+i.textContent]||""):""; }
-      else if(t==="inlineStr"){ v=[...c.querySelectorAll("is t")].map(x=>x.textContent).join(""); }
+      else if(t==="inlineStr"){ v=[...c.querySelectorAll("is t")].filter(x=>!(x.closest&&x.closest("rPh"))).map(x=>x.textContent).join(""); }
       else { const i=c.querySelector("v"); v=i?i.textContent:""; }
       if(ci>=0) grid[ri][ci]=String(v).trim();
     });
@@ -1810,7 +1810,7 @@ async function readWorkbook(file){
   let ss=[];
   if(files["xl/sharedStrings.xml"]){
     const d=new DOMParser().parseFromString(XT(files["xl/sharedStrings.xml"]),"application/xml");
-    ss=[...d.querySelectorAll("si")].map(si=>[...si.querySelectorAll("t")].map(t=>t.textContent).join(""));
+    ss=[...d.querySelectorAll("si")].map(si=>[...si.querySelectorAll("t")].filter(t=>!(t.closest&&t.closest("rPh"))).map(t=>t.textContent).join(""));  /* v18.5b：ふりがな（rPh）は本文に含めない */
   }
   const names=[], rels={};
   if(files["xl/workbook.xml"]){
@@ -1858,6 +1858,14 @@ function findKV(sheets){
   }));
   return got;
 }
+/* ファイル名からの社名（例：「ヒアリングシート_株式会社NR（記入済み）.xlsx」→ 株式会社NR） */
+function coFromFilename(name){
+  const base=String(name||"").replace(/\.[a-z0-9]+$/i,"");
+  const toks=base.split(/[_＿\s　（）()【】\[\]「」・,、]+/).filter(Boolean);
+  const hit=toks.find(t=>/(株式会社|有限会社|合同会社|合資会社)/.test(t)&&t.replace(/(株式会社|有限会社|合同会社|合資会社)/,"").length>=1)
+    ||toks.find(t=>/(Co\.,? ?Ltd|Inc\.?|Corp\.?|GmbH|Pte\.? ?Ltd|LLC)$/i.test(t));
+  return hit?hit.trim():"";
+}
 /* 社名（前置き・後置き・英文のいずれの形でも拾う） */
 function findCompany(sheets,allTxt){
   const head=sheets.map(s=>(s.grid||[]).slice(0,4).map(r=>(r||[]).join(" ")).join("\n")).join("\n");
@@ -1878,20 +1886,33 @@ function findStrengths(sheets){
   }));
   return out;
 }
-/* 表の検出：ヘッダー行＋2行以上のデータ */
+/* 表の検出：ヘッダー行＋2行以上のデータ。
+   v18.5：横長の商品一覧（1行＝1商品・数十列）にも対応：
+   ①データ行の判定を「ヘッダー列数の50%以上」→「25%以上（最低2・最大4セル）」に緩和
+   ②ヘッダー直後の「例」行・注記行（疎な行）は最大2行まで読み飛ばす
+   ③幅8列以上の表は、空行1〜2行で区切られた続きの行も同じ表として読む
+   ④数値だけのセルが過半の行はヘッダー候補にしない（データ行の誤認防止） */
+const isNumLike=s=>{ const v=String(s||"").trim(); return !!v&&/^[\d,.\-＋+%¥$￥\s]+$/.test(v)&&/\d/.test(v); };
 function findTables(grid){
   const tabs=[];
   for(let i=0;i<grid.length;i++){
-    const h=(grid[i]||[]).filter(x=>x&&x.trim());
-    if(h.length<3) continue;
     const cols=(grid[i]||[]).map(x=>(x||"").trim());
-    const rows=[];
+    const h=cols.filter(x=>x);
+    if(h.length<3) continue;
+    if(h.filter(isNumLike).length>h.length/2) continue;
+    const need=Math.max(2,Math.min(4,Math.floor(h.length*0.25)));
+    const wide=h.length>=8;
+    const rows=[]; let blank=0, skipped=0, last=i;
     for(let j=i+1;j<grid.length;j++){
       const r=(grid[j]||[]).map(x=>(x||"").trim());
-      if(r.filter(x=>x).length<Math.max(2,Math.floor(h.length*0.5))) break;
-      rows.push(r.slice(0,cols.length));
+      const n=r.filter(x=>x).length;
+      if(n===0){ if(!wide||rows.length===0||++blank>2) break; continue; }
+      if(n<need){ if(rows.length===0&&skipped<2){ skipped++; continue; } break; }
+      /* v18.5c：今のヘッダーより広く、短い文字列だけの行＝次の表のヘッダー → ここで区切る */
+      if(n>h.length&&rows.length>=1&&r.filter(x=>x).every(x=>!isNumLike(x)&&x.length<=14)) break;
+      blank=0; rows.push(r.slice(0,cols.length)); last=j;
     }
-    if(rows.length>=2){ tabs.push({cols:cols.filter((c,k)=>k<cols.length),rows,at:i}); i+=rows.length; }
+    if(rows.length>=2){ tabs.push({cols,rows,at:i}); i=last; }
   }
   return tabs;
 }
@@ -1936,6 +1957,192 @@ function pickHS(txt,cat){
   return {hs:{food:"2106.90",cosme:"3304.99",parts:"8479.89"}[cat]||"",ok:false};
 }
 
+
+/* ── v18.5 商品一覧表（1行＝1商品・横持ち）と質問票（項目／回答）からの構造化 ── */
+const PCOL=[
+ ["item",/^(商品名|製品名|品名|商品|productname|name|名称|品目)$/],
+ ["itemEn",/英文|英語|english/],
+ ["brand",/ブランド|brand/],
+ ["model",/モデル|model/],
+ ["skuType",/コードの種類/],
+ ["sku",/商品コード|品番|型番|製品番号|jan|sku|itemno|code/],
+ ["cat",/カテゴリ|分類|区分/],
+ ["desc",/商品説明|商品概要|説明|概要|特徴|特長|セールスポイント|訴求|強み/],
+ ["packW",/梱包前重量/],
+ ["gross",/総重量|gross/],
+ ["L",/サイズl|長さ|奥行|depth|length|^l$/],
+ ["W",/^w$|サイズw|^幅|width/],
+ ["H",/^h$|サイズh|高さ|height/],
+ ["size",/サイズ|寸法|size|dimension/],
+ ["weight",/商品重量|重量|質量|weight/],
+ ["vol",/容量|内容量|volume/],
+ ["cur",/単価単位|通貨|currency/],
+ ["term",/価格単位|fob|exw|cif|インコタームズ|取引条件|建値/],
+ ["unit",/卸売り単位|卸売単位|販売単位|取引単位|^単位/],
+ ["msrp",/市場価格|希望小売|参考小売|定価|小売価格|retail/],
+ ["wholesale",/卸|wholesale|供給価格/],
+ ["rate",/掛け率|掛率/],
+ ["moq",/moq|最小|最低/],
+ ["ctn",/カートン|入数|carton/],
+ ["plt",/パレット|pallet/],
+ ["region",/生産地域|製造地域/],
+ ["origin",/生産国|製造国|原産|産地|生産地|origin|made/],
+ ["hs",/^hs|hsコード|hscode|関税分類|統計品目/],
+ ["shelf",/賞味|消費期限|使用期限|有効期限|shelf/],
+ ["store",/管理温度|保存|保管|温度/],
+ ["lead",/リードタイム|納期|lead/],
+ ["cert",/認証|規格|certif/],
+ ["comp",/成分|原材料|材質|inci|ingredient/],
+ ["area",/販売可能|販売エリア|販売地域/],
+ ["ban",/販売禁止|輸出禁止|禁止国/],
+ ["supply",/供給能力|生産能力|月産|年産/],
+ ["oem",/oem/],
+ ["url",/url|リンク|http/],
+ ["rival",/競合/],
+ ["pack",/梱包状態|梱包形態|包装/],
+];
+function catLabelOf(v){
+  const s=String(v||"").trim(); if(!s) return "";
+  if(/医薬部外品|化粧|コスメ|スキンケア|美容/.test(s)) return "化粧品";
+  if(/医薬|医療|衛生/.test(s)) return "医療・衛生用品";
+  if(/食品|飲料|菓子|茶|サプリ|健康/.test(s)) return "食品";
+  if(/部品|工業|機械|金属/.test(s)) return "工業部品";
+  if(/雑貨|日用|文具|キッチン/.test(s)) return "日用雑貨";
+  if(/中古車|車両|自動車/.test(s)) return "中古車";
+  if(/酒/.test(s)) return "酒類";
+  if(/アパレル|衣料|衣類|服/.test(s)) return "アパレル";
+  return s.slice(0,20);
+}
+function mapProductCols(cols){
+  const map={};
+  cols.forEach((c,i)=>{ const a=norm(c); if(!a) return;
+    for(const [k,re] of PCOL){ if(re.test(a)){ (map[k]=map[k]||[]).push(i); break; } } });
+  return map;
+}
+/* 表の中から「1行＝1商品」の一覧表を探し、商品ごとに項目化する */
+function productTableToFields(tabs){
+  let best=null;
+  tabs.forEach(t=>{
+    const map=mapProductCols(t.cols);
+    if(!map.item) return;
+    const ii=map.item[0];
+    const isEx=r=>{ const first=(r.find(x=>x&&x.trim())||"").trim();
+      if(/^(例|サンプル|記入例|sample|example)$/i.test(first)||/^(例|記入例)[:：]/.test(first)) return true;
+      return r.filter(x=>/^(e\.?g\.?|例[:：]|〇〇|○○|XXX)/i.test(String(x||"").trim())).length>=2; };
+    const rows=t.rows.filter(r=>{ const v=(r[ii]||"").trim(); return v&&!isEx(r)&&!/^(例|サンプル|sample|記入例)/i.test(v)&&norm(v)!==norm(t.cols[ii]); });
+    if(!rows.length) return;
+    const score=Object.keys(map).length*10+rows.length;
+    if(!best||score>best.score) best={t,map,rows,score};
+  });
+  if(!best) return null;
+  const {t,map,rows}=best;
+  const H=t.cols;
+  const g=(r,k)=>{ const ix=map[k]; if(!ix) return ""; for(const i of ix){ const v=(r[i]||"").trim(); if(v) return v; } return ""; };
+  const all=(r,k)=>(map[k]||[]).map(i=>[H[i],(r[i]||"").trim()]).filter(x=>x[1]);
+  const notes=[];
+  const prods=rows.map(r=>{
+    const name=g(r,"item");
+    const termRaw=g(r,"term"), tm=termRaw.match(/FOB|EXW|CIF|CFR|DDP|DAP|FCA/i);
+    const p={name:name.slice(0,40),item:name,itemEn:g(r,"itemEn"),sku:g(r,"sku")||g(r,"model"),
+      cat:catLabelOf(g(r,"cat")),hs:"",msrp:g(r,"msrp"),moq:g(r,"moq"),
+      ctn:[g(r,"ctn")?"カートン "+g(r,"ctn"):"",g(r,"plt")?"パレット "+g(r,"plt"):""].filter(Boolean).join("／"),
+      origin:[g(r,"origin"),g(r,"region")].filter(Boolean).join(" "),shelf:g(r,"shelf"),store:g(r,"store"),
+      lead:g(r,"lead"),cert:g(r,"cert"),term:tm?tm[0].toUpperCase():termRaw,
+      strengths:[],priceCols:[],priceRows:[],dimCols:[],dimRows:[],compCols:[],compRows:[]};
+    const hs=g(r,"hs").match(/(\d{4})(?:[.．-]?(\d{2}))?/);
+    if(hs) p.hs=hs[2]?hs[1]+"."+hs[2]:hs[1];
+    if(g(r,"brand")) p.strengths.push(["ブランド："+g(r,"brand"),""]);
+    all(r,"desc").forEach(([h,v])=>{ const s=v.replace(/\s+/g," ").trim(); if(s) p.strengths.push([s.slice(0,60),s.length>60?s.slice(60,150):""]); });
+    const pr=[]; ["msrp","wholesale","rate","cur","unit","term","moq"].forEach(k=>all(r,k).forEach(x=>pr.push(x)));
+    if(pr.some(([h])=>/価格|卸|定価|price/i.test(h))){ p.priceCols=["項目","内容"]; p.priceRows=pr; }
+    const dm=[]; const L=g(r,"L"),W=g(r,"W"),Hh=g(r,"H");
+    if(L||W||Hh) dm.push(["サイズ（L×W×H）",[L,W,Hh].map(x=>x||"−").join("×")]);
+    ["size","weight","vol","packW","gross","ctn","plt","pack"].forEach(k=>all(r,k).forEach(x=>dm.push(x)));
+    if(dm.length){ p.dimCols=["項目","内容"]; p.dimRows=dm; }
+    const cp=all(r,"comp"); if(cp.length){ p.compCols=["項目","内容"]; p.compRows=cp; }
+    return p;
+  });
+  const p0=rows[0];
+  if(g(p0,"ban")) notes.push("販売禁止国・地域の記載あり："+g(p0,"ban")+"（規制・契約条件として要確認）");
+  if(g(p0,"area")) notes.push("販売可能エリアの記載あり："+g(p0,"area"));
+  if(prods.some(p=>p.hs&&p.hs.length===4)) notes.push("HSコードは資料に4桁まで記載（例："+prods.find(p=>p.hs).hs+"）。輸出申告には6桁以上の確定が必要です");
+  if(g(p0,"supply")) notes.push("供給能力："+g(p0,"supply"));
+  const sheet=t.sheet?"シート「"+t.sheet+"」":"表";
+  const summary=sheet+"の商品一覧から"+prods.length+"商品を読み取りました（"+Object.keys(map).length+"種類の項目：商品名"+(map.sku?"・商品コード":"")+(map.msrp||map.wholesale?"・価格":"")+(map.L||map.size||map.weight?"・寸法／重量":"")+(map.hs?"・HSコード":"")+" など）";
+  return {prods,notes:notes.slice(0,3),summary,sheet:t.sheet||""};
+}
+/* 質問票（項目／回答 の縦持ち表）→ 会社レベルの情報（v18.5c） */
+const QLBL={targets:["開拓したい国","進出したい国","進出希望国","希望国","販売したい国","ターゲット国","輸出したい国","希望エリア","狙う国","展開したい国"],
+ ban:["禁止国","販売禁止","輸出禁止","避けたい国"],
+ strengths:["特徴","独自性","強み","受賞","こだわり","差別化","実績","評価","根拠","レビュー","選ばれる理由"],
+ cert:["認証","許認可","資格","規格"],
+ item:["取扱商品","主力商品","主な商品","製品"]};
+function qaTableToFields(tabs){
+  const out={kv:{},targets:[],strengths:[],notes:[]};
+  tabs.forEach(t=>{
+    const N=t.cols.map(norm);
+    const qi=N.findIndex(c=>/^(項目|質問|設問|確認事項|item)$/.test(c));
+    const ai=N.findIndex(c=>/^(回答|ご回答|回答内容|answer|記入欄|ご記入)$/.test(c));
+    if(qi<0||ai<0) return;
+    t.rows.forEach(r=>{
+      const q=(r[qi]||"").trim(), a=(r[ai]||"").trim(); if(!q||!a) return;
+      const nq=norm(q);
+      const hitQ=k=>QLBL[k].some(l=>nq.includes(norm(l)));
+      const lines=a.split(/\n/).map(l=>l.replace(/^[・･\-•●○\s]+/,"").trim()).filter(Boolean);
+      const NONE=/^(なし|特になし|無し|-|－|該当なし|未定)$/;
+      if(hitQ("targets")||hitQ("ban")){
+        lines.forEach(l=>{
+          const hasLbl=/[:：]/.test(l); const lbl=hasLbl?l.split(/[:：]/)[0]:q; const val=hasLbl?l.split(/[:：]/).slice(1).join("："):l;
+          if(/禁止|避け|不可|NG/.test(lbl)){ if(!NONE.test(val.trim())) out.notes.push("開拓禁止・避けたい国："+val.trim().slice(0,60)); return; }
+          val.replace(/[（(][^）)]*[）)]/g," ").split(/[、,／\/・･\s]+|および|及び/).map(x=>x.trim())
+            .filter(x=>x.length>=2&&x.length<=12&&!NONE.test(x)&&!/^(国|地域|エリア)$/.test(x))
+            .forEach(c=>out.targets.push(typeof cnorm==="function"?cnorm(c):c));
+        });
+        return;
+      }
+      if(hitQ("strengths")){  /* v18.5d */
+        const a1=(lines[0]||"").trim();
+        if(NONE.test(a.trim())||/データなし|回答が難しい|イメージが湧かない|特にな[しい]|未定/.test(a)) return;
+        if(out.strengths.length>=8) return;
+        const qs=q.replace(/[？?]/g,"").replace(/\n[^]*$/,"").slice(0,20);
+        if(lines.length>1) lines.slice(0,4).forEach(l=>{ if(out.strengths.length<8) out.strengths.push([l.slice(0,60),l.length>60?l.slice(60,150):""]); });
+        else if(/根拠/.test(qs)) out.strengths.push([a1.slice(0,60),a1.length>60?a1.slice(60,150):""]);
+        else out.strengths.push([qs+"："+a1.slice(0,50),a1.length>50?a1.slice(50,140):""]);
+        return;
+      }
+      if(hitQ("cert")){ if(!out.kv.cert&&!/^(なし|無し|特になし)$/.test(a)) out.kv.cert=a; return; }
+      for(const k in LBL){ if(!out.kv[k]&&LBL[k].some(l=>nq.includes(norm(l)))){ out.kv[k]=a; break; } }
+      if(!out.kv.item&&hitQ("item")) out.kv.item=a;
+    });
+  });
+  out.targets=[...new Set(out.targets)];
+  return (Object.keys(out.kv).length||out.targets.length||out.strengths.length||out.notes.length)?out:null;
+}
+/* テナントへの反映：会社レベルは直接、商品は「反映待ち（確認つき）」に */
+function applyStructured(t,PT,QA){
+  const H=v=>Array.isArray(v)?v.length>0:!!(v&&String(v).trim());
+  if(QA){
+    ["co","coEn","origin","cert","term","pay","pol","lead","moq","shelf","store","ctn"].forEach(k=>{ if(!H(t[k])&&QA.kv[k]) t[k]=QA.kv[k]; });
+    if(!PT&&QA.kv.item&&!H(t.item)) t.item=QA.kv.item;
+    if(QA.targets.length) t.targets=[...new Set((t.targets||[]).concat(QA.targets))];
+    if(QA.strengths.length){ const cur=t.strengths||[], seen=new Set(cur.map(s=>s[0]));
+      QA.strengths.forEach(s=>{ if(!seen.has(s[0])){ cur.push(s); seen.add(s[0]); } }); t.strengths=cur; }
+    if(QA.notes.length) t.aiNotes=[...new Set((t.aiNotes||[]).concat(QA.notes))];
+  }
+  if(PT&&PT.prods.length){
+    const p0=PT.prods[0];
+    /* 推定値（カテゴリ既定のHS・本文からの推定カテゴリ）は資料の実値で置き換える */
+    if(p0.hs&&t.hsGuess){ t.hs=""; }
+    if(p0.cat){ t.cat=""; t.catKey=null; }
+    const x=Object.assign({co:t.co,coEn:t.coEn,origin:t.origin,term:t.term,pay:t.pay,pol:t.pol,targets:t.targets||[]},p0);
+    if(!x.origin&&p0.origin) x.origin=p0.origin;
+    x._multi=PT.prods; x._summary=PT.summary; x._doc="商品一覧（表）"; x._notes=PT.notes;
+    if(typeof xPend==="function") xPend(t,x);
+    t.nProducts=PT.prods.length;
+  }
+  return t;
+}
+
 /* ── 解析結果 → テナント ───────────────────────── */
 async function buildTenant(file){
   let sheets;
@@ -1952,7 +2159,7 @@ async function buildTenant(file){
     ?{hs:kv.hs.match(/\d{4}[.．-]?\d{2}/)[0].replace(/[．-]/,"."),ok:true}
     :pickHS(allTxt,cat);
   const strengths=findStrengths(sheets);
-  const co=kv.co||findCompany(sheets,allTxt);
+  const co=kv.co||findCompany(sheets,allTxt)||coFromFilename(file.name);  /* v18.5b */
   const t={
     src:"upload", file:file.name, sheets:sheets.map(s=>s.name),
     cat:{food:"食品",cosme:"化粧品",parts:"工業部品",daily:"日用雑貨",car:"中古車",
@@ -1974,6 +2181,8 @@ async function buildTenant(file){
     if(i>=0&&pt.rows[0]&&pt.rows[0][i]) t.moq=pt.rows.map(r=>r[i]).filter(Boolean)[0]; }
   if(!t.lead&&pt){ const i=pt.cols.findIndex(c=>/リードタイム|納期|lead/i.test(norm(c)));
     if(i>=0&&pt.rows[0]&&pt.rows[0][i]) t.lead=pt.rows.map(r=>r[i]).filter(Boolean)[0]; }
+  /* v18.5：商品一覧表（1行＝1商品）・質問票（項目／回答）を構造化して反映 */
+  applyStructured(t,productTableToFields(tabs),qaTableToFields(tabs));
   return t;
 }
 
@@ -3019,7 +3228,7 @@ function tenantFromTextGrids(text,grids,filename,pages){
   const t={src:"upload",file:filename,sheets:sheets.map(s=>s.name),
     cat:{food:"食品",cosme:"化粧品",parts:"工業部品",daily:"日用雑貨",car:"中古車",
       liquor:"酒類",apparel:"アパレル",medical:"医療・衛生用品"}[cat]||"",catKey:cat,
-    co:(kv.co||findCompany(sheets,allTxt)||"").trim(),coEn:kv.coEn||"",item:kv.item||"",itemEn:kv.itemEn||"",
+    co:(kv.co||findCompany(sheets,allTxt)||(typeof coFromFilename==="function"?coFromFilename(filename):"")||"").trim(),coEn:kv.coEn||"",item:kv.item||"",itemEn:kv.itemEn||"",
     sku:kv.sku||"",origin:kv.origin||"",cert:kv.cert||"",shelf:kv.shelf||"",store:kv.store||"",
     msrp:kv.msrp||"",term:kv.term||"",pay:kv.pay||"",pol:kv.pol||"",lead:kv.lead||"",moq:kv.moq||"",
     ctn:kv.ctn||"",hs:HSR.hs,hsGuess:!HSR.ok,
@@ -3027,10 +3236,12 @@ function tenantFromTextGrids(text,grids,filename,pages){
     compCols:ct?ct.cols:[],compRows:ct?ct.rows:[],
     compTitle:cat==="parts"?"材質・素材表":cat==="cosme"?"全成分表（INCI）":"成分表・材質表",
     strengths:findStrengths(sheets),targets:[],nSheets:pages||1,nTables:tabs.length};
+  /* v18.5：Word／PowerPoint内の商品一覧表・質問票も構造化（AI接続時はAI抽出が上書き） */
+  if(typeof applyStructured==="function") applyStructured(t,productTableToFields(tabs),qaTableToFields(tabs));
   return t;
 }
 /* ── AIによる構造化抽出（複数商品対応） ── */
-const XFIELDS=["co","coEn","item","itemEn","sku","hs","origin","cert","shelf","term","pay","pol","lead","moq","ctn","cat"];
+const XFIELDS=["co","coEn","item","itemEn","sku","hs","origin","cert","shelf","term","pay","pol","lead","moq","ctn","cat","msrp","store"];
 const XPROD_SCHEMA=`{"name":"短い商品名","item":"商品名","itemEn":"英文商品名","sku":"品番","hs":"HSコード(9999.99形式)",
 "cert":"認証","shelf":"賞味期限/保証","lead":"リードタイム","moq":"最小発注数量","ctn":"カートン/パレット入数",
 "cat":"食品|化粧品|工業部品|日用雑貨|中古車|酒類|アパレル|医療・衛生用品|その他",
@@ -3123,11 +3334,12 @@ function mergeTen(t,x){
   const ch=[];
   const nm=k=>({co:"会社名",coEn:"英文社名",item:"商品名",itemEn:"英文商品名",sku:"品番",hs:"HSコード",
     origin:"産地",cert:"認証",shelf:"賞味期限",term:"取引条件",pay:"支払条件",pol:"仕出港",lead:"リードタイム",
-    moq:"MOQ",ctn:"入数",cat:"商材カテゴリ"}[k]||k);
+    moq:"MOQ",ctn:"入数",cat:"商材カテゴリ",msrp:"希望小売価格",store:"保存方法"}[k]||k);
   XFIELDS.forEach(k=>{ const v=x[k];
     if(v&&String(v).trim()&&!has(t[k])){
-      if(k==="hs"){ const m=String(v).match(/\d{4}[.．-]?\d{2}/); if(!m) return;
-        t.hs=m[0].replace(/[．-]/,"."); t.hsGuess=false; }
+      if(k==="hs"){ const m=String(v).match(/(\d{4})(?:[.．-]?(\d{2}))?/); if(!m) return;
+        if(m[2]){ t.hs=m[1]+"."+m[2]; t.hsGuess=false; }
+        else { t.hs=m[1]; t.hsGuess=true; t._hsNote=[[m[1],"資料記載の4桁（6桁の細分は要確定）"]]; ch.push("HSコード（4桁・要確定）"); return; } }
       else if(k==="cat"){ t.cat=String(v); t.catKey=catKeyOf(v); }
       else t[k]=String(v).trim();
       ch.push(nm(k)); }});
@@ -3155,7 +3367,7 @@ function mergeTen(t,x){
 }
 /* 抽出結果を「反映待ち」として整形（マージはユーザー確認後） */
 function xPend(t,x){
-  const prods=(x._multi&&x._multi.length?x._multi:[{item:x.item,name:x.item}]).slice(0,3);
+  const prods=(x._multi&&x._multi.length?x._multi:[{item:x.item,name:x.item}]).slice(0,10);
   const pend={summary:x._summary||"",doc:x._doc||"",notes:x._notes||[],prods:[]};
   prods.forEach((p,i)=>{
     const flat=i===0?x:xProdFlat(x,p);
@@ -3577,7 +3789,7 @@ fillStart=function(){
     if(P.summary) m+=`<br><br><b>AIの理解：</b>${esc(P.summary)}`;
     m+=`<br><br><b>この資料から読み取れた情報：</b>`;
     P.prods.forEach((p,i)=>{
-      m+=`<br>${P.prods.length>1?`<b>${"①②③"[i]} ${esc(p.name)}</b>：`:""}${p.ch.length?p.ch.map(esc).join("・"):"（構造化できる項目なし）"}`;
+      m+=`<br>${P.prods.length>1?`<b>${"①②③④⑤⑥⑦⑧⑨⑩"[i]||(i+1)+"."} ${esc(p.name)}</b>：`:""}${p.ch.length?p.ch.map(esc).join("・"):"（構造化できる項目なし）"}`;
     });
     if(P.notes.length) m+=`<br><br><b>🤖 AIの気づき：</b><br>`+P.notes.map(n=>"・"+esc(n)).join("<br>");
     m+=`<br><br>この内容を商品情報に<b>反映してよろしいでしょうか？</b>${P.prods.length>1?`<br><span style="font-size:10.5px;color:var(--ink-3)">複数商品が見つかったため、${P.prods.length}件を別々の商品スロットに登録します（最大10件）。</span>`:""}`;
