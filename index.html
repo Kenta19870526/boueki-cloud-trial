@@ -20952,6 +20952,12 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.8：商品一覧の反映バナー ── */
+["この資料から","From this document,","从此资料中","De este documento,"],["商品を読み取りました（未反映）","products were read (not yet applied)","个产品已读取（尚未反映）","productos leídos (aún sin aplicar)"],
+["すべて登録する","Register all","全部登记","Registrar todos"],["1件目だけ登録する","Register the first only","仅登记第1个","Registrar solo el primero"],["反映しない","Don't apply","不反映","No aplicar"],
+["1件目は表示中の商品へ、2件目以降は同じ会社の空きスロット（1社10商品まで）へ登録します。登録後は「商品情報」で確認・編集できます。","The first goes into the product on screen; the rest go into free slots of the same company (up to 10 per company). Check and edit them under “Product info” afterwards.","第1个登记到当前显示的产品，其余登记到同一公司的空位（每家最多10个产品）。登记后可在“产品信息”中确认・编辑。","El primero va al producto en pantalla; los demás, a los espacios libres de la misma empresa (hasta 10 por empresa). Revíselos y edítelos en “Información del producto”."],
+["反映待ちの読み取り内容がありません","There is no pending content to apply","没有待反映的读取内容","No hay contenido pendiente de aplicar"],
+["読み取った商品を反映せずに閉じます。よろしいですか？","Close without applying the products that were read. Are you sure?","将不反映已读取的产品并关闭。确定吗？","Se cerrará sin aplicar los productos leídos. ¿Está seguro?"],
 /* ── v18.6：価格表・寸法・成分表の見やすい表示 ── */
 ["続きを読む","Read more","展开","Leer más"],["閉じる","Close","收起","Cerrar"],["商品ページ","Product page","产品页面","Página del producto"],
 ["すべての項目","All fields","所有项目","Todos los campos"],["横長の一覧をカード表示","wide list shown as cards","横向列表以卡片显示","lista ancha mostrada como tarjetas"],
@@ -21578,5 +21584,91 @@ if(typeof ppFormat==="function"){ const __pf187=ppFormat;
       return a;
     }catch(e){ return __pf187.apply(this,arguments); }
   }; }
+
+/* ═══════════ v18.8（2026-09-09）：商品一覧（1行＝1商品）を含む資料の反映を、確認チャットの一回の「はい」に頼らず確実に ═══════════
+   症状：NR社のヒアリングシートを読み込んでも「登録済みの商品」は1件（商品名は空でファイル名が出る）、価格表には商品一覧の生テーブル（11商品）が残る。
+   原因：読み取りそのものは正しく11商品を構造化できている（fileToTenant で確認）。失敗しているのは反映の段階で、
+         ・確認チャットの「反映してよろしいでしょうか？」に答える前に、別タブの保存や同期で確認待ち（_pend）が消える
+         ・v18.5b より前に取り込んだ「生の表を抱えたスロット」が同期で戻ってきて表示される
+         など複数のタイミングがあり、反映が「確認待ちが残っていて、チャットで はい と答える」ことに依存していた。
+   対応：A) 自己修復：価格表・成分表・寸法表が「商品一覧そのもの」（商品名列を持つ横長の表）の商品は、その表から商品ごとの項目を作り直して確認待ちに戻す（描画のたびに軽く検査）
+         B) 確認待ちの内容を localStorage（bc20_pendbak_<code>）にも控え、チャットに答えなくても反映できるバナーを「商品情報を登録」「商品情報」に表示
+         C) 反映（v188ApplyAll）はチャット非依存：1件目は表示中の商品へ合流、2件目以降は同じ会社の空きスロットへ（同名の既存商品は重複登録しない） */
+const V188={busy:false};
+function v188Key(){ return "bc20_pendbak_"+((typeof SES!=="undefined"&&SES&&SES.code)||"demo"); }
+function v188IsProdList(cols){ try{ if(!Array.isArray(cols)||cols.length<5||typeof mapProductCols!=="function") return false; const m=mapProductCols(cols); if(!(m.item&&m.item.length)) return false; return cols.length>=8||Object.keys(m).length>=5; }catch(e){ return false; } }
+function v188BakSave(t){ try{ if(!t||!t._pend||!t._pend.prods||!t._pend.prods.length) return; if(!t.uid){ t.uid=(typeof v185Uid==="function")?v185Uid():Date.now().toString(36)+Math.random().toString(36).slice(2,7); } const all=JSON.parse(localStorage.getItem(v188Key())||"{}"); all[t.uid]={file:t.file,at:Date.now(),pend:t._pend}; localStorage.setItem(v188Key(),JSON.stringify(all)); }catch(e){} }
+function v188Bak(t){ try{ if(!t) return null; const all=JSON.parse(localStorage.getItem(v188Key())||"{}"); const b=(t.uid&&all[t.uid])||null; return (b&&b.pend&&b.pend.prods&&b.pend.prods.length&&b.file===t.file)?b.pend:null; }catch(e){ return null; } }
+function v188BakClear(t){ try{ if(!t) return; const all=JSON.parse(localStorage.getItem(v188Key())||"{}"); if(t.uid) delete all[t.uid]; localStorage.setItem(v188Key(),JSON.stringify(all)); }catch(e){} }
+/* A) 生の商品一覧を抱えた商品 → 商品ごとの項目に作り直して確認待ちへ */
+function v188Heal(t){
+  try{
+    if(!t||t._pend||t._pendSkip||t._pendDone||t.src!=="upload") return false;
+    const keys=["price","dim","comp"].filter(k=>v188IsProdList(t[k+"Cols"])); if(!keys.length) return false;
+    if(typeof productTableToFields!=="function"||typeof applyStructured!=="function") return false;
+    const PT=productTableToFields(keys.map(k=>({cols:t[k+"Cols"],rows:t[k+"Rows"],sheet:({price:"価格表",dim:"寸法表",comp:"成分表"})[k]||k})));
+    if(!PT||!PT.prods||!PT.prods.length) return false;
+    applyStructured(t,PT,null);
+    if(!t._pend) return false;
+    t._pend.summary=t._pend.summary||`価格表として残っていた商品一覧から${PT.prods.length}商品を読み取り直しました`;
+    v188BakSave(t); return true;
+  }catch(e){ return false; }
+}
+function v188HealAll(){ let n=0; try{ (typeof TENS!=="undefined"&&Array.isArray(TENS)?TENS:[]).forEach(t=>{ if(v188Heal(t)) n++; }); }catch(e){} return n; }
+function v188Pend(t){ t=t||(typeof TEN!=="undefined"?TEN:null); if(!t||t.src!=="upload") return null; if(t._pend&&t._pend.prods&&t._pend.prods.length) return t._pend; if(t._pendSkip||t._pendDone) return null; const b=v188Bak(t); if(b){ t._pend=b; return b; } return null; }
+/* C) 反映（チャット非依存） */
+function v188ApplyAll(mode){
+  const t=(typeof TEN!=="undefined")?TEN:null; const P=v188Pend(t); if(!t||!P){ try{ toast("反映待ちの読み取り内容がありません"); }catch(e){} return 0; }
+  if(V188.busy) return 0; V188.busy=true;
+  let added=[]; let ch0=[];
+  try{
+    delete t._pend;
+    ch0=(typeof mergeTen==="function")?(mergeTen(t,P.prods[0].x)||[]):[];
+    if(P.notes&&P.notes.length) t.aiNotes=[...new Set((t.aiNotes||[]).concat(P.notes))];
+    if(mode!=="first"&&P.prods.length>1){
+      const names=new Set(TENS.filter(x=>x&&x!==t).map(x=>String(x.item||"").trim()).filter(Boolean));
+      P.prods.slice(1).forEach(p=>{
+        const nm=String((p.x&&p.x.item)||p.name||"").trim(); if(nm&&names.has(nm)) return;
+        const co2=(p.x&&p.x.co)||t.co;
+        if(typeof tenCanAdd==="function"?!tenCanAdd(co2):(typeof TEN_MAX!=="undefined"&&TENS.length>=TEN_MAX)) return;
+        const t2=blankTenant(t.file,{sheets:t.nSheets}); delete t2.unparsed; t2.aiRead=1; mergeTen(t2,p.x); if(!t2.co) t2.co=t.co;
+        if(typeof v185Stamp==="function") v185Stamp(t2,true); else if(!t2.uid) t2.uid=Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+        t2.at=Date.now(); TENS.push(t2); added.push(nm||p.name); if(nm) names.add(nm); });
+    }
+    t._pendDone=Date.now(); t.at=Date.now(); v188BakClear(t);
+    try{ if(typeof FILL!=="undefined"&&FILL){ FILL.pendBak=null; FILL.pendTen=null; if(FILL.cur&&FILL.cur.k==="_pend"){ FILL.cur=null; try{ fillSay("ai",`画面のバナーから反映しました：<b>${ch0.length}項目</b>${added.length?`＋別スロットに<b>${added.length}商品</b>`:""}。続けて、足りない項目を伺います。`); }catch(e){} try{ fillNext(); }catch(e){} } } }catch(e){}
+    try{ syncTenant(); }catch(e){} try{ saveTen(); }catch(e){} try{ logU("upload","AI抽出を反映:"+ch0.length+"項目"); }catch(e){}
+    try{ buildNav(); render(); }catch(e){}
+    try{ toast(`反映しました：${t.item||"（商品名なし）"}${added.length?` ほか${added.length}商品を別スロットに登録`:""}`); }catch(e){}
+  }finally{ V188.busy=false; }
+  return 1+added.length;
+}
+function v188Skip(){ const t=(typeof TEN!=="undefined")?TEN:null; if(!t) return; delete t._pend; t._pendSkip=Date.now(); v188BakClear(t); try{ if(typeof FILL!=="undefined"&&FILL){ FILL.pendBak=null; FILL.pendTen=null; } }catch(e){} try{ saveTen(); }catch(e){} try{ render(); }catch(e){} }
+/* B) バナー（商品情報を登録／商品情報） */
+function v188Banner(){
+  const well=document.getElementById("well"); if(!well) return; const old=document.getElementById("v188pend"); if(old) old.remove();
+  if(typeof cur==="undefined"||!(cur==="up"||cur==="item")) return; if(typeof FWDON!=="undefined"&&FWDON) return;
+  const t=(typeof TEN!=="undefined")?TEN:null; const P=v188Pend(t); if(!P) return;
+  const n=P.prods.length; const names=P.prods.map(p=>p.name).filter(Boolean);
+  const html=`<div class="c" id="v188pend" style="margin-bottom:11px;border:1.5px solid var(--or);background:var(--or-soft);box-shadow:0 3px 14px rgba(248,149,29,.16)">
+    <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:flex-start">
+      <h3 style="margin:0">📋 <span>この資料から</span> <b>${n}</b> <span>商品を読み取りました（未反映）</span></h3>
+      <span class="p or">${esc(t.file||"")}</span></div>
+    ${P.summary?`<p class="nn" style="margin-top:6px">${esc(P.summary)}</p>`:""}
+    <div class="rw" style="gap:5px;flex-wrap:wrap;margin-top:8px">${names.slice(0,10).map((nm,i)=>`<span class="p" style="background:var(--surface);border:1px solid var(--line)">${i+1}. ${esc(nm)}</span>`).join("")}</div>
+    <div class="rw" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn" id="v188all">🗂 <span>すべて登録する</span>（${n}）</button>
+      ${n>1?`<button class="btn g" id="v188first">1件目だけ登録する</button>`:""}
+      <button class="btn g" id="v188skip">反映しない</button></div>
+    <p class="nn" style="margin-top:6px">1件目は表示中の商品へ、2件目以降は同じ会社の空きスロット（1社10商品まで）へ登録します。登録後は「商品情報」で確認・編集できます。</p></div>`;
+  const sec=well.querySelector("#uxsec"); if(sec) sec.insertAdjacentHTML("afterend",html); else well.insertAdjacentHTML("afterbegin",html);
+  const a=document.getElementById("v188all"); if(a) a.onclick=()=>v188ApplyAll("all");
+  const f=document.getElementById("v188first"); if(f) f.onclick=()=>v188ApplyAll("first");
+  const s=document.getElementById("v188skip"); if(s) s.onclick=()=>{ if(confirm("読み取った商品を反映せずに閉じます。よろしいですか？")) v188Skip(); };
+}
+/* フック */
+{ const __r188=render; render=function(){ const r=__r188.apply(this,arguments); try{ if(v188HealAll()){ try{ saveTen(); }catch(e){} } v188Banner(); }catch(e){} return r; }; }
+if(typeof adoptReal==="function"){ const __ar188=adoptReal; adoptReal=function(t,info){ const r=__ar188.apply(this,arguments); try{ v188BakSave(TEN); }catch(e){} return r; }; }
+if(typeof pendApply==="function"){ const __pa188=pendApply; pendApply=function(mode){ const t=(typeof TEN!=="undefined")?TEN:null; try{ if(t&&!t._pend){ const b=v188Bak(t); if(b) t._pend=b; } }catch(e){} const r=__pa188.apply(this,arguments); try{ if(t){ if(mode==="none") t._pendSkip=Date.now(); else t._pendDone=Date.now(); v188BakClear(t); } }catch(e){} return r; }; }
 
 </script>
