@@ -20952,6 +20952,14 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.6：価格表・寸法・成分表の見やすい表示 ── */
+["続きを読む","Read more","展开","Leer más"],["閉じる","Close","收起","Cerrar"],["商品ページ","Product page","产品页面","Página del producto"],
+["すべての項目","All fields","所有项目","Todos los campos"],["横長の一覧をカード表示","wide list shown as cards","横向列表以卡片显示","lista ancha mostrada como tarjetas"],
+["見本行は非表示","sample rows hidden","已隐藏示例行","filas de ejemplo ocultas"],["編集は「✎ 価格表を編集」から","Edit via “✎ Edit price list”","请通过“✎ 编辑价格表”修改","Edite con “✎ Editar lista de precios”"],
+["備考","Notes","备注","Notas"],["商品","products","件产品","productos"],["列","columns","列","columnas"],["行","rows","行","filas"],
+["価格表はまだありません。「✎ 価格表を編集」から追加できます。","No price list yet. Add one via “✎ Edit price list”.","尚无价格表。可通过“✎ 编辑价格表”添加。","Aún no hay lista de precios. Añádala con “✎ Editar lista de precios”."],
+["寸法・重量の表はまだありません。「✎ 寸法を編集」から追加できます。","No dimensions / weight table yet. Add one via “✎ Edit dimensions”.","尚无尺寸・重量表。可通过“✎ 编辑尺寸”添加。","Aún no hay tabla de dimensiones y peso. Añádala con “✎ Editar dimensiones”."],
+["まだ表がありません。「✎ 表を編集」から追加できます。","No table yet. Add one via “✎ Edit table”.","尚无表格。可通过“✎ 编辑表格”添加。","Aún no hay tabla. Añádala con “✎ Editar tabla”."],
 /* ── v18.4：AI見積の相談欄 ── */
 ["何でも質問できます","Ask anything","可提出任何问题","Pregunte lo que quiera"],
 ["🤖 AI商社マンに質問する","🤖 Ask the AI Trade Agent","🤖 向AI商社专员提问","🤖 Preguntar a la IA comercial"],
@@ -21335,5 +21343,190 @@ if(typeof pendApply==="function"){ const __pa185=pendApply;
       if(restored&&typeof buildNav==="function") buildNav(); if(restored&&typeof render==="function") render();
     }catch(e){}
     return r; }; }
+
+/* ═══════════ v18.6（2026-09-09）：①商品情報の「価格表・寸法」「成分表」を見やすく ②バイヤーDBの質問は接続AIが推論して答える ═══════════
+   ①症状：Excelの横長商品一覧（1行＝1商品・数十列）がそのまま価格表として描かれ、列が細く・長文が縦に伸び・null や「例」の行まで出て読めなかった。
+     対応：表の形を判定して描き分ける。
+       ・横長の商品一覧（8列以上、または商品名列があり長文が多い）→ 1商品＝1カード（商品名／ブランド・カテゴリ／コード・HSのチップ／価格を大きく／説明は3行で折りたたみ／リンクはボタン／残りの項目は「すべての項目」で展開）
+       ・項目／内容の2列表（v18.5 の構造化結果）→ タイル（価格・MOQ・数量は強調）
+       ・それ以外（数量帯×単価、寸法×重量など）→ 整形テーブル（数値列は右寄せ・桁区切り、空欄は「—」、長文は折りたたみ、見出し固定・横スクロール）
+       null／undefined／「例」の見本行は表示しない。編集は従来の「✎ 価格表を編集」のまま（データは変えない・見せ方だけ）。
+   ②症状：「〇〇のバイヤーを一覧で」系の質問は、条件（返答率・優先順位など）が付いていても bnAsk の即答（DB直接照会の定型表）が先に返り、接続AIが考えていなかった。
+     対応：AI接続時はバイヤー質問を接続AIへ回し、社内DBの照会結果（ID付き候補・件数）と回答の指針（代替指標での段階評価・自社商品との適合・IDの無い候補を作らない）を根拠として渡す。
+       件数だけの質問（何社いる？）は従来どおり即答。未接続時・接続AI失敗時は従来の即答へフォールバック（その旨を明記） */
+const V186={css:false,skipBn:false,buyer:false};
+function v186T(k){ try{ if(typeof I18N!=="undefined"&&I18N.lang!=="ja"&&typeof i18nStr==="function"){ const s=i18nStr(k,I18N.dict[I18N.lang]); if(s) return s; } }catch(e){} return k; }
+function v186Css(){ if(V186.css||document.getElementById("v186css")) return; V186.css=true; const st=document.createElement("style"); st.id="v186css"; st.textContent=`
+.v186cap{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--ink-3);margin:0 0 7px}
+.v186cap b{color:var(--ink-2);font-weight:600}
+.v186cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.v186card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:13px 15px;display:flex;flex-direction:column;gap:8px;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:box-shadow .15s,transform .15s;min-width:0}
+.v186card:hover{box-shadow:0 8px 22px rgba(0,0,0,.08);transform:translateY(-1px)}
+.v186ttl{font-size:14.5px;font-weight:700;line-height:1.4;word-break:auto-phrase;text-wrap:pretty}
+.v186ttl .no{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--or);color:#fff;font-size:10.5px;font-weight:700;margin-right:7px;vertical-align:2px}
+.v186sub{font-size:11px;color:var(--ink-3);line-height:1.5}
+.v186chips{display:flex;flex-wrap:wrap;gap:5px}
+.v186chip{font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v186chip b{color:var(--ink);font-weight:600}
+.v186price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 11px;border-radius:9px;background:var(--or-soft)}
+.v186price .v{font-size:21px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.v186price .l{font-size:10.5px;color:var(--ink-3)}
+.v186price .u{font-size:11px;color:var(--ink-2);font-weight:600}
+.v186desc{font-size:12px;line-height:1.7;color:var(--ink-2);word-break:auto-phrase;text-wrap:pretty}
+.v186clampw{display:block}
+.v186clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.v186clamp.open{display:block;-webkit-line-clamp:unset}
+.v186more{font-size:11px;color:var(--bl);cursor:pointer;background:none;border:0;padding:2px 0 0;font-weight:600}
+.v186links{display:flex;gap:6px;flex-wrap:wrap}
+.v186link{display:inline-block;font-size:11px;padding:3px 10px;border-radius:999px;border:1px solid var(--bl);color:var(--bl);text-decoration:none;background:var(--bl-soft);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.v186kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:7px 14px;margin-top:6px}
+.v186kv .k{font-size:10px;color:var(--ink-3);letter-spacing:.02em}
+.v186kv .v{font-size:12px;color:var(--ink);word-break:break-word;line-height:1.5}
+.v186kv .w{grid-column:1/-1}
+.v186det{margin-top:2px}
+.v186det>summary{font-size:11px;color:var(--ink-3);cursor:pointer;list-style:none;font-weight:600}
+.v186det>summary::-webkit-details-marker{display:none}
+.v186det>summary::before{content:"▸ "} .v186det[open]>summary::before{content:"▾ "}
+.v186tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);max-height:none}
+.v186t{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;min-width:100%}
+.v186t th{position:sticky;top:0;background:var(--surface-2);font-size:10.5px;font-weight:700;color:var(--ink-2);text-align:left;padding:8px 11px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+.v186t td{padding:8px 11px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55;max-width:340px;font-variant-numeric:tabular-nums}
+.v186t tbody tr:last-child td{border-bottom:0}
+.v186t tbody tr:nth-child(even) td{background:var(--surface-2)}
+.v186t tbody tr:hover td{background:var(--or-soft)}
+.v186t td.num,.v186t th.num{text-align:right;white-space:nowrap}
+.v186t td.first{font-weight:600;white-space:nowrap;color:var(--ink)}
+.v186t .mute{color:var(--ink-3)}
+.v186kvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:8px}
+.v186tile{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:9px 12px;min-width:0}
+.v186tile .k{font-size:10.5px;color:var(--ink-3)}
+.v186tile .v{font-size:13px;font-weight:600;margin-top:2px;word-break:break-word;line-height:1.5;color:var(--ink)}
+.v186tile.hi{border-color:var(--or);background:var(--or-soft)} .v186tile.hi .v{font-size:16px;letter-spacing:-.01em}
+.v186tile.wide{grid-column:1/-1} .v186tile.wide .v{font-weight:500;font-size:12px}
+.v186empty{padding:14px;border:1.5px dashed var(--line);border-radius:10px;text-align:center;color:var(--ink-3);font-size:12px}
+@media (max-width:820px){ .v186cards{grid-template-columns:1fr} .v186t td{max-width:220px} .v186price .v{font-size:19px} }`; document.head.appendChild(st); }
+const V186_RX={name:/商品名|品名|製品名|product\s*name|^name$|^item$|品目/i,code:/商品コード|JAN|EAN|GTIN|型番|品番|SKU|\bcode\b/i,codeType:/コードの種類/i,model:/モデル|model/i,price:/価格|単価|price|金額|msrp|\bfob\b|\bcif\b|\bddp\b/i,unit:/単価単位|^単位|通貨|currency/i,cat:/カテゴリ|分類|category/i,brand:/ブランド|brand|メーカー|maker/i,desc:/説明|概要|特徴|description|詳細|備考|コメント|remark|note|効果|効能|用途/i,url:/URL|リンク|link|ページ/i,hs:/\bHS\b|HSコード/i,origin:/原産|産地|origin/i,size:/サイズ|寸法|dimension|size/i};
+function v186S(v){ const s=String(v==null?"":v).replace(/\s+/g," ").trim(); return /^(null|undefined|nan|none|-|—|ー|－|n\/a|#n\/a)$/i.test(s)?"":s; }
+function v186IsNum(s){ return /^[¥$€£]?\s?-?\d[\d,]*(\.\d+)?\s?(%|円|pcs|個|本|kg|g|cm|mm|ml|mL|L)?$/i.test(s); }
+function v186Num(s){ const m=String(s).replace(/,/g,"").match(/-?\d+(\.\d+)?/); return m?+m[0]:NaN; }
+function v186FmtNum(s){ const n=v186Num(s); if(isNaN(n)) return esc(s); const pre=(String(s).match(/^[¥$€£]/)||[""])[0]; const suf=(String(s).match(/(%|円|pcs|個|本|kg|g|cm|mm|ml|mL|L)$/i)||[""])[0]; return pre+n.toLocaleString(undefined,{maximumFractionDigits:2})+suf; }
+function v186Url(s){ return /^https?:\/\/\S+$/i.test(s); }
+function v186Cell(s,clampAt){
+  if(!s) return '<span class="mute">—</span>';
+  if(v186Url(s)) return `<a class="v186link" href="${esc(s)}" target="_blank" rel="noopener" title="${esc(s)}">🔗 ${esc(s.replace(/^https?:\/\//,"").slice(0,42))}</a>`;
+  if(v186IsNum(s)) return v186FmtNum(s);
+  if(s.length>(clampAt||70)) return `<span class="v186clampw"><span class="v186clamp">${esc(s)}</span><button class="v186more" type="button" data-v186more>${esc(v186T("続きを読む"))}</button></span>`;
+  return esc(s);
+}
+function v186Money(val,unit){ const n=v186Num(val); if(isNaN(n)) return {v:esc(val),u:esc(unit||"")}; const u=String(unit||"").toUpperCase(); const raw=String(val);
+  if(/JPY|円|¥/.test(u)||/^¥|円$/.test(raw)) return {v:"¥"+n.toLocaleString(),u:""};
+  if(/USD|US\$|\$/.test(u)||/^\$|^US\$/.test(raw)) return {v:"US$"+n.toLocaleString(undefined,{maximumFractionDigits:2}),u:""};
+  if(/EUR|€/.test(u)) return {v:"€"+n.toLocaleString(undefined,{maximumFractionDigits:2}),u:""};
+  return {v:n.toLocaleString(undefined,{maximumFractionDigits:2}),u:esc(unit||"")}; }
+function v186Shape(cols,rows){
+  const n=cols.length; const nameIdx=cols.findIndex(c=>V186_RX.name.test(c));
+  const avg=rows.reduce((s,r)=>s+r.join("").length,0)/Math.max(1,rows.length);
+  if(n>=8||(n>=5&&nameIdx>=0&&avg>60)) return "cards";
+  if(n===2&&rows.length<=40&&rows.every(r=>r[0]&&r[0].length<=30)&&(/項目|item|key|名称|属性|spec|仕様|label|区分/i.test(cols[0]||"")||/内容|値|value|仕様|spec|content/i.test(cols[1]||"")||rows.every(r=>!v186IsNum(r[0])))) return "kv";
+  return "table";
+}
+function v186IsSampleRow(r,nameIdx){ const nm=nameIdx>=0?r[nameIdx]:""; const first=r.find(Boolean)||""; return /^(商品|製品)\s*x+$|^(例|見本|サンプル|sample|example)$|xxxx/i.test(nm)||/^(例|見本|サンプル|sample|example)$/i.test(first); }
+function v186Cards(cols,rows){
+  let nameIdx=cols.findIndex(c=>/^商品名$|^品名$|^製品名$/.test(c)); if(nameIdx<0) nameIdx=cols.findIndex(c=>V186_RX.name.test(c));
+  if(nameIdx<0){ nameIdx=cols.findIndex((c,i)=>rows.filter(r=>r[i]).length>=rows.length*0.6&&rows.every(r=>(r[i]||"").length<=40)); }
+  const live=rows.filter(r=>!v186IsSampleRow(r,nameIdx)); if(!live.length) return v186Table(cols,rows);
+  const unitIdx=cols.findIndex(c=>V186_RX.unit.test(c));
+  const cards=live.map((r,ri)=>{
+    const used=new Set([nameIdx]); if(unitIdx>=0) used.add(unitIdx);
+    const pick=(rx,not)=>cols.map((c,i)=>i).filter(i=>!used.has(i)&&rx.test(cols[i])&&!(not&&not.test(cols[i]))&&r[i]);
+    const title=r[nameIdx]||r.find(Boolean)||"";
+    const subI=[...pick(V186_RX.brand),...pick(V186_RX.cat),...pick(V186_RX.model),...pick(V186_RX.origin)]; subI.forEach(i=>used.add(i));
+    const priceI=pick(V186_RX.price,V186_RX.unit); priceI.forEach(i=>used.add(i));
+    const codeI=[...pick(V186_RX.code,V186_RX.codeType),...pick(V186_RX.hs)]; codeI.forEach(i=>used.add(i)); cols.forEach((c,i)=>{ if(V186_RX.codeType.test(c)) used.add(i); });
+    const urlI=cols.map((c,i)=>i).filter(i=>!used.has(i)&&(V186_RX.url.test(cols[i])||v186Url(r[i]))&&r[i]); urlI.forEach(i=>used.add(i));
+    const descI=pick(V186_RX.desc); descI.forEach(i=>used.add(i));
+    const rest=cols.map((c,i)=>i).filter(i=>!used.has(i)&&r[i]&&cols[i]);
+    const unit=unitIdx>=0?r[unitIdx]:"";
+    const priceHtml=priceI.map((i,k)=>{ const m=v186Money(r[i],unit); return k===0?`<div class="v186price"><span class="v">${m.v}</span>${m.u?`<span class="u">${m.u}</span>`:""}<span class="l">${esc(cols[i])}</span></div>`:`<span class="v186chip">${esc(cols[i])} <b>${m.v}${m.u?" "+m.u:""}</b></span>`; });
+    const chips=[...codeI.map(i=>`<span class="v186chip" title="${esc(cols[i])}">${esc(cols[i].replace(/（.*?）|\(.*?\)/g,"").slice(0,12))} <b>${esc(r[i])}</b></span>`),...priceHtml.slice(1)];
+    return `<div class="v186card">
+      <div class="v186ttl"><span class="no">${ri+1}</span>${esc(title)}</div>
+      ${subI.length?`<div class="v186sub">${[...new Set(subI.map(i=>r[i]))].map(esc).join(" · ")}</div>`:""}
+      ${priceHtml.length?priceHtml[0]:""}
+      ${chips.length?`<div class="v186chips">${chips.join("")}</div>`:""}
+      ${descI.length?`<div class="v186desc">${v186Cell(descI.map(i=>r[i]).join(" "),60)}</div>`:""}
+      ${urlI.length?`<div class="v186links">${urlI.map(i=>`<a class="v186link" href="${esc(r[i])}" target="_blank" rel="noopener" title="${esc(r[i])}">🔗 ${esc(V186_RX.url.test(cols[i])?cols[i].replace(/URL|リンク/gi,"").trim()||v186T("商品ページ"):v186T("商品ページ"))}</a>`).join("")}</div>`:""}
+      ${rest.length?`<details class="v186det"><summary><span>すべての項目</span>（${rest.length}）</summary><div class="v186kv">${rest.map(i=>`<div class="${r[i].length>60||v186Url(r[i])?"w":""}"><div class="k">${esc(cols[i])}</div><div class="v">${v186Cell(r[i],120)}</div></div>`).join("")}</div></details>`:""}
+    </div>`; }).join("");
+  const hidden=rows.length-live.length;
+  return `<div class="v186cap"><span><b>${live.length}</b> <span>商品</span> · <b>${cols.length}</b> <span>列</span> · <span>横長の一覧をカード表示</span>${hidden?` · <span>見本行は非表示</span> <b>${hidden}</b>`:""}</span><span>編集は「✎ 価格表を編集」から</span></div><div class="v186cards">${cards}</div>`;
+}
+function v186Table(cols,rows){
+  const numCol=cols.map((c,i)=>{ const vals=rows.map(r=>r[i]).filter(Boolean); return vals.length&&vals.filter(v186IsNum).length>=vals.length*0.6; });
+  const head=cols.map((c,i)=>`<th class="${numCol[i]?"num":""}">${esc(c)}</th>`).join("");
+  const body=rows.map(r=>`<tr>${cols.map((c,i)=>`<td class="${numCol[i]?"num":""}${i===0&&!numCol[0]&&(r[0]||"").length<=28?" first":""}">${v186Cell(r[i]||"",90)}</td>`).join("")}</tr>`).join("");
+  return `<div class="v186cap"><span><b>${rows.length}</b> <span>行</span> · <b>${cols.length}</b> <span>列</span></span></div><div class="v186tw"><table class="v186t"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function v186KV(cols,rows){
+  const hi=/価格|単価|price|MOQ|最小|数量|入数|納期|通貨|lead|金額/i;
+  return `<div class="v186cap"><span><b>${rows.length}</b> <span>項目</span></span></div><div class="v186kvgrid">${rows.map(r=>{ const k=r[0], v=r[1]||""; const wide=v.length>60||v186Url(v); return `<div class="v186tile${hi.test(k)&&!wide?" hi":""}${wide?" wide":""}"><div class="k">${esc(k)}</div><div class="v">${v186Cell(v,160)}</div></div>`; }).join("")}</div>`;
+}
+function v186Html(kind,cols,rows){
+  v186Css(); cols=(cols||[]).map(v186S); rows=(rows||[]).map(r=>(Array.isArray(r)?r:[]).map(v186S));
+  /* 見出しも中身も空の列は落とす */
+  const keep=cols.map((c,i)=>c||rows.some(r=>r[i])); cols=cols.filter((c,i)=>keep[i]).map((c,i)=>c||v186T("備考")); rows=rows.map(r=>r.filter((v,i)=>keep[i]));
+  const live=rows.filter(r=>r.some(Boolean));
+  if(!cols.length||!live.length) return `<div class="v186empty">${esc(v186T(kind==="dim"?"寸法・重量の表はまだありません。「✎ 寸法を編集」から追加できます。":kind==="comp"?"まだ表がありません。「✎ 表を編集」から追加できます。":"価格表はまだありません。「✎ 価格表を編集」から追加できます。"))}</div>`;
+  const shape=v186Shape(cols,live);
+  return shape==="cards"?v186Cards(cols,live):shape==="kv"?v186KV(cols,live):v186Table(cols,live);
+}
+function v186Item(){
+  const well=document.getElementById("well"); if(!well||typeof D==="undefined"||!D) return;
+  const cards=[...well.querySelectorAll(":scope > .c, :scope .c")]; const find=rx=>cards.find(c=>{ const h=c.querySelector(":scope > .rw > h3, :scope > h3"); return h&&rx.test(h.textContent.trim()); });
+  const c2=find(/^②/); if(c2){ const tws=[...c2.querySelectorAll(".tw")].filter(t=>!t.closest(".v186tw")); if(tws[0]&&!tws[0].dataset.v186){ const d=document.createElement("div"); d.dataset.v186="price"; d.innerHTML=v186Html("price",D.priceCols,D.priceRows); tws[0].replaceWith(d); } if(tws[1]&&!tws[1].dataset.v186){ const d=document.createElement("div"); d.dataset.v186="dim"; d.innerHTML=v186Html("dim",D.dimCols,D.dimRows); tws[1].replaceWith(d); } }
+  const c3=find(/^③/); if(c3){ const tw=[...c3.querySelectorAll(".tw")].find(t=>!t.closest(".v186tw")); if(tw&&!tw.dataset.v186){ const d=document.createElement("div"); d.dataset.v186="comp"; d.innerHTML=v186Html("comp",D.compCols,D.compRows); tw.replaceWith(d); } }
+}
+document.addEventListener("click",e=>{ const b=e.target.closest("[data-v186more]"); if(!b) return; const w=b.parentElement; const c=w&&w.querySelector(".v186clamp"); if(!c) return; const open=c.classList.toggle("open"); b.textContent=open?v186T("閉じる"):v186T("続きを読む"); });
+{ const __r186=render; render=function(){ const r=__r186.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="item") v186Item(); }catch(e){} return r; }; }
+
+/* ── ② バイヤーDBの質問：AI接続時は接続AIが照会結果を根拠に推論（即答は件数質問・未接続・失敗時のみ） ── */
+function v186IsBuyerQ(s){ s=String(s||""); return /バイヤー|買い手|buyer/i.test(s)&&/リスト|一覧|全て|すべて|教えて|探し|紹介|挙げて|あげて|示して|出して|選んで|絞|おすすめ|候補|提案|優先|見込|可能性|確率|返答|返信|反応|率|%|％|条件|以上|以下|向いて|相性|狙/.test(s); }
+function v186IsCountOnly(s){ s=String(s||""); return /何社|何名|何件|件数|いくつ|何人/.test(s)&&!/リスト|一覧|示して|挙げて|あげて|出して|候補|おすすめ|返答|返信|率|条件|優先|見込|絞/.test(s); }
+function v186BuyerGuide(){
+  let prod=[]; try{ if(typeof D!=="undefined"&&D){ if(D.item) prod.push("商品："+D.item); if(D.cat) prod.push("カテゴリ："+D.cat); if(D.hs) prod.push("HS："+D.hs); const st=(D.strengths||[]).slice(0,3).map(x=>x&&x[0]).filter(Boolean); if(st.length) prod.push("強み："+st.join("／")); } }catch(e){}
+  return `=== 回答の指針（バイヤー照会は接続AIが推論して答える） ===
+自社商品：${prod.join("／")||"（未登録）"}
+・候補は上の照会結果にあるID付きのバイヤーだけ。IDの無いバイヤーを作らない。名称・連絡先は「正式契約後に開示」と案内する
+・質問に条件（返答率・見込み・優先順位・相性など）があるときは、DBにその直接の指標が無いことを一言明示したうえで、
+  代替指標＝①自社商品カテゴリ・取扱との一致 ②脈あり度 ③貿易クラウド成約実績 ④規模 を根拠に「高／中／低」で段階評価し、
+  条件に合う候補を「ID｜業種｜取扱｜評価｜根拠」の表（平文の表形式でよい）で示す。合わない候補は除外し、理由を一言添える
+・自社商品と無関係な業種（例：医薬品・化粧品に対してギフト・ホビーの商社）は候補にしない
+・最後に次の一手を1〜2行（「相手を探す」での絞り込み条件、直接連絡の切り口・初回メッセージの要点）`;
+}
+function v186BuyerCtxNoCty(){
+  try{ const st=bnStats(); const my=(typeof D!=="undefined"&&D&&D.catKey)||""; const rows=my&&typeof bnQuery==="function"?bnQuery({cat:my,limit:20}):[];
+    return `=== 社内バイヤーDB照会結果（国の指定なし）：登録 ${st.total.toLocaleString()}名／${st.countries}か国（本番DB実数・今週 +${st.thisWeek}名）${st.catNm?`・自社カテゴリ（${st.catNm}）該当 約${st.catCount.toLocaleString()}名`:""} ===
+登録の多い国：${BN_CTY.slice(0,8).map(([cc,n])=>`${cc} ${n}名`).join("、")}
+${rows.length?`自社カテゴリの見本 上位${rows.length}件：\n${rows.map(b=>`${b.id}｜${b.cty||""}｜${b.biz}｜${b.catNm}｜取扱:${(b.ints||[]).join("・")}｜${b.size}｜脈あり度:${b.lv}｜貿易クラウド成約実績:${b.deals}件`).join("\n")}`:""}
+※名称・連絡先は正式契約後に開示（IDで案内する）。`; }catch(e){ return ""; }
+}
+if(typeof bnAsk==="function"){ const __bn186=bnAsk; bnAsk=function(){ if(V186.skipBn) return null; return __bn186.apply(this,arguments); }; }
+if(typeof bnCtxFor==="function"){ const __ctx186=bnCtxFor; bnCtxFor=function(q){ let s=__ctx186.apply(this,arguments); if(V186.buyer){ if(!s) s=v186BuyerCtxNoCty(); if(s) s+="\n\n"+v186BuyerGuide(); } return s; }; }
+if(typeof brain==="function"){ const __brain186=brain;
+  brain=function(q,opts){
+    const q0=(opts&&opts.raw)||q; let buyer=false;
+    try{ buyer=typeof ppReady==="function"&&ppReady()&&typeof bnAsk==="function"&&v186IsBuyerQ(q0)&&!v186IsCountOnly(q0); }catch(e){ buyer=false; }
+    if(!buyer) return __brain186.apply(this,arguments);
+    V186.skipBn=true; V186.buyer=true; let r;
+    try{ r=__brain186.apply(this,arguments); } finally{ V186.skipBn=false; V186.buyer=false; }
+    return Promise.resolve(r).then(res=>{
+      try{
+        if(res&&/接続不可/.test(String(res.c||""))){ const b=__bnAskRaw186(q0); if(b){ b.c=(b.c||"")+"／⚠ 接続AIが使えなかったため社内DBの直接照会（定型）で回答"; return b; } }
+        if(res&&res.c) res.c=String(res.c).replace("社内データを注入済み","社内バイヤーDBの照会結果を根拠に接続AIが推論");
+      }catch(e){}
+      return res; });
+  };
+  function __bnAskRaw186(q0){ V186.skipBn=false; try{ return bnAsk(q0); }catch(e){ return null; } }
+}
 
 </script>
