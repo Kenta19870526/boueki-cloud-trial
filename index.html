@@ -7932,10 +7932,13 @@ function vUp(p){
   if(FILL.on) return vFill(p);
   let plist="";
   if(TENS.length){
-    const cos=tenCos(), actCo=tenCoOf(TENS[TIDX]||TENS[0]);
+    const cos=tenCos();
     const curTen=(PID==="custom"&&TEN&&(TENS.indexOf(TEN)>=0||TEN.src==="upload"||TEN.src==="sample2"));   /* v16.1: 表示中＝登録済み商品か */
     const isCur=i=>curTen&&(TENS[i]===TEN||(TENS.indexOf(TEN)<0&&i===TIDX));
-    const act=cos.find(x=>x.co===actCo)||cos[0];
+    /* v18.9：一覧の「この会社」は上部バーで表示中の会社に追従する。デモ商材など登録の無い会社を表示中のときは、前に見ていた会社の商品を出さず「登録なし」と全社のチップを出す */
+    const dispCo=(typeof D!=="undefined"&&D&&String(D.co||"").trim())||"";
+    const actCo=curTen?tenCoOf(TENS[TIDX]||TEN):(cos.find(x=>x.co===dispCo)?dispCo:null);
+    const act=actCo?(cos.find(x=>x.co===actCo)||null):null;
     /* v17.3：会社名は上部バーに出ているので繰り返さない。商品は充足度メーター付きのカード一覧、追加は「＋ 新しい商品を登録」ボタンに */
     const prodChip=i=>{const t=TENS[i],s=scoreOf(t);
       return `<button class="smp regc${isCur(i)?" on":""}" data-tsw="${i}" title="${isCur(i)?"いま表示中の商品":"この商品に切り替え"}">
@@ -7944,21 +7947,21 @@ function vUp(p){
         <span class="regm"><i style="width:${s.pct}%"></i></span>
         <span class="regs">充足度${s.pct}%${isCur(i)?"・表示中":""}</span>
       </button>`;};
-    const others=cos.filter(x=>x.co!==actCo);
+    const others=act?cos.filter(x=>x.co!==actCo):cos;
     plist=`<div class="c" id="regprod" style="margin-bottom:11px">
       <div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:center">
         <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center"><h3 style="margin:0">登録済みの商品</h3>
-          <span class="p lo">この会社の商品 ${act.idxs.length}/${PROD_PER_CO}件</span>
+          <span class="p lo">この会社の商品 ${act?act.idxs.length:0}/${PROD_PER_CO}件</span>
           <span class="p lo">サプライヤー ${cos.length}/${CO_MAX}社</span></div>
         <div class="rw" style="gap:6px;flex-wrap:wrap">
           <input class="sel" id="pfq" placeholder="🔍 会社名・商品名で検索" autocomplete="off"
             style="min-width:200px;padding:6px 11px;font-size:12px;min-height:32px">
-          ${tenCanAdd(actCo)?`<button class="btn" id="newprod-go" onclick="ux17NewProd()" title="下の登録欄へ移動します（登録済みの商品はそのまま残ります）" style="padding:7px 14px;white-space:nowrap">＋ 新しい商品を登録</button>`
+          ${tenCanAdd(actCo||dispCo)?`<button class="btn" id="newprod-go" onclick="ux17NewProd()" title="下の登録欄へ移動します（登録済みの商品はそのまま残ります）" style="padding:7px 14px;white-space:nowrap">＋ 新しい商品を登録</button>`
             :`<span class="p no" style="align-self:center">この会社は上限（${PROD_PER_CO}件）</span>`}</div></div>
       <div id="pfnorm">
         ${curTen?"":`<div class="rw" data-curdemo style="margin-top:8px;gap:8px;padding:8px 11px;border-radius:var(--r2);background:var(--or-soft);font-size:11.5px;line-height:1.6"><span style="flex:1;min-width:200px">いま表示中：<b>${esc((D&&D.co)||"")}／${esc((D&&D.item)||"")}</b>（${(TEN&&TEN.src==="sample")?"デモ商材・架空":"サンプル"}）。<span>登録済みの商品ではありません</span></span><button class="btn g" style="font-size:11px;padding:4px 10px;flex:none" data-tsw="${TIDX}">登録済みの商品に戻る</button></div>`}
-        <div class="regl" style="margin-top:10px">${act.idxs.map(prodChip).join("")}</div>
-        ${others.length?`<div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap;align-items:center"><span class="nn" style="margin:0">他の会社：</span>${others.map(x=>`<button class="q" data-tsw="${x.idxs[0]}" title="この会社の商品に切り替え">🏢 ${esc(x.co.slice(0,18))}<span style="opacity:.65;margin-left:4px">${x.idxs.length}件</span></button>`).join("")}</div>`:""}
+        ${act?`<div class="regl" style="margin-top:10px">${act.idxs.map(prodChip).join("")}</div>`:`<div class="nn" style="margin-top:10px">いま表示中の会社に登録済みの商品はありません。下の会社を選ぶか、「＋ 新しい商品を登録」から追加してください。</div>`}
+        ${others.length?`<div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap;align-items:center"><span class="nn" style="margin:0">${act?"他の会社：":"登録済みの会社："}</span>${others.map(x=>`<button class="q" data-tsw="${x.idxs[0]}" title="この会社の商品に切り替え">🏢 ${esc(x.co.slice(0,18))}<span style="opacity:.65;margin-left:4px">${x.idxs.length}件</span></button>`).join("")}</div>`:""}
         </div>
       <div id="pfx" hidden style="margin-top:9px"></div>
       </div>`;
@@ -20952,6 +20955,9 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.9：登録済みの商品パネルは表示中の会社に追従 ── */
+["いま表示中の会社に登録済みの商品はありません。下の会社を選ぶか、「＋ 新しい商品を登録」から追加してください。","The company on screen has no registered products. Pick a company below, or add one via “＋ Register a new product”.","当前显示的公司没有已登记的产品。请选择下方的公司，或通过“＋ 登记新产品”添加。","La empresa en pantalla no tiene productos registrados. Elija una empresa abajo o añada uno con “＋ Registrar un producto nuevo”."],
+["登録済みの会社：","Registered companies:","已登记的公司：","Empresas registradas:"],
 /* ── v18.8：商品一覧の反映バナー ── */
 ["この資料から","From this document,","从此资料中","De este documento,"],["商品を読み取りました（未反映）","products were read (not yet applied)","个产品已读取（尚未反映）","productos leídos (aún sin aplicar)"],
 ["すべて登録する","Register all","全部登记","Registrar todos"],["1件目だけ登録する","Register the first only","仅登记第1个","Registrar solo el primero"],["反映しない","Don't apply","不反映","No aplicar"],
