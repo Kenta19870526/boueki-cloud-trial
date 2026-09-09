@@ -21499,7 +21499,7 @@ function v186BuyerGuide(){
 ・候補は上の照会結果にあるID付きのバイヤーだけ。IDの無いバイヤーを作らない。名称・連絡先は「正式契約後に開示」と案内する
 ・質問に条件（返答率・見込み・優先順位・相性など）があるときは、DBにその直接の指標が無いことを一言明示したうえで、
   代替指標＝①自社商品カテゴリ・取扱との一致 ②脈あり度 ③貿易クラウド成約実績 ④規模 を根拠に「高／中／低」で段階評価し、
-  条件に合う候補を「ID｜業種｜取扱｜評価｜根拠」の表（平文の表形式でよい）で示す。合わない候補は除外し、理由を一言添える
+  条件に合う候補を Markdown の表（見出し行「| ID | 業種 | 取扱 | 評価 | 根拠 |」、評価は 高／中／低 の1語、根拠は40字以内）で示す。合わない候補は除外し、理由を一言添える
 ・自社商品と無関係な業種（例：医薬品・化粧品に対してギフト・ホビーの商社）は候補にしない
 ・最後に次の一手を1〜2行（「相手を探す」での絞り込み条件、直接連絡の切り口・初回メッセージの要点）`;
 }
@@ -21528,5 +21528,55 @@ if(typeof brain==="function"){ const __brain186=brain;
   };
   function __bnAskRaw186(q0){ V186.skipBn=false; try{ return bnAsk(q0); }catch(e){ return null; } }
 }
+
+/* ── v18.7（2026-09-09）：接続AIの回答に含まれる Markdown の表（| … |）と区切り線を、見やすい表として描画 ──
+   症状：バイヤー一覧を Markdown の表で返しても、ppFormat が「|」をそのまま出すため縦棒だらけで読めなかった。
+   対応：ppFormat をラップし、表ブロック→ <table>（見出し固定・縞・ID等幅・評価は色付きピル・数値は右寄せ）、--- → <hr>。他の書式（太字・見出し・箇条書き）は従来どおり */
+function v187Css(){ if(document.getElementById("v187css")) return; const st=document.createElement("style"); st.id="v187css"; st.textContent=`
+.v187tw{overflow-x:auto;margin:8px 0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.v187t{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+.v187t th{position:sticky;top:0;background:var(--surface-2);font-size:10.5px;font-weight:700;color:var(--ink-2);text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;z-index:1}
+.v187t td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55;min-width:56px}
+.v187t tbody tr:last-child td{border-bottom:0}
+.v187t tbody tr:nth-child(even) td{background:var(--surface-2)}
+.v187t tbody tr:hover td{background:var(--or-soft)}
+.v187t td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.v187t td.ctr{text-align:center;white-space:nowrap}
+.v187t td.nowrap{white-space:nowrap}
+.v187t td.first{font-weight:600}
+.v187id{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--bl);white-space:nowrap}
+.v187hr{border:0;border-top:1px solid var(--line);margin:9px 0}
+.bb .v187t td,.bb .v187t th{font-size:11.5px}`; document.head.appendChild(st); }
+function v187Cell(c,i,isHead){
+  const t=String(c||"").trim(); let s=esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>"); let cls="";
+  if(isHead) return `<th>${s}</th>`;
+  if(/^(高|中|低|高い|低い|High|Medium|Med|Low|Alta|Alto|Media|Medio|Baja|Bajo)$/i.test(t)){ const k=/^(高|高い|High|Alta|Alto)$/i.test(t)?"hi":/^(中|Med|Medium|Media|Medio)$/i.test(t)?"mid":"lo"; s=`<span class="p ${k}">${esc(t)}</span>`; cls="ctr"; }
+  else if(/^[A-Z]{2}-\d{3,}$/.test(t)){ s=`<b class="v187id">${esc(t)}</b>`; cls="nowrap"; }
+  else if(/^[¥$€]?\s?[\d,]+(\.\d+)?\s?(%|件|名|社|円|USD|JPY)?$/.test(t)) cls="num";
+  else if(i===0&&t.length<=14) cls="first";
+  return `<td class="${cls}">${s||'<span style="color:var(--ink-3)">—</span>'}</td>`;
+}
+function v187Table(lines){
+  const rows=lines.map(l=>{ let s=l.trim(); if(s.startsWith("|")) s=s.slice(1); if(s.endsWith("|")) s=s.slice(0,-1); return s.split("|").map(c=>c.trim()); }).filter(r=>!r.every(c=>c===""||/^:?-{2,}:?$/.test(c)));
+  if(rows.length<2) return null;
+  const n=Math.max(...rows.map(r=>r.length)); const head=rows[0], body=rows.slice(1);
+  return `<div class="v187tw"><table class="v187t"><thead><tr>${Array.from({length:n},(_,i)=>v187Cell(head[i]||"",i,true)).join("")}</tr></thead><tbody>${body.map(r=>`<tr>${Array.from({length:n},(_,i)=>v187Cell(r[i]||"",i,false)).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+if(typeof ppFormat==="function"){ const __pf187=ppFormat;
+  ppFormat=function(txt){
+    try{
+      const lines=String(txt==null?"":txt).split("\n"); const out=[]; const tables=[]; let i=0; const isRow=l=>/^\s*\|.*\|\s*$/.test(l);
+      while(i<lines.length){
+        if(isRow(lines[i])){ let j=i; while(j<lines.length&&isRow(lines[j])) j++; const html=v187Table(lines.slice(i,j)); if(html){ out.push("\u0001T"+tables.length+"\u0001"); tables.push(html); i=j; continue; } }
+        if(/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i])){ out.push("\u0001HR\u0001"); i++; continue; }
+        out.push(lines[i]); i++;
+      }
+      let a=__pf187.call(this,out.join("\n"));
+      if(tables.length) v187Css();
+      a=a.replace(/(?:<br>)?\u0001T(\d+)\u0001(?:<br>)?/g,(m,k)=>tables[+k]||"");
+      a=a.replace(/(?:<br>)?\u0001HR\u0001(?:<br>)?/g,'<hr class="v187hr">');
+      return a;
+    }catch(e){ return __pf187.apply(this,arguments); }
+  }; }
 
 </script>
