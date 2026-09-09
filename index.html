@@ -20955,6 +20955,8 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.10：再アップロードの重複防止 ── */
+["続きは ","Next, ","接下来，","A continuación, "],[" の不足項目を伺います。"," — I'll ask about its missing items."," 的缺失项目将逐一询问。"," — le preguntaré por los datos que faltan."],
 /* ── v18.9：登録済みの商品パネルは表示中の会社に追従 ── */
 ["いま表示中の会社に登録済みの商品はありません。下の会社を選ぶか、「＋ 新しい商品を登録」から追加してください。","The company on screen has no registered products. Pick a company below, or add one via “＋ Register a new product”.","当前显示的公司没有已登记的产品。请选择下方的公司，或通过“＋ 登记新产品”添加。","La empresa en pantalla no tiene productos registrados. Elija una empresa abajo o añada uno con “＋ Registrar un producto nuevo”."],
 ["登録済みの会社：","Registered companies:","已登记的公司：","Empresas registradas:"],
@@ -21064,6 +21066,10 @@ const PRI=[
 PRI.slice().reverse().forEach(p=>I18N_PAT2.unshift(p));
 I18N_PAT2.push(
  {re:/^(.+?)向けの見積について、相場・物流会社の選び方・倉庫・納期など何でも聞けます。回答はこの下に表示されます。$/,en:(m,d)=>"Ask anything about the quote for "+T(m[1],d)+": market rates, choosing a forwarder, warehouses, lead times and more. Answers appear below.",zh:(m,d)=>"可就面向"+T(m[1],d)+"的报价提出任何问题：行情、物流公司的选择、仓库、交期等。回答显示在下方。",es:(m,d)=>"Pregunte lo que quiera sobre la cotización para "+T(m[1],d)+": tarifas de mercado, elección de transportista, almacenes, plazos y más. Las respuestas aparecen abajo."},
+ {re:/^この資料の商品は登録済みのため、既存の(\d+)商品に反映しました（重複登録はしません）(?:・未登録の(\d+)商品を追加)?(?:・(\d+)商品は上限（1社10商品）のため未追加)?$/,
+  en:(m)=>`The products in this document are already registered, so the data was merged into the existing ${m[1]} products (no duplicates)${m[2]?` · ${m[2]} new products added`:""}${m[3]?` · ${m[3]} not added (limit of 10 per company)`:""}`,
+  zh:(m)=>`此资料中的产品已登记，已合并到现有${m[1]}个产品（不会重复登记）${m[2]?`・新增${m[2]}个未登记产品`:""}${m[3]?`・${m[3]}个因上限（每公司10个）未添加`:""}`,
+  es:(m)=>`Los productos de este documento ya están registrados; los datos se fusionaron en los ${m[1]} productos existentes (sin duplicados)${m[2]?` · ${m[2]} productos nuevos añadidos`:""}${m[3]?` · ${m[3]} no añadidos (límite de 10 por empresa)`:""}`},
  {re:/^強みを(\d+)点$/,en:"$1 strengths",zh:"$1项优势",es:"$1 fortalezas"},
  {re:/^(\d+)行$/,en:"$1 rows",zh:"$1行",es:"$1 filas"},
  {re:/^(\d+)項目$/,en:"$1 items",zh:"$1项",es:"$1 elementos"},
@@ -21624,6 +21630,8 @@ function v188HealAll(){ let n=0; try{ (typeof TENS!=="undefined"&&Array.isArray(
 function v188Pend(t){ t=t||(typeof TEN!=="undefined"?TEN:null); if(!t||t.src!=="upload") return null; if(t._pend&&t._pend.prods&&t._pend.prods.length) return t._pend; if(t._pendSkip||t._pendDone) return null; const b=v188Bak(t); if(b){ t._pend=b; return b; } return null; }
 /* C) 反映（チャット非依存） */
 function v188ApplyAll(mode){
+  /* v18.10：読み取った商品がすでに登録済みなら、空スロットを増やさず既存へ合流 */
+  try{ if(typeof v1810Dedup==="function"){ const d=v1810Dedup(TEN); if(d&&d.removed){ try{ if(d.wasCur&&typeof FILL!=="undefined"&&FILL) FILL.on=false; }catch(e){} try{ buildNav(); render(); }catch(e){} try{ toast(v1810Msg(d)); }catch(e){} return d.matched+d.added; } } }catch(e){}
   const t=(typeof TEN!=="undefined")?TEN:null; const P=v188Pend(t); if(!t||!P){ try{ toast("反映待ちの読み取り内容がありません"); }catch(e){} return 0; }
   if(V188.busy) return 0; V188.busy=true;
   let added=[]; let ch0=[];
@@ -21676,5 +21684,47 @@ function v188Banner(){
 { const __r188=render; render=function(){ const r=__r188.apply(this,arguments); try{ if(v188HealAll()){ try{ saveTen(); }catch(e){} } v188Banner(); }catch(e){} return r; }; }
 if(typeof adoptReal==="function"){ const __ar188=adoptReal; adoptReal=function(t,info){ const r=__ar188.apply(this,arguments); try{ v188BakSave(TEN); }catch(e){} return r; }; }
 if(typeof pendApply==="function"){ const __pa188=pendApply; pendApply=function(mode){ const t=(typeof TEN!=="undefined")?TEN:null; try{ if(t&&!t._pend){ const b=v188Bak(t); if(b) t._pend=b; } }catch(e){} const r=__pa188.apply(this,arguments); try{ if(t){ if(mode==="none") t._pendSkip=Date.now(); else t._pendDone=Date.now(); v188BakClear(t); } }catch(e){} return r; }; }
+
+/* ── v18.10（2026-09-09）：同じ資料の再アップロードで「商品名の無い空スロット」が増える不具合 ──
+   症状：NR社の10商品を登録済みの状態で同じExcelを再アップロードすると、「★1月7日まで_ヒアリングシート…」というファイル名だけの11件目（充足度20%・未反映バナー付き）が増える。
+   原因：取り込みは毎回「新しい商品スロット」を作って確認待ちにする。v18.5b の置き換えは「商品名の無い古いスロット」だけが対象で、
+         読み取った商品がすでに（名前付きで）登録済みのケースは想定していなかった。
+   対応：読み取った商品名が同じ会社の登録済み商品と一致するときは、新しい空スロットを作らず既存の商品へ合流（空欄だけ補完・重複登録しない）、
+         未登録の商品だけ空きスロットへ追加し、空スロットは削除（墓標付き）。取り込み直後・描画時（既存データの自己修復）・バナー／チャットの反映時のすべてで判定 */
+const V1810={busy:false};
+function v1810Key(s){ return String(s||"").replace(/\s+/g,"").toLowerCase(); }
+function v1810Dedup(t){
+  try{
+    if(!t||t.src!=="upload"||String(t.item||"").trim()) return null;
+    const P=v188Pend(t); if(!P||!P.prods||!P.prods.length) return null;
+    const co=String(t.co||"").trim(); if(!co) return null; const wasCur=(typeof TEN!=="undefined"&&TEN===t);
+    const ex=TENS.filter(x=>x&&x!==t&&x.src==="upload"&&String(x.co||"").trim()===co&&String(x.item||"").trim());
+    if(!ex.length) return null;
+    const byName=new Map(ex.map(x=>[v1810Key(x.item),x]));
+    let matched=0, added=0; const unmatched=[];
+    P.prods.forEach(p=>{ const nm=v1810Key((p.x&&p.x.item)||p.name); const e=nm&&byName.get(nm); if(e){ matched++; try{ if(typeof mergeTen==="function") mergeTen(e,p.x); e.at=Date.now(); }catch(err){} } else unmatched.push(p); });
+    if(!matched) return null;   /* 既存と重ならない＝本当に新しい資料 → 通常の流れ */
+    unmatched.forEach(p=>{ if(typeof tenCanAdd==="function"&&!tenCanAdd(co)) return; const t2=blankTenant(t.file,{sheets:t.nSheets}); delete t2.unparsed; t2.aiRead=1; mergeTen(t2,p.x); if(!t2.co) t2.co=co; if(typeof v185Stamp==="function") v185Stamp(t2,true); t2.at=Date.now(); TENS.push(t2); added++; byName.set(v1810Key(t2.item),t2); });
+    /* 空スロットを削除（墓標で同期先にも伝える） */
+    const i=TENS.indexOf(t); if(i>=0){ try{ if(typeof v17TombAdd==="function"&&typeof v17TenSig==="function") v17TombAdd("ten",v17TenSig(t)); }catch(e){} TENS.splice(i,1); }
+    delete t._pend; v188BakClear(t);
+    const first=byName.get(v1810Key((P.prods[0].x&&P.prods[0].x.item)||P.prods[0].name))||ex[0]; const j=TENS.indexOf(first);
+    if(j>=0){ TIDX=j; TEN=first; PID="custom"; } else { TIDX=Math.max(0,Math.min(TIDX,TENS.length-1)); TEN=TENS[TIDX]; }
+    try{ if(typeof FILL!=="undefined"&&FILL){ FILL.pendTen=null; FILL.pendBak=null; if(FILL.cur&&FILL.cur.k==="_pend") FILL.cur=null; } }catch(e){}
+    try{ syncTenant(); }catch(e){} try{ saveTen(); }catch(e){}
+    return {removed:true,matched,added,skipped:unmatched.length-added,first,wasCur};
+  }catch(e){ return null; }
+}
+function v1810Msg(r){ return `この資料の商品は登録済みのため、既存の${r.matched}商品に反映しました（重複登録はしません）${r.added?`・未登録の${r.added}商品を追加`:""}${r.skipped?`・${r.skipped}商品は上限（1社10商品）のため未追加`:""}`; }
+function v1810DedupAll(){ let last=null; try{ (typeof TENS!=="undefined"&&Array.isArray(TENS)?TENS.slice():[]).forEach(t=>{ const r=v1810Dedup(t); if(r&&r.removed) last=r; }); }catch(e){} return last; }
+/* 取り込み直後（adoptReal の後段）：既存と重なるなら合流して空スロットを閉じる */
+/* 取り込みは「スロットを作る前」に判定する（会社が上限のとき pushTen が表示中の商品を置き換えてしまうのを避ける） */
+if(typeof adoptReal==="function"){ const __ar1810=adoptReal; adoptReal=function(t,info){
+  try{ const d=v1810Dedup(t); if(d&&d.removed){ try{ upFile=null; PID="custom"; cur="up"; if(typeof FILL!=="undefined"&&FILL){ FILL.on=false; FILL.cur=null; } }catch(e){} try{ buildNav(); render(); scrollTo({top:0}); }catch(e){} try{ toast(v1810Msg(d)); }catch(e){} return; } }catch(e){}
+  const r=__ar1810.apply(this,arguments); try{ if(TEN&&!TEN.at) TEN.at=Date.now(); }catch(e){} return r; }; }
+/* チャットの「反映」：既存と重なるなら合流して、続きは既存商品の不足項目へ */
+if(typeof pendApply==="function"){ const __pa1810=pendApply; pendApply=function(mode){ try{ if(mode!=="none"){ const d=v1810Dedup(TEN); if(d&&d.removed){ try{ fillSay("ai",`${esc(v1810Msg(d))}<br>続きは <b>${esc(TEN.item||"")}</b> の不足項目を伺います。`); }catch(e){} try{ fillNext(); }catch(e){} try{ buildNav(); render(); }catch(e){} return; } } }catch(e){} return __pa1810.apply(this,arguments); }; }
+/* 描画時（既存データの自己修復）：空スロット＋確認待ちが既存と重なっていれば閉じる */
+{ const __r1810=render; render=function(){ const r=__r1810.apply(this,arguments); try{ if(!V1810.busy){ V1810.busy=true; try{ const d=v1810DedupAll(); if(d){ try{ if(d.wasCur&&typeof FILL!=="undefined"&&FILL&&FILL.on) FILL.on=false; }catch(e){} try{ buildNav(); }catch(e){} __r1810.apply(this,arguments); try{ v188Banner(); }catch(e){} try{ toast(v1810Msg(d)); }catch(e){} } } finally{ V1810.busy=false; } } }catch(e){} return r; }; }
 
 </script>
