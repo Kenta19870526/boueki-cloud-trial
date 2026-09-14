@@ -20955,6 +20955,11 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.12：集中モード（新しい会社／既存の会社への追加） ── */
+["新しい会社の商品を登録","Register a new company's product","登记新公司的产品","Registrar el producto de una empresa nueva"],["に新しい商品を登録","— register a new product","登记新产品","— registrar un producto nuevo"],
+["既存の商品は表示していません。下の登録欄に資料をドロップ（またはクリックして選択）してください。","Existing products are hidden. Drop the document into the upload area below (or click to choose a file).","未显示现有产品。请将资料拖放到下方的登记区域（或点击选择文件）。","Los productos existentes están ocultos. Suelte el documento en la zona de carga de abajo (o haga clic para elegir un archivo)."],
+["下の登録欄に資料をドロップすると、この会社の商品として登録されます。","Drop the document into the upload area below and it will be registered as this company's product.","将资料拖放到下方的登记区域后，将登记为该公司的产品。","Suelte el documento en la zona de carga de abajo y se registrará como producto de esta empresa."],
+["通常表示に戻る（登録済みの商品を表示）","Back to the normal view (show registered products)","返回普通显示（显示已登记的产品）","Volver a la vista normal (mostrar productos registrados)"],
 /* ── v18.11：商品登録の「何をしますか？」ポップアップ ── */
 ["商品情報を登録 ― 何をしますか？","Register product info — what would you like to do?","登记产品信息 ― 您要做什么？","Registrar información del producto: ¿qué desea hacer?"],
 ["3つから選んでください。あとからいつでも変更できます。","Choose one of the three. You can change it any time.","请从3项中选择。之后随时可以更改。","Elija una de las tres opciones. Puede cambiarla en cualquier momento."],
@@ -21874,9 +21879,9 @@ function v1811Act(k,ds,v){
   if(k==="newco") return v1811Open("newco");
   if(k==="addto") return v1811Open("addto");
   if(k==="edit") return v1811Open("edit");
-  if(k==="addto-co") return v1811Open("addto",ds.co);
+  if(k==="addto-co"){ /* v18.12：その会社の商品に切り替えてから（画面にその会社の情報が出る） */ try{ const c=v1811Cos().find(x=>x.co===ds.co); V1811.focus={k:"addto",co:ds.co}; V1811.sup=true; try{ if(c&&c.idxs.length&&TENS[c.idxs[0]]!==TEN) switchTen(c.idxs[0]); if(typeof FILL!=="undefined"&&FILL) FILL.on=false; cur="up"; buildNav(); render(); }finally{ V1811.sup=false; } }catch(e){} return v1811Open("addto",ds.co); }
   if(k==="edit-co") return v1811Open("edit",ds.co);
-  if(k==="newco-up"||k==="addto-up"){ V1811.mode=k==="addto-up"?{k:"addto",co:ds.co}:{k:"newco"}; v1811Close(); v1811ToDrop(k==="addto-up"?`${ds.co} の新しい商品の資料をここにドロップしてください`:"新しい会社の商品資料をここにドロップしてください"); return; }
+  if(k==="newco-up"||k==="addto-up"){ V1811.mode=k==="addto-up"?{k:"addto",co:ds.co}:{k:"newco"}; V1811.focus=k==="addto-up"?{k:"addto",co:ds.co}:{k:"newco"}; v1811Close(); v1812Enter(k==="addto-up"?`${ds.co} の新しい商品の資料をここにドロップしてください`:"新しい会社の商品資料をここにドロップしてください"); return; }
   if(k==="newco-manual"||k==="addto-manual"){ const m=v.querySelector("#v1811manual"); if(m){ m.hidden=false; const i=v.querySelector("#v1811co")||v.querySelector("#v1811item"); if(i) try{ i.focus(); }catch(e){} } return; }
   if(k==="edit-prod"){ v1811Close(); V1811.sup=true; try{ switchTen(+ds.i); go("item"); }finally{ V1811.sup=false; } return; }
   if(k==="edit-fill"){ v1811Close(); V1811.sup=true; try{ switchTen(+ds.i); go("up"); if(typeof fillStart==="function") fillStart(); render(); scrollTo({top:0}); }finally{ V1811.sup=false; } return; }
@@ -21888,6 +21893,7 @@ function v1811ToDrop(msg){
 }
 /* 資料なしで開始：会社名（＋商品名）だけの商品を作り、AIヒアリングへ */
 function v1811Manual(co,item){
+  V1811.focus=null;
   try{
     if(typeof tenCanAdd==="function"&&!tenCanAdd(co)){ toast(`「${co}」の商品は上限（1社${typeof PROD_PER_CO!=="undefined"?PROD_PER_CO:10}件）です。不要な商品を削除してから登録してください`); return; }
     const t=blankTenant("手入力（資料なし）",{sheets:1}); delete t.unparsed; t.co=String(co).trim(); t.item=String(item||"").trim(); t.nSheets=0; t.nTables=0; t.at=Date.now();
@@ -21901,18 +21907,55 @@ function v1811Manual(co,item){
 }
 /* 表示条件：ナビからの遷移・ヒアリング中でない・未反映バナーが無い・抑止されていない */
 function v1811Maybe(){
-  try{ if(V1811.sup||v1811Off()) return; if(typeof FWDON!=="undefined"&&FWDON) return; if(typeof SES!=="undefined"&&SES&&SES.t==="admin") return;
+  try{ if(V1811.sup||v1811Off()||V1811.focus) return; if(typeof FWDON!=="undefined"&&FWDON) return; if(typeof SES!=="undefined"&&SES&&SES.t==="admin") return;
     if(typeof FILL!=="undefined"&&FILL&&FILL.on) return; if(document.getElementById("welv")) return;
     if(typeof v188Pend==="function"&&v188Pend(typeof TEN!=="undefined"?TEN:null)) return;
     v1811Open("main"); }catch(e){}
 }
-{ const __go1811=go; go=function(id){ const r=__go1811.apply(this,arguments); try{ if(id==="up") v1811Maybe(); else v1811Close(); }catch(e){} return r; }; }
+{ const __go1811=go; go=function(id){ if(id!=="up"){ V1811.focus=null; V1811.mode=null; } const r=__go1811.apply(this,arguments); try{ if(id==="up") v1811Maybe(); else v1811Close(); }catch(e){} return r; }; }
 if(typeof ux17NewProd==="function"){ const __np1811=ux17NewProd; ux17NewProd=function(){ const prev=V1811.sup; V1811.sup=true; try{ return __np1811.apply(this,arguments); }finally{ V1811.sup=prev; } }; }
 /* 取り込み後：「既存の会社に登録」で会社を選んでいたら、資料に会社名が無いときはその会社で確定 */
-if(typeof adoptReal==="function"){ const __ar1811=adoptReal; adoptReal=function(t,info){ const m=V1811.mode; V1811.mode=null; const r=__ar1811.apply(this,arguments);
+if(typeof adoptReal==="function"){ const __ar1811=adoptReal; adoptReal=function(t,info){ const m=V1811.mode; V1811.mode=null; V1811.focus=null; const r=__ar1811.apply(this,arguments);
   try{ if(m&&m.k==="addto"&&m.co&&TEN&&TEN.src==="upload"){ const fc=String(TEN.co||"").trim(); if(!fc){ TEN.co=m.co; try{ saveTen(); }catch(e){} try{ buildNav(); render(); }catch(e){} } else if(fc!==m.co){ setTimeout(()=>{ try{ toast(`資料に記載の会社名「${fc}」で登録しました（選んだ会社：${m.co}）`); }catch(e){} },600); } } }catch(e){} return r; }; }
 /* 登録済みの商品パネルに「🧭 登録メニュー」ボタン */
 { const __r1811=render; render=function(){ const r=__r1811.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="up"){ const q=document.querySelector("#regprod #pfq"); if(q&&!document.getElementById("v1811btn")){ q.insertAdjacentHTML("beforebegin",`<button class="btn g" id="v1811btn" title="何をするか（新しい会社／既存の会社の新商品／既存商品の編集）を選ぶ" style="white-space:nowrap">🧭 登録メニュー</button>`); document.getElementById("v1811btn").onclick=()=>v1811Open("main"); } } }catch(e){} return r; }; }
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&document.getElementById("v1811ov")) v1811Close(); });
+
+/* ── v18.12（2026-09-14）：集中モード ──
+   ①「新しい会社の商品を登録 → 資料をアップロード」は、登録済みの商品・前回の資料・サンプル・説明カードを隠したシンプルな登録ページだけを表示
+   ②「既存の会社に新しい商品を登録 → 会社を選ぶ」で、その会社の商品に切り替えてから登録欄へ（その会社の情報が見える状態）
+   ③ 登録欄へのスクロールは上部バー＋ページ内目次の高さを避け、「＋ 新しい商品を登録する」の見出しから見えるように */
+function v1812Bar(){ const b=document.querySelector(".bar"); return (b&&b.offsetHeight)||48; }
+function v1812SecH(){ const s=document.getElementById("uxsec"); return (s&&s.offsetHeight)||0; }
+function v1812ToDrop(){ const d=document.getElementById("drop"); if(!d) return; const card=d.closest(".c")||d; const y=card.getBoundingClientRect().top+scrollY-(v1812Bar()+v1812SecH()+14); window.scrollTo(0,Math.max(0,y)); d.classList.remove("dropflash"); void d.offsetWidth; d.classList.add("dropflash"); try{ d.focus({preventScroll:true}); }catch(e){} }
+function v1812Enter(msg){
+  V1811.sup=true; try{ if(typeof FILL!=="undefined"&&FILL) FILL.on=false; if(typeof cur==="undefined"||cur!=="up") go("up"); else render(); }finally{ V1811.sup=false; }
+  setTimeout(()=>{ v1812ToDrop(); if(msg){ try{ toast(msg); }catch(e){} } },120);
+}
+function v1812Focus(){
+  const f=V1811.focus; const old=document.getElementById("v1811focus"); if(old) old.remove();
+  const well=document.getElementById("well"); if(!well||!f) return; if(typeof cur==="undefined"||cur!=="up") return; if(typeof FILL!=="undefined"&&FILL&&FILL.on) return;
+  if(f.k==="newco"){ const rp=document.getElementById("regprod"); if(rp) rp.remove(); }
+  [...well.querySelectorAll(":scope > .c")].forEach(c=>{ if(c.querySelector('button[onclick="resetTen()"]')) c.remove(); });   /* 前回の資料／業種サンプルのカード */
+  const g2=well.querySelector(":scope > .g2"); if(g2){ const cs=[...g2.children]; if(cs[1]&&!cs[1].querySelector("#drop")) cs[1].remove(); g2.style.gridTemplateColumns="1fr"; const after=g2.nextElementSibling; if(after&&after.classList&&after.classList.contains("c")&&!after.querySelector("#drop")) after.remove(); }
+  const co=f.co||""; const cnt=(co&&typeof tenCos==="function")?((tenCos().find(x=>x.co===co)||{idxs:[]}).idxs.length):0; const max=(typeof PROD_PER_CO!=="undefined")?PROD_PER_CO:10;
+  const html=`<div class="c" id="v1811focus" style="margin-bottom:11px;border:1.5px solid var(--or);background:var(--or-soft)"><div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:center">
+    <div style="min-width:240px;flex:1"><b style="font-size:14px">${f.k==="newco"?`🏢 <span>新しい会社の商品を登録</span>`:`🏢 ${esc(co)} <span>に新しい商品を登録</span> <span class="p lo">${cnt}/${max}件</span>`}</b>
+      <p class="nn" style="margin:4px 0 0">${f.k==="newco"?"既存の商品は表示していません。下の登録欄に資料をドロップ（またはクリックして選択）してください。":"下の登録欄に資料をドロップすると、この会社の商品として登録されます。"}</p></div>
+    <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn g" id="v1811fmenu">🧭 登録メニュー</button><button class="btn g" id="v1811fexit">通常表示に戻る（登録済みの商品を表示）</button></div></div></div>`;
+  const sec=well.querySelector("#uxsec"); if(sec) sec.insertAdjacentHTML("afterend",html); else well.insertAdjacentHTML("afterbegin",html);
+  document.getElementById("v1811fmenu").onclick=()=>v1811Open("main");
+  document.getElementById("v1811fexit").onclick=()=>{ V1811.focus=null; V1811.sup=true; try{ render(); }finally{ V1811.sup=false; } scrollTo({top:0}); };
+  try{ if(typeof ux2SecNav==="function") ux2SecNav(); if(typeof ux17SecUpdate==="function") ux17SecUpdate(); }catch(e){}
+}
+{ const __r1812=render; render=function(){ const r=__r1812.apply(this,arguments); try{ v1812Focus(); }catch(e){} return r; }; }
+/* 「＋ 新しい商品を登録」：目次バーに隠れない位置へスクロール */
+ux17NewProd=function(){
+  const prev=V1811.sup; V1811.sup=true;
+  try{ const run=()=>{ v1812ToDrop(); try{ toast((typeof TENS!=="undefined"&&TENS.length)?"ここに新しい商品の資料をドロップ（登録済みの商品はそのまま残ります）":"ここに商品の資料をドロップしてください"); }catch(e){} };
+    const onUp=(typeof cur!=="undefined"&&cur==="up")&&!(typeof FILL!=="undefined"&&FILL&&FILL.on);
+    if(onUp) run(); else { try{ if(typeof FILL!=="undefined"&&FILL) FILL.on=false; }catch(e){} go("up"); setTimeout(run,380); } }
+  finally{ V1811.sup=prev; }
+};
 
 </script>
