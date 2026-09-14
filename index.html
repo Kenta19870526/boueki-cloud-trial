@@ -693,6 +693,197 @@ body.dwopen #tabbar,body.kbopen #tabbar,body.locked #tabbar{display:none}
 .fqjumprow{justify-content:flex-end;margin:2px 0 8px}
 .fqjump{border:1px solid var(--or);color:var(--or-deep);background:var(--or-soft);font-weight:600}
 @media (max-width:820px){ .fqbox .fqask{flex-wrap:wrap} .fqbox .fqgo{width:100%;flex:1 1 100%!important} .fqbox>summary .fqhint{display:none} .fqjumprow{justify-content:stretch} .fqjump{width:100%} }
+/* ── v18：タイポグラフィ（20社の共通点：1書体・限られた段階・数字は等幅・日本語は行間広め・11px未満を使わない） ── */
+/* 書体：ブランド書体 Noto Sans JP を第一候補に（Google Fonts・swap）。未ロード／オフライン時は各OSの日本語UI書体へ。Lato 指定は未ロードで環境差の原因だったため廃止 */
+body,button,input,select,textarea,kbd{font-family:"Noto Sans JP","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo",system-ui,-apple-system,"Segoe UI",sans-serif}
+body{font-feature-settings:"palt" 0;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+/* 見出し・ラベル・数値だけ詰め組み（本文は標準の字送りで読みやすく） */
+h1,h2,h3,h4,.lbl,.ngrp,.kv,.tot,.dscope .dsn,.logo b{font-feature-settings:"palt" 1}
+h1,h2,h3,h4{line-height:1.35;letter-spacing:0}
+.ph h1{font-weight:700}
+/* 数字は等幅（表・KPI・金額・コード） */
+table,td,th,.kv,.tot,.num,.n,.acode,.kpi .kv,.regs,.tbn,.bdg{font-variant-numeric:tabular-nums}
+.kv{font-weight:500;letter-spacing:-.02em}
+/* 日本語の改行：文節単位（対応ブラウザ）・段落は読みやすい折返し・長いURLは折る */
+p,.nn,.cando,.gmsg,.bb,.kd,.ti,.nf,li{word-break:auto-phrase;text-wrap:pretty}
+.bb,.ci,.nf{overflow-wrap:anywhere}
+/* 底上げ層（v15.23）の外に残っていた小さい文字を 11px 以上に */
+.ngrp{font-size:11px}
+.lyn{font-size:11px}
+#lgpill{font-size:10.5px!important}
+#tabbar .tb{font-size:11px}
+.stp .t{font-size:11.5px}
+.doc table{font-size:11.5px}
+.fwdcmp table th,.fwdcmp table td{font-size:12px}
+.side [style*="font-size:9"],.side [style*="font-size:10px"],.bar [style*="font-size:9"],.bar [style*="font-size:10px"],#tabbar [style*="font-size:9"]{font-size:11px!important}
+#well [style*="font-size:8px"],#pn [style*="font-size:8px"],#well [style*="font-size:7px"],#pn [style*="font-size:7px"]{font-size:10.5px!important}
+/* 表：行間と見出しの可読性 */
+td{line-height:1.5}
+th{letter-spacing:.02em}
+/* 本文の行間（日本語は 1.7、表・チップ・ボタンは 1.45） */
+.nn,.cando,.gmsg,.kd,.bb{line-height:1.7}
+.btn,.q,.p,.tb{line-height:1.45}
+/* スマホ：本文は 14px を維持し、下部タブ・案内・チップは一段だけ大きく */
+@media (max-width:820px){
+  #tabbar .tb{font-size:11px}
+  #guide .gst{font-size:12px}
+  #psw{font-size:12.5px}
+  .q{font-size:13px}
+  #guide.gmin #gai{font-size:11.5px}
+}
+/* 監査で残っていた 11px 未満（ダッシュボードのヒント・サンプルカードの補足・ページ内目次のラベル・商品カードの充足度） */
+.ddhint{font-size:11px}
+.smp .co,.smp .fl{font-size:11px}
+.smp ul{font-size:11.5px}
+#uxsec .uxsl{font-size:11px}
+.regs{font-size:11px}
+#guide .gst i{font-size:10px}
+small{font-size:max(11px,.86em)}
+.uxchips .q,.uxfb .q{font-size:11.5px}
+/* 8.5px 指定の底上げ先を 10.5px → 11px に（他の段と揃える） */
+#well [style*="font-size:8.5px"],#pn [style*="font-size:8.5px"],#guide [style*="font-size:8.5px"]{font-size:11px!important}
+/* 上部バー：1181〜1400px では詰めて1行に収める（会社名はアバターのみ・Ctrl+K表記と「スマホ表示」は省略・言語は短く） */
+@media (max-width:1400px){
+  .uxsb kbd{display:none}
+  #psw{max-width:170px}
+  #tenant{flex:0 0 auto;min-width:0} #tenant>span:not(.av){display:none}
+  #mob{display:none}
+  #lang{max-width:72px}
+  .tgl{padding:4px 9px}
+  .bar>.usr.hm:not(#tenant){flex:0 0 auto;max-width:150px;min-width:60px}
+}
+.bar>.usr{flex:0 1 auto}
+/* v18.2：言語ごとの書体。中国語は簡体字の字形（Noto Sans SC）、英語・スペイン語はラテン専用の Noto Sans（字幅・数字が整う）。日本語は Noto Sans JP のまま。フォントは使われる言語のときだけ読み込まれる */
+:lang(zh) body,:lang(zh) button,:lang(zh) input,:lang(zh) select,:lang(zh) textarea{font-family:"Noto Sans SC","Noto Sans JP","PingFang SC","Microsoft YaHei","Hiragino Sans",system-ui,sans-serif}
+:lang(en) body,:lang(en) button,:lang(en) input,:lang(en) select,:lang(en) textarea,:lang(es) body,:lang(es) button,:lang(es) input,:lang(es) select,:lang(es) textarea{font-family:"Noto Sans","Noto Sans JP","Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif}
+:lang(en) body,:lang(es) body{font-feature-settings:normal;word-break:normal}
+/* 下部タブの名称は1行に（長い言語でも折り返さない） */
+#tabbar .tbl{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;display:block;text-align:center}
+/* ダッシュボードの集計範囲セレクター：スマホ幅で3pxはみ出していた（英語の長いラベル） */
+@media (max-width:820px){.dscope .dsf,.dscope .dsl,.dscope .dsl .sel{max-width:100%;min-width:0;box-sizing:border-box}}
+/* v18.3：AI翻訳の状態表示とやりとりの翻訳ブロック */
+#ai18nst{position:fixed;left:12px;bottom:calc(var(--tabbar-h,0px) + 12px);z-index:70;background:var(--ink);color:var(--canvas);font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;opacity:.85;pointer-events:none}
+#ai18nst[hidden]{display:none}
+.msgtrb{border-left:3px solid var(--bl,#2e5aac)!important;border-radius:0 8px 8px 0!important;font-size:12px!important}
+.msgtrl{display:block;font-size:10.5px;font-weight:700;color:var(--bl,#2e5aac);margin-bottom:2px}
+/* ── v19：タイポグラフィ刷新（日米欧豪SaaS 20社の共通点：本文14px以上・二次情報12px以上・段階は5つ・見出しはサイズ＋太さ＋色で作る・スマホは16px基準・数字は等幅・行間は日本語1.7） ── */
+/* 段階（PC）：xs 12／sm 13／md 14／lg 15／h3 16／h1 22。スマホ（820px以下）：xs 12.5／sm 13.5／md 15／lg 16／h3 17／h1 19 */
+:root{--fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:15px;--fs-h3:16px;--fs-h1:22px;
+  --rm-a:12px;--rm-b:12.5px;--rm-c:13px;--rm-d:14px;--rm-e:15px}
+@media (max-width:820px){:root{--fs-xs:12.5px;--fs-sm:13.5px;--fs-md:15px;--fs-lg:16px;--fs-h3:17px;--fs-h1:19px;
+  --rm-a:12.5px;--rm-b:13px;--rm-c:13.5px;--rm-d:14.5px;--rm-e:15.5px}}
+body{font-size:var(--fs-md);line-height:1.7}
+/* 見出し：カード見出しは16px（Notion/Linear/Polaris の 16）、ページ見出しは22px、パネル見出しは16px */
+.c h3{font-size:var(--fs-h3);line-height:1.35}
+.dw h3,.dwhead h3{font-size:var(--fs-h3)}
+.ph h1{font-size:var(--fs-h1)}
+.drop h3{font-size:var(--fs-h3)}
+/* 本文・二次情報 */
+.c .nn,.nn{font-size:var(--fs-sm);line-height:1.7}
+.ph .cando{font-size:var(--fs-sm)}
+.kd{font-size:var(--fs-sm)}
+.kv small{font-size:var(--fs-sm)}
+.lbl{font-size:var(--fs-xs)}
+.p{font-size:var(--fs-xs)}
+.ci{font-size:var(--fs-xs)}
+.lt,.nt,.src{font-size:var(--fs-xs)}
+.btn{font-size:var(--fs-md)}
+.q{font-size:var(--fs-sm)}
+.sel{font-size:var(--fs-md)}
+.composer .sel{font-size:var(--fs-md)}
+.bb{font-size:var(--fs-md);line-height:1.75}
+.bb .cpy{font-size:11.5px}
+.m .av{font-size:11px}
+.nb{font-size:var(--fs-md)}
+.ngrp{font-size:11.5px}
+.lyn{font-size:11px}
+.side-ft{font-size:11.5px}
+table{font-size:var(--fs-sm)} th{font-size:var(--fs-xs)}
+.doc{font-size:12.5px} .doc table{font-size:12px} .doc h4{font-size:13.5px}
+.fld{font-size:var(--fs-sm)} .fld dt{font-size:var(--fs-xs)}
+.ti{font-size:var(--fs-sm)} .ti time{font-size:var(--fs-xs)}
+.nf{font-size:var(--fs-sm)} .nf time{font-size:var(--fs-xs)}
+.stp .t{font-size:var(--fs-xs)}
+.dscope .dsn{font-size:19px} .dscope .dsp{font-size:var(--fs-sm)} .dscope .dsl{font-size:var(--fs-sm)} .dscope .dsk{font-size:11.5px}
+#guide{font-size:var(--fs-sm)} #guide .gst{font-size:var(--fs-xs)} #guide .gmsg{font-size:var(--fs-sm)}
+.fwdcmp table th,.fwdcmp table td{font-size:var(--fs-xs)}
+.fwdrec{font-size:var(--fs-sm)} .fwdx>summary{font-size:var(--fs-sm)} .fwdleg .tot{font-size:16px}
+.art .ah{font-size:var(--fs-xs)} .cmp h4{font-size:var(--fs-xs)} .cmp p{font-size:var(--fs-sm)}
+.smp b{font-size:var(--fs-sm)} .smp .co,.smp .fl{font-size:var(--fs-xs)} .smp ul{font-size:var(--fs-xs)}
+.smp.regc>b{font-size:var(--fs-sm)} .regs{font-size:var(--fs-xs)} .regedit{font-size:var(--fs-xs)}
+.newsteps{font-size:var(--fs-xs)}
+.pstep{font-size:var(--fs-sm)} .pstep .det{font-size:var(--fs-xs)}
+.drop p{font-size:var(--fs-sm)}
+.growlv{font-size:var(--fs-sm)} .growlv b{font-size:var(--fs-md)} .gladder{font-size:11.5px} .gladder span i{font-size:11px}
+.growcat .gnm b{font-size:var(--fs-sm)} .growcat .gnm small{font-size:var(--fs-xs)} .growcat .gpc{font-size:var(--fs-sm)} .growcat .gdt{font-size:var(--fs-sm)} .growlog{font-size:var(--fs-xs)}
+.pg-ft{font-size:var(--fs-xs)}
+.ddhint{font-size:var(--fs-xs)}
+#uxsec .uxsc{font-size:12.5px} #uxsec .uxsl{font-size:11.5px}
+.uxchips .q,.uxfb .q{font-size:var(--fs-xs)} .acfilt .q{font-size:var(--fs-xs)}
+#uxpal .it{font-size:var(--fs-sm)} #uxpal .grp{font-size:11.5px} #uxpal .ft{font-size:11.5px} #uxpal input{font-size:15px}
+.uxhint{font-size:11.5px}
+.tgl{font-size:var(--fs-sm)} .usr b{font-size:var(--fs-sm)} .usr span{font-size:11.5px}
+.uxsb{font-size:var(--fs-sm)} .uxlang{font-size:var(--fs-sm)}
+#barmenu .bml{font-size:var(--fs-sm)}
+#tabbar .tb{font-size:11.5px}
+.btn.gai .lvs{font-size:11px}
+.optab b{font-size:var(--fs-sm)} .optab small{font-size:var(--fs-xs)}
+.fqbox .fqlead{font-size:var(--fs-sm)} .fqtab{font-size:var(--fs-sm)} .fqbox>summary{font-size:var(--fs-md)!important} .fqbox .fqin{font-size:var(--fs-md)} .fqbox .fqgo{font-size:var(--fs-md)} .fqbox .qb .q{font-size:var(--fs-xs)}
+.msgtrb{font-size:var(--fs-sm)!important} .msgtrl{font-size:11.5px}
+#ai18nst{font-size:11.5px}
+.lgin{font-size:var(--fs-md)} .lgerr{font-size:var(--fs-xs)}
+#undobar{font-size:var(--fs-sm)} #undobar .btn{font-size:var(--fs-sm)}
+/* v18.6 商品カード・v18.7 表・v18.11 選択肢は実行時に <style> が差し込まれ後勝ちになるため、#well／#v1811ov を付けて優先 */
+#well .v186cap{font-size:var(--fs-xs)} #well .v186ttl{font-size:var(--fs-lg)} #well .v186sub{font-size:var(--fs-xs)} #well .v186chip{font-size:var(--fs-xs)}
+#well .v186price .l,#well .v186price .u{font-size:var(--fs-xs)} #well .v186desc{font-size:var(--fs-sm)} #well .v186more,#well .v186link{font-size:var(--fs-xs)}
+#well .v186kv .k{font-size:11.5px} #well .v186kv .v{font-size:var(--fs-sm)}
+#well .v187t,#pn .v187t{font-size:var(--fs-sm)} #well .v187t th,#pn .v187t th{font-size:var(--fs-xs)}
+#v1811ov .v1811h b{font-size:17px} #v1811ov .v1811h .s{font-size:var(--fs-sm)} #v1811ov .v1811o .t{font-size:var(--fs-lg)} #v1811ov .v1811o .d{font-size:var(--fs-sm)}
+#v1811ov .v1811o .m{font-size:var(--fs-xs)} #v1811ov .v1811ch b{font-size:var(--fs-sm)} #v1811ov .v1811ch small{font-size:var(--fs-xs)}
+/* 「今日やること」「商品情報・強み」：お客様の指摘（文字が小さい）→ 内容の本文を 14px（スマホ15px）・見出しを 15px（同16px）に */
+.tdt{font-size:var(--fs-lg);font-weight:700;line-height:1.4;min-width:0}
+.tdd{font-size:var(--fs-md);color:var(--ink-2);margin:6px 0 0 30px;line-height:1.75}
+.tds{font-size:var(--fs-sm)}
+.tdh{font-size:var(--fs-xs);color:var(--ink-3)}
+.tdno{width:22px;height:22px;border-radius:50%;color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;flex:0 0 auto}
+.stt{font-size:var(--fs-lg);line-height:1.4;font-weight:700}
+.std{font-size:var(--fs-md);color:var(--ink-2);margin-top:5px;line-height:1.75}
+.stno{width:20px;height:20px;border-radius:5px;background:var(--or);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center;flex:none}
+/* インライン指定の底上げ（v15.23 の層を置き換え）：8〜9.5→12／10〜10.5→12.5／11〜11.5→13／12→14／12.5〜13→15（スマホは各+0.5）。
+   テンプレートを触らずに全画面（荷主・管理コンソール・物流会社・各パネル・ポップアップ）へ一括で効く */
+#well [style*="font-size:8px"],#pn [style*="font-size:8px"],#well [style*="font-size:8.5px"],#pn [style*="font-size:8.5px"],#guide [style*="font-size:8.5px"],
+#well [style*="font-size:9px"],#pn [style*="font-size:9px"],#well [style*="font-size:9.5px"],#pn [style*="font-size:9.5px"],#guide [style*="font-size:9.5px"],
+#welv [style*="font-size:9px"],#welv [style*="font-size:9.5px"],#v1811ov [style*="font-size:9px"],#v1811ov [style*="font-size:9.5px"],#lgv [style*="font-size:9.5px"],#uxpal [style*="font-size:9.5px"]{font-size:var(--rm-a)!important}
+#well [style*="font-size:10px"],#pn [style*="font-size:10px"],#well [style*="font-size:10.5px"],#pn [style*="font-size:10.5px"],#guide [style*="font-size:10px"],#guide [style*="font-size:10.5px"],
+#welv [style*="font-size:10px"],#welv [style*="font-size:10.5px"],#v1811ov [style*="font-size:10px"],#v1811ov [style*="font-size:10.5px"],#lgv [style*="font-size:10px"],#lgv [style*="font-size:10.5px"],#uxpal [style*="font-size:10px"],#uxpal [style*="font-size:10.5px"]{font-size:var(--rm-b)!important}
+#well [style*="font-size:11px"],#pn [style*="font-size:11px"],#well [style*="font-size:11.5px"],#pn [style*="font-size:11.5px"],#guide [style*="font-size:11px"],#guide [style*="font-size:11.5px"],
+#welv [style*="font-size:11px"],#welv [style*="font-size:11.5px"],#v1811ov [style*="font-size:11px"],#v1811ov [style*="font-size:11.5px"],#lgv [style*="font-size:11px"],#lgv [style*="font-size:11.5px"]{font-size:var(--rm-c)!important}
+#well [style*="font-size:12px"],#pn [style*="font-size:12px"],#welv [style*="font-size:12px"],#v1811ov [style*="font-size:12px"],#lgv [style*="font-size:12px"]{font-size:var(--rm-d)!important}
+#well [style*="font-size:12.5px"],#pn [style*="font-size:12.5px"],#well [style*="font-size:13px"],#pn [style*="font-size:13px"],#welv [style*="font-size:12.5px"],#welv [style*="font-size:13px"],#lgv [style*="font-size:13px"]{font-size:var(--rm-e)!important}
+/* 数字丸・小さなバッジは中身が溢れないよう据え置き（幅20px未満の丸） */
+#well .av[style*="font-size"],#pn .av[style*="font-size"]{font-size:11px!important}
+/* 一次情報の行の高さ・読みやすい折返し */
+.tdd,.std,.v186desc{word-break:auto-phrase;text-wrap:pretty}
+/* スマホ：チップ・ボタン・ナビは一段大きく（Apple HIG 17pt／Material 16sp に準拠、入力欄は16px以上で自動ズーム回避） */
+@media (max-width:820px){
+  .nb{font-size:15px;padding:10px 10px}
+  .q{font-size:13.5px}
+  #psw{font-size:13px}
+  .tgl{font-size:12px}
+  #guide .gst{font-size:12.5px}
+  #guide.gmin #gai{font-size:12px}
+  .ph h1{font-size:var(--fs-h1)}
+  .c h3{font-size:var(--fs-h3)}
+  .kv{font-size:26px}
+  .dscope .dsn{font-size:18px}
+  #tabbar .tb{font-size:11.5px}
+  .tdd,.std{margin-left:0}
+  .tdd{margin-top:8px}
+}
+/* スマホ：flex:none 指定の行内ブロック（通関統計のボタン群・案件検索の注記）が 375px 幅で数px はみ出す → 縮められるようにして折り返す */
+@media (max-width:820px){
+  #well .rw>.rw[style*="flex:none"],#well .rw>.nn[style*="flex:none"]{flex:0 1 auto!important;min-width:0;max-width:100%}
+}
 </style>
 
 <style>
@@ -8351,12 +8542,11 @@ function vItem(p){
     <div class="g2" style="margin-top:11px;gap:8px">
       ${D.strengths.map(([t,d],i)=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;background:var(--surface-2)">
         <div class="rw" style="gap:7px;justify-content:space-between;align-items:flex-start">
-          <span class="rw" style="gap:7px;min-width:0"><span style="width:17px;height:17px;border-radius:4px;background:var(--or);color:#fff;
-            font-size:9.5px;font-weight:700;display:grid;place-items:center;flex:none">${i+1}</span><b style="font-size:12px">${esc(t)}</b></span>
+          <span class="rw" style="gap:7px;min-width:0"><span class="stno">${i+1}</span><b class="stt">${esc(t)}</b></span>
           <span class="rw" style="gap:3px;flex:none">
-            <button class="btn g" style="padding:2px 8px;font-size:10.5px" onclick="openStrEdit(${i})" title="この強みを編集">✎</button>
-            <button class="btn g" style="padding:2px 8px;font-size:10.5px" onclick="strDel(${i})" title="この強みを削除">🗑</button></span></div>
-        <p style="font-size:11px;color:var(--ink-2);margin-top:4px;line-height:1.65">${esc(d)}</p>
+            <button class="btn g" style="padding:3px 9px;font-size:12.5px" onclick="openStrEdit(${i})" title="この強みを編集">✎</button>
+            <button class="btn g" style="padding:3px 9px;font-size:12.5px" onclick="strDel(${i})" title="この強みを削除">🗑</button></span></div>
+        <p class="std">${esc(d)}</p>
         ${typeof valSick==="function"&&valSick(t)?'<span class="p no" style="margin-top:6px;display:inline-block">⚠ 強みでない文の可能性。✎で修正するか🗑で削除を</span>':""}</div>`).join("")
       ||`<div style="grid-column:1/-1;padding:14px;border:1.5px dashed var(--line);border-radius:8px;text-align:center;color:var(--ink-3);font-size:12px">まだ強みが登録されていません。「＋ 強みを追加」または「🤖 AIで強みを充実」から登録できます。</div>`}
     </div>
@@ -11613,32 +11803,32 @@ function vToday(p){
       style="padding:12px 14px;border-left:4px solid var(--${prC[x.pr]||"or"})">
       <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
         <div class="rw" style="gap:8px;align-items:center;min-width:0">
-          <span style="width:20px;height:20px;border-radius:50%;background:var(--${prC[x.pr]||"or"});color:#fff;font-size:10.5px;font-weight:700;display:grid;place-items:center;flex:0 0 auto">${i+1}</span>
-          <b style="font-size:12.5px">${AT(x.t)}</b></div>
+          <span class="tdno" style="background:var(--${prC[x.pr]||"or"})">${i+1}</span>
+          <b class="tdt">${AT(x.t)}</b></div>
         <span class="rw" style="gap:5px;flex:0 0 auto">
-          ${P?`<span class="p ${P.done>=P.total?"hi":"on"}" style="font-size:9px" title="やるべきタスクの進捗。「自動」ステップは登録データからリアルタイム判定">進捗 ${P.done}/${P.total}${P.done>=P.total?" ✅":""}</span>`:""}
-          <span class="p ${x.pr==="高"?"no":x.pr==="低"?"lo":"or"}" style="font-size:9px">優先度${esc(x.pr)}</span>
-          <span class="p lo" style="font-size:9px">根拠：${esc(x.src||"データ")}</span></span></div>
-      <p style="font-size:11px;color:var(--ink-2);margin:6px 0 0 28px;line-height:1.75">${AT(x.d)}</p>
+          ${P?`<span class="p ${P.done>=P.total?"hi":"on"}" title="やるべきタスクの進捗。「自動」ステップは登録データからリアルタイム判定">進捗 ${P.done}/${P.total}${P.done>=P.total?" ✅":""}</span>`:""}
+          <span class="p ${x.pr==="高"?"no":x.pr==="低"?"lo":"or"}">優先度${esc(x.pr)}</span>
+          <span class="p lo">根拠：${esc(x.src||"データ")}</span></span></div>
+      <p class="tdd">${AT(x.d)}</p>
       <div class="rw" style="margin:7px 0 0 28px;gap:6px;flex-wrap:wrap">
-        <button class="btn g" style="font-size:10px;padding:3px 10px" type="button"
+        <button class="btn g" style="font-size:12.5px;padding:4px 12px" type="button"
           onclick="event.stopPropagation();tdStepsToggle(${i})">${open?"▾ 閉じる":`▸ やるべきタスク一覧（${P?P.total:"—"}件${P&&P.total>P.done?`・残り${P.total-P.done}`:""}）`}</button>
-        ${G?`<button class="btn g" style="font-size:10px;padding:3px 10px" type="button"
+        ${G?`<button class="btn g" style="font-size:12.5px;padding:4px 12px" type="button"
           onclick="event.stopPropagation();tdGoFeat(${i})">🔗 「${esc(G.nm)}」で進める</button>`:""}</div>
       ${open&&steps?`<div style="margin:8px 0 0 28px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);padding:3px 10px 7px" onclick="event.stopPropagation()">
         ${steps.map(sp=>`<div class="rw" style="gap:7px;padding:5px 0;border-bottom:1px dashed var(--line-2);justify-content:space-between;flex-wrap:nowrap">
-          <label class="rw" style="gap:7px;font-size:11px;min-width:0;flex-wrap:nowrap;cursor:${sp.auto?"default":"pointer"}">
+          <label class="rw tds" style="gap:7px;min-width:0;flex-wrap:nowrap;cursor:${sp.auto?"default":"pointer"}">
             ${sp.auto?`<span style="flex:none">${sp.ok?"✅":"⬜"}</span>`
               :`<input type="checkbox" ${sp.ok?"checked":""} onclick="event.stopPropagation()" onchange="tdStepChk(${i},'${sp.id}',this.checked)" style="flex:none;accent-color:var(--or)">`}
             <span style="min-width:0;${sp.ok?"color:var(--ink-3);text-decoration:line-through":""}">${esc(sp.label)}</span>
-            ${sp.auto?`<span class="p lo" style="font-size:8px;flex:none" title="登録データから自動判定。どの画面で進めても、ここに即反映されます">自動</span>`:""}</label>
-          ${sp.go?`<button class="btn g" style="font-size:9px;padding:2px 8px;flex:none" type="button" onclick="tdStepGo('${sp.go}','${sp.pre||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
-        <p style="font-size:9px;color:var(--ink-3);margin:7px 0 0;line-height:1.6">「自動」＝登録データと連動（AIと埋める・営業資料・出荷など、<b>どの画面で進めてもリアルタイムに✅</b>）。チェックボックスはこの商品に保存されます。</p></div>`:""}
+            ${sp.auto?`<span class="p lo" style="flex:none" title="登録データから自動判定。どの画面で進めても、ここに即反映されます">自動</span>`:""}</label>
+          ${sp.go?`<button class="btn g" style="font-size:12px;padding:3px 10px;flex:none" type="button" onclick="tdStepGo('${sp.go}','${sp.pre||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
+        <p class="tdh" style="margin:7px 0 0;line-height:1.6">「自動」＝登録データと連動（AIと埋める・営業資料・出荷など、<b>どの画面で進めてもリアルタイムに✅</b>）。チェックボックスはこの商品に保存されます。</p></div>`:""}
       <span class="ddhint">🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸</span></div>`;}).join("")}
   </div>`:`<div class="c" style="margin-bottom:11px;text-align:center;padding:20px"><p class="nn">この商品の「今日やること」はまだありません。${online?"上の「🔄 いま再調査する」からAI調査を実行できます。":"商品情報を充実させると基本提案が表示されます。"}</p></div>`}
   ${ai&&ai.web?`<div class="c" style="margin-bottom:11px;background:var(--bl-soft);border-color:var(--bl)">
-    <h3 style="font-size:12px">🌐 Web調査メモ（${esc(ai.date)}・${esc((D&&D.co)||"")}の海外展開・最新動向）</h3>
-    <p style="font-size:11px;line-height:1.8;margin-top:5px">${esc(ai.web)}</p></div>`:""}
+    <h3 style="font-size:14px">🌐 Web調査メモ（${esc(ai.date)}・${esc((D&&D.co)||"")}の海外展開・最新動向）</h3>
+    <p class="tdd" style="margin:5px 0 0">${esc(ai.web)}</p></div>`:""}
   <p class="nn">提案は<b>日付が変わって最初にこのページを開いたとき</b>に自動で作り直されます。上の商品切替メニューで商品を替えると、その商品の「今日やること」に切り替わります。</p>`;
 }
 
@@ -21972,5 +22162,57 @@ ux17NewProd=function(){
     if(onUp) run(); else { try{ if(typeof FILL!=="undefined"&&FILL) FILL.on=false; }catch(e){} go("up"); setTimeout(run,380); } }
   finally{ V1811.sup=prev; }
 };
+
+/* ═══════════ v19：タイポグラフィ刷新の実行時補助 ═══════════
+   css_v19type.css（段階：xs12／sm13／md14／lg15／h3 16／h1 22、スマホは各+0.5〜1）で全画面の文字サイズを引き上げた。
+   ここでは、クラス指定や em 指定など CSS の底上げ層（インライン属性セレクタ）が届かない小さい文字を、描画のたびに計測して
+   内容領域（#well／#pn／ポップアップ）は 12px、周辺（サイドバー・上部バー・下部タブ）は 11px を下限に底上げする。
+   バッジ・アバター・数字丸（幅 24px 以下の装飾）は据え置き。 */
+function ux19Floor(){
+  try{
+    const mob=innerWidth<=820;
+    const minC=mob?12.5:12, minS=11;
+    const roots=[["#well",minC],["#pn",minC],["#welv",minC],["#v1811ov",minC],["#lgv",minC],["#guide",minC],[".side",minS],[".bar",minS],["#tabbar",minS],["#uxsec",minS],["#barmenu",minS],["#uxpal",minS]];
+    let n=0;
+    roots.forEach(([sel,min])=>{ document.querySelectorAll(sel).forEach(root=>{ root.querySelectorAll("*").forEach(el=>{
+      if(el.__fl19===min||!el.childNodes.length||/^(SVG|PATH|SCRIPT|STYLE|TEXTAREA|INPUT|SELECT|OPTION)$/i.test(el.tagName)) return;
+      let hasText=false; for(const c of el.childNodes){ if(c.nodeType===3&&c.nodeValue.trim()){ hasText=true; break; } } if(!hasText) return;
+      const cs=getComputedStyle(el); const fs=parseFloat(cs.fontSize); if(!(fs<min)) return;
+      const cls=String(el.className||"");
+      const badge=el.tagName==="I"||/(^|\s)(av|tbn|bdg|gst|dot|lyn|stno|tdno|no)(\s|$)/.test(cls)||(el.offsetWidth<=24&&el.offsetHeight<=24&&/grid|flex/.test(cs.display));
+      if(badge) return;
+      el.style.setProperty("font-size",min+"px","important"); el.__fl19=min; n++; }); }); });
+    return n;
+  }catch(e){ return 0; }
+}
+{ const __r19=render; render=function(){ const r=__r19.apply(this,arguments); try{ ux19Floor(); }catch(e){} return r; }; }
+if(typeof renderAdmin==="function"){ const __ra19=renderAdmin; renderAdmin=function(){ const r=__ra19.apply(this,arguments); try{ ux19Floor(); }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr19=fwdRender; fwdRender=function(){ const r=__fr19.apply(this,arguments); try{ ux19Floor(); }catch(e){} return r; }; }
+if(typeof openDW==="function"){ const __od19=openDW; openDW=function(){ const r=__od19.apply(this,arguments); try{ setTimeout(ux19Floor,30); }catch(e){} return r; }; }
+/* 画面幅が変わったとき（PC⇄スマホ）は下限が変わるので再計測 */
+{ let __t19=null; window.addEventListener("resize",()=>{ clearTimeout(__t19); __t19=setTimeout(()=>{ try{ document.querySelectorAll("[style*='font-size']").forEach(el=>{ if(el.__fl19){ el.style.removeProperty("font-size"); el.__fl19=0; } }); ux19Floor(); }catch(e){} },260); }); }
+/* 起動直後の初回描画にも適用 */
+setTimeout(()=>{ try{ ux19Floor(); }catch(e){} },400);
+/* ═══════════ v19.1：タスク・商談記録の削除が他端末から復活する（同期の結合が「相手側だけにある項目」を足し戻すため）→ 墓標を拡張 ═══════════
+   v17.1 の墓標（bc20_tomb_<code>）は商品・会議メモ・定型セットだけだった。総点検で、A端末で消したタスク／商談記録が B端末との結合同期で
+   戻ることを確認（現状の画面にはタスク・商談記録の削除操作は無いが、整理機能や将来の削除操作で実害になるため先回りで対応）。
+   ・墓標に tasks（署名＝件名|期限）と fb（署名＝日付|相手|国）を追加し、結合時に墓標より古い同名項目を落とす（45日で失効）
+   ・保存（saveTen）のたびに署名集合を比べ、消えた項目に墓標／再登場した項目は墓標を外す。項目には at（初回保存時刻）を刻み、削除より後に作った同名項目は残す */
+if(typeof v17TombParse==="function"&&typeof v17PruneList==="function"&&typeof v17TombSave==="function"&&typeof v17TombUnion==="function"&&typeof v17Stamp==="function"){
+  const v19Sig=(k,x)=>k==="tasks"?[x&&x.n,x&&x.e].join("|"):[x&&x.d,x&&x.b,x&&x.c].join("|");
+  window.v19Sig=v19Sig;
+  { const __tp=v17TombParse; v17TombParse=function(raw){ const o=__tp.apply(this,arguments); ["tasks","fb"].forEach(k=>{ if(!o[k]||typeof o[k]!=="object") o[k]={}; }); return o; }; }
+  { const __ts=v17TombSave; v17TombSave=function(o){ try{ const lim=Date.now()-45*864e5; ["tasks","fb"].forEach(t=>{ if(o&&o[t]) Object.keys(o[t]).forEach(id=>{ if(+o[t][id]<lim) delete o[t][id]; }); }); }catch(e){} return __ts.apply(this,arguments); }; }
+  { const __tu=v17TombUnion; v17TombUnion=function(a,b){ const o=__tu.apply(this,arguments); try{ ["tasks","fb"].forEach(t=>{ o[t]=Object.assign({},(a&&a[t])||{}); Object.entries((b&&b[t])||{}).forEach(([k,v])=>{ if(!o[t][k]||+o[t][k]<+v) o[t][k]=v; }); }); }catch(e){} return o; }; }
+  { const __pl=v17PruneList; v17PruneList=function(list,tomb){ let changed=__pl.apply(this,arguments); try{ tomb=tomb||v17TombGet(); (Array.isArray(list)?list:[]).forEach(t=>{ if(!t) return; [["xtasks","tasks"],["fbx","fb"]].forEach(([f,k])=>{ if(!Array.isArray(t[f])||!tomb[k]) return; const keep=t[f].filter(x=>{ const d=x&&tomb[k][v19Sig(k,x)]; return !(d&&!(x.at&&+x.at>+d)); }); if(keep.length!==t[f].length){ t[f]=keep; changed=true; } }); }); }catch(e){} return changed; }; }
+  { const __st=v17Stamp; v17Stamp=function(list){ const r=__st.apply(this,arguments); try{ (list||[]).forEach(t=>{ if(!t) return; (t.xtasks||[]).forEach(x=>{ if(x&&!x.at) x.at=Date.now(); }); (t.fbx||[]).forEach(x=>{ if(x&&!x.at) x.at=Date.now(); }); }); }catch(e){} return r; }; }
+  const V19S={sigs:null};
+  function v19Collect(){ const m={tasks:new Set(),fb:new Set()}; try{ (TENS||[]).forEach(t=>{ if(!t) return; (t.xtasks||[]).forEach(x=>x&&m.tasks.add(v19Sig("tasks",x))); (t.fbx||[]).forEach(x=>x&&m.fb.add(v19Sig("fb",x))); }); }catch(e){} return m; }
+  function v19Diff(){ try{ const now=v19Collect(); const was=V19S.sigs; V19S.sigs=now; if(!was||typeof v17TombKey!=="function"||!v17TombKey()) return; ["tasks","fb"].forEach(k=>{ was[k].forEach(s=>{ if(!now[k].has(s)) v17TombAdd(k,s); }); now[k].forEach(s=>{ if(!was[k].has(s)) v17TombDrop(k,s); }); }); }catch(e){} }
+  window.v19Diff=v19Diff;
+  if(typeof saveTen==="function"){ const __st19=saveTen; saveTen=function(){ v19Diff(); return __st19.apply(this,arguments); }; }
+  if(typeof loadTen==="function"){ const __lt19=loadTen; loadTen=function(){ const r=__lt19.apply(this,arguments); try{ V19S.sigs=v19Collect(); }catch(e){} return r; }; }
+  setTimeout(()=>{ try{ if(!V19S.sigs) V19S.sigs=v19Collect(); }catch(e){} },800);
+}
 
 </script>
