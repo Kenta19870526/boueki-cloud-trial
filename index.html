@@ -884,6 +884,14 @@ table{font-size:var(--fs-sm)} th{font-size:var(--fs-xs)}
 @media (max-width:820px){
   #well .rw>.rw[style*="flex:none"],#well .rw>.nn[style*="flex:none"]{flex:0 1 auto!important;min-width:0;max-width:100%}
 }
+/* v19.3：全ての入力ボックス（複数行）をドラッグで拡大・縮小（角のつまみ＋直下のグリップ）。高さは端末に記憶。スマホは 60vh まで */
+textarea,textarea.sel,.composer textarea.sel,.composer .sel{resize:vertical!important;max-height:none!important}
+@media (max-width:820px){ textarea,textarea.sel,.composer textarea.sel,.aimob .composer textarea.sel,.dwmob .dwfoot .composer textarea.sel{max-height:60vh!important} }
+.uxgrip{display:flex;align-items:center;justify-content:center;height:12px;margin:-2px 0 4px;cursor:ns-resize;color:var(--ink-3);user-select:none;-webkit-user-select:none;touch-action:none;border-radius:6px;font-size:10px;line-height:1;letter-spacing:.18em;opacity:.75}
+.uxgrip::before{content:"• • •"}
+.uxgrip:hover,.uxgrip.on{background:var(--sunk);color:var(--or-deep);opacity:1}
+.composer .uxgrip{margin:0;height:11px}
+@media (max-width:820px){ .uxgrip,.composer .uxgrip{height:18px;font-size:12px} }   /* タッチしやすい高さ */
 </style>
 
 <style>
@@ -21381,6 +21389,8 @@ I18N_ROWS2.push(
 ["💬 相手の質問への返信案（登録データ＋Web）","💬 Draft answers to their questions (registered data + Web)","💬 对方问题的回复草稿（登记数据＋网络）","💬 Borrador a sus preguntas (datos + Web)"],
 ["💬 相手の質問への返信案（登録データ）","💬 Draft answers to their questions (registered data)","💬 对方问题的回复草稿（登记数据）","💬 Borrador a sus preguntas (datos)"]
 );
+/* v19.3 入力欄のグリップ */
+I18N_ROWS2.push(["ドラッグで高さを変更／ダブルクリックで元の高さに戻す","Drag to change height / double-click to reset","拖动调整高度／双击恢复原高度","Arrastra para cambiar la altura / doble clic para restablecer"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -22506,5 +22516,48 @@ function bmAdminCard(){
 }
 /* 起動後：状態を先読み（作成パネルで即時に判定できるように） */
 setTimeout(()=>{ try{ if(bmOn()) bmStatus(false); }catch(e){} },2500);
+
+/* ═══════════ v19.3：全ての入力ボックス（複数行）をドラッグで拡大・縮小 ═══════════
+   ・ブラウザ標準の角のつまみ（resize:vertical）に加え、入力欄の直下に「• • •」のグリップを付けてマウス／タッチで高さを変えられる（iOS は角つまみが無いため）
+   ・決めた高さは端末に記憶（bc20_tah：パネル／ページ＋入力欄IDごと）し、描画し直し（送信・受信後の再表示など）でも保たれる。ダブルクリックで元に戻す
+   ・従来の自動伸縮（84〜190px で頭打ち）は、ユーザーが決めた高さより縮めない。PC では内容が上限を超えたら 40vh まで自動で広げる */
+const UX193={key:"bc20_tah",map:null,t:0};
+function ux193Map(){ if(UX193.map) return UX193.map; try{ UX193.map=JSON.parse(localStorage.getItem(UX193.key)||"{}")||{}; }catch(e){ UX193.map={}; } return UX193.map; }
+function ux193Save(){ try{ localStorage.setItem(UX193.key,JSON.stringify(ux193Map())); }catch(e){} }
+function ux193Key(ta){ const ctx=ta.closest("#pn")?"pn":(ta.closest("#well")?("pg:"+(typeof cur!=="undefined"?cur:"")):"x"); const id=ta.id||ta.name||("ph:"+String(ta.placeholder||"").slice(0,24)); return ctx+"|"+id; }
+function ux193Max(){ return Math.round(innerHeight*(innerWidth<=820?0.6:0.8)); }
+function ux193Set(ta,h,persist){ h=Math.max(44,Math.min(ux193Max(),Math.round(h))); ta.style.setProperty("height",h+"px","important"); ta.__uxh=h; if(persist){ ux193Map()[ux193Key(ta)]=h; ux193Save(); } return h; }
+function ux193Reset(ta){ delete ux193Map()[ux193Key(ta)]; ux193Save(); ta.__uxh=0; ta.style.removeProperty("height"); try{ ta.dispatchEvent(new Event("input",{bubbles:true})); }catch(e){} }
+function ux193Grip(ta){
+  if(ta.__grip||ta.hasAttribute("data-nogrip")||!ta.parentElement) return; ta.__grip=1;
+  const h=ux193Map()[ux193Key(ta)]; if(h) ux193Set(ta,h,false);
+  const g=document.createElement("div"); g.className="uxgrip"; g.title="ドラッグで高さを変更／ダブルクリックで元の高さに戻す"; g.setAttribute("role","separator"); g.setAttribute("aria-orientation","horizontal");
+  let host=ta; try{ const pd=getComputedStyle(ta.parentElement); if(/flex/.test(pd.display)&&/^row/.test(pd.flexDirection||"row")) host=ta.parentElement; }catch(e){}
+  host.insertAdjacentElement("afterend",g); g.__ta=ta;
+  let y0=0,h0=0,drag=0;
+  g.addEventListener("pointerdown",e=>{ drag=1; y0=e.clientY; h0=ta.getBoundingClientRect().height; g.classList.add("on"); try{ g.setPointerCapture(e.pointerId); }catch(x){} e.preventDefault(); });
+  g.addEventListener("pointermove",e=>{ if(!drag) return; ux193Set(ta,h0+(e.clientY-y0),false); });
+  const end=()=>{ if(!drag) return; drag=0; g.classList.remove("on"); ux193Set(ta,ta.getBoundingClientRect().height,true); };
+  g.addEventListener("pointerup",end); g.addEventListener("pointercancel",end);
+  g.addEventListener("dblclick",()=>ux193Reset(ta));
+  /* ブラウザ標準の角つまみでの変更も記憶 */
+  let nh=0; ta.addEventListener("mousedown",()=>{ nh=ta.getBoundingClientRect().height; });
+  ta.addEventListener("mouseup",()=>{ const h2=ta.getBoundingClientRect().height; if(nh&&Math.abs(h2-nh)>=4) ux193Set(ta,h2,true); nh=0; });
+}
+function ux193Apply(root){ (root||document).querySelectorAll("#well textarea,#pn textarea,#welv textarea,#v1811ov textarea,#guide textarea").forEach(ta=>{ try{ if(ta.offsetParent!==null||ta.closest("#pn")) ux193Grip(ta); }catch(e){} }); }
+/* 入力中：自動伸縮の上限を超える内容は PC では 40vh まで自動で広げる。ユーザーが決めた高さは尊重（それより縮めない） */
+document.addEventListener("input",e=>{ const ta=e.target; if(!ta||ta.tagName!=="TEXTAREA") return; try{
+  if(ta.__uxh){ if(ta.getBoundingClientRect().height<ta.__uxh-1) ta.style.setProperty("height",ta.__uxh+"px","important"); return; }
+  if(innerWidth<=820) return;
+  if(ta.__auto){ ta.style.removeProperty("height"); ta.__auto=0; }   /* 内容が減ったら元の高さへ（自動で広げた分だけ戻す） */
+  if(ta.scrollHeight>ta.clientHeight+2){ const h=Math.min(ta.scrollHeight+2,Math.round(innerHeight*0.4)); if(h>ta.clientHeight){ ta.style.setProperty("height",h+"px","important"); ta.__auto=1; } } }catch(x){} });
+function ux193Fit(ta){ if(!ta||ta.__uxh) return; try{ const h=Math.min(ta.scrollHeight+2,Math.round(innerHeight*0.5)); if(h>ta.clientHeight) ta.style.setProperty("height",h+"px","important"); }catch(e){} }
+{ const __r193=render; render=function(){ const r=__r193.apply(this,arguments); try{ ux193Apply(); }catch(e){} return r; }; }
+if(typeof openDW==="function"){ const __od193=openDW; openDW=function(){ const r=__od193.apply(this,arguments); try{ setTimeout(ux193Apply,40); }catch(e){} return r; }; }
+if(typeof renderAdmin==="function"){ const __ra193=renderAdmin; renderAdmin=function(){ const r=__ra193.apply(this,arguments); try{ ux193Apply(); }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr193=fwdRender; fwdRender=function(){ const r=__fr193.apply(this,arguments); try{ ux193Apply(); }catch(e){} return r; }; }
+/* 動的に差し込まれる入力欄（やりとりの返信欄・AI見積の相談欄・LINE返信など） */
+try{ new MutationObserver(()=>{ if(UX193.t) return; UX193.t=setTimeout(()=>{ UX193.t=0; ux193Apply(); },150); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+setTimeout(()=>{ try{ ux193Apply(); }catch(e){} },600);
 
 </script>
