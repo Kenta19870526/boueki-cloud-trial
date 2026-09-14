@@ -20955,6 +20955,8 @@ I18N_ROWS2.push(
 ["⚠ 納品品質の商品写真（1枚以上）（必須）","⚠ Delivery-quality product photo (at least 1) (required)","⚠ 交付品质的产品照片（1张以上）（必填）","⚠ Foto del producto con calidad de entrega (mínimo 1) (obligatorio)"],
 ["⚠ 連絡先（担当者・メール等）（必須）","⚠ Contact details (person, email, etc.) (required)","⚠ 联系方式（负责人・邮箱等）（必填）","⚠ Datos de contacto (persona, correo, etc.) (obligatorio)"],
 ["（会社・ブランドロゴ・納品品質の商品写真（1枚以上）・連絡先（担当者・メール等））。上の「納品レベルチェック」から埋めると解放されます。","(company / brand logo, delivery-quality product photo (at least 1), contact details (person, email, etc.)). Fill them in from the “Delivery-level check” above to unlock.","（公司・品牌标志・交付品质的产品照片（1张以上）・联系方式（负责人・邮箱等））。从上方的“交付水平检查”填写后即可解锁。","(logotipo, foto del producto con calidad de entrega (mínimo 1), datos de contacto (persona, correo, etc.)). Complételos desde la “Comprobación de nivel de entrega” de arriba para desbloquear."],
+/* ── v18.13：集中モード中の商品セレクト仮項目 ── */
+["🏢 新しい会社を登録中…","🏢 Registering a new company…","🏢 正在登记新公司…","🏢 Registrando una empresa nueva…"],
 /* ── v18.12：集中モード（新しい会社／既存の会社への追加） ── */
 ["新しい会社の商品を登録","Register a new company's product","登记新公司的产品","Registrar el producto de una empresa nueva"],["に新しい商品を登録","— register a new product","登记新产品","— registrar un producto nuevo"],
 ["既存の商品は表示していません。下の登録欄に資料をドロップ（またはクリックして選択）してください。","Existing products are hidden. Drop the document into the upload area below (or click to choose a file).","未显示现有产品。请将资料拖放到下方的登记区域（或点击选择文件）。","Los productos existentes están ocultos. Suelte el documento en la zona de carga de abajo (o haga clic para elegir un archivo)."],
@@ -21108,6 +21110,7 @@ I18N_PAT2.push(
   en:(m)=>`The products in this document are already registered, so the data was merged into the existing ${m[1]} products (no duplicates)${m[2]?` · ${m[2]} new products added`:""}${m[3]?` · ${m[3]} not added (limit of 10 per company)`:""}`,
   zh:(m)=>`此资料中的产品已登记，已合并到现有${m[1]}个产品（不会重复登记）${m[2]?`・新增${m[2]}个未登记产品`:""}${m[3]?`・${m[3]}个因上限（每公司10个）未添加`:""}`,
   es:(m)=>`Los productos de este documento ya están registrados; los datos se fusionaron en los ${m[1]} productos existentes (sin duplicados)${m[2]?` · ${m[2]} productos nuevos añadidos`:""}${m[3]?` · ${m[3]} no añadidos (límite de 10 por empresa)`:""}`},
+ {re:/^➕ (.+?) に追加中…$/,en:(m,d)=>"➕ Adding to "+TS(m[1],d)+"…",zh:(m,d)=>"➕ 正在添加到 "+TS(m[1],d)+"…",es:(m,d)=>"➕ Añadiendo a "+TS(m[1],d)+"…"},
  {re:/^(.+?) に新しい商品を登録する$/,en:(m,d)=>"Add a new product to "+TS(m[1],d),zh:(m,d)=>"为 "+TS(m[1],d)+" 登记新产品",es:(m,d)=>"Añadir un producto nuevo a "+TS(m[1],d)},
  {re:/^(.+?) の商品を編集する$/,en:(m,d)=>"Edit a product of "+TS(m[1],d),zh:(m,d)=>"编辑 "+TS(m[1],d)+" 的产品",es:(m,d)=>"Editar un producto de "+TS(m[1],d)},
  {re:/^(.+?) の新しい商品の資料をここにドロップしてください$/,en:(m,d)=>"Drop the document for "+TS(m[1],d)+"'s new product here",zh:(m,d)=>"请将 "+TS(m[1],d)+" 新产品的资料拖放到此处",es:(m,d)=>"Suelte aquí el documento del nuevo producto de "+TS(m[1],d)},
@@ -21879,7 +21882,7 @@ function v1811Act(k,ds,v){
   if(k==="newco") return v1811Open("newco");
   if(k==="addto") return v1811Open("addto");
   if(k==="edit") return v1811Open("edit");
-  if(k==="addto-co"){ /* v18.12：その会社の商品に切り替えてから（画面にその会社の情報が出る） */ try{ const c=v1811Cos().find(x=>x.co===ds.co); V1811.focus={k:"addto",co:ds.co}; V1811.sup=true; try{ if(c&&c.idxs.length&&TENS[c.idxs[0]]!==TEN) switchTen(c.idxs[0]); if(typeof FILL!=="undefined"&&FILL) FILL.on=false; cur="up"; buildNav(); render(); }finally{ V1811.sup=false; } }catch(e){} return v1811Open("addto",ds.co); }
+  if(k==="addto-co"){ /* v18.12：その会社の商品に切り替えてから（画面にその会社の情報が出る）。v18.13：switchTen は集中モードを解除するので、切替の後に集中モードを立てる */ try{ const c=v1811Cos().find(x=>x.co===ds.co); V1811.sup=true; try{ if(c&&c.idxs.length&&TENS[c.idxs[0]]!==TEN) switchTen(c.idxs[0]); if(typeof FILL!=="undefined"&&FILL) FILL.on=false; V1811.focus={k:"addto",co:ds.co,ten:TEN}; cur="up"; buildNav(); render(); }finally{ V1811.sup=false; } }catch(e){} return v1811Open("addto",ds.co); }
   if(k==="edit-co") return v1811Open("edit",ds.co);
   if(k==="newco-up"||k==="addto-up"){ V1811.mode=k==="addto-up"?{k:"addto",co:ds.co}:{k:"newco"}; V1811.focus=k==="addto-up"?{k:"addto",co:ds.co}:{k:"newco"}; v1811Close(); v1812Enter(k==="addto-up"?`${ds.co} の新しい商品の資料をここにドロップしてください`:"新しい会社の商品資料をここにドロップしてください"); return; }
   if(k==="newco-manual"||k==="addto-manual"){ const m=v.querySelector("#v1811manual"); if(m){ m.hidden=false; const i=v.querySelector("#v1811co")||v.querySelector("#v1811item"); if(i) try{ i.focus(); }catch(e){} } return; }
@@ -21933,7 +21936,9 @@ function v1812Enter(msg){
   setTimeout(()=>{ v1812ToDrop(); if(msg){ try{ toast(msg); }catch(e){} } },120);
 }
 function v1812Focus(){
-  const f=V1811.focus; const old=document.getElementById("v1811focus"); if(old) old.remove();
+  /* v18.13：集中モードに入ったときの商品と違う商品が表示されていたら（上部セレクト等で切り替えた）、集中モードを解除 */
+  try{ const f0=V1811.focus; if(f0){ if(!f0.ten) f0.ten=(typeof TEN!=="undefined")?TEN:null; else if(typeof TEN!=="undefined"&&TEN!==f0.ten){ V1811.focus=null; V1811.mode=null; } } }catch(e){}
+  const f=V1811.focus; const old=document.getElementById("v1811focus"); if(old) old.remove(); try{ v1813Psw(); }catch(e){}
   const well=document.getElementById("well"); if(!well||!f) return; if(typeof cur==="undefined"||cur!=="up") return; if(typeof FILL!=="undefined"&&FILL&&FILL.on) return;
   if(f.k==="newco"){ const rp=document.getElementById("regprod"); if(rp) rp.remove(); }
   [...well.querySelectorAll(":scope > .c")].forEach(c=>{ if(c.querySelector('button[onclick="resetTen()"]')) c.remove(); });   /* 前回の資料／業種サンプルのカード */
@@ -21949,6 +21954,16 @@ function v1812Focus(){
   try{ if(typeof ux2SecNav==="function") ux2SecNav(); if(typeof ux17SecUpdate==="function") ux17SecUpdate(); }catch(e){}
 }
 { const __r1812=render; render=function(){ const r=__r1812.apply(this,arguments); try{ v1812Focus(); }catch(e){} return r; }; }
+/* ── v18.13（2026-09-14）：集中モード中に上部の商品セレクトで商品を選んでも反応しない ──
+   原因：商品切替（switchTen）は表示中のページを描き直すだけで、集中モード（V1811.focus）が残ったままだと登録欄だけの画面のまま。
+         さらに表示中の商品と同じ商品を選んでも change イベントは発生しない。
+   対応：商品切替（switchTen／サンプル切替／セレクト変更）で集中モードを解除。集中中はセレクトの先頭に「登録中…」の仮項目を出して選択状態にし、
+         どの商品を選んでも change が発生するようにする */
+if(typeof switchTen==="function"){ const __st1813=switchTen; switchTen=function(){ V1811.focus=null; V1811.mode=null; return __st1813.apply(this,arguments); }; }
+if(typeof adoptSample2==="function"){ const __as1813=adoptSample2; adoptSample2=function(){ V1811.focus=null; V1811.mode=null; return __as1813.apply(this,arguments); }; }
+(function(){ const s=document.getElementById("psw"); if(!s) return; s.addEventListener("change",e=>{ if(s.value==="__focus"){ e.stopImmediatePropagation(); return; } if(V1811.focus){ V1811.focus=null; V1811.mode=null; } },true); })();
+function v1813Psw(){ const s=document.getElementById("psw"); if(!s) return; const f=V1811.focus; let o=s.querySelector('option[value="__focus"]'); if(!f){ if(o){ o.remove(); try{ if(typeof PID!=="undefined"&&PID==="custom"&&typeof TIDX!=="undefined") s.value="t:"+TIDX; }catch(e){} } return; }
+  const label=f.k==="newco"?"🏢 新しい会社を登録中…":`➕ ${f.co} に追加中…`; if(!o){ o=document.createElement("option"); o.value="__focus"; s.insertBefore(o,s.firstChild); } o.textContent=label; s.value="__focus"; }
 /* 「＋ 新しい商品を登録」：目次バーに隠れない位置へスクロール */
 ux17NewProd=function(){
   const prev=V1811.sup; V1811.sup=true;
