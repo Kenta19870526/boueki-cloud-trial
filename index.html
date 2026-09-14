@@ -892,6 +892,25 @@ textarea,textarea.sel,.composer textarea.sel,.composer .sel{resize:vertical!impo
 .uxgrip:hover,.uxgrip.on{background:var(--sunk);color:var(--or-deep);opacity:1}
 .composer .uxgrip{margin:0;height:11px}
 @media (max-width:820px){ .uxgrip,.composer .uxgrip{height:18px;font-size:12px} }   /* タッチしやすい高さ */
+/* v19.6：AI思考中の全画面共通インジケーター（画面上部中央・クリックは妨げない・スマホも同じ） */
+#aiThink{position:fixed;left:50%;top:max(64px,12vh);transform:translateX(-50%) translateY(-8px);z-index:150;width:min(560px,94vw);pointer-events:none;opacity:0;transition:opacity .18s ease,transform .18s ease}
+#aiThink.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#aiThink .atc{position:relative;pointer-events:auto;background:var(--surface);border:2px solid var(--or);border-radius:16px;box-shadow:0 18px 48px rgba(20,26,34,.30);padding:16px 44px 14px 18px;display:flex;gap:14px;align-items:flex-start}
+#aiThink .atav{width:50px;height:50px;border-radius:50%;background:var(--or);color:#fff;display:grid;place-items:center;font-size:24px;flex:none;position:relative}
+#aiThink .atav::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:3px solid var(--or);opacity:.6;animation:atPulse 1.4s ease-out infinite}
+@keyframes atPulse{0%{transform:scale(.85);opacity:.75}100%{transform:scale(1.4);opacity:0}}
+#aiThink .atbody{min-width:0;flex:1}
+#aiThink .att{font-size:18px;font-weight:700;line-height:1.35;color:var(--ink)}
+#aiThink .ats{font-size:14px;color:var(--ink-2);margin-top:3px;line-height:1.6}
+#aiThink .atm{font-size:12.5px;color:var(--ink-3);margin-top:4px;line-height:1.5}
+#aiThink .atbar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;margin-top:10px}
+#aiThink .atbar i{display:block;height:100%;width:38%;border-radius:3px;background:linear-gradient(90deg,var(--or),#ffc266);animation:atSlide 1.3s ease-in-out infinite}
+@keyframes atSlide{0%{transform:translateX(-120%)}100%{transform:translateX(280%)}}
+#aiThink .atx{position:absolute;top:8px;right:8px;border:0;background:none;color:var(--ink-3);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1}
+#aiThink .atx:hover{background:var(--sunk);color:var(--ink)}
+#aiThink.done .atc{border-color:var(--good)} #aiThink.done .atav{background:var(--good)} #aiThink.done .atav::after{animation:none;opacity:0} #aiThink.done .atbar{display:none}
+@media (max-width:820px){ #aiThink{top:58px;width:min(560px,96vw)} #aiThink .atc{padding:13px 40px 12px 14px;gap:11px} #aiThink .atav{width:42px;height:42px;font-size:20px} #aiThink .att{font-size:16px} #aiThink .ats{font-size:13.5px} }
+@media (prefers-reduced-motion:reduce){ #aiThink .atav::after,#aiThink .atbar i{animation:none} #aiThink{transition:none} }
 </style>
 
 <style>
@@ -21408,6 +21427,13 @@ I18N_ROWS2.push(
 );
 /* v19.5 直接メッセージの言語 */
 I18N_ROWS2.push(["🤖 この言語で作り直す","🤖 Rewrite in this language","🤖 用此语言重写","🤖 Reescribir en este idioma"],["🤖 この言語でAIが作成","🤖 Write with AI in this language","🤖 用此语言由AI撰写","🤖 Redactar con IA en este idioma"]);
+/* v19.6 AI思考中インジケーター */
+I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is thinking…","🤖 AI商社专员思考中…","🤖 El Agente IA está pensando…"],["🤖 AI物流マンが考え中…","🤖 AI Logistics Agent is thinking…","🤖 AI物流专员思考中…","🤖 El Agente logístico IA está pensando…"],
+["✅ 完了しました","✅ Done","✅ 已完成","✅ Listo"],["結果を画面に反映しました","The result is now on screen","结果已显示在画面上","El resultado ya está en pantalla"],["⚠ 応答を得られませんでした","⚠ No response received","⚠ 未获得响应","⚠ Sin respuesta"],
+["登録データを読んで回答を考えています","Reading your registered data to answer","正在读取登记数据以作答","Leyendo los datos registrados para responder"],["Web検索を含めて回答を考えています","Thinking with web search","正在结合网络搜索作答","Pensando con búsqueda web"],
+["翻訳しています","Translating","翻译中","Traduciendo"],["返信案とアドバイスを作成しています","Drafting a reply and advice","正在撰写回复草稿和建议","Redactando respuesta y consejos"],["交渉ステータスを判定しています","Judging the negotiation status","正在判定谈判状态","Evaluando el estado de negociación"],
+["今日やることを調査しています","Researching today's tasks","正在调查今日待办","Investigando las tareas de hoy"],["商品の強みを提案しています","Proposing product strengths","正在提出产品优势","Proponiendo fortalezas del producto"],["営業資料を作成しています","Creating the sales deck","正在制作营销资料","Creando el material de ventas"],
+["文面を推敲しています","Polishing the text","正在润色文本","Puliendo el texto"],["添付資料を読んで回答を考えています","Reading the attachment to answer","正在阅读附件以作答","Leyendo el adjunto para responder"],["この表示を隠す","Hide this","隐藏此提示","Ocultar"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -22809,5 +22835,69 @@ function bmLangInit(){
     const b=document.getElementById("bmLangRedo"); if(b) b.onclick=()=>bmLangGenerate("lang"); });
 }
 if(typeof openDM==="function"){ const __odm195=openDM; openDM=function(id,cty,biz){ const r=__odm195.apply(this,arguments); try{ if(document.getElementById("dmL")&&document.getElementById("dmB")) bmLangInit(); }catch(e){ console.warn("bm lang",e); } return r; }; }
+
+/* ═══════════ v19.6：AIが考え中の全画面共通インジケーター ═══════════
+   従来は各ボタンのラベル（「生成中…」）や小さな文字だけで、画面が止まったように見えたり「言語を変えたのに本文が変わらない」と誤解しやすかった。
+   接続AIへの呼び出しは全て llmAsk を通る（荷主・管理コンソール・物流会社モード・スマホ共通）ので、その入口を包み、
+   処理中は画面上部中央に大きなカード「🤖 AI商社マンが考え中…」（何をしているか・経過秒数・進行バー）を出し、終わると「✅ 完了」を短く表示する。
+   背景で動く自動翻訳（画面のAI翻訳・やりとりの自動翻訳）は対象外（小さなピルのまま）。カードはクリックを妨げず、✕で隠せる */
+const AIT={n:0,items:[],t0:0,timer:null,hideT:null,el:null,hidden:0};
+function aiThinkWho(){ try{ if(typeof FWDON!=="undefined"&&FWDON) return "AI物流マン"; }catch(e){} return "AI商社マン"; }
+function aiThinkLabel(q,opts){
+  q=String(q||""); opts=opts||{}; const lang=(q.match(/を(.{2,18}?)で書いてください/)||[])[1];
+  if(opts.task==="translate"||/^Translate the text below/.test(q)) return "翻訳しています";
+  if(/新規開拓メール/.test(q)) return (lang?lang+" で":"")+"件名と本文を作成しています";
+  if(/返信メール本文|次の返信案|返信案/.test(q)) return "返信案とアドバイスを作成しています";
+  if(/交渉ステータス/.test(q)) return "交渉ステータスを判定しています";
+  if(/今日やること/.test(q)) return "今日やることを調査しています";
+  if(/商品の強み|強みを提案/.test(q)) return "商品の強みを提案しています";
+  if(/営業資料|スライド|deck/i.test(q)) return "営業資料を作成しています";
+  if(/バイヤーとして自然な返信|Purchasing Team/.test(q)) return "体験用の模擬返信を作成しています";
+  if(/磨いて|書き直して|推敲/.test(q)) return "文面を推敲しています";
+  if(/レート表|運賃表/.test(q)) return "レート表を読み取っています";
+  if(/実在|ファクトチェック/.test(q)) return "相手先の実在と情報を確認しています";
+  if(opts.att) return "添付資料を読んで回答を考えています";
+  if(opts.forceWeb||(typeof WEBON!=="undefined"&&WEBON&&!opts.noWeb)) return "Web検索を含めて回答を考えています";
+  return "登録データを読んで回答を考えています";
+}
+function aiThinkEl(){
+  if(AIT.el&&document.body.contains(AIT.el)) return AIT.el;
+  const d=document.createElement("div"); d.id="aiThink"; d.setAttribute("role","status"); d.setAttribute("aria-live","polite");
+  d.innerHTML=`<div class="atc"><div class="atav">🤖</div><div class="atbody"><div class="att"></div><div class="ats"></div><div class="atm"></div><div class="atbar"><i></i></div></div><button class="atx" type="button" title="この表示を隠す（処理は続きます）" aria-label="この表示を隠す">✕</button></div>`;
+  document.body.appendChild(d);
+  d.querySelector(".atx").onclick=()=>{ AIT.hidden=1; d.classList.remove("on"); };
+  AIT.el=d; return d;
+}
+function aiThinkPaint(){
+  const d=aiThinkEl(); const cur=AIT.items[AIT.items.length-1]; if(!cur) return;
+  const sec=Math.max(0,Math.round((Date.now()-AIT.t0)/1000));
+  d.querySelector(".att").textContent=`🤖 ${aiThinkWho()}が考え中…`;
+  d.querySelector(".ats").textContent=cur.label+(AIT.items.length>1?`（${AIT.items.length}件を処理中）`:"");
+  d.querySelector(".atm").textContent=`${sec}秒経過（通常10〜30秒）${sec>90?"・時間がかかっています。接続や混雑の影響かもしれません":""}／終わると自動で画面に反映されます${cur.eng?"／エンジン："+cur.eng:""}`;
+}
+function aiThinkStart(label,eng){
+  const id=++AIT.n; AIT.items.push({id,label:String(label||"考えています"),eng:String(eng||""),at:Date.now()});
+  const d=aiThinkEl();
+  if(AIT.items.length===1){ AIT.t0=Date.now(); AIT.hidden=0; clearTimeout(AIT.hideT); d.classList.remove("done"); clearInterval(AIT.timer); AIT.timer=setInterval(aiThinkPaint,1000); }
+  aiThinkPaint(); if(!AIT.hidden){ d.classList.add("on"); }
+  return id;
+}
+function aiThinkEnd(id,ok){
+  AIT.items=AIT.items.filter(x=>x.id!==id);
+  if(AIT.items.length){ aiThinkPaint(); return; }
+  clearInterval(AIT.timer); AIT.timer=null; const d=aiThinkEl();
+  if(!AIT.hidden){ d.classList.add("done"); d.querySelector(".att").textContent=ok?"✅ 完了しました":"⚠ 応答を得られませんでした";
+    d.querySelector(".ats").textContent=ok?"結果を画面に反映しました":"内容を確認して、もう一度お試しください（AIエンジンの接続や混雑の影響のことがあります）"; d.querySelector(".atm").textContent=""; }
+  clearTimeout(AIT.hideT); AIT.hideT=setTimeout(()=>{ d.classList.remove("on","done"); AIT.hidden=0; },ok?1200:2600);
+}
+if(typeof llmAsk==="function"){ const __la196=llmAsk;
+  llmAsk=function(q,maxTok,opts){
+    let bg=false; try{ bg=!!((typeof AI18N!=="undefined"&&AI18N&&AI18N.busy)||(typeof MSG18!=="undefined"&&MSG18&&MSG18.busy)||(opts&&opts.bg)); }catch(e){}
+    if(bg) return __la196.apply(this,arguments);
+    let eng=""; try{ eng=typeof llmLabel==="function"?String(llmLabel()||""):""; }catch(e){}
+    const id=aiThinkStart(aiThinkLabel(q,opts),eng);
+    let p; try{ p=Promise.resolve(__la196.apply(this,arguments)); }catch(e){ aiThinkEnd(id,false); throw e; }
+    return p.then(r=>{ aiThinkEnd(id,true); return r; },e=>{ aiThinkEnd(id,false); throw e; });
+  }; }
 
 </script>
