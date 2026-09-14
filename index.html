@@ -21349,6 +21349,39 @@ I18N_PAT2.push(
 );
 }
 
+/* v19.2 バイヤー直接メール（実送受信）＋AI返信アドバイス */
+I18N_ROWS2.push(
+["宛先メールアドレス（バイヤー）","Buyer email address","买家邮箱地址","Correo del comprador"],
+["貴社のメールアドレス（送信の控えをCCで受け取る・任意）","Your email address (receive a CC copy, optional)","贵司邮箱（抄送留底・可选）","Su correo (recibir copia CC, opcional)"],
+["🔄 返信を確認","🔄 Check replies","🔄 检查回复","🔄 Ver respuestas"],
+["📧 メールソフトで送る","📧 Send with mail app","📧 用邮件软件发送","📧 Enviar con app de correo"],
+["🧪 返信をシミュレート（体験用）","🧪 Simulate a reply (demo)","🧪 模拟回复（体验用）","🧪 Simular respuesta (demo)"],
+["🤖 AI商社マンの返信アドバイス","🤖 AI Trade Agent reply advice","🤖 AI商社专员的回复建议","🤖 Consejo de respuesta del Agente IA"],
+["💡 次に送るべき内容を相談","💡 What should I send next?","💡 咨询下一步应发送的内容","💡 ¿Qué enviar a continuación?"],
+["↓ この返信案を本文に入れる","↓ Use this draft","↓ 使用此回复草稿","↓ Usar este borrador"],
+["🤖 もう一度","🤖 Again","🤖 再来一次","🤖 Otra vez"],
+["✅ 送信済","✅ Sent","✅ 已发送","✅ Enviado"],
+["📝 記録のみ","📝 Logged only","📝 仅记录","📝 Solo registro"],
+["⏳ 送信中","⏳ Sending","⏳ 发送中","⏳ Enviando"],
+["❌ 送信失敗","❌ Failed","❌ 发送失败","❌ Fallo"],
+["📨 実メール","📨 Real email","📨 真实邮件","📨 Correo real"],
+["🧪 模擬返信","🧪 Simulated reply","🧪 模拟回复","🧪 Respuesta simulada"],
+["📧 メールソフト","📧 Mail app","📧 邮件软件","📧 App de correo"],
+["🌐 日本語に訳す","🌐 Translate","🌐 翻译","🌐 Traducir"],
+["訳を隠す","Hide translation","隐藏译文","Ocultar traducción"],
+["訳を表示","Show translation","显示译文","Mostrar traducción"],
+["AI未接続：定型のみ","AI not connected: template only","AI未连接：仅模板","IA no conectada: solo plantilla"],
+["接続AI＋登録データ","Connected AI + registered data","已连接AI＋登记数据","IA conectada + datos registrados"],
+["接続AI＋登録データ＋Web","Connected AI + registered data + Web","已连接AI＋登记数据＋网络","IA conectada + datos + Web"],
+["中継 有効","Relay on","中继 有效","Relevo activo"],
+["中継 未設定","Relay not set up","中继 未设置","Relevo no configurado"],
+["送信する","Send","发送","Enviar"],
+["✉ 実送信","✉ Real send","✉ 真实发送","✉ Envío real"],
+["✉ バイヤーへ直接メールの中継","✉ Direct email relay to buyers","✉ 买家直邮中继","✉ Relevo de correo directo a compradores"],
+["💬 相手の質問への返信案（登録データ＋Web）","💬 Draft answers to their questions (registered data + Web)","💬 对方问题的回复草稿（登记数据＋网络）","💬 Borrador a sus preguntas (datos + Web)"],
+["💬 相手の質問への返信案（登録データ）","💬 Draft answers to their questions (registered data)","💬 对方问题的回复草稿（登记数据）","💬 Borrador a sus preguntas (datos)"]
+);
+
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
    - I18N_ROWS2  : extra plain rows [ja,en,zh,es] merged into I18N.dict
@@ -22214,5 +22247,264 @@ if(typeof v17TombParse==="function"&&typeof v17PruneList==="function"&&typeof v1
   if(typeof loadTen==="function"){ const __lt19=loadTen; loadTen=function(){ const r=__lt19.apply(this,arguments); try{ V19S.sigs=v19Collect(); }catch(e){} return r; }; }
   setTimeout(()=>{ try{ if(!V19S.sigs) V19S.sigs=v19Collect(); }catch(e){} },800);
 }
+
+/* ═══════════ v19.2：バイヤーへ直接メール（実送受信）＋AI商社マンの返信アドバイス ═══════════
+   ① 送信：宛先メールアドレスがあり、クラウド同期サーバー（Apps Script v2.2）のメール中継が有効なら実際にメールを送る
+      （送信元＝中継用Gmail、貴社アドレスにCC、件名末尾の [BC-key] で返信を突き合わせる）。
+      中継が未設定／宛先未入力のときは「記録のみ」＋「メールソフトで送る」。旧版の自動シミュレート返信は廃止（体験用ボタンから明示的に）
+   ② 受信：mail_pull（90秒同期・パネルを開いたとき・🔄ボタン）で本人のスレッド宛の返信だけを取り込み、同じ右パネルでやり取り。未読は🔔と一覧へ
+   ③ AI商社マン：やり取り全体＋登録データ（＋必要ならWeb）から「次に送るべき内容」と、価格・仕様などの質問への返信案（登録データに無いことは書かない） */
+const BM={st:null,stAt:0,openId:"",pulling:0,lastDraft:"",lastMode:"next"};
+function bmOn(){ try{ return typeof v16SyncOk==="function"&&v16SyncOk(); }catch(e){ return false; } }
+function bmTen(){ try{ if(typeof v16Ten==="function"){ const t=v16Ten(); if(t) return t; } }catch(e){} return (typeof TEN!=="undefined"&&TEN)||null; }
+function bmMailOf(s){ const m=String(s||"").match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/); return m?m[0]:""; }
+function bmAddr(id){
+  try{ const th=(typeof dmThreads==="function"?dmThreads():{})[id]; if(th&&th.to) return th.to; }catch(e){}
+  try{ if(typeof myBuyers==="function"){ const b=myBuyers().find(x=>x&&x.id===id); if(b) return bmMailOf(b.contact)||bmMailOf(b.memo)||bmMailOf(b.url)||""; } }catch(e){}
+  return "";
+}
+function bmKey(){ const k=(typeof SYNC!=="undefined"&&SYNC&&SYNC.kid)?String(SYNC.kid).slice(0,6):"local"; return k+"-"+Math.random().toString(36).slice(2,6); }
+function bmTime(at){ const d=at?new Date(at):new Date(); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+async function bmStatus(force){
+  if(!bmOn()) return (BM.st={configured:false,from:"",reason:"nosync"});
+  if(BM.st&&!force&&Date.now()-BM.stAt<300000) return BM.st;
+  try{ const r=await syncCall("mail_status",{kid:SYNC.kid},{timeout:12000});
+    BM.st={configured:!!(r&&r.ok&&r.configured),from:(r&&r.from)||"",quota:(r&&r.quota!=null)?r.quota:null,note:(r&&r.note)||"",reason:(r&&r.ok)?"":"err"}; }
+  catch(e){ BM.st={configured:false,from:"",reason:"old",err:String(e&&e.message||e).slice(0,80)}; }
+  BM.stAt=Date.now(); return BM.st;
+}
+/* メッセージの状態チップ */
+function bmChip(m){
+  if(m.w==="by") return m.sim?'<span class="p mid" title="体験用にAIが生成した模擬返信（実メールではありません）">🧪 模擬返信</span>':(m.real?'<span class="p hi" title="実メールの返信">📨 実メール</span>':"");
+  return m.st==="sent"?'<span class="p hi" title="中継サーバーから実際にメール送信済み">✅ 送信済</span>'
+    :m.st==="sending"?'<span class="p mid">⏳ 送信中</span>'
+    :m.st==="failed"?`<span class="p no" title="${esc(m.err||"")}">❌ 送信失敗</span>`
+    :m.st==="mailto"?'<span class="p on" title="お使いのメールソフトから送信（記録）">📧 メールソフト</span>'
+    :'<span class="p lo" title="実送信はしていません（宛先未入力または中継未設定）">📝 記録のみ</span>';
+}
+/* ── 送信（旧 dmSend を置き換え：自動シミュレート返信は予約しない） ── */
+function bmSend(id,cty,biz,subj,body,lang,to,opts){
+  opts=opts||{}; const T2=dmThreads(); const th=T2[id]=T2[id]||{id,cty,biz,lang:lang||"English",unread:0,msgs:[]};
+  th.lang=lang||th.lang; if(to) th.to=to;
+  const m={w:"me",t:dmNow(),subj:subj||"",body:String(body||""),st:opts.mailto?"mailto":"logged",at:Date.now()}; th.msgs.push(m);
+  try{ const sent=outreachList(); if(!sent.some(o=>o.id===id)) sent.push({id,cty,d:TODAYS,lang:th.lang}); }catch(e){}
+  if(typeof saveTen==="function") saveTen(); if(typeof logU==="function") logU("ai","直接連絡:"+id);
+  const st=BM.st||{}; const dest=bmMailOf(th.to||"");
+  if(!opts.noRelay&&bmOn()&&st.configured&&dest){
+    m.st="sending"; th.key=th.key||bmKey(); m.key=th.key;
+    const cc=bmMailOf((bmTen()||{}).dmFrom||""); const co=(typeof D!=="undefined"&&D&&(D.coEn||D.co))||""; const name=(co?co+" ":"")+"via BOEKI CLOUD 2.0";
+    const first=th.msgs.find(x=>x.subj&&x.w==="me"); const subject=(subj||"").trim()||("Re: "+((first&&first.subj)||("Message from "+(co||"Japan"))));
+    if(!m.subj) m.subj=subject;
+    syncCall("mail_send",{kid:SYNC.kid,to:dest,cc,subject,body:String(body||""),key:th.key,name},{timeout:30000}).then(r=>{
+      if(r&&r.ok){ m.st="sent"; m.real=1; th.real=1; th.key=r.key||th.key; if(r.at) m.at=r.at; toast("✉ 送信しました（中継："+(r.from||"")+"）"); }
+      else { m.st="failed"; m.err=(r&&r.msg)||"送信できませんでした"; toast("❌ "+m.err); }
+      if(typeof saveTen==="function") saveTen(); bmRefresh(id); if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB();
+    }).catch(e=>{ m.st="failed"; m.err=String(e&&e.message||e).slice(0,80); if(typeof saveTen==="function") saveTen(); toast("❌ 送信失敗："+m.err); bmRefresh(id); });
+  }
+  return th;
+}
+if(typeof dmSend==="function"){ dmSend=function(id,cty,biz,subj,body,lang){ return bmSend(id,cty,biz,subj,body,lang,""); }; }
+if(typeof dmScheduleReply==="function"){ dmScheduleReply=function(){ /* v19.2：模擬返信の自動予約は廃止（誤解を生むため）。体験用は 🧪 ボタンから */ }; }
+function bmRefresh(id){ try{ const pn=document.querySelector("#pn"); const dw=document.getElementById("dw"); if(pn&&dw&&dw.dataset.open==="true"&&pn.dataset.dmid===String(id)&&document.querySelector("#dmThread")) openDMThread(id); }catch(e){} }
+/* ── 受信（中継サーバーから、本人のスレッド宛の返信だけ） ── */
+async function bmPull(manual){
+  if(!bmOn()||BM.pulling) return {n:0}; const t=bmTen(); if(!t) return {n:0};
+  const ths=Object.values(dmThreads()).filter(x=>x&&x.key); if(!ths.length&&!manual) return {n:0};
+  BM.pulling=1;
+  try{
+    const r=await syncCall("mail_pull",{kid:SYNC.kid,since:+t.bmSince||0},{timeout:25000});
+    if(!r||!r.ok){ if(manual) toast("受信を確認できませんでした"); return {n:0}; }
+    if(r.configured===false){ if(manual) toast("メール中継が未設定です（管理者がサーバーを v2.2 に更新すると有効になります）"); return {n:0}; }
+    let n=0, mx=+t.bmSince||0;
+    (r.msgs||[]).forEach(mm=>{ mx=Math.max(mx,+mm.at||0); const th=ths.find(x=>x.key===mm.key); if(!th) return;
+      if((th.msgs||[]).some(x=>x.msgId&&x.msgId===mm.msgId)) return;
+      th.msgs.push({w:"by",t:bmTime(mm.at),body:String(mm.body||"").slice(0,8000),from:String(mm.from||""),subj:String(mm.subject||""),msgId:String(mm.msgId||""),real:1,at:+mm.at||Date.now()});
+      th.unread=(th.unread||0)+1; th.wait=0; n++; try{ if(typeof dmNotify==="function") dmNotify(th); }catch(e){} });
+    t.bmSince=mx;
+    if(n){ if(typeof saveTen==="function") saveTen(); try{ if(typeof updateBell==="function") updateBell(); }catch(e){}
+      toast("📨 バイヤーから返信が "+n+" 件届きました（🔔通知からも開けます）");
+      try{ if(typeof notifBrowserPush==="function") notifBrowserPush(); }catch(e){}
+      if(BM.openId&&document.querySelector("#dmThread")) bmRefresh(BM.openId);
+      if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }
+    else if(manual) toast("新しい返信はありません（"+bmTime(Date.now())+" に確認）");
+    return {n};
+  }catch(e){ if(manual) toast("受信の確認に失敗："+String(e&&e.message||e).slice(0,60)); return {n:0,err:String(e&&e.message||e)}; }
+  finally{ BM.pulling=0; }
+}
+if(typeof syncBeat==="function"){ const __sb192=syncBeat; syncBeat=async function(){ const r=await __sb192.apply(this,arguments); try{ bmPull(false); }catch(e){} return r; }; }
+/* ── 体験用の模擬返信（明示ボタンからのみ・🧪と表示） ── */
+async function bmSimulate(id){
+  const th=dmThreads()[id]; if(!th) return; const b=document.getElementById("bmSim"); if(b){ b.disabled=true; b.textContent="生成中…"; }
+  try{ const body=await dmReplyText(th); th.msgs.push({w:"by",t:dmNow(),body:String(body),sim:1,at:Date.now()}); th.unread=0;
+    if(typeof saveTen==="function") saveTen(); toast("🧪 体験用の模擬返信を追加しました（実メールではありません）"); openDMThread(id); if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }
+  catch(e){ toast("生成に失敗："+String(e&&e.message||e).slice(0,50)); if(b){ b.disabled=false; b.textContent="🧪 返信をシミュレート（体験用）"; } }
+}
+/* ── 作成パネル（宛先欄・実送信／記録のみの明示・メールソフトで送る） ── */
+if(typeof openDM==="function"){ const __odm192=openDM; openDM=function(id,cty,biz){
+  const r=__odm192.apply(this,arguments); try{ if(document.getElementById("dmSend")) bmComposeAugment(id,cty,biz); }catch(e){ console.warn("bm compose",e); } return r; }; }
+function bmModeHtml(to){
+  const st=BM.st||{};
+  if(!bmOn()) return '<span class="p lo">📝 記録のみ</span> クラウド同期が無いため実送信はできません。「📧 メールソフトで送る」で送信し、返信は手動で記録できます。';
+  if(!st.configured) return '<span class="p lo">📝 記録のみ</span> メール中継が未設定です（管理者がサーバーを v2.2 に更新すると有効）。それまでは「📧 メールソフトで送る」をご利用ください。';
+  if(!to) return '<span class="p lo">📝 記録のみ</span> 宛先が未入力のため実送信はしません（開示済みのアドレスを入力すると実送信できます）。';
+  return '<span class="p hi">✉ 実送信</span> '+esc(to)+' へ中継（'+esc(st.from||"")+'）から送信します。返信はこのスレッドに届きます。';
+}
+function bmComposeAugment(id,cty,biz){
+  const pn=document.querySelector("#pn"); if(!pn||document.getElementById("dmTo")) return;
+  const to0=bmAddr(id); const lbls=[...pn.querySelectorAll(".lbl")]; const fromL=lbls.find(l=>/送信元メールアドレス/.test(l.textContent));
+  const my=/^MY-/.test(String(id));
+  const html=`<p class="lbl" style="margin-top:10px">宛先メールアドレス（バイヤー）</p>
+    <input class="sel" id="dmTo" value="${esc(to0)}" placeholder="${my?"例：buyer@example.com（登録した連絡先から自動入力）":"🔒 正式契約後に開示されます（開示済みならここに入力）"}" style="width:100%;box-sizing:border-box">
+    <p class="nn" id="bmMode" style="margin:3px 0 0"></p>`;
+  if(fromL) fromL.insertAdjacentHTML("beforebegin",html); else { const s=document.getElementById("dmS"); if(s) s.previousElementSibling.insertAdjacentHTML("beforebegin",html); }
+  if(fromL){ fromL.textContent="貴社のメールアドレス（送信の控えをCCで受け取る・任意）";
+    const inp=fromL.nextElementSibling; const note=inp&&inp.nextElementSibling; if(note&&note.classList.contains("nn")) note.innerHTML="実メールは中継用アドレスから送信され、貴社アドレスにはCCで控えが届きます。<b>相手からの返信はこの画面のスレッドに取り込まれ、🔔通知でお知らせします</b>。"; }
+  const n=document.getElementById("dmN"); if(n) n.innerHTML="文面には登録済みの<b>強み・価格帯・MOQ・認証・リードタイム</b>が自動で入ります（商品情報を更新すると次回から反映）。";
+  const upd=()=>{ const e=document.getElementById("bmMode"); if(e) e.innerHTML=bmModeHtml(bmMailOf((document.getElementById("dmTo")||{}).value)); };
+  const toEl=document.getElementById("dmTo"); if(toEl) toEl.addEventListener("input",upd); upd(); bmStatus(false).then(upd);
+  const v=(el)=>((document.getElementById(el)||{}).value||"");
+  const btn=document.getElementById("dmSend");
+  if(btn){ btn.onclick=()=>{
+    const to=bmMailOf(v("dmTo")); const from=v("dmFrom").trim();
+    if(v("dmTo").trim()&&!to){ toast("宛先メールアドレスの形式が正しくありません"); document.getElementById("dmTo").focus(); return; }
+    if(from&&!bmMailOf(from)){ toast("貴社メールアドレスの形式が正しくありません"); return; }
+    const body=v("dmB"); if(!body.trim()){ toast("本文をご入力ください"); return; }
+    const t=bmTen(); if(t) t.dmFrom=from;
+    bmSend(id,cty,biz,v("dmS"),body,v("dmL")||"English",to);
+    openDMThread(id); if(typeof rDB==="function") rDB();
+    toast(to&&BM.st&&BM.st.configured?"送信しています…":"記録しました（実送信はしていません）"); };
+    btn.textContent="送信する";
+    btn.insertAdjacentHTML("afterend",` <button class="btn g" id="bmMailto" title="お使いのメールソフトで送る（このスレッドにも記録します）">📧 メールソフトで送る</button>`);
+    const mt=document.getElementById("bmMailto"); if(mt) mt.onclick=()=>{ const to=bmMailOf(v("dmTo")); const subj=v("dmS"), body=v("dmB"); if(!body.trim()){ toast("本文をご入力ください"); return; }
+      const t=bmTen(); if(t) t.dmFrom=v("dmFrom").trim(); bmSend(id,cty,biz,subj,body,v("dmL")||"English",to,{noRelay:1,mailto:1});
+      try{ window.location.href="mailto:"+encodeURIComponent(to)+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body); }catch(e){}
+      openDMThread(id); if(typeof rDB==="function") rDB(); toast("メールソフトを開きました（スレッドに記録済み）"); }; }
+}
+/* ── スレッド（状態チップ・受信確認・翻訳・AIアドバイス） ── */
+if(typeof openDMThread==="function"){ const __odt192=openDMThread; openDMThread=function(id){ const r=__odt192.apply(this,arguments); try{ bmThreadAugment(id); }catch(e){ console.warn("bm thread",e); } return r; }; }
+function bmNoteHtml(th,to,st){
+  const rel=!bmOn()?'<span class="p lo">中継なし（同期未接続）</span>':st.configured?`<span class="p hi">中継 有効</span> 送信元 ${esc(st.from||"")}`:'<span class="p lo">中継 未設定</span>（管理者がサーバーを v2.2 に更新すると実送受信が有効）';
+  return `宛先：${to?`<b>${esc(to)}</b>`:"🔒 未開示（正式契約後に開示。開示済みなら「直接連絡」から入力）"}／${rel}<br>`
+    +(th.real?"<b>実メールのスレッド</b>です。この相手からの返信だけがここに取り込まれます（90秒ごと・🔄で即時）。":"実送信はまだありません（記録のみ）。")
+    +(th.msgs.some(m=>m.sim)?" 🧪は体験用の模擬返信です。":"")+` 控え：${esc((bmTen()||{}).dmFrom||"未設定")}`;
+}
+function bmDetectQ(body){
+  const s=String(body||""); const hasQ=/\?|？|could you|can you|would you|please (advise|share|send|confirm|let)|kindly|教えて|请|¿|quisiera|podría/i.test(s);
+  const Q=[[/price|pricing|quot|cost|fob|cif|単価|価格|見積|价格|报价|precio/i,"💰 価格"],[/moq|minimum|min\.? order|最小|ロット|最低订|pedido mínimo/i,"📦 MOQ"],
+    [/spec|specification|dimension|size|weight|material|ingredient|仕様|寸法|規格|成分|规格|尺寸|especific/i,"📐 仕様・寸法"],[/lead ?time|delivery|shipment|when can|納期|リードタイム|交期|plazo/i,"🚢 納期"],
+    [/certif|halal|fda|\bce\b|iso|haccp|organic|認証|証明|认证|certificad/i,"📜 認証"],[/sample|サンプル|样品|muestra/i,"🧪 サンプル"],[/payment|terms|t\/t|l\/c|支払|付款|pago/i,"💳 支払条件"],[/label|packag|carton|pallet|ラベル|梱包|包装|etiqueta/i,"🏷 ラベル・梱包"]];
+  return Q.filter(([re])=>re.test(s)&&hasQ).map(x=>x[1]);
+}
+function bmThreadAugment(id){
+  const th=dmThreads()[id]; const pn=document.querySelector("#pn"); const box=document.getElementById("dmThread"); if(!th||!pn||!box||document.getElementById("bmBar")) return;
+  BM.openId=String(id); const st=BM.st||{}; const to=th.to||bmAddr(id); const on=typeof ppReady==="function"&&ppReady();
+  const note=pn.querySelector("h3+.nn"); if(note){ note.id="bmNote"; note.innerHTML=bmNoteHtml(th,to,st); }
+  box.insertAdjacentHTML("beforebegin",`<div class="rw" id="bmBar" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+    ${bmOn()?`<button class="btn g" id="bmPullB" title="中継サーバーに届いた返信を取り込みます（90秒ごとに自動でも確認）">🔄 返信を確認</button>`:""}
+    ${to?`<button class="btn g" id="bmMailto2" title="お使いのメールソフトで送る">📧 メールソフトで送る</button>`:""}
+    ${(!th.real&&!(st.configured&&to))?`<button class="btn g" id="bmSim" title="体験用：AIがバイヤー役で返信を生成します（実メールではありません）">🧪 返信をシミュレート（体験用）</button>`:""}
+    ${th.real?`<span class="nn" style="margin-left:auto">📨 実メール・最終確認 ${esc((bmTen()||{}).bmSince?bmTime((bmTen()||{}).bmSince):"—")}</span>`:""}</div>`);
+  /* 各メッセージ：状態チップ・差出人・翻訳 */
+  const bubs=[...box.children];
+  th.msgs.forEach((m,i)=>{ const b=bubs[i]; if(!b) return; const inner=b.lastElementChild; if(!inner) return; const chip=bmChip(m);
+    inner.insertAdjacentHTML("beforeend",`<div class="rw" style="gap:5px;margin-top:4px;justify-content:${m.w==="by"?"flex-start":"flex-end"}">${chip}${m.w==="by"&&m.from?`<span class="p lo" title="差出人">${esc(bmMailOf(m.from)||m.from)}</span>`:""}${m.w==="by"&&on?`<button class="q" style="padding:1px 8px" data-bmtr="${i}">🌐 ${m.tr?(m.trHide?"訳を表示":"訳を隠す"):"日本語に訳す"}</button>`:""}</div>`
+      +(m.tr&&!m.trHide?`<div class="msgtrb" style="margin-top:5px;padding:6px 9px;background:var(--bl-soft);border-radius:0 8px 8px 0"><span class="msgtrl">🌐 日本語・AI翻訳（原文が正）</span>${esc(m.tr)}</div>`:"")); });
+  pn.querySelectorAll("[data-bmtr]").forEach(bt=>bt.addEventListener("click",async()=>{ const m=th.msgs[+bt.dataset.bmtr]; if(!m) return;
+    if(m.tr){ m.trHide=!m.trHide; if(typeof saveTen==="function") saveTen(); openDMThread(id); return; }
+    bt.disabled=true; bt.textContent="翻訳中…"; try{ m.tr=await v16Translate(m.body,"ja"); m.trHide=0; if(typeof saveTen==="function") saveTen(); openDMThread(id); }catch(e){ toast("翻訳に失敗："+String(e&&e.message||e).slice(0,50)); bt.disabled=false; bt.textContent="🌐 日本語に訳す"; } }));
+  /* AI商社マンの返信アドバイス */
+  const comp=pn.querySelector(".composer"); const lastBy=[...th.msgs].reverse().find(m=>m.w==="by"); const qs=lastBy?bmDetectQ(lastBy.body):[];
+  if(comp) comp.insertAdjacentHTML("beforebegin",`<div class="c" id="bmAI" style="margin-top:9px;padding:10px 12px;border-color:var(--or);background:var(--or-soft)">
+    <div class="rw" style="justify-content:space-between;gap:6px;flex-wrap:wrap"><b>🤖 AI商社マンの返信アドバイス</b><span class="p ${on?"hi":"lo"}">${on?("接続AI＋登録データ"+((typeof WEBON!=="undefined"&&WEBON)?"＋Web":"")):"AI未接続：定型のみ"}</span></div>
+    ${qs.length?`<p class="nn" style="margin-top:5px">相手の最新メッセージに質問があります：${qs.map(q=>`<span class="p on">${esc(q)}</span>`).join(" ")}</p>`:""}
+    <div class="rw" style="gap:6px;margin-top:7px;flex-wrap:wrap">
+      <button class="btn" id="bmAdvNext">💡 次に送るべき内容を相談</button>
+      ${lastBy?`<button class="btn" id="bmAdvAns">💬 相手の質問への返信案（登録データ${on?"＋Web":""}）</button>`:""}</div>
+    <div id="bmAdvOut" style="margin-top:8px"></div></div>`);
+  const bN=document.getElementById("bmAdvNext"); if(bN) bN.onclick=()=>bmAdvise(id,"next");
+  const bA=document.getElementById("bmAdvAns"); if(bA) bA.onclick=()=>bmAdvise(id,"answer");
+  const bp=document.getElementById("bmPullB"); if(bp) bp.onclick=async()=>{ bp.disabled=true; bp.textContent="確認中…"; await bmPull(true); const e=document.getElementById("bmPullB"); if(e){ e.disabled=false; e.textContent="🔄 返信を確認"; } };
+  const bs=document.getElementById("bmSim"); if(bs) bs.onclick=()=>bmSimulate(id);
+  const bm2=document.getElementById("bmMailto2"); if(bm2) bm2.onclick=()=>{ const ta=document.getElementById("dmR"); const body=(ta&&ta.value||"").trim(); if(!body){ toast("下の返信欄に本文を入力してから押してください"); if(ta) ta.focus(); return; }
+    const first=th.msgs.find(x=>x.subj&&x.w==="me"); const subj="Re: "+((first&&first.subj)||""); bmSend(id,th.cty,th.biz,subj,body,th.lang,to,{noRelay:1,mailto:1});
+    try{ window.location.href="mailto:"+encodeURIComponent(to)+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body); }catch(e){} openDMThread(id); };
+  if(bmOn()&&th.key) bmPull(false);
+  try{ if(typeof dwChrome==="function") dwChrome(); }catch(e){}
+}
+function bmOfflineAdvice(th,mode,b,lastBy){
+  const qs=lastBy?bmDetectQ(lastBy.body):[]; const L=[]; const add=(k,v)=>{ if(v) L.push(`${k}: ${v}`); };
+  add("Price",b.price); add("MOQ",b.moq); add("Lead time",b.lead); add("Certifications",b.cert); add("Shelf life / warranty",b.shelf); add("Trade terms",b.term); add("Payment",b.pay);
+  const miss=["Price","MOQ","Lead time","Certifications"].filter(k=>!L.some(x=>x.startsWith(k)));
+  const draft=`Dear Purchasing Team,\n\nThank you for your message${qs.length?" and your questions":""}.\n${L.length?"Please find our current terms below:\n"+L.map(x=>"  - "+x).join("\n"):"We are preparing the details you requested."}${miss.length?"\n\nRegarding "+miss.join(", ").toLowerCase()+", we will confirm internally and revert within 2 business days.":""}\n\nWe would be glad to send samples or arrange a short online meeting at your convenience.\n\nBest regards,\n${b.co||"Export Team"}`;
+  BM.lastDraft=draft;
+  return `<p class="nn"><span class="p lo">AI未接続</span> 定型の返信案です（登録データから価格・MOQ・納期・認証を差し込み。無い項目は「確認して回答」の文にしています）。管理者がAIを接続すると、やり取りの文脈を読んだアドバイスと、Web確認つきの回答案になります。</p>
+   <p class="nn" style="margin-top:4px"><b>基本の型：</b>48時間以内に返信／質問には数字で答える／答えられない項目は期限を切って持ち帰る／次のアクション（サンプル・見積・商談）を1つ提案する。</p>
+   <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:13px;line-height:1.7;white-space:pre-wrap" id="bmDraft">${esc(draft)}</div>
+   <div class="rw" style="margin-top:7px;gap:6px"><button class="btn" id="bmUse">↓ この返信案を本文に入れる</button></div>`;
+}
+function bmBindDraft(id){
+  const u=document.getElementById("bmUse"); if(u) u.onclick=()=>{ const ta=document.getElementById("dmR"); if(ta){ ta.value=BM.lastDraft||""; ta.dispatchEvent(new Event("input")); ta.focus(); toast("返信欄に入れました。内容を確認して送信してください"); } };
+  const rd=document.getElementById("bmRedo"); if(rd) rd.onclick=()=>bmAdvise(id,BM.lastMode||"next");
+}
+async function bmAdvise(id,mode){
+  const th=dmThreads()[id]; const out=document.getElementById("bmAdvOut"); if(!th||!out) return; BM.lastMode=mode;
+  const on=typeof ppReady==="function"&&ppReady(); const lastBy=[...th.msgs].reverse().find(m=>m.w==="by");
+  const brief=(typeof dmBrief==="function")?dmBrief():{};
+  if(!on){ out.innerHTML=bmOfflineAdvice(th,mode,brief,lastBy); bmBindDraft(id); return; }
+  const hist=th.msgs.slice(-8).map(m=>(m.w==="me"?"[自社→Buyer] ":"[Buyer→自社] ")+(m.subj?"件名:"+m.subj+"\n":"")+String(m.body).slice(0,900)).join("\n---\n");
+  let prof=""; try{ const b=typeof myBuyers==="function"&&myBuyers().find(x=>x&&x.id===id); if(b) prof=`会社:${b.co}／国:${b.cty}／業種:${b.biz}／取扱:${b.ints||""}／規模:${b.size||""}／メモ:${String(b.memo||"").slice(0,200)}`; }catch(e){}
+  const needWeb=mode==="answer"&&!!lastBy&&/regulat|tariff|duty|import|label|certif|market|price level|規制|関税|認証|相場|市場|法規|进口|关税|认证|arancel|regulac/i.test(lastBy.body);
+  out.innerHTML=`<p class="nn"><span class="spin"></span> AI商社マンがやり取り全体と登録データを読んでいます…（10〜40秒${needWeb?"・Web確認あり":""}）</p>`;
+  try{
+    const q=`あなたはAI商社マン（総合商社20年の輸出営業のプロ）。日本のサプライヤー（自社）と海外バイヤーのメールのやり取りを読み、${mode==="answer"?"バイヤーの最新メッセージにある質問・要望への返信案":"次に送るべき内容のアドバイスと返信案"}を作ってください。
+返答はJSONのみ：{"advice":"日本語の助言（3〜6行。相手の意図の読み取り、交渉上の注意、次の一手）","questions":["相手が求めている事項（日本語）"],"draft":"返信メール本文（言語：${th.lang||"English"}・150〜220語相当・件名は不要）","facts":["返信に使った登録データの項目（例：MOQ 500個）"],"unknown":["登録データに無く、社内確認が必要な事項"]}
+厳守：
+・価格・仕様・MOQ・納期・認証・成分などの事実は下記の登録データだけを根拠にする。登録データに無い数値・仕様は創作せず、返信案では「確認のうえ改めてご連絡します」の趣旨で書き、unknown に列挙する
+・${needWeb?"規制・関税・市場情報など一般的な事実はWeb検索で確認し、出典が確かなものだけ使う（推測は書かない）":"Web検索は不要。登録データとやり取りの文脈だけで答える"}
+・相手の言語・トーンに合わせ、具体的な次のアクション（サンプル・見積・オンライン商談）を1つ提案する
+=== 相手（バイヤー） ===
+${th.cty}の${th.biz}（ID ${th.id}）${prof?"\n"+prof:""}
+=== 登録データ（営業ブリーフ） ===
+${JSON.stringify(brief).slice(0,1500)}
+=== 登録データ（詳細） ===
+${(typeof ppContext==="function"?ppContext():"").slice(0,5000)}
+=== これまでのやり取り（古い順） ===
+${hist}`;
+    const r=await llmAsk(q,1800,{forceWeb:needWeb?1:0,noWeb:needWeb?0:1,timeout:120000,sys:"あなたは輸出営業のプロ。返答は指定JSONのみ。登録データに無い事実は書かない。"});
+    let t=String(r.txt||"").replace(/```json|```/g,"").trim(); const a=t.indexOf("{"),b2=t.lastIndexOf("}"); const j=JSON.parse(t.slice(a,b2+1));
+    BM.lastDraft=String(j.draft||"");
+    const L=x=>(Array.isArray(x)?x:[]).map(y=>String(y));
+    out.innerHTML=`<div style="font-size:13px;line-height:1.7"><b>💡 アドバイス</b><br>${esc(String(j.advice||"")).replace(/\n/g,"<br>")}</div>
+      ${L(j.questions).length?`<p class="nn" style="margin-top:6px"><b>相手が求めていること：</b>${L(j.questions).map(esc).join("／")}</p>`:""}
+      ${L(j.facts).length?`<p class="nn" style="margin-top:4px"><b>根拠にした登録データ：</b>${L(j.facts).map(x=>`<span class="p hi">${esc(x)}</span>`).join(" ")}</p>`:""}
+      ${L(j.unknown).length?`<p class="nn" style="margin-top:4px"><b>⚠ 登録データに無い（社内確認が必要）：</b>${L(j.unknown).map(x=>`<span class="p mid">${esc(x)}</span>`).join(" ")}</p>`:""}
+      ${r.cits&&r.cits.length?`<p class="nn" style="margin-top:4px">🌐 参照：${r.cits.slice(0,3).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,40))}</a>`).join("　")}</p>`:""}
+      <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:13px;line-height:1.7;white-space:pre-wrap" id="bmDraft">${esc(BM.lastDraft)}</div>
+      <div class="rw" style="margin-top:7px;gap:6px"><button class="btn" id="bmUse">↓ この返信案を本文に入れる</button><button class="btn g" id="bmRedo">🤖 もう一度</button></div>`;
+    bmBindDraft(id); if(typeof logU==="function") logU("ai","直接メール返信アドバイス:"+mode);
+  }catch(e){ out.innerHTML=`<p class="nn">AIの提案に失敗しました（${esc(String(e&&e.message||e).slice(0,60))}）。定型の返信案を表示します。</p>`+bmOfflineAdvice(th,mode,brief,lastBy); bmBindDraft(id); }
+}
+/* ── 端末間の結合同期：スレッド／メッセージを失わない（相手側だけのものを足す） ── */
+if(typeof v16UnionInto==="function"){ const __u192=v16UnionInto; v16UnionInto=function(DST,SRC){ let c=__u192.apply(this,arguments);
+  try{ (SRC||[]).forEach(st=>{ if(!st||!st.dmThreads) return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt) return; dt.dmThreads=dt.dmThreads||{};
+    Object.entries(st.dmThreads).forEach(([id,sth])=>{ if(!sth) return; const dth=dt.dmThreads[id]; if(!dth){ dt.dmThreads[id]=sth; c=true; return; }
+      const sig=m=>m.msgId||[m.w,m.t,String(m.body||"").slice(0,80)].join("|"); const have=new Set((dth.msgs||[]).map(sig));
+      (sth.msgs||[]).forEach(m=>{ if(m&&!have.has(sig(m))){ dth.msgs=(dth.msgs||[]).concat([m]); have.add(sig(m)); c=true; } });
+      if(c&&dth.msgs&&dth.msgs.some(m=>m.at)) dth.msgs.sort((a,b)=>(+a.at||0)-(+b.at||0));
+      if(!dth.key&&sth.key){ dth.key=sth.key; c=true; } if(!dth.to&&sth.to){ dth.to=sth.to; c=true; } if(sth.real&&!dth.real){ dth.real=1; c=true; } }); }); }catch(e){}
+  return c; }; }
+/* ── 管理コンソール：中継の状態 ── */
+if(typeof renderAdmin==="function"){ const __ra192=renderAdmin; renderAdmin=function(){ const r=__ra192.apply(this,arguments); try{ bmAdminCard(); }catch(e){} return r; }; }
+function bmAdminCard(){
+  const slot=document.getElementById("admaislot"); if(!slot||document.getElementById("bmAdm")) return;
+  slot.insertAdjacentHTML("afterend",`<div class="c" id="bmAdm" style="margin-bottom:11px"><h3>✉ バイヤーへ直接メールの中継 <span class="nt">この版で新規</span></h3>
+    <p class="nn" id="bmAdmSt" style="margin-top:4px">状態を確認しています…</p>
+    <p class="nn" style="margin-top:6px">お客様が「バイヤーDB・拠点 › 直接連絡」から送るメールは、クラウド同期サーバー（Apps Script）の実行ユーザーのGmailから送信され（お客様のアドレスにCC）、返信は件名末尾の [BC-…] で突き合わせて各お客様のスレッドにだけ取り込みます。メールの性質上、送受信の本文は平文でサーバーを経由します。停止はスクリプトプロパティ MAIL_RELAY=off。有効化には sync_gas.js v2.2 の反映（Gmail権限の再承認）が必要です。</p></div>`);
+  bmStatus(true).then(st=>{ const e=document.getElementById("bmAdmSt"); if(!e) return;
+    e.innerHTML=!bmOn()?"クラウド同期が未接続のため確認できません。":st.configured?`<span class="p hi">有効</span> 送信元 ${esc(st.from||"")}／本日の残り送信枠 ${st.quota==null?"—":st.quota} 通`
+      :`<span class="p lo">未設定</span> ${esc(st.reason==="old"?"サーバーが v2.2 未反映（"+(st.err||"unknown op")+"）":(st.note||"中継が停止中"))}`; });
+}
+/* 起動後：状態を先読み（作成パネルで即時に判定できるように） */
+setTimeout(()=>{ try{ if(bmOn()) bmStatus(false); }catch(e){} },2500);
 
 </script>
