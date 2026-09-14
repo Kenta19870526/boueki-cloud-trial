@@ -21406,6 +21406,8 @@ I18N_ROWS2.push(
 ["条件に合うBuyerはいません","No buyers match","没有符合条件的买家","Ningún comprador coincide"],["宛先 未開示","Address undisclosed","地址未公开","Dirección no revelada"],
 ["手動で変更","Changed manually","手动更改","Cambiado a mano"],["AI（ルール）","AI (rules)","AI（规则）","IA (reglas)"],["AI商社マン","AI Trade Agent","AI商社专员","Agente IA"]
 );
+/* v19.5 直接メッセージの言語 */
+I18N_ROWS2.push(["🤖 この言語で作り直す","🤖 Rewrite in this language","🤖 用此语言重写","🤖 Reescribir en este idioma"],["🤖 この言語でAIが作成","🤖 Write with AI in this language","🤖 用此语言由AI撰写","🤖 Redactar con IA en este idioma"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -22295,7 +22297,7 @@ async function bmStatus(force){
   if(BM.st&&!force&&Date.now()-BM.stAt<300000) return BM.st;
   try{ const r=await syncCall("mail_status",{kid:SYNC.kid},{timeout:12000});
     BM.st={configured:!!(r&&r.ok&&r.configured),from:(r&&r.from)||"",quota:(r&&r.quota!=null)?r.quota:null,note:(r&&r.note)||"",reason:(r&&r.ok)?"":"err"}; }
-  catch(e){ BM.st={configured:false,from:"",reason:"old",err:String(e&&e.message||e).slice(0,80)}; }
+  catch(e){ BM.st={configured:false,from:"",reason:"old",err:String(e&&e.message||e).slice(0,80)}; BM.stAt=Date.now()-270000; return BM.st; }   /* 失敗は30秒だけ保持（サーバー更新直後に古い「未設定」が残らない） */
   BM.stAt=Date.now(); return BM.st;
 }
 /* メッセージの状態チップ */
@@ -22386,7 +22388,7 @@ function bmComposeAugment(id,cty,biz){
     const inp=fromL.nextElementSibling; const note=inp&&inp.nextElementSibling; if(note&&note.classList.contains("nn")) note.innerHTML="実メールは中継用アドレスから送信され、貴社アドレスにはCCで控えが届きます。<b>相手からの返信はこの画面のスレッドに取り込まれ、🔔通知でお知らせします</b>。"; }
   const n=document.getElementById("dmN"); if(n) n.innerHTML="文面には登録済みの<b>強み・価格帯・MOQ・認証・リードタイム</b>が自動で入ります（商品情報を更新すると次回から反映）。";
   const upd=()=>{ const e=document.getElementById("bmMode"); if(e) e.innerHTML=bmModeHtml(bmMailOf((document.getElementById("dmTo")||{}).value)); };
-  const toEl=document.getElementById("dmTo"); if(toEl) toEl.addEventListener("input",upd); upd(); bmStatus(false).then(upd);
+  const toEl=document.getElementById("dmTo"); if(toEl) toEl.addEventListener("input",upd); upd(); bmStatus(true).then(upd);   /* 開くたびに中継の状態を再確認 */
   const v=(el)=>((document.getElementById(el)||{}).value||"");
   const btn=document.getElementById("dmSend");
   if(btn){ btn.onclick=()=>{
@@ -22757,5 +22759,55 @@ try{ if(typeof SUG!=="undefined"&&Array.isArray(SUG)&&!SUG.includes("やり取�
 /* 端末間の結合：ステータスは新しい方を採る */
 if(typeof v16UnionInto==="function"){ const __u194=v16UnionInto; v16UnionInto=function(DST,SRC){ let c=__u194.apply(this,arguments); try{ (SRC||[]).forEach(st=>{ if(!st||!st.dmThreads) return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt||!dt.dmThreads) return; Object.entries(st.dmThreads).forEach(([id,sth])=>{ const dth=dt.dmThreads[id]; if(!dth||!sth||!sth.status) return; if((+sth.statusAt||0)>(+dth.statusAt||0)){ dth.status=sth.status; dth.statusAt=sth.statusAt; dth.statusBy=sth.statusBy; dth.statusWhy=sth.statusWhy; dth.stLog=sth.stLog||dth.stLog; c=true; } }); }); }catch(e){} return c; }; }
 setTimeout(()=>{ try{ bmInitStatus(); }catch(e){} },1200);
+
+/* ═══════════ v19.5：バイヤーへ直接メッセージ＝選択した言語が文面に反映されない不具合 ═══════════
+   原因：作成パネルは開いた時点で常に英語テンプレート（社名・商品名・強みは登録された日本語表記のまま）を入れ、選択言語の文面は
+   「🤖 この言語でAIが作成」を押したときだけ生成していた。言語セレクトを変えても作り直されず、韓国語を選んでも英語＋日本語の混在のままだった。
+   対応：AI接続時はパネルを開いた時点で選択言語で件名・本文を自動作成（作成中は送信ボタンを止める）。言語を変えると自動で作り直す
+   （本文を編集中なら上書きせず「この言語で作り直す」ボタンを出す）。AI未接続時は「選んだ言語では作成できない・英語テンプレート」と正直に表示 */
+const BML={busy:0,last:"",reason:"",p:null};
+function bmLangBar(html,kind){
+  let e=document.getElementById("bmLangBar"); const body=document.getElementById("dmB");
+  if(!e&&body){ body.insertAdjacentHTML("beforebegin",`<p class="nn" id="bmLangBar" style="margin:4px 0 6px;line-height:1.6"></p>`); e=document.getElementById("bmLangBar"); }
+  if(e){ e.innerHTML=html; e.style.color=kind==="ng"?"var(--crit)":kind==="ok"?"var(--good)":"var(--ink-2)"; }
+  return e;
+}
+function bmLangBtns(dis){ ["dmSend","bmMailto","dmAI"].forEach(i=>{ const e=document.getElementById(i); if(!e) return; if(dis){ e.disabled=true; e.dataset.bmlDis="1"; } else if(e.dataset.bmlDis){ e.disabled=false; delete e.dataset.bmlDis; } }); }
+/* 「🤖 この言語でAIが作成」の処理（logic.js の非同期ハンドラ）を包み、完了を正確に捕まえる（タイマー不要） */
+function bmLangWrapGen(){
+  const gen=document.getElementById("dmGen"); if(!gen||gen.dataset.bml||typeof gen.onclick!=="function") return false; gen.dataset.bml="1";
+  const orig=gen.onclick;
+  gen.onclick=async function(ev){
+    const sel=document.getElementById("dmL"), body=document.getElementById("dmB"); const lang=sel?sel.value:""; const before=body?body.value:"";
+    BML.busy=1; bmLangBtns(true);
+    bmLangBar(`<span class="spin"></span> AI商社マンが <b>${esc(lang)}</b> で件名と本文を作成しています…（10〜30秒）${BML.reason==="lang"?"　※言語を変更したため作り直しています":""}`,"busy");
+    try{ await orig.call(this,ev); }catch(e){}
+    finally{ BML.busy=0; BML.reason=""; bmLangBtns(false);
+      const b=document.getElementById("dmB"); const ok=!!(b&&b.value.trim()&&b.value!==before);
+      if(ok){ BML.last=b.value; bmLangBar(`✅ <b>${esc(lang)}</b> で件名と本文を作成しました（登録データだけを根拠に生成。送信前に内容をご確認ください。言語を変えると作り直します）`,"ok"); }
+      else bmLangBar(`⚠ <b>${esc(lang)}</b> での作成に失敗したため、英語テンプレートのままです。「🤖 この言語でAIが作成」で再試行できます`,"ng"); }
+  };
+  return true;
+}
+function bmLangGenerate(reason){
+  const gen=document.getElementById("dmGen"); if(!gen||BML.busy||typeof gen.onclick!=="function") return null;
+  BML.reason=reason||""; BML.p=Promise.resolve(gen.onclick.call(gen,new MouseEvent("click"))); return BML.p;
+}
+function bmLangInit(){
+  const sel=document.getElementById("dmL"), body=document.getElementById("dmB"); if(!sel||!body||sel.dataset.bml) return; sel.dataset.bml="1";
+  const on=typeof ppReady==="function"&&ppReady(); BML.last=body.value; BML.busy=0;
+  const offMsg=lang=>lang==="English"
+    ?`英語テンプレートを表示しています（AI未接続）。社名・商品名・強みは登録された表記（日本語）のまま入ります。商品情報に英語名を登録するか、管理者がAIを接続すると選んだ言語で全文を作成できます`
+    :`⚠ AI未接続のため <b>${esc(lang)}</b> での作成はできません。英語テンプレートを表示しています（管理者がAIを接続すると、開いた時点で選んだ言語の文面を自動作成します）`;
+  bmLangWrapGen();
+  if(on&&document.getElementById("dmGen")) bmLangGenerate("open"); else bmLangBar(offMsg(sel.value),"ng");
+  sel.addEventListener("change",()=>{ const lang=sel.value;
+    if(!(on&&document.getElementById("dmGen"))){ bmLangBar(offMsg(lang),"ng"); return; }
+    const edited=body.value.trim()!==String(BML.last||"").trim();
+    if(!edited){ bmLangGenerate("lang"); return; }
+    bmLangBar(`言語を <b>${esc(lang)}</b> に変更しました。本文を編集中のため自動では作り直しません → <button class="btn g" id="bmLangRedo" type="button" style="padding:2px 10px;font-size:12.5px;margin-left:4px">🤖 この言語で作り直す</button>`,"busy");
+    const b=document.getElementById("bmLangRedo"); if(b) b.onclick=()=>bmLangGenerate("lang"); });
+}
+if(typeof openDM==="function"){ const __odm195=openDM; openDM=function(id,cty,biz){ const r=__odm195.apply(this,arguments); try{ if(document.getElementById("dmL")&&document.getElementById("dmB")) bmLangInit(); }catch(e){ console.warn("bm lang",e); } return r; }; }
 
 </script>
