@@ -21433,7 +21433,8 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["登録データを読んで回答を考えています","Reading your registered data to answer","正在读取登记数据以作答","Leyendo los datos registrados para responder"],["Web検索を含めて回答を考えています","Thinking with web search","正在结合网络搜索作答","Pensando con búsqueda web"],
 ["翻訳しています","Translating","翻译中","Traduciendo"],["返信案とアドバイスを作成しています","Drafting a reply and advice","正在撰写回复草稿和建议","Redactando respuesta y consejos"],["交渉ステータスを判定しています","Judging the negotiation status","正在判定谈判状态","Evaluando el estado de negociación"],
 ["今日やることを調査しています","Researching today's tasks","正在调查今日待办","Investigando las tareas de hoy"],["商品の強みを提案しています","Proposing product strengths","正在提出产品优势","Proponiendo fortalezas del producto"],["営業資料を作成しています","Creating the sales deck","正在制作营销资料","Creando el material de ventas"],
-["文面を推敲しています","Polishing the text","正在润色文本","Puliendo el texto"],["添付資料を読んで回答を考えています","Reading the attachment to answer","正在阅读附件以作答","Leyendo el adjunto para responder"],["この表示を隠す","Hide this","隐藏此提示","Ocultar"]);
+["文面を推敲しています","Polishing the text","正在润色文本","Puliendo el texto"],["添付資料を読んで回答を考えています","Reading the attachment to answer","正在阅读附件以作答","Leyendo el adjunto para responder"],["この表示を隠す","Hide this","隐藏此提示","Ocultar"],
+["⏳ AI商社マンが登録データから語り口（コンセプト・課題・独自性・ターゲット）を要約しています…","⏳ The AI trader is summarising the narrative (concept, problem, uniqueness, target) from your registered data…","⏳ AI商社人员正在根据登记数据整理叙述（理念・课题・独特性・目标）…","⏳ El comercial IA está resumiendo el relato (concepto, problema, singularidad, objetivo) a partir de los datos registrados…"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -22899,5 +22900,308 @@ if(typeof llmAsk==="function"){ const __la196=llmAsk;
     let p; try{ p=Promise.resolve(__la196.apply(this,arguments)); }catch(e){ aiThinkEnd(id,false); throw e; }
     return p.then(r=>{ aiThinkEnd(id,true); return r; },e=>{ aiThinkEnd(id,false); throw e; });
   }; }
+
+/* ═══════════ v19.7：外国語 営業資料のデザイン刷新（お客様提供のベンチマーク「Monroe Beauty 英語資料」水準） ═══════════
+   ベンチマークの特徴：大きなタイポグラフィ（見出し 45〜60pt相当・本文 14〜18pt相当）、ブランド色の淡いグラデーション背景と柔らかい装飾、
+   写真を主役にした左右分割、円番号つき目次、引用（ブランドコンセプト）、Problem／Uniqueness、使い方ステップ、ターゲット（B2C／B2B）、
+   連絡先カード。ここでは既存の生成パイプライン（buildPptx・画像・ブランド色・翻訳）はそのまま、スライド構成 deckSlides を差し替える。
+   語り口（Problem／Uniqueness／セグメント／ブランドコンセプト）は接続AIが「登録データだけ」から要約（TEN.deckNarr にキャッシュ）。無い要素は載せない */
+const DK2={narrKey:""};
+function dk2Grad(x,y,w,h,c1,c2,ang,a1,a2){
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="g${_SPID}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="${c1}">${a1!=null?`<a:alpha val="${a1}"/>`:""}</a:srgbClr></a:gs><a:gs pos="100000"><a:srgbClr val="${c2}">${a2!=null?`<a:alpha val="${a2}"/>`:""}</a:srgbClr></a:gs></a:gsLst><a:lin ang="${Math.round((ang||0)*60000)}" scaled="0"/></a:gradFill><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:p/></p:txBody></p:sp>`;
+}
+function dk2Blob(x,y,w,h,c,alpha,soft,rot){
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="b${_SPID}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm rot="${Math.round((rot||0)*60000)}"><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm><a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>
+<a:solidFill><a:srgbClr val="${c}"><a:alpha val="${alpha||16000}"/></a:srgbClr></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst><a:softEdge rad="${EMU(soft||40)}"/></a:effectLst></p:spPr><p:txBody><a:bodyPr/><a:p/></p:txBody></p:sp>`;
+}
+function dk2Card(x,y,w,h,fill,o){
+  o=o||{}; const r=o.round==null?7000:o.round;
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="c${_SPID}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm><a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${r}"/></a:avLst></a:prstGeom>
+${fill?`<a:solidFill><a:srgbClr val="${fill}">${o.alpha?`<a:alpha val="${o.alpha}"/>`:""}</a:srgbClr></a:solidFill>`:"<a:noFill/>"}${o.line?`<a:ln w="${EMU(o.lw||1)}"><a:solidFill><a:srgbClr val="${o.line}"/></a:solidFill></a:ln>`:"<a:ln><a:noFill/></a:ln>"}
+${o.shadow?`<a:effectLst><a:outerShdw blurRad="${EMU(16)}" dist="${EMU(6)}" dir="5400000" algn="t" rotWithShape="0"><a:srgbClr val="1A1A1A"><a:alpha val="${o.shadow===true?16000:o.shadow}"/></a:srgbClr></a:outerShdw></a:effectLst>`:""}</p:spPr><p:txBody><a:bodyPr/><a:p/></p:txBody></p:sp>`;
+}
+function dk2Circle(x,y,d,fill,txt,sz,c,ea){
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${++_SPID}" name="o${_SPID}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(d)}" cy="${EMU(d)}"/></a:xfrm><a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr/><a:p/></p:txBody></p:sp>`+
+    (txt!=null?shpText(x,y+d/2-(sz||12)*0.72,d,(sz||12)*1.5,[{t:String(txt),sz:sz||12,b:1,c:c||"FFFFFF",al:"ctr"}],{ea}):"");
+}
+function dk2Line(x,y,w,wt,c){ return shpRect(x,y,w,wt||1.2,c||"D8DEE7"); }   /* (x,y,幅,太さ,色) */
+function dk2VText(x,y,w,h,paras,o){
+  const s=shpText(x,y,w,h,paras,o); return s.replace('<a:bodyPr wrap="square"','<a:bodyPr vert="vert270" wrap="square"');
+}
+/* 写真：角丸＋影つき（cover クロップ） */
+function dk2Photo(x,y,w,h,mi,o){
+  o=o||{}; const m=DK_MEDIA[mi]; if(!m) return "";
+  let l=0,t=0,r=0,btm=0;
+  if(m.w&&m.h){ const br=w/h, ir=m.w/m.h; if(ir>br){ const cut=Math.round((1-br/ir)/2*100000); l=r=cut; } else { const cut=Math.round((1-ir/br)/2*100000); t=btm=cut; } }
+  const rd=o.round==null?6000:o.round;
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${++_SPID}" name="ph${_SPID}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+<p:blipFill><a:blip r:embed="rImg${mi}"/><a:srcRect l="${l}" t="${t}" r="${r}" b="${btm}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+<p:spPr><a:xfrm><a:off x="${EMU(x)}" y="${EMU(y)}"/><a:ext cx="${EMU(w)}" cy="${EMU(h)}"/></a:xfrm><a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${rd}"/></a:avLst></a:prstGeom>${o.shadow?`<a:effectLst><a:outerShdw blurRad="${EMU(18)}" dist="${EMU(8)}" dir="5400000" algn="t" rotWithShape="0"><a:srgbClr val="1A1A1A"><a:alpha val="22000"/></a:srgbClr></a:outerShdw></a:effectLst>`:""}</p:spPr></p:pic>`;
+}
+/* 写真（比率維持・枠内に収める）：商品単体写真を「台座」の上に置く見せ方 */
+function dk2PhotoFit(x,y,w,h,mi,o){
+  o=o||{}; const m=DK_MEDIA[mi]; if(!m) return "";
+  let ix=x,iy=y,iw=w,ih=h; if(m.w&&m.h){ const r=Math.min(w/m.w,h/m.h); iw=m.w*r; ih=m.h*r; ix=x+(w-iw)/2; iy=y+(h-ih)/2; }
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${++_SPID}" name="pf${_SPID}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rImg${mi}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+<p:spPr><a:xfrm><a:off x="${EMU(ix)}" y="${EMU(iy)}"/><a:ext cx="${EMU(iw)}" cy="${EMU(ih)}"/></a:xfrm><a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val ${o.round==null?4000:o.round}"/></a:avLst></a:prstGeom>${o.shadow?`<a:effectLst><a:outerShdw blurRad="${EMU(18)}" dist="${EMU(8)}" dir="5400000" algn="t" rotWithShape="0"><a:srgbClr val="1A1A1A"><a:alpha val="22000"/></a:srgbClr></a:outerShdw></a:effectLst>`:""}</p:spPr></p:pic>`;
+}
+function dk2Pal(){
+  const P=dkPal(); const [r,g,b]=hx2rgb(P.ac); const [h,s,l]=rgb2hsl(r,g,b);
+  return Object.assign({},P,{
+    ttl:l>0.72?hslHex(h,s,0.6):(l<0.25?hslHex(h,s,0.35):P.ac),      /* 見出し＝ブランド色そのもの（明るすぎ・暗すぎのときだけ補正） */
+    tint:hslHex(h,Math.min(0.55,s*0.8),0.965), tint2:hslHex(h,Math.min(0.6,s*0.85),0.90),
+    blob:hslHex(h,Math.min(0.85,s),0.72), ink:"1A1A1A", sub:"46566D", mut:"8A97A6"});
+}
+/* 語り口（Problem／Uniqueness／セグメント／コンセプト）：接続AIが登録データだけから日本語で要約 → 翻訳にそのまま乗る */
+async function dk2Narrative(){
+  const t=(typeof TEN!=="undefined"&&TEN)?TEN:null; if(!t) return null;
+  const RICH=t.deckRich||{}, DM=t.deckMeta||{};
+  const src=[D.item,D.co,D.cat,(D.strengths||[]).map(s=>s.join("｜")).join("／"),RICH.catch||"",RICH.brandStory||"",DM.mission||RICH.mission||"",(D.targets||[]).join("・"),DM.biz||"",D.cert||"",(RICH.usage||[]).join("／")].join("\n");
+  const key=djb2(src);
+  if(t.deckNarr&&t.deckNarr.key===key) return t.deckNarr;
+  if(!(typeof ppReady==="function"&&ppReady())) return t.deckNarr||null;
+  try{
+    const r=await llmAsk(`海外バイヤー向け営業資料の「語り口」を、下記の登録データだけから日本語で作ってください（JSONのみ・創作禁止・登録に無い事実は書かない。無ければ空文字／空配列）。
+{"concept":"ブランドコンセプトを1文の引用形式で（30字以内・例：私たちは効果と肌へのやさしさの両立を最優先します）",
+ "problem":"この商品が解決する顧客の課題を1文（35字以内）",
+ "uniqueness":"競合との違い・独自性を1文（45字以内）",
+ "segments":[{"name":"ターゲット区分（例：一般消費者（B2C）／プロ・業務用（B2B）／輸入商社・小売）","desc":"その区分にとっての価値を1文（40字以内）"}]（最大2件）,
+ "proof":["根拠・実績（受賞・データ・認証・販売実績など登録データにあるもののみ・各30字以内）"]（最大3件）,
+ "activities":["会社の事業内容（登録データの事業説明から・各20字以内）"]（最大4件）}
+=== 登録データ ===
+商品：${D.item}／会社：${D.co}／カテゴリ：${D.cat}
+強み：${(D.strengths||[]).map(s=>s[0]+(s[1]?"（"+s[1]+"）":"")).join("／")||"—"}
+キャッチ：${RICH.catch||"—"}／ブランド紹介：${RICH.brandStory||"—"}／ミッション：${DM.mission||RICH.mission||"—"}
+事業内容：${DM.biz||"—"}／認証：${D.cert||"—"}／進出希望国：${(D.targets||[]).join("・")||"—"}
+使い方：${(RICH.usage||DM.usage||[]).join("／")||"—"}
+${typeof ppContext==="function"?ppContext().slice(0,2500):""}`,900,{noWeb:1,timeout:90000,sys:"返答は指定JSONのみ。登録データに無い事実は書かない。"});
+    let s=String(r.txt||"").replace(/```json|```/g,"").trim(); const a=s.indexOf("{"),b=s.lastIndexOf("}"); const j=JSON.parse(s.slice(a,b+1));
+    const narr={key,concept:String(j.concept||"").slice(0,60),problem:String(j.problem||"").slice(0,80),uniqueness:String(j.uniqueness||"").slice(0,100),
+      segments:(Array.isArray(j.segments)?j.segments:[]).map(x=>({name:String((x&&x.name)||"").slice(0,30),desc:String((x&&x.desc)||"").slice(0,80)})).filter(x=>x.name).slice(0,2),
+      proof:(Array.isArray(j.proof)?j.proof:[]).map(String).filter(Boolean).slice(0,3),
+      activities:(Array.isArray(j.activities)?j.activities:[]).map(String).filter(Boolean).slice(0,4)};
+    t.deckNarr=narr; if(typeof saveTen==="function") saveTen(); return narr;
+  }catch(e){ return t.deckNarr||null; }
+}
+/* deckSrc に語り口を足す（翻訳対象に含める） */
+if(typeof deckSrc==="function"){ const __src2=deckSrc; deckSrc=function(lang){ const s=__src2.apply(this,arguments); try{ const n=(typeof TEN!=="undefined"&&TEN&&TEN.deckNarr)||{}; s.concept=n.concept||""; s.problem=n.problem||""; s.uniqueness=n.uniqueness||""; s.segments=(n.segments||[]).map(x=>[x.name,x.desc]); s.proof=(n.proof||[]).slice(); s.activities=(n.activities||[]).slice(); const DM=dkMeta(); s.person=DM.person||""; s.ceo=DM.ceo||""; const R=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{}; const sk=v=>typeof valSick==="function"&&valSick(String(v||"")); s.tagline2=(R.tagline&&!sk(R.tagline))?String(R.tagline):""; s.priceNote=(R.priceNote&&!sk(R.priceNote))?String(R.priceNote):""; }catch(e){} return s; }; }
+if(typeof deckMake==="function"){ const __mk2=deckMake; deckMake=async function(lang){ try{ const st=document.getElementById("dkst"); if(st&&typeof ppReady==="function"&&ppReady()) st.innerHTML="⏳ AI商社マンが登録データから語り口（コンセプト・課題・独自性・ターゲット）を要約しています…"; await dk2Narrative(); }catch(e){} return __mk2.apply(this,arguments); }; }
+/* ── 文字量の見積り（行数→高さ）：要素を隙間なく積み、はみ出し・重なりを作らない ── */
+function dk2Lines(t,sz,w,o){
+  o=o||{}; const s=String(t==null?"":t); if(!s.trim()) return 0;
+  const spc=o.spc||0, bold=o.b?1.06:1; let lines=0;
+  s.split("\n").forEach(line=>{
+    let px=0;
+    for(const ch of line){
+      const c=ch.codePointAt(0); let cw;
+      if(c===32) cw=0.28;
+      else if(c<128){ cw=(ch>="A"&&ch<="Z")?0.66:(ch>="0"&&ch<="9")?0.56:/[ijl.,;:'!|]/.test(ch)?0.3:/[mwMW]/.test(ch)?0.82:0.54; }
+      else if(c>=0x3000||(c>=0xAC00&&c<=0xD7AF)||(c>=0x1100&&c<=0x11FF)) cw=1.0;   /* 漢字・かな・ハングル */
+      else cw=0.6;
+      px+=cw*sz*bold+spc;
+    }
+    lines+=Math.max(1,Math.ceil(px*1.08/Math.max(1,w)));
+  });
+  return lines;
+}
+function dk2H(t,sz,w,o){ return dk2Lines(t,sz,w,o)*sz*((o&&o.lh)||1.24); }
+function dk2Fit(s,w,sizes,o,maxL){ maxL=maxL||1; for(const z of sizes){ if(dk2Lines(s,z,w,o)<=maxL) return z; } return sizes[sizes.length-1]; }
+/* 全部大文字の欧文見出し（既存ラベル）を Title Case に（ベンチマークの見出し表記に合わせる） */
+function dk2Title(s){
+  s=String(s||"").trim();
+  if(!/ /.test(s)||!/^[A-ZÀ-Ý0-9 &\/\-·,.'()]+$/.test(s)||!/[A-Z]{2}/.test(s)) return s;
+  const small=/^(de|del|la|las|el|los|y|e|o|en|para|con|por|of|and|the|for|to|a|an|in|on|at)$/i;
+  return s.toLowerCase().split(" ").map((w,i)=>(i>0&&small.test(w))?w:w.charAt(0).toUpperCase()+w.slice(1)).join(" ");
+}
+/* ── スライド構成（新デザイン） ── */
+function deckSlides2(lang,T){
+  const L=DECK_L[lang], ea=L.ea, S=[]; const P=dk2Pal(); const AC=P.ac, TT=P.ttl, DKc=P.dk, TN=P.tint, TN2=P.tint2, INK=P.ink, SUB=P.sub, MUT=P.mut;
+  const DM=dkMeta(); const RICH=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{}; let PGN=0;
+  const sick=v=>typeof valSick==="function"&&valSick(String(v||""));
+  const cap=s=>String(s||"").replace(/\s+/g," ").trim();
+  const co=cap(D.coEn||D.co||""), item=cap(T.item||D.item||"");
+  const strengths=(T.strengths&&T.strengths.length?T.strengths:(D.strengths||[]).filter(x=>!sick(x[0])).slice(0,5)).filter(s=>s&&cap(s[0]));
+  const acCon=(()=>{ try{ const lin=v=>{ v/=255; return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4); }; const [r,g,b]=hx2rgb(AC); const Y=0.2126*lin(r)+0.7152*lin(g)+0.0722*lin(b); return 1.05/(Y+0.05); }catch(e){ return 3; } })();
+  const FIRST=acCon>=3?AC:DKc;   /* 強調カードの地色：ブランド色（白文字とのコントラスト3:1未満の明るい色のときは濃色） */
+  const bg=(k)=>{ /* 背景：白→ブランド淡色のグラデーション＋柔らかい装飾（ページごとに位置を変える） */
+    const v=[[560,-120,560,420,AC,14000,60,-20],[-140,300,520,360,AC,12000,70,15],[620,320,460,300,P.blob,10000,60,-10],[-120,-160,420,360,AC,11000,60,25]];
+    const b1=v[k%4], b2=v[(k+2)%4];
+    return dk2Grad(0,0,960,540,"FFFFFF",TN,45)+dk2Blob(b1[0],b1[1],b1[2],b1[3],b1[4],b1[5],b1[6],b1[7])+dk2Blob(b2[0],b2[1],b2[2]*0.7,b2[3]*0.7,b2[4],b2[5]-3000,b2[6],b2[7]);
+  };
+  const foot=(wl)=>{ PGN++; const W=wl||864; return dk2Line(48,506,W,0.8,TN2)+shpText(48,512,Math.min(600,W-70),16,[{t:`${co}   ·   ${L.conf}`,sz:9,c:MUT,spc:0.6}],{ea})+shpText(48+W-52,512,52,16,[{t:String(PGN),sz:9.5,b:1,c:AC,al:"r"}],{ea}); };
+  const eyebrow=(t,y)=>shpText(48,y||30,760,16,[{t:cap(t).toUpperCase(),sz:10,b:1,c:AC,spc:2.4}],{ea});
+  /* 見出し：常に1行に収まるサイズを選ぶ（40→34→28→24pt）。下線の位置は固定＝本文の開始位置がぶれない */
+  const head=(eb,t)=>{ const s=dk2Title(t); const z=dk2Fit(s,760,[40,34,28,24],{b:1,spc:0.8}); return eyebrow(eb)+shpText(48,44,760,z*1.35,[{t:s,sz:z,b:1,c:TT,spc:0.8}],{ea})+dk2Line(48,98,64,2.2,AC); };
+  const has=i=>DK_PH[i]!==undefined&&DK_PH[i]>=0;
+  const goodPh=has(0)&&DK_GOOD[0];
+  const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
+  const usage=(T.usage&&T.usage.length?T.usage:(DM.usage&&DM.usage.length?DM.usage:(RICH.usage||[]))).map(cap).filter(Boolean).slice(0,4);
+  const segs=(T.segments&&T.segments.length?T.segments:[]).filter(x=>x&&cap(x[0]));
+  const tg=Object.entries(D.regs||{}).slice(0,6);
+  const pc=(T.priceCols&&T.priceCols.length?T.priceCols:D.priceCols||[]).slice(0,4);
+  const pr=(T.priceRows&&T.priceRows.length?T.priceRows:(D.priceRows||[]).slice(0,4).map(r=>(r||[]).slice(0,4).map(String)));
+  const hasPrice=!!(pr.length||D.moq||D.lead||D.term||D.pay);
+  const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
+  const hasComp=!!((D.cert&&D.cert!=="なし")||docs.length);
+  const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]])).filter(r=>r&&String(r[0]||"").trim()).slice(0,6);
+  const gal=PH_IDX.filter(i=>has(i)).slice(1,7);
+  const dutyStr=r=>{ if(/要確認/.test(r.duty)) return L.tbc; const s=String(r.duty||""); if(!/[ぁ-ヶ一-龠（）]/.test(s)) return s; const m=s.match(/^[^（(ぁ-ヶ一-龠]+/); return (m?m[0].trim():L.tbc)+" *"; };
+  const concept=cap(T.concept||T.catch2||"");
+  const TOC_T={en:"Table of\nContents",zhCN:"目录",zhTW:"目錄",es:"Índice",ko:"목차"}[lang]||"Contents";
+  const NM={en:{profile:"Company Profile",concept:"Brand Concept",product:"Product Concept",problem:"Problem",uniq:"Uniqueness",how:"How to Use",proof:"The Visual Proof",target:"Target Market",touch:"Get in Touch",hear:"We'd love to hear from you!",presented:"Presented by",activities:"Activities",company:"Company Name",location:"Location",website:"Website",est:"Established",rep:"Representative",contactp:"Sales Representative",address:"Address",tel:"Phone",mail:"E-mail",logi:"Logistics & Compliance",contact:"Contact"},
+    zhCN:{profile:"公司简介",concept:"品牌理念",product:"产品理念",problem:"课题",uniq:"独特性",how:"使用方法",proof:"实证",target:"目标市场",touch:"联系我们",hear:"期待您的垂询！",presented:"提供",activities:"业务内容",company:"公司名称",location:"所在地",website:"网站",est:"成立",rep:"代表",contactp:"销售负责人",address:"地址",tel:"电话",mail:"邮箱",logi:"物流与合规",contact:"联系方式"},
+    zhTW:{profile:"公司簡介",concept:"品牌理念",product:"產品理念",problem:"課題",uniq:"獨特性",how:"使用方法",proof:"實證",target:"目標市場",touch:"聯絡我們",hear:"期待您的洽詢！",presented:"提供",activities:"業務內容",company:"公司名稱",location:"所在地",website:"網站",est:"成立",rep:"代表",contactp:"銷售負責人",address:"地址",tel:"電話",mail:"電子郵件",logi:"物流與合規",contact:"聯絡方式"},
+    es:{profile:"Perfil de la empresa",concept:"Concepto de marca",product:"Concepto del producto",problem:"Problema",uniq:"Singularidad",how:"Modo de uso",proof:"La prueba visual",target:"Mercado objetivo",touch:"Contáctenos",hear:"¡Nos encantará saber de usted!",presented:"Presentado por",activities:"Actividades",company:"Empresa",location:"Ubicación",website:"Sitio web",est:"Fundación",rep:"Representante",contactp:"Representante de ventas",address:"Dirección",tel:"Teléfono",mail:"Correo",logi:"Logística y cumplimiento",contact:"Contacto"},
+    ko:{profile:"회사 소개",concept:"브랜드 콘셉트",product:"제품 콘셉트",problem:"과제",uniq:"독자성",how:"사용 방법",proof:"실증",target:"타깃 시장",touch:"문의하기",hear:"언제든 연락 주세요!",presented:"제공",activities:"사업 내용",company:"회사명",location:"소재지",website:"웹사이트",est:"설립",rep:"대표",contactp:"영업 담당",address:"주소",tel:"전화",mail:"이메일",logi:"물류 및 규제 대응",contact:"연락처"}}[lang]||{};
+  const N=k=>NM[k]||({profile:"Company Profile",concept:"Brand Concept",product:"Product Concept",problem:"Problem",uniq:"Uniqueness",how:"How to Use",proof:"The Visual Proof",target:"Target Market",touch:"Get in Touch",hear:"We'd love to hear from you!",presented:"Presented by",activities:"Activities",company:"Company Name",location:"Location",website:"Website",est:"Established",rep:"Representative",contactp:"Sales Representative",address:"Address",tel:"Phone",mail:"E-mail",logi:"Logistics & Compliance",contact:"Contact"})[k];
+  const proofT=(T.proof&&T.proof.length)?N("proof"):dk2Title(L.gallery||"Product Gallery");
+  /* 目次 */
+  const toc=[N("profile")].concat((concept||T.mission||DM.mission||T.brandStory)?[N("concept")]:[]).concat([N("product")]).concat(strengths.length?[dk2Title(L.str)]:[]).concat(usage.length?[N("how")]:[]).concat(gal.length>=2?[proofT]:[]).concat(specs.length||dim0?[dk2Title(L.spec)]:[]).concat((segs.length||tg.length)?[N("target")]:[]).concat(hasPrice?[dk2Title(L.price)]:[]).concat(hasComp?[N("logi")]:[]).concat([N("touch")]);
+  /* 1) 表紙：社名を大きく・タグライン（公式サイト由来→キャッチ→強み）・商品写真を台座に */
+  { const tg2=cap(T.tagline2||""), c2=cap(T.catch2||""), tg=cap(T.tagline||"");
+    const coverTag=(tg2&&tg2.length<=90)?tg2:(c2&&c2.length<=80)?c2:(tg&&tg.length<=80&&!/アップロードした資料/.test(tg))?tg:(concept||item);
+    const nz=dk2Fit(co,440,[40,34,30,26,22],{b:1,spc:0.6},2), nh=dk2H(co,nz,440,{b:1,spc:0.6});
+    let y=112;
+    let x=bg(0)+
+      (goodPh?dk2Card(516,64,396,412,TN2,{round:9000})+dk2Card(560,404,300,40,"FFFFFF",{round:50000,shadow:12000})+dk2PhotoFit(548,80,332,352,DK_PH[0],{shadow:1,round:3000}):dk2Blob(560,60,420,420,AC,16000,80,0))+
+      shpText(60,66,440,18,[{t:cap(L.deck).toUpperCase(),sz:10,b:1,c:AC,spc:2.6}],{ea})+
+      shpText(60,y,440,nh+8,[{t:co,sz:nz,b:1,c:TT,spc:0.6}],{ea});
+    y+=nh+20; x+=dk2Line(60,y,120,2.2,TT); y+=18;
+    const tz=dk2Fit(coverTag,440,[17,15,13.5],{b:1,spc:1.1},2), th=dk2H(coverTag,tz,440,{b:1,spc:1.1});
+    x+=shpText(60,y,440,th+6,[{t:coverTag,sz:tz,b:1,c:INK,spc:1.1}],{ea}); y+=th+12;
+    if(coverTag!==item) x+=shpText(60,y,440,24,[{t:item+(T.cat||D.cat?"   ·   "+cap(T.cat||D.cat):""),sz:11.5,c:SUB,spc:0.6}],{ea});
+    x+=(DK_LOGO>=0?dk2Card(60,436,150,48,"FFFFFF",{round:8000,shadow:10000})+logoOr(70,442,130,36):"")+
+      shpText(DK_LOGO>=0?226:60,446,320,30,[{t:N("presented")+" "+co,sz:11,b:1,c:SUB,spc:0.8},{t:[cap(T.origin||D.city||""),L.made,TODAYS].filter(Boolean).join("  ·  "),sz:9,c:MUT,spcB:2}],{ea});
+    S.push(x); }
+  /* 2) 目次（円番号＋罫線） */
+  { const n=Math.min(11,toc.length); const step=Math.min(48,Math.floor(410/n)); const y0=Math.max(70,Math.round((470-n*step)/2)+40);
+    S.push(bg(1)+
+      shpText(72,120,360,180,[{t:TOC_T,sz:46,b:1,c:TT,spc:1}],{ea})+
+      dk2Blob(-160,300,520,360,AC,15000,70,15)+
+      toc.slice(0,n).map((t,i)=>{ const y=y0+i*step; const z=dk2Fit(cap(t),380,[14,12.5,11],{b:1,spc:1.6}); return dk2Circle(486,y+2,26,AC,String(i+1),11.5,"FFFFFF",ea)+shpText(526,y+3,380,26,[{t:cap(t),sz:z,b:1,c:TT,spc:1.6}],{ea})+dk2Line(526,y+step-12,380,0.9,AC); }).join("")+
+      foot()); }
+  /* 3) 会社プロフィール：行の高さは文字量で決める */
+  { const rows=[[N("company"),co+((D.co&&D.coEn&&D.co!==D.coEn)?"  ("+cap(D.co)+")":"")],[N("location"),cap((T.addr||DM.addr||"")||((T.origin||D.city||"")+", Japan"))],[N("est"),cap(T.est2||DM.est||"")],[N("rep"),cap(T.ceo||DM.ceo||"")],[N("website"),cap(DM.web||"")]].filter(r=>String(r[1]||"").trim());
+    const acts=(T.activities&&T.activities.length?T.activities:(DM.biz?String(T.biz||DM.biz).split(/[／/・、,]\s*/).map(cap).filter(Boolean).slice(0,4):[])).map(cap).filter(Boolean).slice(0,4);
+    let y=122; let x=bg(2)+head(L.about,N("profile"));
+    rows.forEach(r=>{ const h=Math.max(44,dk2H(r[1],13.5,330,{b:1})+18); x+=shpText(48,y+4,150,h-8,[{t:r[0],sz:11,b:1,c:AC,spc:1}],{ea})+shpText(200,y+2,330,h-6,[{t:r[1],sz:13.5,b:1,c:INK}],{ea})+dk2Line(48,y+h-2,482,0.8,TN2); y+=h; });
+    if(acts.length){ x+=shpText(48,y+10,150,20,[{t:N("activities"),sz:11,b:1,c:AC,spc:1}],{ea}); let yy=y+6; acts.forEach((a,i)=>{ const h=dk2H(a,12.5,330)+8; if(yy+h<500){ x+=shpText(200,yy,330,h,[{t:(i+1)+".  "+a,sz:12.5,c:INK}],{ea}); yy+=h; } }); }
+    x+=(has(1)?dk2Photo(580,86,332,404,DK_PH[1],{shadow:1,round:7000}):dk2Card(580,86,332,404,TN2,{round:9000})+(DK_LOGO>=0?dk2Card(640,240,212,88,"FFFFFF",{round:8000,shadow:10000})+logoOr(656,254,180,60):shpText(600,240,292,90,[{t:co,sz:20,b:1,c:TT,al:"ctr"}],{ea})));
+    S.push(x+foot()); }
+  /* 4) ブランドコンセプト（引用→ミッション→ブランド紹介を隙間なく積む） */
+  if(concept||T.mission||DM.mission||T.brandStory){
+    const q=cap(concept||T.mission||DM.mission||T.tagline).slice(0,160);
+    const qz=dk2Fit(q,500,[30,26,22,19],{b:1,spc:0.5},3), qh=dk2H(q,qz,500,{b:1,spc:0.5});
+    let y=116; let x=bg(3)+eyebrow(N("concept"))+shpText(48,56,80,120,[{t:"“",sz:110,b:1,c:AC}],{ea})+shpText(96,y,520,qh+8,[{t:q,sz:qz,b:1,i:1,c:TT,spc:0.5}],{ea});
+    y+=qh+24; x+=dk2Line(96,y,90,2.2,AC); y+=20;
+    const mis=cap(T.mission||DM.mission||""); if(mis&&concept&&mis!==q){ const h=dk2H(mis,14,520); x+=shpText(96,y,520,h+6,[{t:mis,sz:14,c:INK}],{ea}); y+=h+16; }
+    const bs=cap(T.brandStory||"").slice(0,300); if(bs){ const h=dk2H(bs,13,520); x+=shpText(96,y,520,h+6,[{t:bs,sz:13,c:SUB}],{ea}); y+=h+16; }
+    if(DM.ceo) x+=shpText(96,Math.min(468,Math.max(y+4,440)),520,20,[{t:"— "+cap(T.ceo||DM.ceo)+", "+N("rep"),sz:11,b:1,c:AC,spc:0.6}],{ea});
+    x+=(has(2)?dk2Photo(660,70,252,420,DK_PH[2],{shadow:1,round:9000}):dk2Blob(640,90,320,380,AC,15000,80,0));
+    S.push(x+foot());
+  }
+  /* 5) 商品コンセプト：左＝写真（淡色の台座に浮かせる）／右＝見出し・引用・商品名・Problem／Uniqueness */
+  { const uniq=cap(T.uniqueness||(strengths[0]?strengths[0][0]+(strengths[0][1]?" — "+strengths[0][1]:""):""));
+    const prob=cap(T.problem||""); const lu=(T.lineup&&T.lineup[0])||null; const size=lu&&lu[1]?cap(lu[1]):"";
+    const RX=420, RW=492; let y=46;
+    let x=bg(1)+dk2Card(76,168,300,300,TN2,{round:12000})+
+      (has(0)?dk2PhotoFit(100,72,252,340,DK_PH[0],{shadow:1,round:3000}):shpText(96,290,260,60,[{t:item,sz:16,b:1,c:TT,al:"ctr"}],{ea}));
+    const tz=dk2Fit(N("product"),RW,[40,34,28],{b:1,spc:0.8}); x+=shpText(RX,y,RW,tz*1.35,[{t:N("product"),sz:tz,b:1,c:TT,spc:0.8}],{ea}); y+=tz*1.35+8;
+    const qt=cap(T.catch2||concept||""); if(qt){ const h=dk2H("“ "+qt+" ”",14,RW,{spc:0.4}); x+=shpText(RX,y,RW,h+4,[{t:"“ "+qt+" ”",sz:14,i:1,c:SUB,spc:0.4}],{ea}); y+=h+14; }
+    const nm=item+(size?"   "+size:""); const nz=dk2Fit(nm,RW,[20,17,15],{b:1,spc:1.2},2), nh=dk2H(nm,nz,RW,{b:1,spc:1.2});
+    x+=shpText(RX,y,RW,nh+6,[{t:nm,sz:nz,b:1,c:TT,spc:1.2}],{ea}); y+=nh+22;
+    [[N("problem"),prob],[N("uniq"),uniq]].forEach(([k,v])=>{ if(!v||y>430) return; const h=dk2H(v,13.5,RW,{spc:0.3}); x+=shpText(RX,y,RW,24,[{t:k,sz:14,b:1,c:TT,spc:1.6}],{ea})+dk2Line(RX,y+24,280,1,AC)+shpText(RX,y+32,RW,h+6,[{t:v,sz:13.5,c:INK,spc:0.3}],{ea}); y+=32+h+22; });
+    S.push(x+foot()); }
+  /* 6) 強み：枚数で段組を変える（≤3＝1段／4＝2×2／5＝3+2／6＝3×3）。1枚目はブランド色で強調 */
+  if(strengths.length){
+    const n=Math.min(6,strengths.length); const rowsN=n<=3?[n]:n===4?[2,2]:n===5?[3,2]:[3,3]; const rowH=rowsN.length>1?166:300;
+    let x=bg(2)+head(L.why,L.str); let idx=0;
+    rowsN.forEach((cols,ri)=>{ const w=(864-(cols-1)*18)/cols; for(let ci=0;ci<cols;ci++,idx++){ const s=strengths[idx]; if(!s) continue; const xx=48+ci*(w+18), y=124+ri*(rowH+18), first=idx===0;
+        const num=rowsN.length===1?String(s[0]||"").match(/\d[\d.,]*\s?[%℃μgkmlL]*/):null;
+        const t1=cap(s[0]), t2=cap(s[1]||""); const z1=dk2Fit(t1,w-36,[16,14.5,13],{b:1},2);
+        x+=dk2Card(xx,y,w,rowH,first?FIRST:"FFFFFF",{round:9000,shadow:12000})+dk2Circle(xx+18,y+18,30,first?"FFFFFF":TN2,String(idx+1),13,first?FIRST:TT,ea)+
+          (num?shpText(xx+18,y+64,w-36,60,[{t:num[0].trim(),sz:40,b:1,c:first?"FFFFFF":TT}],{ea}):"")+
+          shpText(xx+18,y+(num?130:62),w-36,rowH-76,[{t:t1,sz:z1,b:1,c:first?"FFFFFF":INK,spc:0.3},{t:t2,sz:rowsN.length>1?11:12.5,c:first?TN:SUB,spcB:6}],{ea}); } });
+    S.push(x+foot());
+  }
+  /* 7) 使い方（円番号のステップ＋写真） */
+  if(usage.length){
+    const step=Math.min(96,Math.floor(372/usage.length));
+    S.push(bg(3)+head(L.usage,N("how"))+
+      usage.map((u,i)=>{ const y=128+i*step; return dk2Circle(48,y,34,AC,String(i+1),14,"FFFFFF",ea)+(i<usage.length-1?shpRect(64,y+38,2,step-42,TN2):"")+shpText(100,y+4,440,step-8,[{t:u,sz:dk2Fit(u,440,[14,13,12],{},3),c:INK}],{ea}); }).join("")+
+      (has(3)?dk2Photo(600,86,312,404,DK_PH[3],{shadow:1,round:9000}):(has(0)?dk2Card(600,86,312,404,TN2,{round:12000})+dk2PhotoFit(624,110,264,356,DK_PH[0],{shadow:1,round:3000}):""))+
+      foot());
+  }
+  /* 8) ビジュアル（ギャラリー＋根拠キャプション） */
+  if(gal.length>=2){
+    const g=gal.slice(0,3), w=g.length===2?408:266;
+    S.push(bg(0)+head(L.gallery||"PRODUCT GALLERY",proofT)+
+      g.map((gi,i)=>{ const x=48+i*(w+24); return dk2Photo(x,120,w,320,DK_PH[gi],{shadow:1,round:8000})+(T.proof&&T.proof[i]?shpText(x,450,w,44,[{t:cap(T.proof[i]),sz:dk2Fit(cap(T.proof[i]),w,[11.5,10.5],{b:1},2),b:1,c:TT,al:"ctr"}],{ea}):""); }).join("")+
+      foot());
+  }
+  /* 9) 規格（表＋写真＋包装・寸法） */
+  if(specs.length||dim0){
+    S.push(bg(1)+head(item||L.spec,L.spec)+
+      specs.map((r,i)=>{ const y=120+i*56; return dk2Card(48,y,520,48,i%2?"FFFFFF":TN,{round:4000})+shpText(66,y+12,190,28,[{t:cap(r[0]),sz:12,b:1,c:AC,spc:0.6}],{ea})+shpText(256,y+11,300,32,[{t:cap(r[1]),sz:dk2Fit(cap(r[1]),300,[13,11.5,10.5],{},2),c:INK}],{ea}); }).join("")+
+      (has(1)||has(0)?dk2Card(600,120,312,240,TN2,{round:10000})+dk2PhotoFit(616,132,280,216,DK_PH[has(1)?1:0],{shadow:1,round:3000}):"")+
+      (dim0?dk2Card(600,376,312,110,"FFFFFF",{round:8000,shadow:10000})+shpText(618,390,276,90,[{t:L.dims,sz:10.5,b:1,c:AC,spc:1},{t:cap(dim0),sz:12,c:INK,spcB:6},{t:D.ctn?cap(T.ctn||D.ctn):"",sz:11,c:SUB,spcB:3}],{ea}):"")+
+      foot());
+  }
+  /* 10) ターゲット市場：縦組みの見出し＋区分（B2C／B2B）＋右いっぱいの写真（フッターは写真を避ける） */
+  if(segs.length||tg.length){
+    const useSeg=segs.length>0; const sub=cap(T.catch2||concept||"").slice(0,60);
+    let x=bg(2)+dk2VText(28,60,80,420,[{t:cap(N("target")),sz:dk2Fit(cap(N("target")),400,[40,32,26],{b:1,spc:1.2}),b:1,c:TT,spc:1.2}],{ea,al:"l"})+
+      (sub?dk2VText(88,60,26,420,[{t:sub,sz:10.5,i:1,c:AC,spc:1}],{ea}):"");
+    if(useSeg){ let y=100; segs.slice(0,2).forEach(s=>{ const t=cap(s[0]).toUpperCase(), d=cap(s[1]); const tz=dk2Fit(t,400,[16,14,12.5],{b:1,spc:2}); const dh=dk2H(d,14,400,{spc:0.3}); x+=shpText(150,y,400,30,[{t:t,sz:tz,b:1,c:TT,spc:2}],{ea})+dk2Line(150,y+34,380,1.2,AC)+shpText(150,y+48,400,dh+6,[{t:d,sz:14,c:INK,spc:0.3}],{ea}); y+=Math.max(190,48+dh+40); }); }
+    else x+=tg.slice(0,6).map(([c,r],i)=>{ const xx=150+(i%2)*200, y=104+Math.floor(i/2)*126; return dk2Card(xx,y,184,108,"FFFFFF",{round:8000,shadow:10000})+shpText(xx+14,y+12,156,22,[{t:cap(ctyL(lang,c)),sz:14,b:1,c:TT}],{ea})+shpText(xx+14,y+44,156,50,[{t:L.duty,sz:9.5,c:MUT},{t:dutyStr(r),sz:18,b:1,c:AC,spcB:2}],{ea}); }).join("");
+    x+=(has(4)&&has(5)?dk2Photo(584,0,376,270,DK_PH[4],{round:0})+dk2Photo(584,270,376,270,DK_PH[5],{round:0}):has(4)?dk2Photo(584,0,376,540,DK_PH[4],{round:0}):has(1)?dk2Photo(584,0,376,540,DK_PH[1],{round:0}):has(0)?dk2Card(600,60,312,420,TN2,{round:12000})+dk2PhotoFit(624,84,264,372,DK_PH[0],{shadow:1,round:3000}):dk2Blob(600,40,420,460,AC,14000,80,0));
+    if(useSeg&&tg.length) x+=shpText(150,466,400,24,[{t:tg.map(([c])=>cap(ctyL(lang,c))).join("  ·  "),sz:10.5,b:1,c:AC,spc:0.8}],{ea});
+    if(tg.length&&!useSeg) x+=shpText(150,478,400,16,[{t:"*  "+L.dutyNote,sz:8.5,c:MUT}],{ea});
+    S.push(x+foot(500));
+  }
+  /* 11) 価格・取引条件 */
+  if(hasPrice){
+    const terms=[[L.moq,T.moq||D.moq],[L.lead,T.lead||D.lead],[L.term,((T.term||D.term||"")+" "+(T.pol||D.pol||"")).trim()],[L.pay,T.pay||D.pay]].filter(([k,v])=>String(v||"").trim());
+    const tb=pr.length?120+40+pr.slice(0,4).length*42:120; const note=cap(T.priceNote||RICH.priceNote||"");
+    S.push(bg(3)+head(item||L.price,L.price)+
+      (pr.length?dk2Card(48,120,540,40+pr.slice(0,4).length*42,"FFFFFF",{round:6000,shadow:10000})+shpRect(48,120,540,40,DKc)+pc.map((c,i)=>shpText(64+i*130,130,124,22,[{t:cap(c),sz:11,b:1,c:"FFFFFF",spc:0.6}],{ea})).join("")+
+        pr.slice(0,4).map((row,ri)=>{ const y=160+ri*42; return (ri%2?shpRect(48,y,540,42,TN):"")+row.slice(0,4).map((v,ci)=>shpText(64+ci*130,y+11,124,24,[{t:cap(v),sz:dk2Fit(cap(v),124,[12.5,11,10],{b:ci>0}),b:ci>0,c:ci>0?TT:INK}],{ea})).join(""); }).join(""):"")+
+      (note?shpText(48,tb+16,540,60,[{t:note,sz:11,c:SUB}],{ea}):"")+
+      terms.map(([k,v],i)=>{ const x=620+(i%2)*150, y=120+Math.floor(i/2)*110; const vv=cap(v); return dk2Card(x,y,142,98,"FFFFFF",{round:8000,shadow:10000})+shpText(x+14,y+14,118,74,[{t:k,sz:9.5,b:1,c:AC,spc:1},{t:vv,sz:dk2Fit(vv,118,[15,13,11.5],{b:1},2),b:1,c:INK,spcB:6}],{ea}); }).join("")+
+      shpText(48,466,860,22,[{t:L.cta,sz:12,b:1,c:TT,spc:0.4}],{ea})+
+      foot());
+  }
+  /* 12) 物流・認証 */
+  if(hasComp||D.lead||D.pol||D.moq){
+    const FL=L.flow||["Inquiry","Order","Production","Shipping","Delivery"];
+    S.push(bg(0)+head(L.logi,N("logi"))+
+      FL.map((f,i)=>{ const x=48+i*176; return dk2Circle(x+52,120,44,i===FL.length-1?AC:TN2,String(i+1),15,i===FL.length-1?"FFFFFF":TT,ea)+shpText(x,172,148,40,[{t:cap(f),sz:11.5,b:1,c:INK,al:"ctr"}],{ea})+(i<FL.length-1?dk2Line(x+104,141,64,1.2,AC):""); }).join("")+
+      dk2Card(48,232,420,240,"FFFFFF",{round:9000,shadow:10000})+shpText(70,250,376,210,[{t:L.cert,sz:11,b:1,c:AC,spc:1},{t:cap(T.cert||D.cert||"—"),sz:dk2Fit(cap(T.cert||D.cert||"—"),376,[15,13,11.5],{b:1},2),b:1,c:"2E7D32",spcB:8},{t:cap(T.shelf||D.shelf||""),sz:11,c:SUB,spcB:4},{t:docs.length?L.docs:"",sz:11,b:1,c:AC,spcB:14}].concat(docs.map(d=>({t:"✓  "+cap(d),sz:11,c:INK,spcB:4}))),{ea})+
+      dk2Card(492,232,420,240,DKc,{round:9000})+shpText(516,254,372,200,[{t:L.supply,sz:15,b:1,c:"FFFFFF"},{t:[cap(T.origin||D.city||"Japan"),L.made].join("  ·  "),sz:11.5,c:P.md,spcB:8},{t:(D.lead?L.lead+" :  "+cap(T.lead||D.lead):""),sz:12,b:1,c:"FFFFFF",spcB:16},{t:(D.pol?L.port+" :  "+cap(T.pol||D.pol):""),sz:12,b:1,c:"FFFFFF",spcB:6},{t:(D.moq?L.moq+" :  "+cap(T.moq||D.moq):""),sz:12,b:1,c:"FFFFFF",spcB:6}],{ea})+
+      foot());
+  }
+  /* 13) 連絡先：横長写真の帯（横長が無ければ淡色の帯に商品写真）＋担当者／住所／サイトの3列 */
+  { const cols=[]; const p1=[];
+    if(DM.person) p1.push({t:cap(T.person||DM.person),sz:14,b:1,c:INK});
+    if(DM.tel) p1.push({t:"☎  "+cap(DM.tel),sz:12.5,c:INK,spcB:6});
+    if(DM.mail) p1.push({t:"✉  "+cap(DM.mail),sz:dk2Fit("✉  "+cap(DM.mail),230,[12.5,11,10],{}),c:INK,spcB:6});
+    if(p1.length) cols.push({ic:"👤",lb:DM.person?N("contactp"):N("contact"),ps:p1});
+    if(T.addr||DM.addr) cols.push({ic:"📍",lb:N("address"),ps:[{t:cap(T.addr||DM.addr),sz:12.5,c:INK}]});
+    if(DM.web) cols.push({ic:"🌐",lb:N("website"),ps:[{t:cap(DM.web),sz:dk2Fit(cap(DM.web),230,[12.5,11,10],{}),c:INK}]});
+    let wide=-1, wr=0; PH_IDX.forEach(i=>{ if(!has(i)) return; const m=DK_MEDIA[DK_PH[i]]; if(m&&m.w&&m.h&&m.w/m.h>wr){ wr=m.w/m.h; wide=i; } });
+    const band=(wide>=0&&wr>=1.25)?dk2Photo(48,40,864,216,DK_PH[wide],{round:9000,shadow:1})
+      :dk2Card(48,40,864,216,TN2,{round:9000})+dk2Blob(600,50,300,200,AC,14000,60,-15)+(has(0)?dk2PhotoFit(380,54,200,188,DK_PH[0],{shadow:1,round:3000}):"");
+    const cw=cols.length?(864-(cols.length-1)*24)/cols.length:864;
+    S.push(bg(1)+band+
+      shpText(48,278,600,56,[{t:N("touch"),sz:dk2Fit(N("touch"),600,[40,34,28],{b:1,spc:1}),b:1,c:TT,spc:1}],{ea})+
+      shpText(48,336,600,24,[{t:N("hear"),sz:14,c:SUB}],{ea})+
+      (cols.length?cols.map((c,i)=>{ const x=48+i*(cw+24); return dk2Circle(x,384,34,AC,c.ic,14,"FFFFFF",ea)+shpText(x+44,388,cw-48,24,[{t:c.lb,sz:12,b:1,c:AC,spc:1}],{ea})+shpText(x+44,418,cw-48,84,c.ps,{ea}); }).join("")
+        :dk2Circle(48,384,34,AC,"✉",14,"FFFFFF",ea)+shpText(92,388,700,24,[{t:N("contact"),sz:12,b:1,c:AC,spc:1}],{ea})+shpText(92,418,700,60,[{t:co,sz:14,b:1,c:INK},{t:L.cta,sz:12.5,c:SUB,spcB:6}],{ea}))+
+      (DK_LOGO>=0?dk2Card(752,278,160,56,"FFFFFF",{round:8000,shadow:10000})+logoOr(764,286,136,40):shpText(652,288,260,40,[{t:co,sz:14,b:1,c:TT,al:"r"}],{ea}))+
+      foot()+shpText(560,512,290,16,[{t:L.poweredBy,sz:8.5,c:MUT,al:"r"}],{ea})); }
+  return S;
+}
+if(typeof deckSlides==="function"){ const __ds1=deckSlides; deckSlides=function(lang,T){ try{ return deckSlides2(lang,T); }catch(e){ console.warn("deck2 fallback",e); return __ds1.apply(this,arguments); } }; }
 
 </script>
