@@ -21391,6 +21391,21 @@ I18N_ROWS2.push(
 );
 /* v19.3 入力欄のグリップ */
 I18N_ROWS2.push(["ドラッグで高さを変更／ダブルクリックで元の高さに戻す","Drag to change height / double-click to reset","拖动调整高度／双击恢复原高度","Arrastra para cambiar la altura / doble clic para restablecer"]);
+/* v19.4 やり取り中のBuyer・交渉ステータス（7段階） */
+I18N_ROWS2.push(
+["コンタクト中（一方的なアプローチ）","Contacting (one-way outreach)","联系中（单方面接触）","Contactando (acercamiento unilateral)"],
+["コンタクト中","Contacting","联系中","Contactando"],["商談中","Negotiating","洽谈中","En negociación"],["サンプル出荷","Sample shipped","样品已发","Muestra enviada"],
+["見積提示","Quotation sent","已报价","Cotización enviada"],["契約交渉","Contract negotiation","合同谈判","Negociación de contrato"],["取引中","Trading","交易中","En operación"],["失注","Lost","失单","Perdido"],
+["📨 やり取り中のBuyer","📨 Buyers in conversation","📨 沟通中的买家","📨 Compradores en conversación"],
+["直接連絡でやり取りしているBuyerの一覧です。交渉ステータス（7段階）は<b>AI商社マンがやり取りから自動判定</b>し、手動でも変更できます。ID・国・業種・本文で検索できます。","Buyers you are messaging directly. The 7-stage negotiation status is <b>judged automatically by the AI Trade Agent from the conversation</b> and can be changed manually. Search by ID, country, business or message text.","通过直接联系沟通中的买家列表。7阶段谈判状态由<b>AI商社专员根据往来自动判定</b>，也可手动更改。可按ID、国家、业态、正文搜索。","Compradores con los que conversa directamente. El estado de negociación (7 etapas) lo <b>determina automáticamente el Agente IA</b> y puede cambiarse a mano. Busque por ID, país, sector o texto."],
+["🔍 ID・国・業種・本文で検索","🔍 Search by ID, country, business, text","🔍 按ID・国家・业态・正文搜索","🔍 Buscar por ID, país, sector, texto"],
+["🤖 全件を再判定","🤖 Re-judge all","🤖 全部重新判定","🤖 Reevaluar todo"],["🤖 再判定","🤖 Re-judge","🤖 重新判定","🤖 Reevaluar"],
+["交渉ステータス","Negotiation status","谈判状态","Estado de negociación"],["最終メッセージ","Last message","最后一条消息","Último mensaje"],["往復","Messages","往来","Mensajes"],["相手","Buyer","对方","Comprador"],["自社","Us","本公司","Nosotros"],
+["やり取り中のBuyer","Buyers in conversation","沟通中的买家","Compradores en conversación"],["やり取り中のBuyerは？","Buyers in conversation?","沟通中的买家？","¿Compradores en conversación?"],
+["まだやり取り中のBuyerはいません。下の「相手を探す」から<b>直接連絡</b>を送ると、ここに並びます。","No buyers in conversation yet. Send a <b>direct contact</b> from “Find buyers” below and they will appear here.","尚无沟通中的买家。在下方“寻找对象”发送<b>直接联系</b>后将显示于此。","Aún no hay compradores en conversación. Envíe un <b>contacto directo</b> desde “Buscar compradores” y aparecerán aquí."],
+["条件に合うBuyerはいません","No buyers match","没有符合条件的买家","Ningún comprador coincide"],["宛先 未開示","Address undisclosed","地址未公开","Dirección no revelada"],
+["手動で変更","Changed manually","手动更改","Cambiado a mano"],["AI（ルール）","AI (rules)","AI（规则）","IA (reglas)"],["AI商社マン","AI Trade Agent","AI商社专员","Agente IA"]
+);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -22559,5 +22574,188 @@ if(typeof fwdRender==="function"){ const __fr193=fwdRender; fwdRender=function()
 /* 動的に差し込まれる入力欄（やりとりの返信欄・AI見積の相談欄・LINE返信など） */
 try{ new MutationObserver(()=>{ if(UX193.t) return; UX193.t=setTimeout(()=>{ UX193.t=0; ux193Apply(); },150); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
 setTimeout(()=>{ try{ ux193Apply(); }catch(e){} },600);
+
+/* ═══════════ v19.4：やり取り中のBuyer＝検索・交渉ステータス（7段階・AI自動判定）・AI商社マンからの参照 ═══════════
+   ① バイヤーDB・拠点に「📨 やり取り中のBuyer」カード（ID・国・業種・本文の検索、ステータス絞り込み、未読、最終メッセージ、開く）。Ctrl+K 検索にも並ぶ
+   ② AI商社マンが直接メッセージを見えていなかった不具合＝接続AIに渡す登録データ（ppContext）にスレッドが無く、即答エンジンにも該当の応答が無かった
+      → 登録データにスレッド一覧を追加し、「やり取り中のBuyer／やり取りページを開いて／ID指定」は貿易クラウド側で即答＋該当スレッドを開く
+   ③ 交渉ステータスを7段階に統一（コンタクト中（一方的なアプローチ）／商談中／サンプル出荷／見積提示／契約交渉／取引中／失注）。
+      やり取り（送受信・模擬返信）のたびにルールで判定し、接続AIがあればAI商社マンがやり取り全体から最終判定。手動変更は次のメッセージが来るまで優先 */
+const BM_ST=["コンタクト中（一方的なアプローチ）","商談中","サンプル出荷","見積提示","契約交渉","取引中","失注"];
+const BM_STC={"コンタクト中（一方的なアプローチ）":"lo","商談中":"on","サンプル出荷":"mid","見積提示":"mid","契約交渉":"or","取引中":"hi","失注":"no"};
+const BM_STS={"コンタクト中（一方的なアプローチ）":"コンタクト中","商談中":"商談中","サンプル出荷":"サンプル出荷","見積提示":"見積提示","契約交渉":"契約交渉","取引中":"取引中","失注":"失注"};
+function bmThreadsAll(){ try{ return Object.values(dmThreads()).filter(t=>t&&t.msgs&&t.msgs.length); }catch(e){ return []; } }
+function bmLastAt(th){ return (th.msgs||[]).reduce((a,m)=>Math.max(a,+m.at||0),0)||(+th.statusAt||0); }
+function bmTxt(m){ return String((m&&m.subj||"")+" "+(m&&m.body||"")); }
+/* ── ③ ルール判定（未接続でも即時・多言語キーワード） ── */
+function bmRule(th){
+  const ms=(th.msgs||[]); if(!ms.length) return {status:BM_ST[0],why:"メッセージがありません"};
+  const firstIn=ms.findIndex(m=>m.w==="by"); if(firstIn<0) return {status:BM_ST[0],why:"こちらからの送信のみ（返信待ち）"};
+  const inb=ms.filter(m=>m.w==="by"), after=ms.slice(firstIn), outAfter=after.filter(m=>m.w==="me");
+  const RX={
+    lost:/not interested|no longer interested|unfortunately,? we (cannot|can't|will not|won't|have decided)|decided not to|we (must|have to) decline|we will pass|no further|見送り|失注|お断り|断念|辞退|見合わせ|不再考虑|暂不考虑|不考虑|no estamos interesados|declinamos|no podemos continuar/i,
+    deal:/repeat order|re-?order|next order|second order|payment (has been |was )?(received|made|completed|sent|done)|remittance (sent|made)|paid the invoice|invoice (has been |is )?paid|入金|受注|出荷しました|has been shipped|shipment (has )?departed|delivered|再注文|追加注文|下单|已付款|付款完成|已发货|pago (realizado|enviado)|pedido confirmado|we (have )?placed (the |an )?order|confirm(ed)? (the |our )?(purchase )?order/i,
+    contract:/contract|agreement|terms and conditions|purchase order|\bPO\b|exclusiv|distributorship|distribution agreement|\bNDA\b|契約|合意書|発注書|独占|合同|contrato|acuerdo|condiciones/i,
+    quote:/quotation|quote|proforma|\bPI\b|price list|offer sheet|our (best |final )?(fob|cif|exw|ddp)? ?price (is|:|for)|USD ?\d|US\$ ?\d|見積|御見積|報價|报价|cotización|oferta de precio/i,
+    sample:/(sample|サンプル|样品|muestra)s?/i, ship:/(sent|shipped|dispatch|courier|dhl|fedex|\bems\b|tracking|発送|送付|出荷|寄出|已寄|enviad)/i, recv:/(received|got|arrived|届き|到着|收到|recibi)/i};
+  const T=bmTxt;
+  const last2=inb.slice(-2).map(T).join("\n");
+  if(RX.lost.test(last2)) return {status:BM_ST[6],why:"直近の返信に辞退・見送りの表現"};
+  let stage=1, why="相手からの返信あり";
+  if(outAfter.some(m=>RX.sample.test(T(m))&&RX.ship.test(T(m)))||inb.some(m=>RX.sample.test(T(m))&&RX.recv.test(T(m)))){ stage=2; why="サンプルの発送・到着のやり取り"; }
+  if(outAfter.some(m=>RX.quote.test(T(m)))){ stage=3; why="こちらから見積・価格条件を提示"; }
+  if(after.some(m=>RX.contract.test(T(m)))){ stage=4; why="契約・発注条件のやり取り"; }
+  if(after.some(m=>RX.deal.test(T(m)))){ stage=5; why="受注・入金・出荷・再注文のやり取り"; }
+  return {status:BM_ST[stage],why};
+}
+function bmStOf(th){
+  if(!th) return BM_ST[0];
+  /* 自動判定がスレッドの最新メッセージより古い（別端末で受信した等）なら、表示時にルールで静かに再計算。手動設定はそのまま */
+  const stale=!th.status||!BM_ST.includes(th.status)||(th.statusBy!=="手動"&&(+th.statusAt||0)<bmLastAt(th));
+  if(stale){ const r=bmRule(th); if(r.status!==th.status){ th.status=r.status; th.statusBy="AI（ルール）"; th.statusWhy=r.why; th.stLog=(th.stLog||[]).concat([{st:r.status,at:Date.now(),by:"AI（ルール）",why:r.why}]).slice(-12); } th.statusAt=Date.now(); }
+  return th.status;
+}
+function bmStChip(th,short){ const st=bmStOf(th); const t=short?(BM_STS[st]||st):st; return `<span class="p ${BM_STC[st]||"lo"}" title="${esc(st)}${th.statusBy?"（"+esc(th.statusBy)+(th.statusAt?"・"+esc(bmTime(th.statusAt)):"")+"）":""}${th.statusWhy?"：根拠 "+esc(th.statusWhy):""}">${esc(t)}</span>`; }
+function bmSetStatus(th,st,by,why,quiet){
+  if(!th||!BM_ST.includes(st)) return false; const prev=th.status||"";
+  th.statusAt=Date.now(); th.statusBy=by||"AI（ルール）"; th.statusWhy=String(why||"").slice(0,140);
+  if(prev===st){ try{ if(typeof saveTen==="function") saveTen(); }catch(e){} return false; }
+  th.status=st; th.stLog=(th.stLog||[]).concat([{st,at:Date.now(),by:th.statusBy,why:th.statusWhy}]).slice(-12);
+  if(!quiet){ try{ toast(`📊 ${th.cty}の${th.biz}（ID ${th.id}）：ステータス「${prev?BM_STS[prev]||prev:"未設定"}」→「${BM_STS[st]||st}」（${th.statusBy}）`); }catch(e){}
+    try{ const t=bmTen(); if(t){ t.dmNotifs=(t.dmNotifs||[]); t.dmNotifs.unshift({t:dmNow(),txt:`${th.cty}の${th.biz}（ID ${th.id}）の交渉ステータスを「${BM_STS[st]||st}」に更新しました（${th.statusBy}${th.statusWhy?"・"+th.statusWhy:""}）`,id:th.id,cty:th.cty,biz:th.biz}); t.dmNotifs=t.dmNotifs.slice(0,12); } }catch(e){} }
+  try{ if(typeof saveTen==="function") saveTen(); }catch(e){}
+  try{ if(typeof updateBell==="function") updateBell(); }catch(e){}
+  return true;
+}
+async function bmJudge(th,opts){
+  opts=opts||{}; if(!th) return "";
+  const lastAt=bmLastAt(th);
+  if(!opts.force&&th.statusBy==="手動"&&(+th.statusAt||0)>=lastAt) return th.status;   /* 手動設定は次のメッセージが来るまで優先 */
+  const rule=bmRule(th); let st=rule.status, why=rule.why, by="AI（ルール）";
+  const on=typeof ppReady==="function"&&ppReady();
+  if(on&&(th.msgs||[]).some(m=>m.w==="by")&&!opts.ruleOnly){
+    try{
+      const hist=(th.msgs||[]).slice(-10).map(m=>(m.w==="me"?"[自社→Buyer] ":"[Buyer→自社] ")+bmTxt(m).slice(0,600)).join("\n---\n");
+      const r=await llmAsk(`あなたはAI商社マン。日本のサプライヤー（自社）と海外バイヤーのやり取りを読み、現在の交渉ステータスを次の7つから1つだけ選んでください。
+${BM_ST.map((s,i)=>(i+1)+". "+s).join("\n")}
+判定の目安：返信が一度も無い→1／返信あり・情報交換中→2／サンプルを発送済み→3／こちらから正式な見積・価格条件を提示済み→4／契約書・発注条件・独占などを交渉中→5／受注・入金・出荷・再注文が発生→6／相手が辞退・見送り→7。
+返答はJSONのみ：{"status":"上の文言そのまま","why":"根拠（日本語・40字以内）"}
+ルール判定の参考：${st}（${why}）
+=== やり取り（古い順） ===
+${hist}`,300,{noWeb:1,timeout:45000,sys:"返答は指定JSONのみ。"});
+      let t=String(r.txt||"").replace(/```json|```/g,"").trim(); const a=t.indexOf("{"),b=t.lastIndexOf("}"); const j=JSON.parse(t.slice(a,b+1));
+      const cand=String(j.status||"").trim(); const hit=BM_ST.find(s=>s===cand)||BM_ST.find(s=>cand&&(s.startsWith(cand)||cand.startsWith(BM_STS[s])));
+      if(hit){ st=hit; why=String(j.why||why).slice(0,140); by="AI商社マン"; }
+    }catch(e){}
+  }
+  bmSetStatus(th,st,by,why,opts.quiet); return st;
+}
+async function bmJudgeAll(opts){ const L=bmThreadsAll(); for(const th of L){ try{ await bmJudge(th,opts); }catch(e){} } bmThreadsPaint(); try{ if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }catch(e){} return L.length; }
+/* 初期化：ステータス未設定のスレッドはルールで静かに判定（一覧に必ず表示できるように） */
+function bmInitStatus(){ try{ bmThreadsAll().forEach(th=>{ if(!th.status){ const r=bmRule(th); th.status=r.status; th.statusBy="AI（ルール）"; th.statusAt=Date.now(); th.statusWhy=r.why; } }); }catch(e){} }
+/* ── 送受信のたびに自動判定 ── */
+if(typeof bmPull==="function"){ const __pull194=bmPull; bmPull=async function(manual){ const before=Object.fromEntries(bmThreadsAll().map(t=>[t.id,(t.msgs||[]).length])); const r=await __pull194.apply(this,arguments);
+  try{ if(r&&r.n){ for(const th of bmThreadsAll()){ if((th.msgs||[]).length!==(before[th.id]||0)) await bmJudge(th,{}); } bmThreadsPaint(); if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); if(BM.openId&&document.querySelector("#dmThread")) bmRefresh(BM.openId); } }catch(e){} return r; }; }
+if(typeof bmSend==="function"){ const __send194=bmSend; bmSend=function(){ const th=__send194.apply(this,arguments); try{ if(th){ const r=bmRule(th); if(th.statusBy!=="手動"||(+th.statusAt||0)<bmLastAt(th)) bmSetStatus(th,r.status,"AI（ルール）",r.why,r.status===th.status); bmThreadsPaint(); } }catch(e){} return th; }; }
+if(typeof bmSimulate==="function"){ const __sim194=bmSimulate; bmSimulate=async function(id){ const r=await __sim194.apply(this,arguments); try{ const th=dmThreads()[id]; if(th){ await bmJudge(th,{}); bmThreadsPaint(); bmRefresh(id); if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); } }catch(e){} return r; }; }
+/* ── スレッドパネル：ステータス表示・手動変更・再判定 ── */
+if(typeof openDMThread==="function"){ const __odt194=openDMThread; openDMThread=function(id){ const r=__odt194.apply(this,arguments); try{ bmThreadStatusUI(id); }catch(e){ console.warn("bm st ui",e); } return r; }; }
+function bmThreadStatusUI(id){
+  const th=dmThreads()[id]; const bar=document.getElementById("bmBar"); if(!th||!bar||document.getElementById("bmStRow")) return;
+  if(!th.status){ const r=bmRule(th); th.status=r.status; th.statusBy="AI（ルール）"; th.statusAt=Date.now(); th.statusWhy=r.why; }
+  bar.insertAdjacentHTML("beforebegin",`<div class="rw" id="bmStRow" style="gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center">
+    <span class="lbl" style="margin:0">交渉ステータス</span>${bmStChip(th)}
+    <span class="nn" style="margin:0">${esc(th.statusBy||"")}${th.statusAt?"・"+esc(bmTime(th.statusAt)):""}${th.statusWhy?"／根拠：<b>"+esc(th.statusWhy)+"</b>":""}</span>
+    <select class="sel" id="bmStSel" style="min-height:30px;padding:3px 8px;font-size:12.5px;margin-left:auto" title="手動で変更（次のメッセージが来るまで優先）">${BM_ST.map(s=>`<option value="${esc(s)}" ${s===th.status?"selected":""}>${esc(s)}</option>`).join("")}</select>
+    <button class="btn g" id="bmStRe" title="やり取り全体からAI商社マンが判定し直します">🤖 再判定</button></div>`);
+  const sel=document.getElementById("bmStSel"); if(sel) sel.onchange=()=>{ bmSetStatus(th,sel.value,"手動","手動で変更",false); openDMThread(id); bmThreadsPaint(); try{ if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }catch(e){} };
+  const re=document.getElementById("bmStRe"); if(re) re.onclick=async()=>{ re.disabled=true; re.textContent="判定中…"; const prev=th.status; await bmJudge(th,{force:true}); if(th.status===prev) toast("ステータスは「"+(BM_STS[prev]||prev)+"」のままです（"+(th.statusWhy||"")+"）"); openDMThread(id); bmThreadsPaint(); try{ if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }catch(e){} };
+}
+/* ── ① バイヤーDB・拠点「📨 やり取り中のBuyer」カード ── */
+const BMF={q:"",st:""};
+function bmThreadRows(){
+  const q=String(BMF.q||"").trim().toLowerCase(); const L=bmThreadsAll().sort((a,b)=>bmLastAt(b)-bmLastAt(a));
+  return L.filter(th=>{ if(BMF.st&&bmStOf(th)!==BMF.st) return false; if(!q) return true;
+    const hay=[th.id,th.cty,th.biz,th.to||"",bmStOf(th)].concat((th.msgs||[]).map(bmTxt)).join("\n").toLowerCase(); return q.split(/\s+/).every(w=>hay.includes(w)); });
+}
+function bmThreadsCardHtml(){
+  const all=bmThreadsAll(); const cnt={}; all.forEach(th=>{ const s=bmStOf(th); cnt[s]=(cnt[s]||0)+1; }); const unread=all.reduce((a,t)=>a+(t.unread||0),0);
+  return `<div class="c" id="bmThreadsCard" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+      <div><h3>📨 やり取り中のBuyer <span class="p on">${all.length}件</span>${unread?` <span class="p no">📨 未読 ${unread}件</span>`:""}</h3>
+        <p class="nn">直接連絡でやり取りしているBuyerの一覧です。交渉ステータス（7段階）は<b>AI商社マンがやり取りから自動判定</b>し、手動でも変更できます。ID・国・業種・本文で検索できます。</p></div>
+      <div class="rw" style="gap:6px;flex-wrap:wrap">
+        <input class="sel" id="bmQ" value="${esc(BMF.q)}" placeholder="🔍 ID・国・業種・本文で検索" style="min-width:230px;min-height:34px;padding:5px 10px">
+        ${all.length?`<button class="btn g" id="bmReAll" title="全スレッドをやり取りから判定し直します（接続AIがあればAI商社マンが判定）">🤖 全件を再判定</button>`:""}</div></div>
+    <div class="rw" id="bmStF" style="gap:5px;margin-top:8px;flex-wrap:wrap">
+      <button class="q ${BMF.st?"":"on"}" data-bmst="">すべて（${all.length}）</button>
+      ${BM_ST.map(s=>`<button class="q ${BMF.st===s?"on":""}" data-bmst="${esc(s)}" title="${esc(s)}">${esc(BM_STS[s])}（${cnt[s]||0}）</button>`).join("")}</div>
+    <div class="tw" style="margin-top:8px;max-height:340px"><table><thead><tr><th>相手</th><th>交渉ステータス</th><th class="num">往復</th><th>最終メッセージ</th><th></th></tr></thead><tbody id="bmTb"></tbody></table></div>
+  </div>`;
+}
+function bmThreadsPaint(){
+  const tb=document.getElementById("bmTb"); if(!tb) return;
+  const rows=bmThreadRows(); const all=bmThreadsAll();
+  try{ const card=document.getElementById("bmThreadsCard"); if(card){ const cnt={}; all.forEach(th=>{ const s=bmStOf(th); cnt[s]=(cnt[s]||0)+1; }); card.querySelectorAll("[data-bmst]").forEach(b=>{ const s=b.dataset.bmst; b.textContent=(s?BM_STS[s]:"すべて")+"（"+(s?(cnt[s]||0):all.length)+"）"; b.classList.toggle("on",(BMF.st||"")===s); }); } }catch(e){}
+  tb.innerHTML=rows.length?rows.map(th=>{ const last=(th.msgs||[])[th.msgs.length-1]||{}; const ex=bmTxt(last).replace(/\s+/g," ").trim().slice(0,70);
+    return `<tr>
+      <td><b>${/^MY-/.test(String(th.id))?"🏷":"🔒"} ${esc(th.cty)}の${esc(th.biz)}</b>${th.unread?` <span class="p no">📨 返信${th.unread}件</span>`:""}${th.real?' <span class="p hi" title="実メールのスレッド">✉</span>':""}${(th.msgs||[]).some(m=>m.sim)?' <span class="p mid" title="体験用の模擬返信を含む">🧪</span>':""}<br>
+        <span class="nn">ID ${esc(th.id)}・${th.to?esc(th.to):"宛先 未開示"}</span></td>
+      <td>${bmStChip(th)}<br><span class="nn">${esc(th.statusBy||"")}${th.statusAt?" "+esc(bmTime(th.statusAt).slice(5)):""}</span></td>
+      <td class="num">${(th.msgs||[]).length}通<br><span class="nn">返信 ${(th.msgs||[]).filter(m=>m.w==="by").length}</span></td>
+      <td><span class="nn">${esc(last.t||"")} ${last.w==="by"?'<span class="p on">相手</span>':'<span class="p or">自社</span>'}</span><br><span class="nn" style="color:var(--ink)">${esc(ex)}${bmTxt(last).length>70?"…":""}</span></td>
+      <td style="white-space:nowrap"><button class="btn g" data-dmopen="${esc(th.id)}" style="padding:4px 10px">開く</button></td></tr>`; }).join("")
+    :`<tr><td colspan="5" style="text-align:center;color:var(--ink-3);padding:16px">${all.length?"条件に合うBuyerはいません":"まだやり取り中のBuyerはいません。下の「相手を探す」から<b>直接連絡</b>を送ると、ここに並びます。"}</td></tr>`;
+  tb.querySelectorAll("[data-dmopen]").forEach(b=>b.onclick=()=>openDMThread(b.dataset.dmopen));
+}
+function bmThreadsMount(){
+  if(typeof cur==="undefined"||cur!=="db"||document.getElementById("bmThreadsCard")) return;
+  const h=[...document.querySelectorAll("#well .c h3")].find(x=>/新しく追加されたバイヤー/.test(x.textContent)); const card=h&&h.closest(".c"); if(!card) return;
+  bmInitStatus(); card.insertAdjacentHTML("beforebegin",bmThreadsCardHtml()); bmThreadsPaint();
+  const q=document.getElementById("bmQ"); if(q){ let t=0; q.addEventListener("input",()=>{ clearTimeout(t); t=setTimeout(()=>{ BMF.q=q.value; bmThreadsPaint(); },120); }); }
+  document.querySelectorAll("#bmStF [data-bmst]").forEach(b=>b.onclick=()=>{ BMF.st=b.dataset.bmst||""; bmThreadsPaint(); });
+  const ra=document.getElementById("bmReAll"); if(ra) ra.onclick=async()=>{ ra.disabled=true; ra.textContent="判定中…"; const n=await bmJudgeAll({force:true}); ra.disabled=false; ra.textContent="🤖 全件を再判定"; toast(n+"件のステータスを判定し直しました"); };
+  try{ if(typeof ux2SecNav==="function") ux2SecNav(); if(typeof ux17SecUpdate==="function") ux17SecUpdate(); }catch(e){}
+}
+{ const __r194=render; render=function(){ const r=__r194.apply(this,arguments); try{ bmThreadsMount(); }catch(e){} return r; }; }
+/* 一覧（相手を探す）の「やり取り中」チップをステータス表示に */
+if(typeof rDB==="function"){ const __rdb194=rDB; rDB=function(){ const r=__rdb194.apply(this,arguments); try{ document.querySelectorAll("#dbb [data-dmopen]").forEach(ch=>{ const th=dmThreads()[ch.dataset.dmopen]; if(!th||!th.msgs||!th.msgs.length) return; ch.outerHTML=`<span data-dmopen="${esc(th.id)}" style="cursor:pointer" title="クリックでスレッドを開く">${bmStChip(th,true)}${th.unread?` <span class="p no">📨 ${th.unread}</span>`:""}</span> `; }); document.querySelectorAll("#dbb [data-dmopen]").forEach(x=>x.onclick=()=>openDMThread(x.dataset.dmopen)); bmThreadsPaint(); }catch(e){} return r; }; }
+/* ── Ctrl+K 検索：やり取り中のBuyer ── */
+if(typeof uxPalItems==="function"){ const __pal194=uxPalItems; uxPalItems=function(q){ const items=__pal194.apply(this,arguments); try{ const s=String(q||"").trim().toLowerCase(); const mine=bmThreadsAll().sort((a,b)=>bmLastAt(b)-bmLastAt(a)).map(th=>({g:"やり取り中のBuyer",t:`${th.cty}の${th.biz}（ID ${th.id}）`,sub:`${BM_STS[bmStOf(th)]||""}・往復${(th.msgs||[]).length}通${th.unread?"・未読"+th.unread:""}`,ic:"📨",run:()=>openDMThread(th.id)})); const add=s?mine.filter(i=>(i.t+" "+(i.sub||"")+" "+i.g).toLowerCase().includes(s)):mine; return items.concat(add); }catch(e){ return items; } }; }
+/* ── ② AI商社マンへの参照：登録データにスレッドを追加＋即答（一覧・ID指定・開く） ── */
+function bmNormId(s){ return String(s||"").replace(/\b([A-Za-z]{2})\s*[:：\-－]?\s*(\d{3,5})\b/g,(m,a,b)=>a.toUpperCase()+"-"+b); }
+function bmCtx(){
+  const L=bmThreadsAll().sort((a,b)=>bmLastAt(b)-bmLastAt(a)); if(!L.length) return "\n=== バイヤーとの直接メッセージ（やり取り中のBuyer） ===\n（まだありません。バイヤーDB・拠点の「直接連絡」から開始できる）";
+  return "\n=== バイヤーとの直接メッセージ（やり取り中のBuyer："+L.length+"件・交渉ステータスは7段階） ===\n"+L.map(th=>{ const last=(th.msgs||[])[th.msgs.length-1]||{}; return `・ID ${th.id}｜${th.cty}の${th.biz}｜ステータス：${bmStOf(th)}（${th.statusBy||"未判定"}${th.statusWhy?"・"+th.statusWhy:""}）｜往復 ${(th.msgs||[]).length}通（相手からの返信 ${(th.msgs||[]).filter(m=>m.w==="by").length}・未読 ${th.unread||0}）｜宛先 ${th.to||"未開示"}${th.real?"｜実メール":""}${(th.msgs||[]).some(m=>m.sim)?"｜体験用の模擬返信を含む":""}｜最終 ${last.t||""} ${last.w==="by"?"相手":"自社"}：「${bmTxt(last).replace(/\s+/g," ").trim().slice(0,80)}」`; }).join("\n")+"\n※「やり取りページを開いて」等の依頼は、貿易クラウド側でIDを指定して該当スレッドを開ける（AIが案内する場合はIDを示す）";
+}
+if(typeof ppContext==="function"){ const __pc194=ppContext; ppContext=function(){ const s=__pc194.apply(this,arguments); try{ return s+"\n"+bmCtx(); }catch(e){ return s; } }; }
+function bmAsk(q){
+  const s=bmNormId(String(q||"")); const L=bmThreadsAll();
+  const ids=[...new Set((s.match(/\b[A-Z]{2}-\d{3,5}\b/g)||[]))].filter(id=>dmThreads()[id]&&dmThreads()[id].msgs&&dmThreads()[id].msgs.length);
+  const topic=/やり取り中|やりとり中|直接(メッセージ|連絡)|スレッド|(バイヤー|buyer|相手|先方)との?(やり取り|やりとり|交渉|メッセージ)|やり取りページ|交渉(中|状況|ステータス)|コンタクト中|商談中の(バイヤー|buyer)|返信(が|は)?(来|届)/i.test(s);
+  const open=/開(い|け|く)|ひらい|表示して|見せて|open/i.test(s);
+  const missing=[...new Set((s.match(/\b[A-Z]{2}-\d{3,5}\b/g)||[]))].filter(id=>!ids.includes(id));
+  if(!ids.length&&!topic&&!missing.length) return null;
+  const stKey=BM_ST.find(st=>s.includes(BM_STS[st]))||"";
+  const missNote=missing.length?`<p class="nn" style="margin-bottom:6px">⚠ <b>ID ${missing.map(esc).join("・")}</b> の直接メッセージ（やり取り）は登録されていません。「バイヤーDB・拠点」の一覧でそのIDの「直接連絡」を送ると、やり取りが始まりここに並びます。</p>`:"";
+  const row=th=>{ const last=(th.msgs||[])[th.msgs.length-1]||{}; return `<tr><td><b>${esc(th.cty)}の${esc(th.biz)}</b><br><span class="nn">ID ${esc(th.id)}${th.unread?`・<span class="p no">📨 返信${th.unread}件</span>`:""}</span></td><td>${bmStChip(th)}</td><td class="num">${(th.msgs||[]).length}通</td><td><span class="nn">${esc(last.t||"")}</span><br>${esc(bmTxt(last).replace(/\s+/g," ").trim().slice(0,56))}</td><td><button class="q" data-bmopen="${esc(th.id)}">開く</button></td></tr>`; };
+  const tbl=rows=>`<div class="tw" style="margin-top:8px;max-height:300px"><table><thead><tr><th>相手</th><th>ステータス</th><th class="num">往復</th><th>最終</th><th></th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>`;
+  if(ids.length){ const ths=ids.map(id=>dmThreads()[id]);
+    if(ids.length===1&&open){ const th=ths[0]; setTimeout(()=>{ try{ openDMThread(th.id); }catch(e){} },400);
+      return {a:`<b>${esc(th.cty)}の${esc(th.biz)}（ID ${esc(th.id)}）</b>のやり取りページを開きます。交渉ステータスは ${bmStChip(th)}（${esc(th.statusBy||"")}${th.statusWhy?"・根拠："+esc(th.statusWhy):""}）、往復 ${(th.msgs||[]).length}通${th.unread?"・未読 "+th.unread+"件":""}です。`,c:"根拠：直接メッセージのスレッド（バイヤーDB・拠点 › やり取り中のBuyer）"}; }
+    return {a:`該当するやり取り中のBuyerは <b>${ids.length}件</b>です。「開く」でやり取りページに移動できます。`+tbl(ths),c:"根拠：直接メッセージのスレッド（バイヤーDB・拠点 › やり取り中のBuyer）"}; }
+  const rows=(stKey?L.filter(th=>bmStOf(th)===stKey):L).sort((a,b)=>bmLastAt(b)-bmLastAt(a));
+  if(!L.length) return {a:missNote+`現在、<b>やり取り中のBuyerはまだありません</b>。「バイヤーDB・拠点」の一覧で相手を選び<b>直接連絡</b>を送ると、返信を含めたやり取りがスレッドとして残り、ここから開けるようになります。`,c:"根拠：直接メッセージのスレッド 0件"};
+  if(!rows.length) return {a:`「${esc(BM_STS[stKey]||stKey)}」のBuyerは現在ありません（やり取り中は全体で ${L.length}件）。`+tbl(L.slice(0,10)),c:"根拠：直接メッセージのスレッド（交渉ステータス）"};
+  if(rows.length===1&&open){ const th=rows[0]; setTimeout(()=>{ try{ openDMThread(th.id); }catch(e){} },400); return {a:`やり取り中のBuyerは1件です。<b>${esc(th.cty)}の${esc(th.biz)}（ID ${esc(th.id)}）</b>のやり取りページを開きます。ステータス：${bmStChip(th)}`,c:"根拠：直接メッセージのスレッド"}; }
+  const cnt={}; L.forEach(th=>{ const k=bmStOf(th); cnt[k]=(cnt[k]||0)+1; });
+  return {a:missNote+`やり取り中のBuyerは <b>${L.length}件</b>${stKey?`（うち「${esc(BM_STS[stKey])}」${rows.length}件）`:""}です。内訳：${BM_ST.filter(k=>cnt[k]).map(k=>`${esc(BM_STS[k])} ${cnt[k]}`).join("／")||"—"}。${open?"複数あるため一覧から「開く」を押してください。":"「開く」でやり取りページに移動できます。"}`+tbl(rows.slice(0,15))+`<p class="nn" style="margin-top:6px">交渉ステータスはAI商社マンがやり取りから自動判定しています（各スレッドで手動変更・再判定が可能）。</p>`,c:"根拠：直接メッセージのスレッド（バイヤーDB・拠点 › やり取り中のBuyer）"};
+}
+if(typeof brain==="function"){ const __brain194=brain; brain=function(q,opts){ try{ const q0=(opts&&opts.raw)||q; const r=bmAsk(q0); if(r){ try{ if(typeof logU==="function") logU("ai","やり取り中のBuyer照会"); }catch(e){} return r; } }catch(e){} return __brain194.apply(this,arguments); }; }
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("[data-bmopen]"); if(b){ e.preventDefault(); try{ openDMThread(b.dataset.bmopen); }catch(x){} } });
+try{ if(typeof SUG!=="undefined"&&Array.isArray(SUG)&&!SUG.includes("やり取り中のBuyerは？")) SUG.push("やり取り中のBuyerは？"); }catch(e){}
+/* 端末間の結合：ステータスは新しい方を採る */
+if(typeof v16UnionInto==="function"){ const __u194=v16UnionInto; v16UnionInto=function(DST,SRC){ let c=__u194.apply(this,arguments); try{ (SRC||[]).forEach(st=>{ if(!st||!st.dmThreads) return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt||!dt.dmThreads) return; Object.entries(st.dmThreads).forEach(([id,sth])=>{ const dth=dt.dmThreads[id]; if(!dth||!sth||!sth.status) return; if((+sth.statusAt||0)>(+dth.statusAt||0)){ dth.status=sth.status; dth.statusAt=sth.statusAt; dth.statusBy=sth.statusBy; dth.statusWhy=sth.statusWhy; dth.stLog=sth.stLog||dth.stLog; c=true; } }); }); }catch(e){} return c; }; }
+setTimeout(()=>{ try{ bmInitStatus(); }catch(e){} },1200);
 
 </script>
