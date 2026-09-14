@@ -893,9 +893,10 @@ textarea,textarea.sel,.composer textarea.sel,.composer .sel{resize:vertical!impo
 .composer .uxgrip{margin:0;height:11px}
 @media (max-width:820px){ .uxgrip,.composer .uxgrip{height:18px;font-size:12px} }   /* タッチしやすい高さ */
 /* v19.6：AI思考中の全画面共通インジケーター（画面上部中央・クリックは妨げない・スマホも同じ） */
-#aiThink{position:fixed;left:50%;top:max(64px,12vh);transform:translateX(-50%) translateY(-8px);z-index:150;width:min(560px,94vw);pointer-events:none;opacity:0;transition:opacity .18s ease,transform .18s ease}
-#aiThink.on{opacity:1;transform:translateX(-50%) translateY(0)}
-#aiThink .atc{position:relative;pointer-events:auto;background:var(--surface);border:2px solid var(--or);border-radius:16px;box-shadow:0 18px 48px rgba(20,26,34,.30);padding:16px 44px 14px 18px;display:flex;gap:14px;align-items:flex-start}
+#aiThink{position:fixed;left:50%;top:max(64px,12vh);transform:translateX(-50%) translateY(-8px);z-index:150;width:min(560px,94vw);pointer-events:none;opacity:0;visibility:hidden;transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s}
+#aiThink.on{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);transition:opacity .18s ease,transform .18s ease,visibility 0s}
+/* v19.8：カード本体はクリックを奪わない（✕だけ操作可）。非表示中は visibility:hidden で完全に無効 */
+#aiThink .atc{position:relative;pointer-events:none;background:var(--surface);border:2px solid var(--or);border-radius:16px;box-shadow:0 18px 48px rgba(20,26,34,.30);padding:16px 44px 14px 18px;display:flex;gap:14px;align-items:flex-start}
 #aiThink .atav{width:50px;height:50px;border-radius:50%;background:var(--or);color:#fff;display:grid;place-items:center;font-size:24px;flex:none;position:relative}
 #aiThink .atav::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:3px solid var(--or);opacity:.6;animation:atPulse 1.4s ease-out infinite}
 @keyframes atPulse{0%{transform:scale(.85);opacity:.75}100%{transform:scale(1.4);opacity:0}}
@@ -906,7 +907,8 @@ textarea,textarea.sel,.composer textarea.sel,.composer .sel{resize:vertical!impo
 #aiThink .atbar{height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;margin-top:10px}
 #aiThink .atbar i{display:block;height:100%;width:38%;border-radius:3px;background:linear-gradient(90deg,var(--or),#ffc266);animation:atSlide 1.3s ease-in-out infinite}
 @keyframes atSlide{0%{transform:translateX(-120%)}100%{transform:translateX(280%)}}
-#aiThink .atx{position:absolute;top:8px;right:8px;border:0;background:none;color:var(--ink-3);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1}
+#aiThink:not(.on) .atx{pointer-events:none}
+#aiThink .atx{pointer-events:auto;position:absolute;top:8px;right:8px;border:0;background:none;color:var(--ink-3);font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1}
 #aiThink .atx:hover{background:var(--sunk);color:var(--ink)}
 #aiThink.done .atc{border-color:var(--good)} #aiThink.done .atav{background:var(--good)} #aiThink.done .atav::after{animation:none;opacity:0} #aiThink.done .atbar{display:none}
 @media (max-width:820px){ #aiThink{top:58px;width:min(560px,96vw)} #aiThink .atc{padding:13px 40px 12px 14px;gap:11px} #aiThink .atav{width:42px;height:42px;font-size:20px} #aiThink .att{font-size:16px} #aiThink .ats{font-size:13.5px} }
@@ -5534,7 +5536,7 @@ function deckSlides(lang,T){
     (DK_LOGO>=0?shpRect(60,432,170,52,"FFFFFF",{round:6000})+logoOr(70,438,150,40):"")+
     shpText(DK_LOGO>=0?248:60,438,300,52,[{t:D.coEn||D.co||"",sz:14,b:1,c:"FFFFFF"},
       {t:(T.origin||D.city||"")+"  ·  "+TODAYS,sz:9.5,c:MD,spcB:3}],{ea}));
-  /* 1b) 目次（Monroe構成：全体の流れを最初に示す） */
+  /* 1b) 目次（ベンチマーク資料の構成：全体の流れを最初に示す） */
   S.push(
     eyebrow(TOC_T)+
     tocItems.map(([tt],i)=>{
@@ -5970,7 +5972,7 @@ async function deckWizard(){
   const missForm=[
     need("itemEn")?F("wzItemEn","🔴 英文商品名（必須）","例：Organic Matcha Powder 100g",TEN.itemEn):"",
     need("coEn")?F("wzCoEn","🔴 英文社名（必須）","例：MIDORI SEICHA Co., Ltd.",TEN.coEn):"",
-    need("catch")?F("wzCatch","🔴 キャッチコピー・タグライン（必須）","例：はずむミライ、変わるわたし",RICH0.catch||RICH0.tagline||""):"",
+    need("catch")?F("wzCatch","🔴 キャッチコピー・タグライン（必須）","例：毎日のひと手間を、いちばん心地よく",RICH0.catch||RICH0.tagline||""):"",
     need("strengths")?`<p class="lbl" style="margin-top:9px">🔴 商品の強み（必須・1行に1件「見出し｜補足」・合計3件以上に）</p>
       <textarea class="sel" id="wzStr" style="width:100%;min-height:64px;box-sizing:border-box;resize:vertical"
         placeholder="例：\n10年連続シェアNo.1｜国内販売実績\n5つの無添加｜低刺激処方">${esc((TEN.strengths||[]).map(s=>(s[0]||"")+(s[1]?"｜"+s[1]:"")).join("\n"))}</textarea>`:"",
@@ -5996,23 +5998,23 @@ async function deckWizard(){
     ${typeof ppReady==="function"&&ppReady()?`<div class="rw" style="margin-top:8px"><button class="btn" id="dkwai">🤖 公式サイト・Webも確認して、全項目の案をAIが作成</button></div><div class="nn" id="dkwaist"></div>`:""}
     ${missForm}
     <div class="g2" style="gap:8px">
-      <div>${F("wzEst","設立","例：2021年10月",DM.est)}</div>
-      <div>${F("wzCeo","代表者","例：三谷 智恵",DM.ceo)}</div>
+      <div>${F("wzEst","設立","例：2015年4月",DM.est)}</div>
+      <div>${F("wzCeo","代表者","例：山田 太郎",DM.ceo)}</div>
     </div>
     ${F("wzWeb","ウェブサイト","例：https://example.co.jp",DM.web)}
-    ${F("wzAddr","所在地（英語推奨）","例：3F Ai Bldg., Ashiya, Hyogo, Japan",DM.addr)}
-    ${F("wzBiz","事業内容（1行）","例：サロン運営／技術セミナー／OEM化粧品販売",DM.biz)}
+    ${F("wzAddr","所在地（英語推奨）","例：5F Sakura Bldg., 1-2-3 Honmachi, Chuo-ku, Osaka, Japan",DM.addr)}
+    ${F("wzBiz","事業内容（1行）","例：健康食品の製造・販売／OEM受託／海外卸",DM.biz)}
     <p class="lbl" style="margin-top:9px">ミッション・ブランドコンセプト（表紙の次に大きく載ります）</p>
     <textarea class="sel" id="wzMission" style="width:100%;min-height:48px;box-sizing:border-box;resize:vertical"
-      placeholder="例：NY仕込みの毛穴ケア技術と、日本の肌にやさしい処方の架け橋になる">${esc(DM.mission||"")}</textarea>
+      placeholder="例：日本の伝統製法を、世界の食卓へ">${esc(DM.mission||"")}</textarea>
     <p class="lbl" style="margin-top:9px">使い方（1行に1ステップ・最大4行）</p>
     <textarea class="sel" id="wzUsage" style="width:100%;min-height:72px;box-sizing:border-box;resize:vertical"
-      placeholder="例：\nコットンにたっぷり含ませて貼る\nスチームを3分あてる\nやわらかくなった角栓をやさしく除去\nぬるま湯で洗い流す">${esc((DM.usage||[]).join("\n"))}</textarea>
+      placeholder="例：\n適量を手に取る\n気になる部分になじませる\n1分ほどおく\nぬるま湯で洗い流す">${esc((DM.usage||[]).join("\n"))}</textarea>
     <div class="g2" style="gap:8px">
-      <div>${F("wzPerson","営業担当者名（英文推奨）","例：Ivan Tam",DM.person)}</div>
+      <div>${F("wzPerson","営業担当者名（英文推奨）","例：Taro Yamada",DM.person)}</div>
       <div>${F("wzMail","メール","例：sales@example.co.jp",DM.mail)}</div>
     </div>
-    ${F("wzTel","電話","例：+81 70-0000-0000",DM.tel)}
+    ${F("wzTel","電話","例：+81 3-1234-5678",DM.tel)}
     <div class="rw" style="position:sticky;bottom:-15px;margin:12px -4px -4px;padding:10px 4px;background:var(--surface);border-top:1px solid var(--line);z-index:6">
       <button class="btn" type="button" id="wzSave">保存して資料に反映</button>
       <button class="btn g" type="button" id="wzLater">あとで</button></div>`);
@@ -6069,7 +6071,7 @@ async function deckWizard(){
       const goodStr=(D.strengths||[]).filter(x=>!(typeof valSick==="function"&&valSick(x[0]))).slice(0,3);
       const r=await llmAsk(
 `会社「${D.co}」・商品「${D.item}」（${D.cat}${D.itemEn?"／"+D.itemEn:""}）の営業資料に載せる会社情報・商品情報を、JSONのみで返してください：
-{"est":"設立（例：2021年10月）","ceo":"代表者名","web":"公式サイトURL","addr":"所在地（英語推奨）",
+{"est":"設立（例：2015年4月）","ceo":"代表者名","web":"公式サイトURL","addr":"所在地（英語推奨）",
 "biz":"事業内容1行","mission":"ブランドの想い・コンセプト1文（40字以内。サイトの文言があれば要約）",
 "usage":["使い方または活用シーン（各25字以内・最大4つ）"]}
 規則：
@@ -21434,7 +21436,22 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["翻訳しています","Translating","翻译中","Traduciendo"],["返信案とアドバイスを作成しています","Drafting a reply and advice","正在撰写回复草稿和建议","Redactando respuesta y consejos"],["交渉ステータスを判定しています","Judging the negotiation status","正在判定谈判状态","Evaluando el estado de negociación"],
 ["今日やることを調査しています","Researching today's tasks","正在调查今日待办","Investigando las tareas de hoy"],["商品の強みを提案しています","Proposing product strengths","正在提出产品优势","Proponiendo fortalezas del producto"],["営業資料を作成しています","Creating the sales deck","正在制作营销资料","Creando el material de ventas"],
 ["文面を推敲しています","Polishing the text","正在润色文本","Puliendo el texto"],["添付資料を読んで回答を考えています","Reading the attachment to answer","正在阅读附件以作答","Leyendo el adjunto para responder"],["この表示を隠す","Hide this","隐藏此提示","Ocultar"],
-["⏳ AI商社マンが登録データから語り口（コンセプト・課題・独自性・ターゲット）を要約しています…","⏳ The AI trader is summarising the narrative (concept, problem, uniqueness, target) from your registered data…","⏳ AI商社人员正在根据登记数据整理叙述（理念・课题・独特性・目标）…","⏳ El comercial IA está resumiendo el relato (concepto, problema, singularidad, objetivo) a partir de los datos registrados…"]);
+["⏳ AI商社マンが登録データから語り口（コンセプト・課題・独自性・ターゲット）を要約しています…","⏳ The AI trader is summarising the narrative (concept, problem, uniqueness, target) from your registered data…","⏳ AI商社人员正在根据登记数据整理叙述（理念・课题・独特性・目标）…","⏳ El comercial IA está resumiendo el relato (concepto, problema, singularidad, objetivo) a partir de los datos registrados…"],
+["🎯 商品名に一致する画像（商品ページ・alt 由来）","🎯 Images matching the product name (from product pages / alt text)","🎯 与产品名一致的图片（来自产品页・alt）","🎯 Imágenes que coinciden con el producto (páginas de producto / alt)"],
+["🏷 ロゴらしき画像（SVGはPNGに変換して取り込みます）","🏷 Logo candidates (SVG is converted to PNG)","🏷 疑似Logo的图片（SVG将转换为PNG）","🏷 Candidatos a logotipo (SVG se convierte a PNG)"],
+["公式サイト・Web検索の証拠から会社情報を整理しています","Compiling company facts from the official site and web search evidence","正在根据官网与网络检索的证据整理公司信息","Organizando la información de la empresa a partir del sitio oficial y la búsqueda web"],
+["会社リサーチの結果（根拠つき）","Company research results (with sources)","公司调研结果（附出处）","Resultados de la investigación (con fuentes)"],
+["資本金","Capital","注册资本","Capital"],
+["従業員数","Employees","员工人数","Empleados"],
+["法人番号","Corporate number","法人编号","Número de empresa"],
+["製造販売元","Manufacturer / MAH","生产销售商","Fabricante"],
+["区分・認証","Category / certifications","类别・认证","Categoría / certificaciones"],
+["主要製品","Main products","主要产品","Productos principales"],
+["所在地（英語）","Address (English)","地址（英文）","Dirección (inglés)"],
+["出典","Source","出处","Fuente"],
+["補足","Notes","补充","Notas"],
+["証拠として読んだページ","Pages read as evidence","作为证据读取的页面","Páginas leídas como evidencia"],
+["この結果はAI商社マンの参照データにも保存されました（会社情報の質問に根拠つきで答えます）","Saved to the AI trader's reference data as well (company questions are answered with sources)","该结果也已保存到AI商社人员的参考数据中（可附出处回答公司信息问题）","Guardado también en los datos de referencia del comercial IA (responde con fuentes)"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -22901,7 +22918,7 @@ if(typeof llmAsk==="function"){ const __la196=llmAsk;
     return p.then(r=>{ aiThinkEnd(id,true); return r; },e=>{ aiThinkEnd(id,false); throw e; });
   }; }
 
-/* ═══════════ v19.7：外国語 営業資料のデザイン刷新（お客様提供のベンチマーク「Monroe Beauty 英語資料」水準） ═══════════
+/* ═══════════ v19.7：外国語 営業資料のデザイン刷新（お客様提供のベンチマーク資料＝英語営業資料9枚 の水準） ═══════════
    ベンチマークの特徴：大きなタイポグラフィ（見出し 45〜60pt相当・本文 14〜18pt相当）、ブランド色の淡いグラデーション背景と柔らかい装飾、
    写真を主役にした左右分割、円番号つき目次、引用（ブランドコンセプト）、Problem／Uniqueness、使い方ステップ、ターゲット（B2C／B2B）、
    連絡先カード。ここでは既存の生成パイプライン（buildPptx・画像・ブランド色・翻訳）はそのまま、スライド構成 deckSlides を差し替える。
@@ -23203,5 +23220,276 @@ function deckSlides2(lang,T){
   return S;
 }
 if(typeof deckSlides==="function"){ const __ds1=deckSlides; deckSlides=function(lang,T){ try{ return deckSlides2(lang,T); }catch(e){ console.warn("deck2 fallback",e); return __ds1.apply(this,arguments); } }; }
+
+/* ═══════════ v19.8：会社リサーチ（公式サイト全ページ＋Web検索の証拠から）／公式サイト画像取得の強化／公開URLの回り込み対策 ═══════════
+   ・公開URL（GitHub Pages）の Service Worker が、外部サイトへの取得に失敗した際にアプリ本体（./）を 200 で返していた
+     → 「全項目の案をAIが作成」「公式サイトから画像を取得」が自分自身のHTMLを読んでいた。取得結果を検証して自サイトなら不採用（sw.js も同一オリジン限定に修正）
+   ・「全項目の案をAIが作成」＝ 公式サイトのトップ＋会社概要・特定商取引法・About等の関連ページ＋商品ページ、Web検索（DuckDuckGo）の結果と上位ページを証拠として集め、
+     接続AIに「証拠に無い事実は空」の規則でJSON化。各値に根拠URLを付けて表示し、TEN.deckMeta.facts に保存（AI商社マンの参照データにも載る）
+   ・「公式サイトから画像を取得」＝ トップだけでなく商品ページも巡回、HTML形式で alt・srcset も読む、SVGロゴはPNG化、商品名に一致する画像を優先 */
+const RS={};
+function rsHost(u){ try{ return new URL(u).host.replace(/^www\./,"").toLowerCase(); }catch(e){ return ""; } }
+function rsAbs(u,base){ try{ return new URL(u,base).href.split("#")[0]; }catch(e){ return ""; } }
+/* 自分自身（貿易クラウドのHTML）を読んでしまった応答の検知 */
+function rsLooksLikeApp(txt){ return /<title>貿易クラウド|id="lg-code"|bc20_ses_v1/.test(String(txt||"").slice(0,8000)); }
+/* 中継（r.jina.ai・CORS可）で取得：fmt "md"（本文のMarkdown）｜"html"（生HTML＝alt・srcsetを読む用）。タイムアウト付き */
+async function rsRelay(url,fmt,ms){
+  const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),ms||15000);
+  try{
+    const h={}; if(fmt==="html") h["X-Return-Format"]="html";
+    const r=await fetch("https://r.jina.ai/"+url,{headers:h,signal:ctl.signal,cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const txt=await r.text();
+    if(rsLooksLikeApp(txt)) throw new Error("self-html");
+    return txt;
+  }finally{ clearTimeout(t); }
+}
+/* fetchPageText：直接取得の応答を検証（自サイトのHTML・別オリジンへの回り込みは不採用）→ 中継で取得 */
+if(typeof fetchPageText==="function"){ fetchPageText=async function(url){
+  url=String(url||"").trim(); if(!url) throw new Error("URLが空です"); if(!/^https?:\/\//.test(url)) url="https://"+url;
+  try{ const r=await fetch(url,{mode:"cors",cache:"no-store"});
+    if(r.ok){ const raw=await r.text(); if(rsHost(r.url||url)===rsHost(url)&&!rsLooksLikeApp(raw)) return {raw,via:"direct",url}; } }catch(e){}
+  const raw=await rsRelay(url,"md",22000);
+  return {raw,via:"reader",url};
+}; }
+/* Markdown／HTML → 本文テキスト */
+function rsMdText(md){
+  let s=String(md||"");
+  s=s.replace(/^(Title|URL Source|Published Time|Markdown Content):.*$/gm," ");
+  s=s.replace(/!\[[^\]]*\]\([^)]*\)/g," ");
+  s=s.replace(/\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g,"$1");
+  s=s.replace(/<[^>]+>/g," ").replace(/[ \t]+/g," ").replace(/\n\s*\n\s*\n+/g,"\n\n");
+  return s.trim();
+}
+function rsHtmlText(raw){
+  return String(raw||"").replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<br\s*\/?>|<\/(p|div|li|tr|h\d|dt|dd|th|td)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/[ \t]+/g," ").replace(/\n\s*\n\s*\n+/g,"\n\n").trim();
+}
+function rsPageText(pg){ return /<(a|div|p|html|body)\b/i.test(String(pg.raw||"").slice(0,4000))?rsHtmlText(pg.raw):rsMdText(pg.raw); }
+/* ページ内リンク（HTML／Markdown両対応）：[{u,t}] */
+function rsLinks(pg){
+  const raw=String(pg.raw||""), base=pg.url, out=[], seen=new Set();
+  const push=(u,t)=>{ u=rsAbs(u,base); if(!u||seen.has(u)||!/^https?:/.test(u)) return; if(/\.(jpe?g|png|webp|gif|svg|pdf|zip|css|js|xml|rss)(\?|$)/i.test(u)) return; if(/^(mailto|tel|javascript):/i.test(u)) return; seen.add(u); out.push({u,t:String(t||"").replace(/\s+/g," ").trim().slice(0,80)}); };
+  if(/<a\s/i.test(raw)){
+    (raw.match(/<a\s[^>]*href=["'][^"']+["'][^>]*>[\s\S]*?<\/a>/gi)||[]).forEach(m=>{ const h=(m.match(/href=["']([^"']+)["']/i)||[])[1]; const t=m.replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi,"$1").replace(/<[^>]+>/g," "); push(h,t); });
+  }else{
+    let m; const re=/\[([^\]]*)\]\((https?:[^)\s]+)\)/g;
+    while((m=re.exec(raw))) push(m[2],m[1].replace(/^Image \d+:?\s*/,""));
+    const re2=/\]\((https?:[^)\s]+)\)/g; while((m=re2.exec(raw))) push(m[1],"");
+  }
+  return out;
+}
+const RS_CO_URL=/(company|corporate|about|profile|outline|overview|gaiyo|kaisha|kigyo|corp\b|info\b|legal|tokutei|tokusho|law|sct|scta|contact|access|greeting|message|history)/i;
+const RS_CO_TXT=/会社概要|会社案内|会社情報|企業情報|企業概要|企業案内|運営会社|私たち|わたしたち|About|Company|Corporate|特定商取引|お問い合わせ|アクセス|沿革|代表挨拶|ごあいさつ|ご挨拶|事業内容/i;
+function rsPickCompanyPages(links,base,max){
+  const host=rsHost(base);
+  const sc=l=>{ if(rsHost(l.u)!==host) return -1; const p=l.u.replace(/^https?:\/\/[^\/]+/,""); if(!p||p==="/"||/^\/index\.\w+$/.test(p)) return -1;
+    let s=0; if(RS_CO_URL.test(p)) s+=2; if(RS_CO_TXT.test(l.t)) s+=2; if(/会社概要|company|特定商取引|legal|tokutei|about/i.test(p+" "+l.t)) s+=2;
+    if(/\/(news|blog|column|faq|cart|login|mypage|tag|category|feed|wp-|search|recruit|privacy)/i.test(p)||/\?/.test(p)) s-=3; if(p.split("/").filter(Boolean).length>3) s-=1; return s; };
+  return links.map(l=>({l,s:sc(l)})).filter(x=>x.s>=2).sort((a,b)=>b.s-a.s).map(x=>x.l)
+    .filter((l,i,a)=>a.findIndex(y=>y.u.replace(/\/$/,"")===l.u.replace(/\/$/,""))===i).slice(0,max||5);
+}
+function rsItemTokens(){
+  const t=new Set(); const R=(typeof TEN!=="undefined"&&TEN&&TEN.deckRich)||{};
+  const add=s=>String(s||"").toLowerCase().split(/[\s　・／/（）()「」【】\[\],、。:：\-–—_|｜]+/).map(x=>x.trim()).filter(x=>x.length>=2&&!/^(the|and|for|with|of|co|ltd|inc|kk|ml|mg|\d+(ml|g|kg|mm|cm|本|個|枚|粒)?)$/.test(x)).forEach(x=>t.add(x));
+  add(D&&D.item); add(D&&D.itemEn); (Array.isArray(R.lineup)?R.lineup:[]).forEach(x=>add(x&&x.name));
+  return [...t];
+}
+function rsPickProductPages(links,base,max){
+  const host=rsHost(base), toks=rsItemTokens();
+  const sc=l=>{ if(rsHost(l.u)!==host) return -1; const p=l.u.replace(/^https?:\/\/[^\/]+/,"").toLowerCase(); if(!p||p==="/") return -1;
+    let s=0; const hay=(decodeURIComponent(p)+" "+l.t).toLowerCase(); toks.forEach(k=>{ if(hay.includes(k)) s+=3; });
+    if(/\/(product|products|item|items|goods|lineup|brand|brands|shop|catalog|collections?)\b/i.test(p)) s+=1;
+    if(/\/(news|blog|column|faq|cart|login|mypage|tag|category|feed|wp-|company|about|legal|contact|policy|privacy|recruit|search|customer)/i.test(p)) s-=4; if(/\?/.test(p)) s-=1; return s; };
+  return links.map(l=>({l,s:sc(l)})).filter(x=>x.s>=1).sort((a,b)=>b.s-a.s).map(x=>x.l)
+    .filter((l,i,a)=>a.findIndex(y=>y.u.replace(/\/$/,"")===l.u.replace(/\/$/,""))===i).slice(0,max||6);
+}
+async function rsFetchMany(urls,fmt,ms,limit){
+  const list=urls.slice(0,limit||6); const res=await Promise.allSettled(list.map(u=>rsRelay(u,fmt,ms||14000))); const out=[];
+  res.forEach((r,i)=>{ if(r.status==="fulfilled") out.push({url:list[i],raw:r.value}); });
+  return out;
+}
+/* Web検索（DuckDuckGo HTML版を中継経由で・APIキー不要）：[{t,u,s}] */
+async function rsSearch(q,max){
+  const md=await rsRelay("https://html.duckduckgo.com/html/?q="+encodeURIComponent(q),"md",16000);
+  const out=[]; const re=/##\s*\[([^\]]+)\]\(https:\/\/duckduckgo\.com\/l\/\?uddg=([^&)]+)[^)]*\)([\s\S]*?)(?=\n##\s*\[|$)/g; let m;
+  while((m=re.exec(md))&&out.length<(max||8)){
+    let u=""; try{ u=decodeURIComponent(m[2]); }catch(e){ u=m[2]; } if(!/^https?:/.test(u)) continue;
+    const body=m[3]||""; const sn=(body.match(/\[([^\]]{25,400})\]\(/g)||[]).map(x=>x.slice(1,-2)).find(x=>!/^!?\[?Image/.test(x))||"";
+    out.push({t:m[1].replace(/\*\*/g,"").trim().slice(0,120),u,s:sn.replace(/\*\*/g,"").trim().slice(0,300)});
+  }
+  return out;
+}
+function rsEra(s){ return String(s||"").replace(/(明治|大正|昭和|平成|令和)\s*(元|\d{1,2})\s*年/g,(m,e,y)=>{ const b={明治:1867,大正:1911,昭和:1925,平成:1988,令和:2018}[e]; const n=y==="元"?1:parseInt(y,10); return (b+n)+"年"; }); }
+const RS_KEYS=[["co","会社名"],["coEn","英文社名"],["ceo","代表者"],["est","設立"],["capital","資本金"],["employees","従業員数"],["corpNo","法人番号"],["addr","所在地"],["addrEn","所在地（英語）"],["tel","電話"],["mail","メール"],["web","公式サイト"],["biz","事業内容"],["brands","ブランド"],["products","主要製品"],["maker","製造販売元"],["reg","区分・認証"],["mission","ミッション"],["catch","キャッチコピー"],["itemEn","英文商品名"]];
+/* ── 会社リサーチ本体 ── */
+async function dkResearch(siteUrl,say){
+  say=say||(()=>{}); const ev={pages:[],hits:[],ext:[],diag:[]}; const co=String(D.co||"").trim(), item=String(D.item||"").trim();
+  const host=siteUrl?rsHost(siteUrl):"";
+  /* ① 公式サイト：トップ → 関連ページ（会社概要・特定商取引法・About・商品） */
+  let home=null;
+  if(siteUrl){
+    say('<span class="spin"></span> 公式サイトを読み込んでいます…');
+    try{ home=await fetchPageText(siteUrl); ev.pages.push({url:home.url,title:"トップページ",text:rsPageText(home).slice(0,5000),kind:"site"}); }
+    catch(e){ ev.diag.push("公式サイトを取得できませんでした（"+String(e.message).slice(0,40)+"）"); }
+  }
+  if(home){
+    /* リンク発見は生HTMLで（本文形式だとフッターの「会社概要」「特定商取引法」リンクが落ちることがある） */
+    let linkSrc=home; if(home.via==="reader"){ try{ linkSrc={raw:await rsRelay(home.url,"html",16000),url:home.url}; }catch(e){} }
+    const links=rsLinks(linkSrc); const cps=rsPickCompanyPages(links,home.url,5); const pps=rsPickProductPages(links,home.url,2);
+    say(`<span class="spin"></span> 公式サイトの関連ページを読んでいます…（会社概要・特定商取引法など ${cps.length}件、商品ページ ${pps.length}件）`);
+    const all=[...cps,...pps]; const got=await rsFetchMany(all.map(l=>l.u),"md",14000,7);
+    got.forEach(g=>{ const l=all.find(x=>x.u===g.url); ev.pages.push({url:g.url,title:(l&&l.t)||g.url.replace(/^https?:\/\/[^\/]+/,""),text:rsMdText(g.raw).slice(0,4500),kind:cps.some(x=>x.u===g.url)?"site":"product"}); });
+    if(all.length&&!got.length) ev.diag.push("関連ページの取得に失敗しました（中継の混雑の可能性）");
+  }
+  /* ② Web検索（会社概要・製造元・法人情報） */
+  say('<span class="spin"></span> Webを検索しています…（会社概要・製造元・法人情報）');
+  const qs=[co?`${co} 会社概要 代表 設立 資本金`:"", (item&&co)?`${item} ${co} 製造販売元 メーカー`:(item?`${item} 製造販売元 メーカー`:""), co?`${co} 法人番号 所在地`:""].filter(Boolean);
+  const once=async q=>{ try{ return await rsSearch(q,6); }catch(e){ await new Promise(r=>setTimeout(r,1500)); return rsSearch(q,6); } };   /* 失敗時は1回だけ再試行（中継の混雑対策） */
+  const sr=await Promise.allSettled(qs.map(once));
+  sr.forEach((r,i)=>{ if(r.status==="fulfilled"&&r.value.length) ev.hits.push({q:qs[i],items:r.value}); else if(r.status==="rejected") ev.diag.push("Web検索に失敗："+qs[i].slice(0,30)); });
+  /* ②b 検索で見つかった公式サイト内のページ（会社概要など）で未取得のものを追加取得 */
+  if(host){ const have=new Set(ev.pages.map(p=>p.url.replace(/\/$/,""))); const more=[];
+    ev.hits.forEach(h=>h.items.forEach(it=>{ const u=it.u.replace(/\/$/,""); if(rsHost(it.u)===host&&!have.has(u)&&!more.includes(it.u)&&(RS_CO_URL.test(u)||RS_CO_TXT.test(it.t))) more.push(it.u); }));
+    if(more.length){ const got=await rsFetchMany(more,"md",14000,2); got.forEach(g=>ev.pages.push({url:g.url,title:g.url.replace(/^https?:\/\/[^\/]+/,""),text:rsMdText(g.raw).slice(0,4500),kind:"site"})); } }
+  /* ③ 検索上位の関連ページ（公式サイト以外・SNS/ECは除く。官公庁・PMDA・医薬品DB・法人DBを優先） */
+  const EXC=/amazon|rakuten|yahoo|instagram|facebook|twitter|x\.com|youtube|tiktok|wikipedia|indeed|mynavi|rikunabi|ebay|mercari|aliexpress|linkedin|pinterest|note\.com|ameblo|duckduckgo|bing\.com|google\./i;
+  const extU=[]; ev.hits.forEach(h=>h.items.forEach(it=>{ const hh=rsHost(it.u); if(!hh||hh===host||hh.endsWith("."+host)||EXC.test(hh)||extU.includes(it.u)) return; if(/houjin-bangou\.nta\.go\.jp\/?$/.test(it.u.replace(/^https?:\/\/(www\.)?/,""))) return; extU.push(it.u); }));
+  const pri=u=>/pmda|kegg|data-index|jpma|nta\.go\.jp|houjin|gbiz|\.go\.jp|\.lg\.jp|\.or\.jp/.test(u)?0:1; extU.sort((a,b)=>pri(a)-pri(b));
+  if(extU.length){ say('<span class="spin"></span> 検索結果の上位ページを読んでいます…'); const got=await rsFetchMany(extU,"md",14000,3); got.forEach(g=>ev.ext.push({url:g.url,text:rsMdText(g.raw).slice(0,3500)})); }
+  /* ④ 接続AIが証拠だけからJSON化（創作禁止・根拠URL必須） */
+  let k=0; const evTxt=ev.pages.map(p=>`【${++k}】公式サイト${p.kind==="product"?"（商品ページ）":""}：${p.title}｜${p.url}\n${p.text}`).join("\n\n")
+    +ev.hits.map(h=>`\n\n【${++k}】Web検索「${h.q}」の結果\n`+h.items.map(it=>`- ${it.t} — ${it.s}（${it.u}）`).join("\n")).join("")
+    +ev.ext.map(p=>`\n\n【${++k}】関連ページ：${p.url}\n${p.text}`).join("");
+  const nHits=ev.hits.reduce((a,h)=>a+h.items.length,0);
+  if(!evTxt.trim()) throw new Error("公式サイトもWeb検索も読み取れませんでした（通信が遮断されている可能性）");
+  say(`<span class="spin"></span> 証拠（公式サイト ${ev.pages.length}ページ・Web検索 ${nHits}件・関連ページ ${ev.ext.length}件）から、AIが会社情報を整理しています…（10〜40秒）`);
+  const r=await llmAsk(
+`会社「${co||"（社名未登録）"}」・商品「${item||"（商品名未登録）"}」${D.itemEn?"（"+D.itemEn+"）":""}について、下の証拠だけを根拠に、海外バイヤー向け営業資料に載せる会社情報をJSONのみで返してください（コードフェンス禁止）：
+{"co":"正式社名（登記名）","coEn":"英文社名（サイトに記載があればそれ。無ければ英訳案＋末尾に（案））","ceo":"代表者名（役職つき・例：代表取締役 ○○ ○○）","est":"設立（西暦。和暦は西暦に換算）","capital":"資本金","employees":"従業員数","corpNo":"法人番号（13桁・証拠にある場合のみ）","addr":"所在地（郵便番号つき・日本語）","addrEn":"所在地の英語表記（案）","tel":"電話番号","mail":"代表・問い合わせメール","web":"公式サイトURL","biz":"事業内容（1行・40字以内）","brands":["ブランド名"],"products":["主要製品（最大5）"],"maker":"製造販売元・製造者が販売会社と異なる場合（社名＋所在地）","reg":"医薬品区分・許可番号・認証など（証拠にあれば）","mission":"ブランドの想い・コンセプト1文（40字以内・サイトの文言を活かす）","usage":["使い方・活用シーン（各25字以内・最大4）"],"itemEn":"英文商品名（サイトに英語表記があればそれ。無ければ案＋（案））","catch":"キャッチコピー（サイトの文言があればそのまま）","notes":["補足・注意点（各60字以内・最大4。例：販売会社と製造販売元の役割分担）"],"src":{"ceo":"根拠URL","est":"根拠URL"}}
+規則：①証拠に無い事実は空文字／空配列（推測・創作・一般知識からの補完は禁止＝誤った会社情報は信頼を損なう）。②値を入れた項目には必ず src に根拠URL（証拠の見出しにあるURLをそのまま）を付ける。③英訳案は（案）と明記。④数値・固有名詞は証拠の表記どおり。⑤会社名と商品名が別の事業者（製造販売元など）に属する場合は notes と maker に書く。⑥同名の別会社（所在地や事業内容が公式サイトと一致しない法人番号ページ・企業DB）は採用しない（法人番号は所在地が一致する場合のみ）。
+=== 証拠 ===
+${evTxt.slice(0,20000)}`,2200,{forceWeb:1,timeout:150000,task:"research"});
+  const txt=String(r.txt||"").replace(/```json|```/g,"").trim(); const a=txt.indexOf("{"), b=txt.lastIndexOf("}"); if(a<0||b<=a) throw new Error("AIの応答が読み取れませんでした");
+  const j=JSON.parse(txt.slice(a,b+1));
+  const S=(v,n)=>String(v==null?"":v).replace(/\s+/g," ").trim().slice(0,n||120);
+  const A=(v,n,m)=>(Array.isArray(v)?v:[]).map(x=>S(x,m||80)).filter(Boolean).slice(0,n||5);
+  const f={co:S(j.co),coEn:S(j.coEn),ceo:S(j.ceo),est:rsEra(S(j.est,40)),capital:S(j.capital,40),employees:S(j.employees,40),corpNo:S(j.corpNo,20).replace(/[^\d]/g,"").slice(0,13),
+    addr:S(j.addr,160),addrEn:S(j.addrEn,160),tel:S(j.tel,40),mail:S(j.mail,80),web:S(j.web||siteUrl,160),biz:S(j.biz,80),brands:A(j.brands,5,40),products:A(j.products,5,60),
+    maker:S(j.maker,160),reg:S(j.reg,120),mission:S(j.mission,80),usage:A(j.usage,4,40),itemEn:S(j.itemEn,80),catch:S(j.catch,60),notes:A(j.notes,4,120),src:{},at:(typeof TODAYS!=="undefined"?TODAYS:new Date().toISOString().slice(0,10))};
+  if(f.corpNo&&f.corpNo.length!==13) f.corpNo="";
+  /* 根拠URLの検証：証拠として読んだページ・検索結果・AIエンジンの引用に含まれるホストのみ「確認済」 */
+  const known=new Set([...ev.pages.map(p=>rsHost(p.url)),...ev.ext.map(p=>rsHost(p.url)),...[].concat(...ev.hits.map(h=>h.items.map(it=>rsHost(it.u)))),...((r.cits||[]).map(c=>rsHost(typeof c==="string"?c:(c&&c.url)||"")))].filter(Boolean));
+  const src=(j.src&&typeof j.src==="object")?j.src:{};
+  RS_KEYS.forEach(([k2])=>{ const u=S(src[k2],300); if(u&&/^https?:/.test(u)) f.src[k2]={u,ok:known.has(rsHost(u))}; });
+  f.srcs=[...new Set([...ev.pages.map(p=>p.url),...ev.ext.map(p=>p.url)])].slice(0,8);
+  /* 保存：AI商社マンの参照データにも載る（値は「案」も含めお客様が保存時に確定） */
+  if(typeof TEN!=="undefined"&&TEN){ TEN.deckMeta=TEN.deckMeta||{}; TEN.deckMeta.facts=f; if(typeof saveTen==="function") saveTen(); }
+  if(typeof logU==="function") logU("ai","会社リサーチ:"+(host||co));
+  return {facts:f,ev,nHits};
+}
+function rsFactsHtml(f){
+  const rows=RS_KEYS.filter(([k])=>!/^(mission|catch|itemEn)$/.test(k)).map(([k,nm])=>{ const v=Array.isArray(f[k])?f[k].join("・"):f[k]; if(!String(v||"").trim()) return ""; const s=f.src&&f.src[k];
+    const badge=s?`<a href="${esc(s.u)}" target="_blank" rel="noopener" style="font-size:10px;color:${s.ok?"var(--ok,#2E7D32)":"var(--warn)"};text-decoration:none;white-space:nowrap">${s.ok?"✓ 出典":"要確認"}：${esc(rsHost(s.u)||"リンク")}</a>`:`<span style="font-size:10px;color:var(--warn)">要確認（根拠なし）</span>`;
+    return `<tr><th style="text-align:left;padding:3px 8px 3px 0;white-space:nowrap;color:var(--ink-2);font-weight:600">${esc(nm)}</th><td style="padding:3px 0">${esc(String(v))}</td><td style="padding:3px 0 3px 8px">${badge}</td></tr>`; }).filter(Boolean).join("");
+  if(!rows) return `<p style="margin-top:6px;color:var(--warn)"><b>会社情報を証拠から確認できませんでした。</b>公式サイトのURL（会社概要ページのあるサイト）をご確認ください。</p>`;
+  return `<div style="margin-top:8px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
+    <p class="lbl" style="margin:0 0 4px">会社リサーチの結果（根拠つき）</p>
+    <div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12px;line-height:1.5"><tbody>${rows}</tbody></table></div>
+    ${(f.notes||[]).length?`<p style="margin:6px 0 0;font-size:11.5px"><b>補足</b>：${f.notes.map(esc).join("／")}</p>`:""}
+    <p style="margin:6px 0 0;font-size:10.5px;color:var(--ink-3)">この結果はAI商社マンの参照データにも保存されました（会社情報の質問に根拠つきで答えます）</p></div>`;
+}
+function rsEvidHtml(R){
+  const ev=R.ev; const li=ev.pages.map(p=>`<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title||p.url)}</a>${p.kind==="product"?"（商品ページ）":""}</li>`).concat(ev.ext.map(p=>`<li><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url.replace(/^https?:\/\//,"").slice(0,70))}</a>（Web検索）</li>`)).join("");
+  return `<details style="margin-top:6px;font-size:11px;color:var(--ink-3)"><summary style="cursor:pointer">証拠として読んだページ（公式サイト ${ev.pages.length}・Web検索 ${R.nHits||0}件・関連ページ ${ev.ext.length}）</summary><ul style="margin:4px 0 0 16px;padding:0">${li||"<li>なし</li>"}</ul>${ev.diag.length?`<p style="margin:4px 0 0">${ev.diag.map(esc).join("／")}</p>`:""}</details>`;
+}
+/* 「全項目の案をAIが作成」の新ハンドラ（フォームの空欄だけ埋める・値は最終的にお客様が保存で確定） */
+async function rsWizardResearch(btn){
+  const stx=$("#dkwaist"); const say=m=>{ if(stx) stx.innerHTML=m; };
+  btn.disabled=true;
+  try{
+    const siteUrl=(($("#wzWeb")&&$("#wzWeb").value)||dkMeta().web||"").trim();
+    if(siteUrl&&/google\.[a-z.]+\/search|bing\.com\/search|duckduckgo\.com/i.test(siteUrl)){ say("⚠ ウェブサイト欄が検索結果のURLになっています。<b>会社の公式サイトのURL</b>（例：https://example.co.jp/）を入れてください。"); btn.disabled=false; const w=$("#wzWeb"); if(w) w.focus(); return; }
+    const R=await dkResearch(siteUrl,say); const f=R.facts;
+    const put=(id,v)=>{ const e=$("#"+id); if(!e) return false; v=String(v||"").replace(/[（(]案[)）]\s*$/,"").trim(); if(v&&!e.value.trim()){ e.value=v; return true; } return false; };
+    const filled=[],blank=[];
+    [["wzEst",f.est,"設立"],["wzCeo",f.ceo,"代表者"],["wzWeb",f.web||siteUrl,"ウェブサイト"],["wzAddr",f.addrEn||f.addr,"所在地"],["wzBiz",f.biz,"事業内容"],["wzMission",f.mission,"ミッション"],
+     ["wzMail",f.mail,"メール"],["wzTel",f.tel,"電話"],["wzCoEn",f.coEn,"英文社名"],["wzItemEn",f.itemEn,"英文商品名"],["wzCatch",f.catch,"キャッチコピー"]]
+      .forEach(([id,v,nm])=>{ if(!$("#"+id)) return; (put(id,v)||$("#"+id).value.trim()?filled:blank).push(nm); });
+    const ua=$("#wzUsage"); if(ua){ if((f.usage||[]).length&&!ua.value.trim()){ ua.value=f.usage.slice(0,4).join("\n"); filled.push("使い方"); } else if(!ua.value.trim()) blank.push("使い方"); }
+    say(`<div style="font-weight:700">✓ 案を入れました（${[...new Set(filled)].join("・")||"なし"}）${blank.length?`<br><span style="color:var(--warn)">確認できなかった項目：${[...new Set(blank)].join("・")}</span>——誤情報を避けるため空欄のままです`:""}<br>内容を確認・修正して「保存して資料に反映」を押してください（最終決定はお客様です）。</div>`+rsFactsHtml(f)+rsEvidHtml(R));
+  }catch(e){ say("AI提案を作れませんでした："+esc(String(e&&e.message||e)).slice(0,90)); }
+  btn.disabled=false;
+}
+if(typeof deckWizard==="function"){ const __dw198=deckWizard; deckWizard=async function(){ const r=await __dw198.apply(this,arguments); try{ const b=$("#dkwai"); if(b) b.onclick=()=>rsWizardResearch(b); }catch(e){} return r; }; }
+/* AI商社マンの参照データに会社リサーチを載せる */
+function rsFactsCtx(){
+  const f=(typeof TEN!=="undefined"&&TEN&&TEN.deckMeta&&TEN.deckMeta.facts)||null; if(!f) return "";
+  const L=RS_KEYS.filter(([k])=>!/^(mission|catch|itemEn|addrEn)$/.test(k)).map(([k,nm])=>[nm,Array.isArray(f[k])?f[k].join("・"):f[k]]).filter(r=>String(r[1]||"").trim());
+  if(!L.length) return "";
+  return `\n## 会社リサーチ（公式サイト・Web調査 ${f.at||""}・出典つき。会社情報の質問はこれを根拠に答え、無い項目は「未確認」と答える）\n`+L.map(r=>`${r[0]}：${r[1]}`).join("／")+((f.notes||[]).length?"\n補足："+f.notes.join("／"):"")+((f.srcs||[]).length?"\n出典："+f.srcs.slice(0,6).join(" "):"");
+}
+if(typeof ppContext==="function"){ const __pc198=ppContext; ppContext=function(){ const s=__pc198.apply(this,arguments); try{ return s+rsFactsCtx(); }catch(e){ return s; } }; }
+if(typeof aiThinkLabel==="function"){ const __al198=aiThinkLabel; aiThinkLabel=function(q,opts){ if(opts&&opts.task==="research") return "公式サイト・Web検索の証拠から会社情報を整理しています"; return __al198.apply(this,arguments); }; }
+/* ── 公式サイト画像の取得 v2：トップ＋商品ページ巡回・alt/srcset・SVGロゴ・商品名一致を優先 ── */
+function wsrvPng(u,w){ return "https://images.weserv.nl/?url="+encodeURIComponent(String(u).replace(/^https?:\/\//,""))+"&w="+(w||600)+"&output=png"; }
+function rsImgsFrom(raw,base){
+  const out=new Map(); raw=String(raw||"");
+  const add=(u,alt)=>{ u=rsAbs(u,base); if(!u||!/^https?:/.test(u)) return; const p=u.split("?")[0]; if(!/\.(jpe?g|png|webp|svg)$/i.test(p)) return;
+    if(/favicon|sprite|1x1|pixel|tracking|arrow|icon_|\/icons?\/|loading|spinner|placeholder|blank\.|\/cart|\/login|instagram|twitter|facebook|line_|\/x\.svg|btn_|button|checkbox|radio|caret|chevron|close|menu|hamburger|search\.|bullet/i.test(u)) return;
+    const key=p.replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/,""); const cur=out.get(key);
+    if(!cur) out.set(key,{u,alt:alt||""}); else if(alt&&!cur.alt) cur.alt=alt; };
+  (raw.match(/<meta[^>]+property=["']og:image["'][^>]*>/gi)||[]).forEach(m=>{ const x=m.match(/content=["']([^"']+)/i); if(x) add(x[1],""); });
+  (raw.match(/<img\b[^>]*>/gi)||[]).forEach(m=>{ const src=(m.match(/\s(?:data-src|data-original|data-lazy-src|data-lazy|src)=["']([^"']+)["']/i)||[])[1]; const alt=(m.match(/\salt=["']([^"']*)["']/i)||[])[1]||""; if(src) add(src,alt);
+    const ss=(m.match(/\s(?:srcset|data-srcset)=["']([^"']+)["']/i)||[])[1]; if(ss){ const best=ss.split(",").map(s=>s.trim().split(/\s+/)).sort((a,b)=>(parseInt(b[1])||0)-(parseInt(a[1])||0))[0]; if(best&&best[0]) add(best[0],alt); } });
+  (raw.match(/<source\b[^>]*srcset=["']([^"']+)["']/gi)||[]).forEach(m=>{ const ss=(m.match(/srcset=["']([^"']+)/i)||[])[1]; if(ss) add(ss.split(",")[0].trim().split(/\s+/)[0],""); });
+  (raw.match(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g)||[]).forEach(m=>{ const x=m.match(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/); if(x) add(x[2],x[1].replace(/^Image \d+:?\s*/,"")); });
+  (raw.match(/url\(["']?(https?:[^"')]+\.(?:jpe?g|png|webp))["']?\)/gi)||[]).forEach(m=>{ const x=m.match(/\(["']?(https?:[^"')]+)/); if(x) add(x[1],""); });
+  return [...out.values()];
+}
+async function rsSiteImages(url){
+  const toks=rsItemTokens(), diag=[];
+  const home=await fetchPageText(url); let homeRaw=home.raw, via=home.via;
+  if(home.via==="reader"){ try{ homeRaw=await rsRelay(home.url,"html",16000); via="reader-html"; }catch(e){ diag.push("HTML形式の取得は失敗（本文形式で続行）"); } }
+  const base=home.url; const pages=[{url:base,title:"トップページ",raw:homeRaw}];
+  const links=rsLinks({raw:homeRaw,url:base});
+  const pps=rsPickProductPages(links,base,6);
+  const got=await rsFetchMany(pps.map(l=>l.u),"html",14000,6);
+  got.forEach(g=>pages.push({url:g.url,title:(pps.find(x=>x.u===g.url)||{}).t||decodeURIComponent(g.url.replace(/^https?:\/\/[^\/]+/,"")),raw:g.raw}));
+  const all=[], seen=new Set();
+  pages.forEach((p,pi)=>rsImgsFrom(p.raw,p.url).forEach(im=>{
+    const key=im.u.split("?")[0].replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/,""); if(seen.has(key)) return; seen.add(key);
+    const isSvg=/\.svg$/i.test(key); const isLogo=/logo/i.test(key)||/logo|ロゴ/i.test(im.alt); if(isSvg&&!isLogo) return;
+    let s=0; const hay=(decodeURIComponent(key)+" "+im.alt).toLowerCase(); toks.forEach(k=>{ if(hay.includes(k)) s+=3; });
+    if(pi>0) s+=2; if(/upload|product|item|goods/i.test(key)) s+=1; if(/banner|bnr|_bg|background|_sp\b|sp_|-sp\.|hero|slide|mv_|ogp|topmain|thumb_|noimage/i.test(key)) s-=2;
+    all.push({u:im.u,alt:im.alt,page:p.title,pageUrl:p.url,s,logo:isLogo,svg:isSvg}); }));
+  all.sort((a,b)=>b.s-a.s);
+  return {imgs:all.filter(x=>!x.logo).slice(0,24),logos:all.filter(x=>x.logo).slice(0,6),pages:pages.map(p=>p.url),diag,via,bytes:String(homeRaw).length,links:links.length};
+}
+async function deckSiteImgs2(url){
+  const A=dkEnsureAssets(); if(!A){ toast("先に商品情報を登録してください"); return; }
+  const say=m=>{ const e=$("#dkimgst"); if(e) e.innerHTML=m; };
+  say('<span class="spin"></span> 公式サイトを読み込んでいます…（トップ＋商品ページを巡回）');
+  try{
+    const R=await rsSiteImages(url); const host=rsHost(R.pages[0]||url);
+    if(!R.imgs.length&&!R.logos.length){
+      say(`<div style="padding:11px 13px;border:1px solid var(--warn);background:var(--warn-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.8">
+        <b>${esc(host)} から画像を抽出できませんでした。</b><br>取得経路：${esc(R.via)}／本文 ${R.bytes.toLocaleString()}字／リンク ${R.links}件／巡回ページ ${R.pages.length}件${R.diag.length?"／"+R.diag.map(esc).join("・"):""}<br>サイトの作りによっては読み取れない場合があります。お手数ですが、公式サイトの画像を保存して上のスロットからアップロードしてください。</div>`);
+      return;
+    }
+    const mk=(x,as)=>({url:x.u,thumb:x.svg?wsrvPng(x.u,300):wsrv(x.u,300),fetchUrl:x.svg?wsrvPng(x.u,600):wsrv(x.u,as==="logo"?600:900),
+      title:(x.alt||decodeURIComponent((x.u.split("/").pop()||"").split("?")[0])).slice(0,60),lic:"",from:"公式サイト: "+host+(x.page&&x.page!=="トップページ"?"／"+x.page.slice(0,24):""),as,site:1});
+    const match=R.imgs.filter(x=>x.s>=3), rest=R.imgs.filter(x=>x.s<3);
+    say("");
+    openDeckPicker([
+      match.length?{title:"🎯 商品名に一致する画像（商品ページ・alt 由来）",note:"商品名・英文商品名と一致した画像です。<b>貴社が掲載許可をお持ちの前提</b>で採用できます。採用時に接続中のAIが内容を検査します。",arr:match.map(x=>mk(x,"ph")),empty:""}:null,
+      {title:"🏠 公式サイトの画像（"+esc(host)+"・"+R.pages.length+"ページ巡回）",note:match.length?"":"<b>貴社が掲載許可をお持ちの前提</b>で採用できます。採用時に接続中のAIが内容を検査します。",arr:rest.map(x=>mk(x,"ph")),empty:"商品画像を抽出できませんでした"},
+      {title:"🏷 ロゴらしき画像（SVGはPNGに変換して取り込みます）",note:"",arr:R.logos.map(x=>mk(x,"logo")),empty:"ロゴらしき画像は見つかりませんでした（スロットからアップロードできます）"}
+    ].filter(Boolean));
+    if(typeof logU==="function") logU("ai","公式サイト画像候補:"+host+"（"+R.pages.length+"ページ）");
+  }catch(e){
+    say(`公式サイトを読み込めませんでした（${esc(String(e.message)).slice(0,60)}）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。`);
+  }
+}
+if(typeof deckSiteImgs==="function"){ deckSiteImgs=deckSiteImgs2; }
 
 </script>
