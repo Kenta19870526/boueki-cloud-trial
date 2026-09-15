@@ -4745,7 +4745,7 @@ function shpPhoto(x,y,w,h,label,ea){
     shpText(x,y+h/2-16,w,32,[{t:"📷",sz:22,al:"ctr"},{t:label,sz:10,c:"8A97A6",al:"ctr"}],{ea});
 }
 /* 実画像の埋め込み（アスペクト比を保ってボックス内に収める） */
-let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[], DK_GOOD=[];
+let DK_MEDIA=[], DK_LOGO=-1, DK_PH=[], DK_GOOD=[], DK_PHO=[];
 function dkCollectMedia(){
   DK_MEDIA=[]; const A=dkAssets();
   const put=o=>{ if(!o||!o.b64) return -1;
@@ -4755,11 +4755,12 @@ function dkCollectMedia(){
   /* 表紙から良い写真を使うため、納品品質（高解像度・日本語文字なし）→出所の順で並べ替え */
   const phs=PH_IDX.map(i=>A.ph&&A.ph[i]).filter(Boolean)
     .sort((x,y)=>{
-      const g=o=>dkPhGood(o)?0:1;
+      const g=o=>o.other?2:(dkPhGood(o)?0:1);   /* 納品品質 → その他 → ラインアップ写真（同社の別商品）は末尾 */
       if(g(x)!==g(y)) return g(x)-g(y);
       const pr=o=>o.src==="site"?0:o.src==="upload"?1:2; return pr(x)-pr(y);});
   DK_PH=PH_IDX.map(i=>put(phs[i]));
   DK_GOOD=PH_IDX.map(i=>!!(phs[i]&&dkPhGood(phs[i])));
+  DK_PHO=PH_IDX.map(i=>phs[i]||null);
 }
 function shpImg(x,y,w,h,mi){
   const m=DK_MEDIA[mi]; if(!m) return "";
@@ -5008,15 +5009,24 @@ async function dkDedupePhotos(){
   toast(rm?`同じ写真 ${rm}枚を整理しました（各1枚だけ残しています）`:"重複している写真はありませんでした");
 }
 /* 採用直前のAI画像判定（接続時）：誤った画像を絶対に載せないための最終ゲート */
+/* v19.9：公式サイト由来の画像は「この商品／同社の別商品／ロゴ／不適」の4分類で判定（別商品は不採用ではなくラインアップ写真として採用できる）。
+   あわせて jp（画像に重ねた日本語の説明文）・low（不鮮明）も同時判定＝採用後の再検査を省く */
 async function dkVerifyImg(a,role){
+  const site=role==="公式サイト掲載の商品画像";
   const r=await llmAsk(
 `添付画像を、商品「${D.item}」（${D.cat}／${D.itemEn||""}）の営業資料に「${role}」として掲載してよいか判定してください。
-基準：別ブランドのロゴ・別商品と誤認される写真・無関係な被写体・品質の低い画像はNG。
-${role==="汎用イメージ素材"?"商品そのものでなくても、カテゴリの雰囲気が正しく伝わればOK。":role==="公式サイト掲載の商品画像"?"この会社の公式サイト由来のため、明らかに無関係（バナー広告・アイコン・別ブランドの広告素材）の場合のみNG。":"商品・貴社と直接関係すると誤認させる場合、実物でなければNG。"}
-JSONのみ：{"ok":true|false,"reason":"25字以内"}`,300,
+${site?`この画像は貴社（${D.co||"この会社"}）の公式サイトから取得したものです。次の4分類のどれかを kind に入れてください：
+"same"＝この商品そのもの（パッケージ・単体・使用シーン。商品名の表記ゆれ・英語表記も同一とみなす）／"other"＝同じ会社の別商品（パッケージに別の商品名がある）／"logo"＝会社・ブランドのロゴ／"ng"＝バナー広告・アイコン・別ブランドの広告素材・無関係な被写体・著しく低品質。
+迷ったら "same" か "other" の近い方にする（公式サイト由来のため、無関係とは断定しない）。`
+:role==="汎用イメージ素材"?"商品そのものでなくても、カテゴリの雰囲気が正しく伝わればOK。別ブランドのロゴ・無関係な被写体・低品質はNG。"
+:"商品・貴社と直接関係すると誤認させる場合、実物でなければNG。別ブランドのロゴ・別商品と誤認される写真・無関係な被写体・品質の低い画像はNG。"}
+あわせて jp（画像に重ねた日本語の説明文・キャッチコピー・価格・キャンペーン文言が目立つなら true。パッケージ自体に印刷された商品名・成分表示は実物なので false）と low（ぼやけ・引き伸ばしで不鮮明なら true）も判定してください。
+JSONのみ：{"ok":true|false,"kind":"same|other|logo|ng","jp":true|false,"low":true|false,"reason":"25字以内"}`,320,
     {noWeb:1,timeout:45000,att:{mime:a.mime,b64:a.b64,name:"cand.jpg"}});
   const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
-  return {ok:!!j.ok,reason:String(j.reason||"")};
+  let kind=String(j.kind||"").toLowerCase(); if(!/^(same|other|logo|ng)$/.test(kind)) kind=j.ok?"same":"ng";
+  const ok=site?kind==="same":!!j.ok;
+  return {ok,kind,jp:!!j.jp,low:!!j.low,reason:String(j.reason||"")};
 }
 /* ── 公式サイト連携：ページ取得（直接→CORS中継 r.jina.ai）・画像URL抽出・画像プロキシ ── */
 async function fetchPageText(url){
@@ -5051,7 +5061,7 @@ function extractSiteImages(raw,baseUrl){
 /* 画像プロキシ（images.weserv.nl・CORS可）：公式サイトのCDNはCORS非対応が普通のため */
 function wsrv(u,w){
   return "https://images.weserv.nl/?url="+encodeURIComponent(String(u).replace(/^https?:\/\//,""))+
-    "&w="+(w||900)+"&output=jpg&q=82";
+    "&w="+(w||900)+"&output=jpg&q=82&bg=white";   /* 透過PNGをJPEG化すると既定で黒背景になるため白で塗る */
 }
 /* 公式サイトの画像を候補として提示（掲載許可はお客様がお持ちの前提。採用時にAI検査） */
 async function deckSiteImgs(url){
@@ -5226,10 +5236,11 @@ async function deckEnrich(){
         const a2=await dkFetchImg(wsrv(u,900),900);
         if(await dkIsDup(a2.b64,a2.mime)){ dupSkip++; continue; }  /* 同じ写真は1枚だけ（再実行しても増殖しない） */
         const v=await dkVerifyImg(a2,"公式サイト掲載の商品画像");
-        if(!v.ok) continue;
+        if(!v.ok&&v.kind!=="other") continue;
         const slot=slots.shift();
-        A.ph[slot]={b64:a2.b64,mime:a2.mime,w:a2.w,h:a2.h,src:"site",
-          cap:decodeURIComponent((u.split("/").pop()||"").split("?")[0]).slice(0,50),from:"公式サイト: "+host};
+        A.ph[slot]={b64:a2.b64,mime:a2.mime,w:a2.w,h:a2.h,src:"site",other:v.kind==="other"?1:0,
+          _dq:{ok:v.kind!=="ng",jp:!!v.jp,low:!!v.low,reason:String(v.reason||"").slice(0,40),at:TODAYS},
+          cap:(v.kind==="other"?"ラインアップ: ":"")+decodeURIComponent((u.split("/").pop()||"").split("?")[0]).slice(0,50),from:"公式サイト: "+host};
         setPh++;
       }catch(e){}
     }
@@ -5842,6 +5853,7 @@ function dkImgLocalQ(o){
 function dkPhGood(o){
   const q=dkImgLocalQ(o);
   if(!q.has) return false;
+  if(o.other) return false;   /* ラインアップ写真（同社の別商品）は「この商品の写真」には数えない */
   if(!q.big||!q.ratioOk) return false;
   if(o._dq&&(o._dq.jp||o._dq.low||o._dq.ok===false)) return false;
   return true;
@@ -5857,7 +5869,7 @@ async function dkImgAudit(){
       try{
         const r=await llmAsk(
 `添付画像を、海外バイヤー向け英語営業資料の「商品写真」として使えるか判定してください。
-NG基準：①画像の中に日本語の説明文・キャッチコピーが入っている（海外資料に不適）②ぼやけ・低解像度・引き伸ばしで不鮮明 ③商品と無関係。
+NG基準：①画像に重ねた日本語の説明文・キャッチコピー・価格・キャンペーン文言が目立つ（海外資料に不適。パッケージ自体に印刷された商品名・成分表示は実物なのでOK）②ぼやけ・低解像度・引き伸ばしで不鮮明 ③商品と無関係（同じ会社の別商品は無関係ではない）。
 JSONのみ：{"ok":true|false,"jp":日本語文字が目立つならtrue,"low":不鮮明ならtrue,"reason":"20字以内"}`,260,
           {noWeb:1,timeout:45000,att:{mime:o.mime,b64:o.b64,name:"ph.jpg"}});
         const j=JSON.parse(r.txt.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/)[0]);
@@ -5907,13 +5919,15 @@ function deckAssetCard(){
       </div>
       ${o&&o.src==="web"?`<p style="font-size:8.5px;color:var(--ink-3);margin:3px 0 0;line-height:1.3">🌐 ${esc(String(o.cap||"").slice(0,22))}</p>`:""}
       ${(()=>{ if(kind==="logo"||!o||!o.b64) return "";
-        if(dkPhGood(o)) return `<p style="font-size:8.5px;color:var(--good);margin:3px 0 0">✓ 納品品質</p>`;
+        if(o.other) return `<p style="font-size:8.5px;color:var(--ink-2);margin:3px 0 0;line-height:1.3">🧩 ラインアップ（同社の別商品）<br>表紙には使いません</p>`;
+        if(dkPhGood(o)) return `<p style="font-size:8.5px;color:var(--good);margin:3px 0 0">✓ 納品品質${o.enh?"・✨補正済":""}</p>`;
         const q=dkImgLocalQ(o), why=o._dq&&(o._dq.jp?"日本語文字入り":o._dq.low?"不鮮明":o._dq.ok===false?(o._dq.reason||"不適"):"")||(!q.big?"解像度不足":!q.ratioOk?"バナー形状":"");
         return why?`<p style="font-size:8.5px;color:var(--warn);margin:3px 0 0;line-height:1.3">⚠ ${esc(why)}<br>表紙・品質判定から除外</p>`
           :`<p style="font-size:8.5px;color:var(--ink-3);margin:3px 0 0">（AI接続で品質検査）</p>`;})()}
-      <div class="rw" style="gap:4px;margin-top:6px">
+      <div class="rw" style="gap:4px;margin-top:6px;flex-wrap:wrap">
         <label class="btn g" style="padding:3px 8px;font-size:10px;cursor:pointer">${o?"変更":"選ぶ"}<input type="file" hidden accept="image/*" data-dkup="${key}"></label>
         ${o?`<button class="btn g" style="padding:3px 8px;font-size:10px" data-dkdel="${key}">削除</button>`:""}
+        ${o&&o.b64&&kind!=="logo"?(o._orig?`<button class="btn g" style="padding:3px 8px;font-size:10px" data-dkenhundo="${key}" title="補正前の写真に戻します">↩ 元に戻す</button>`:`<button class="btn g" style="padding:3px 8px;font-size:10px" data-dkenh="${key}" title="余白カット・拡大・シャープ化で画質を補正し、AI検査をやり直します">✨ 画質補正</button>`):""}
       </div></div>`;
   };
   return `<div class="c" style="margin-bottom:11px">
@@ -21451,7 +21465,17 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["出典","Source","出处","Fuente"],
 ["補足","Notes","补充","Notas"],
 ["証拠として読んだページ","Pages read as evidence","作为证据读取的页面","Páginas leídas como evidencia"],
-["この結果はAI商社マンの参照データにも保存されました（会社情報の質問に根拠つきで答えます）","Saved to the AI trader's reference data as well (company questions are answered with sources)","该结果也已保存到AI商社人员的参考数据中（可附出处回答公司信息问题）","Guardado también en los datos de referencia del comercial IA (responde con fuentes)"]);
+["この結果はAI商社マンの参照データにも保存されました（会社情報の質問に根拠つきで答えます）","Saved to the AI trader's reference data as well (company questions are answered with sources)","该结果也已保存到AI商社人员的参考数据中（可附出处回答公司信息问题）","Guardado también en los datos de referencia del comercial IA (responde con fuentes)"],
+["✨ 画質補正","✨ Enhance","✨ 画质补正","✨ Mejorar"],
+["↩ 元に戻す","↩ Restore","↩ 恢复","↩ Restaurar"],
+["✓ ラインアップに採用","✓ Added as line-up photo","✓ 已作为产品阵容照片采用","✓ Añadido como foto de gama"],
+["✗ 不採用","✗ Rejected","✗ 未采用","✗ Rechazado"],
+["✓ ロゴに採用","✓ Set as logo","✓ 已设为Logo","✓ Usado como logotipo"],
+["✗ ロゴ画像","✗ Logo image","✗ Logo图片","✗ Imagen de logotipo"],
+["✗ 登録済みと同じ写真","✗ Same photo already registered","✗ 与已登记照片相同","✗ Misma foto ya registrada"],
+["補正中…","Enhancing…","补正中…","Mejorando…"],
+["🧩 ラインアップ（同社の別商品）","🧩 Line-up (another product of the company)","🧩 产品阵容（同公司其他产品）","🧩 Gama (otro producto de la empresa)"],
+["表紙には使いません","Not used on the cover","不用于封面","No se usa en la portada"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -23051,7 +23075,9 @@ function deckSlides2(lang,T){
   /* 見出し：常に1行に収まるサイズを選ぶ（40→34→28→24pt）。下線の位置は固定＝本文の開始位置がぶれない */
   const head=(eb,t)=>{ const s=dk2Title(t); const z=dk2Fit(s,760,[40,34,28,24],{b:1,spc:0.8}); return eyebrow(eb)+shpText(48,44,760,z*1.35,[{t:s,sz:z,b:1,c:TT,spc:0.8}],{ea})+dk2Line(48,98,64,2.2,AC); };
   const has=i=>DK_PH[i]!==undefined&&DK_PH[i]>=0;
-  const goodPh=has(0)&&DK_GOOD[0];
+  const isOther=i=>!!(typeof DK_PHO!=="undefined"&&DK_PHO[i]&&DK_PHO[i].other);   /* ラインアップ写真（同社の別商品）＝商品そのものの写真には使わない */
+  const hasP=i=>has(i)&&!isOther(i);
+  const goodPh=hasP(0)&&DK_GOOD[0];
   const dim0=(T.dims&&T.dims[0])||((D.dimRows&&D.dimRows[0])?(Array.isArray(D.dimRows[0])?D.dimRows[0].filter(Boolean).join(" / "):String(D.dimRows[0])):"");
   const usage=(T.usage&&T.usage.length?T.usage:(DM.usage&&DM.usage.length?DM.usage:(RICH.usage||[]))).map(cap).filter(Boolean).slice(0,4);
   const segs=(T.segments&&T.segments.length?T.segments:[]).filter(x=>x&&cap(x[0]));
@@ -23062,7 +23088,8 @@ function deckSlides2(lang,T){
   const docs=(T.docs&&T.docs.length?T.docs:(Object.values(D.regs||{})[0]||{docs:[]}).docs).slice(0,6);
   const hasComp=!!((D.cert&&D.cert!=="なし")||docs.length);
   const specs=(T.specs&&T.specs.length?T.specs:(D.compRows||[]).slice(0,6).map(r=>[r[0],r[1]])).filter(r=>r&&String(r[0]||"").trim()).slice(0,6);
-  const gal=PH_IDX.filter(i=>has(i)).slice(1,7);
+  const gal=PH_IDX.filter(i=>hasP(i)).slice(1,7);
+  const lineupIdx=PH_IDX.filter(i=>has(i)&&isOther(i)).slice(0,4);
   const dutyStr=r=>{ if(/要確認/.test(r.duty)) return L.tbc; const s=String(r.duty||""); if(!/[ぁ-ヶ一-龠（）]/.test(s)) return s; const m=s.match(/^[^（(ぁ-ヶ一-龠]+/); return (m?m[0].trim():L.tbc)+" *"; };
   const concept=cap(T.concept||T.catch2||"");
   const TOC_T={en:"Table of\nContents",zhCN:"目录",zhTW:"目錄",es:"Índice",ko:"목차"}[lang]||"Contents";
@@ -23074,7 +23101,7 @@ function deckSlides2(lang,T){
   const N=k=>NM[k]||({profile:"Company Profile",concept:"Brand Concept",product:"Product Concept",problem:"Problem",uniq:"Uniqueness",how:"How to Use",proof:"The Visual Proof",target:"Target Market",touch:"Get in Touch",hear:"We'd love to hear from you!",presented:"Presented by",activities:"Activities",company:"Company Name",location:"Location",website:"Website",est:"Established",rep:"Representative",contactp:"Sales Representative",address:"Address",tel:"Phone",mail:"E-mail",logi:"Logistics & Compliance",contact:"Contact"})[k];
   const proofT=(T.proof&&T.proof.length)?N("proof"):dk2Title(L.gallery||"Product Gallery");
   /* 目次 */
-  const toc=[N("profile")].concat((concept||T.mission||DM.mission||T.brandStory)?[N("concept")]:[]).concat([N("product")]).concat(strengths.length?[dk2Title(L.str)]:[]).concat(usage.length?[N("how")]:[]).concat(gal.length>=2?[proofT]:[]).concat(specs.length||dim0?[dk2Title(L.spec)]:[]).concat((segs.length||tg.length)?[N("target")]:[]).concat(hasPrice?[dk2Title(L.price)]:[]).concat(hasComp?[N("logi")]:[]).concat([N("touch")]);
+  const toc=[N("profile")].concat((concept||T.mission||DM.mission||T.brandStory)?[N("concept")]:[]).concat([N("product")]).concat(strengths.length?[dk2Title(L.str)]:[]).concat(usage.length?[N("how")]:[]).concat(gal.length>=2?[proofT]:[]).concat(lineupIdx.length>=2?[dk2Title(L.lineup||"Product Lineup")]:[]).concat(specs.length||dim0?[dk2Title(L.spec)]:[]).concat((segs.length||tg.length)?[N("target")]:[]).concat(hasPrice?[dk2Title(L.price)]:[]).concat(hasComp?[N("logi")]:[]).concat([N("touch")]);
   /* 1) 表紙：社名を大きく・タグライン（公式サイト由来→キャッチ→強み）・商品写真を台座に */
   { const tg2=cap(T.tagline2||""), c2=cap(T.catch2||""), tg=cap(T.tagline||"");
     const coverTag=(tg2&&tg2.length<=90)?tg2:(c2&&c2.length<=80)?c2:(tg&&tg.length<=80&&!/アップロードした資料/.test(tg))?tg:(concept||item);
@@ -23123,7 +23150,7 @@ function deckSlides2(lang,T){
     const prob=cap(T.problem||""); const lu=(T.lineup&&T.lineup[0])||null; const size=lu&&lu[1]?cap(lu[1]):"";
     const RX=420, RW=492; let y=46;
     let x=bg(1)+dk2Card(76,168,300,300,TN2,{round:12000})+
-      (has(0)?dk2PhotoFit(100,72,252,340,DK_PH[0],{shadow:1,round:3000}):shpText(96,290,260,60,[{t:item,sz:16,b:1,c:TT,al:"ctr"}],{ea}));
+      (hasP(0)?dk2PhotoFit(100,72,252,340,DK_PH[0],{shadow:1,round:3000}):shpText(96,290,260,60,[{t:item,sz:16,b:1,c:TT,al:"ctr"}],{ea}));
     const tz=dk2Fit(N("product"),RW,[40,34,28],{b:1,spc:0.8}); x+=shpText(RX,y,RW,tz*1.35,[{t:N("product"),sz:tz,b:1,c:TT,spc:0.8}],{ea}); y+=tz*1.35+8;
     const qt=cap(T.catch2||concept||""); if(qt){ const h=dk2H("“ "+qt+" ”",14,RW,{spc:0.4}); x+=shpText(RX,y,RW,h+4,[{t:"“ "+qt+" ”",sz:14,i:1,c:SUB,spc:0.4}],{ea}); y+=h+14; }
     const nm=item+(size?"   "+size:""); const nz=dk2Fit(nm,RW,[20,17,15],{b:1,spc:1.2},2), nh=dk2H(nm,nz,RW,{b:1,spc:1.2});
@@ -23147,7 +23174,7 @@ function deckSlides2(lang,T){
     const step=Math.min(96,Math.floor(372/usage.length));
     S.push(bg(3)+head(L.usage,N("how"))+
       usage.map((u,i)=>{ const y=128+i*step; return dk2Circle(48,y,34,AC,String(i+1),14,"FFFFFF",ea)+(i<usage.length-1?shpRect(64,y+38,2,step-42,TN2):"")+shpText(100,y+4,440,step-8,[{t:u,sz:dk2Fit(u,440,[14,13,12],{},3),c:INK}],{ea}); }).join("")+
-      (has(3)?dk2Photo(600,86,312,404,DK_PH[3],{shadow:1,round:9000}):(has(0)?dk2Card(600,86,312,404,TN2,{round:12000})+dk2PhotoFit(624,110,264,356,DK_PH[0],{shadow:1,round:3000}):""))+
+      (hasP(3)?dk2Photo(600,86,312,404,DK_PH[3],{shadow:1,round:9000}):(hasP(0)?dk2Card(600,86,312,404,TN2,{round:12000})+dk2PhotoFit(624,110,264,356,DK_PH[0],{shadow:1,round:3000}):""))+
       foot());
   }
   /* 8) ビジュアル（ギャラリー＋根拠キャプション） */
@@ -23157,11 +23184,19 @@ function deckSlides2(lang,T){
       g.map((gi,i)=>{ const x=48+i*(w+24); return dk2Photo(x,120,w,320,DK_PH[gi],{shadow:1,round:8000})+(T.proof&&T.proof[i]?shpText(x,450,w,44,[{t:cap(T.proof[i]),sz:dk2Fit(cap(T.proof[i]),w,[11.5,10.5],{b:1},2),b:1,c:TT,al:"ctr"}],{ea}):""); }).join("")+
       foot());
   }
+  /* 8b) ラインアップ：公式サイトから採用した同社の別商品の写真（表紙・商品ページには使わない） */
+  if(lineupIdx.length>=2){
+    const n=lineupIdx.length, w=(864-(n-1)*18)/n;
+    S.push(bg(2)+head(L.about,dk2Title(L.lineup||"Product Lineup"))+
+      lineupIdx.map((i,k)=>{ const x=48+k*(w+18); const o=(typeof DK_PHO!=="undefined"&&DK_PHO[i])||{}; const capT=cap(String(o.alt||o.cap||"").replace(/^ラインアップ:\s*/,""));
+        return dk2Card(x,120,w,300,TN2,{round:10000})+dk2PhotoFit(x+14,134,w-28,272,DK_PH[i],{shadow:1,round:3000})+(capT?shpText(x,430,w,44,[{t:capT,sz:dk2Fit(capT,w,[12,11,10],{b:1},2),b:1,c:TT,al:"ctr"}],{ea}):""); }).join("")+
+      foot());
+  }
   /* 9) 規格（表＋写真＋包装・寸法） */
   if(specs.length||dim0){
     S.push(bg(1)+head(item||L.spec,L.spec)+
       specs.map((r,i)=>{ const y=120+i*56; return dk2Card(48,y,520,48,i%2?"FFFFFF":TN,{round:4000})+shpText(66,y+12,190,28,[{t:cap(r[0]),sz:12,b:1,c:AC,spc:0.6}],{ea})+shpText(256,y+11,300,32,[{t:cap(r[1]),sz:dk2Fit(cap(r[1]),300,[13,11.5,10.5],{},2),c:INK}],{ea}); }).join("")+
-      (has(1)||has(0)?dk2Card(600,120,312,240,TN2,{round:10000})+dk2PhotoFit(616,132,280,216,DK_PH[has(1)?1:0],{shadow:1,round:3000}):"")+
+      (hasP(1)||hasP(0)?dk2Card(600,120,312,240,TN2,{round:10000})+dk2PhotoFit(616,132,280,216,DK_PH[hasP(1)?1:0],{shadow:1,round:3000}):"")+
       (dim0?dk2Card(600,376,312,110,"FFFFFF",{round:8000,shadow:10000})+shpText(618,390,276,90,[{t:L.dims,sz:10.5,b:1,c:AC,spc:1},{t:cap(dim0),sz:12,c:INK,spcB:6},{t:D.ctn?cap(T.ctn||D.ctn):"",sz:11,c:SUB,spcB:3}],{ea}):"")+
       foot());
   }
@@ -23208,7 +23243,7 @@ function deckSlides2(lang,T){
     if(DM.web) cols.push({ic:"🌐",lb:N("website"),ps:[{t:cap(DM.web),sz:dk2Fit(cap(DM.web),230,[12.5,11,10],{}),c:INK}]});
     let wide=-1, wr=0; PH_IDX.forEach(i=>{ if(!has(i)) return; const m=DK_MEDIA[DK_PH[i]]; if(m&&m.w&&m.h&&m.w/m.h>wr){ wr=m.w/m.h; wide=i; } });
     const band=(wide>=0&&wr>=1.25)?dk2Photo(48,40,864,216,DK_PH[wide],{round:9000,shadow:1})
-      :dk2Card(48,40,864,216,TN2,{round:9000})+dk2Blob(600,50,300,200,AC,14000,60,-15)+(has(0)?dk2PhotoFit(380,54,200,188,DK_PH[0],{shadow:1,round:3000}):"");
+      :dk2Card(48,40,864,216,TN2,{round:9000})+dk2Blob(600,50,300,200,AC,14000,60,-15)+(hasP(0)?dk2PhotoFit(380,54,200,188,DK_PH[0],{shadow:1,round:3000}):"");
     const cw=cols.length?(864-(cols.length-1)*24)/cols.length:864;
     S.push(bg(1)+band+
       shpText(48,278,600,56,[{t:N("touch"),sz:dk2Fit(N("touch"),600,[40,34,28],{b:1,spc:1}),b:1,c:TT,spc:1}],{ea})+
@@ -23437,7 +23472,7 @@ function rsImgsFrom(raw,base){
   const add=(u,alt)=>{ u=rsAbs(u,base); if(!u||!/^https?:/.test(u)) return; const p=u.split("?")[0]; if(!/\.(jpe?g|png|webp|svg)$/i.test(p)) return;
     if(/favicon|sprite|1x1|pixel|tracking|arrow|icon_|\/icons?\/|loading|spinner|placeholder|blank\.|\/cart|\/login|instagram|twitter|facebook|line_|\/x\.svg|btn_|button|checkbox|radio|caret|chevron|close|menu|hamburger|search\.|bullet/i.test(u)) return;
     const key=p.replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/,""); const cur=out.get(key);
-    if(!cur) out.set(key,{u,alt:alt||""}); else if(alt&&!cur.alt) cur.alt=alt; };
+    if(!cur) out.set(key,{u,alt:alt||"",orig:key!==p?key:""}); else { if(alt&&!cur.alt) cur.alt=alt; if(key===p&&cur.orig){ cur.u=u; cur.orig=""; } } };   /* サイズ付き（-300x300 等）は元画像URLも候補に */
   (raw.match(/<meta[^>]+property=["']og:image["'][^>]*>/gi)||[]).forEach(m=>{ const x=m.match(/content=["']([^"']+)/i); if(x) add(x[1],""); });
   (raw.match(/<img\b[^>]*>/gi)||[]).forEach(m=>{ const src=(m.match(/\s(?:data-src|data-original|data-lazy-src|data-lazy|src)=["']([^"']+)["']/i)||[])[1]; const alt=(m.match(/\salt=["']([^"']*)["']/i)||[])[1]||""; if(src) add(src,alt);
     const ss=(m.match(/\s(?:srcset|data-srcset)=["']([^"']+)["']/i)||[])[1]; if(ss){ const best=ss.split(",").map(s=>s.trim().split(/\s+/)).sort((a,b)=>(parseInt(b[1])||0)-(parseInt(a[1])||0))[0]; if(best&&best[0]) add(best[0],alt); } });
@@ -23461,7 +23496,7 @@ async function rsSiteImages(url){
     const isSvg=/\.svg$/i.test(key); const isLogo=/logo/i.test(key)||/logo|ロゴ/i.test(im.alt); if(isSvg&&!isLogo) return;
     let s=0; const hay=(decodeURIComponent(key)+" "+im.alt).toLowerCase(); toks.forEach(k=>{ if(hay.includes(k)) s+=3; });
     if(pi>0) s+=2; if(/upload|product|item|goods/i.test(key)) s+=1; if(/banner|bnr|_bg|background|_sp\b|sp_|-sp\.|hero|slide|mv_|ogp|topmain|thumb_|noimage/i.test(key)) s-=2;
-    all.push({u:im.u,alt:im.alt,page:p.title,pageUrl:p.url,s,logo:isLogo,svg:isSvg}); }));
+    all.push({u:im.u,alt:im.alt,page:p.title,pageUrl:p.url,s,logo:isLogo,svg:isSvg,orig:im.orig||""}); }));
   all.sort((a,b)=>b.s-a.s);
   return {imgs:all.filter(x=>!x.logo).slice(0,24),logos:all.filter(x=>x.logo).slice(0,6),pages:pages.map(p=>p.url),diag,via,bytes:String(homeRaw).length,links:links.length};
 }
@@ -23476,7 +23511,7 @@ async function deckSiteImgs2(url){
         <b>${esc(host)} から画像を抽出できませんでした。</b><br>取得経路：${esc(R.via)}／本文 ${R.bytes.toLocaleString()}字／リンク ${R.links}件／巡回ページ ${R.pages.length}件${R.diag.length?"／"+R.diag.map(esc).join("・"):""}<br>サイトの作りによっては読み取れない場合があります。お手数ですが、公式サイトの画像を保存して上のスロットからアップロードしてください。</div>`);
       return;
     }
-    const mk=(x,as)=>({url:x.u,thumb:x.svg?wsrvPng(x.u,300):wsrv(x.u,300),fetchUrl:x.svg?wsrvPng(x.u,600):wsrv(x.u,as==="logo"?600:900),
+    const mk=(x,as)=>({url:x.u,thumb:x.svg?wsrvPng(x.u,300):wsrv(x.u,300),fetchUrl:x.svg?wsrvPng(x.u,600):wsrv(x.orig||x.u,as==="logo"?600:900),altUrls:x.orig?[wsrv(x.u,as==="logo"?600:900)]:[],
       title:(x.alt||decodeURIComponent((x.u.split("/").pop()||"").split("?")[0])).slice(0,60),lic:"",from:"公式サイト: "+host+(x.page&&x.page!=="トップページ"?"／"+x.page.slice(0,24):""),as,site:1});
     const match=R.imgs.filter(x=>x.s>=3), rest=R.imgs.filter(x=>x.s<3);
     say("");
@@ -23491,5 +23526,138 @@ async function deckSiteImgs2(url){
   }
 }
 if(typeof deckSiteImgs==="function"){ deckSiteImgs=deckSiteImgs2; }
+
+/* ═══════════ v19.9：公式サイト画像の採用判定を見直し／画質補正 ═══════════
+   ・採用時のAI判定を4分類（この商品／同社の別商品／ロゴ／不適）に：同社の別商品は「不採用」ではなく「ラインアップ写真」として採用（表紙・商品ページには使わず、資料のラインアップ頁に載せる）
+   ・不採用の理由をカードに表示。AI検査に接続できない場合は「未検査」のまま採用（公式サイト由来＝お客様が選んだ画像のため）し、接続時に再検査
+   ・画質補正 dkEnhanceImg：余白カット→短辺900pxへ段階拡大（最大4倍・高品質補間）→シャープ化。小さい／不鮮明な画像は採用時に自動適用、各写真の「✨ 画質補正」でも実行（元に戻す可） */
+async function dkEnhanceImg(o,opts){
+  opts=opts||{}; const steps=[];
+  const bm=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error("画像を読めません")); im.src="data:"+(o.mime||"image/jpeg")+";base64,"+o.b64; });
+  const W=bm.naturalWidth, H=bm.naturalHeight; if(!W||!H) throw new Error("サイズ不明");
+  /* ① 余白カット：四隅の色と同じ帯（≥98.5%）を検出して切り落とす（各辺とも最大45%まで。周囲5%は残す） */
+  const c0=document.createElement("canvas"); c0.width=W; c0.height=H; const x0=c0.getContext("2d"); x0.fillStyle="#fff"; x0.fillRect(0,0,W,H); x0.drawImage(bm,0,0);
+  const d=x0.getImageData(0,0,W,H).data;
+  const px=(x,y)=>{ const i=(y*W+x)*4; return [d[i],d[i+1],d[i+2]]; };
+  const cs=[px(0,0),px(W-1,0),px(0,H-1),px(W-1,H-1)]; const bg=[0,1,2].map(k=>Math.round(cs.reduce((a,c)=>a+c[k],0)/4));
+  const near=p=>Math.abs(p[0]-bg[0])+Math.abs(p[1]-bg[1])+Math.abs(p[2]-bg[2])<36;
+  const rowBg=y=>{ let n=0,m=0; for(let x=0;x<W;x+=2){ m++; if(near(px(x,y))) n++; } return n/m>0.985; };
+  const colBg=x=>{ let n=0,m=0; for(let y=0;y<H;y+=2){ m++; if(near(px(x,y))) n++; } return n/m>0.985; };
+  let t=0,b=H-1,l=0,r=W-1;
+  while(t<H*0.45&&rowBg(t)) t++; while(b>H*0.55&&rowBg(b)) b--; while(l<W*0.45&&colBg(l)) l++; while(r>W*0.55&&colBg(r)) r--;
+  const padX=Math.round((r-l+1)*0.05), padY=Math.round((b-t+1)*0.05); l=Math.max(0,l-padX); r=Math.min(W-1,r+padX); t=Math.max(0,t-padY); b=Math.min(H-1,b+padY);
+  const cw=r-l+1, ch=b-t+1; if(cw<W*0.97||ch<H*0.97) steps.push("余白カット");
+  /* ② 拡大：短辺を目標（既定900px）以上へ、2倍ずつ高品質補間で（最大4倍・長辺1800px） */
+  const target=opts.short||900; let scale=Math.min(4,Math.max(1,target/Math.min(cw,ch))); scale=Math.min(scale,1800/Math.max(cw,ch)); if(scale<1) scale=1;
+  const ow=Math.round(cw*scale), oh=Math.round(ch*scale);
+  let cur=document.createElement("canvas"); cur.width=cw; cur.height=ch; cur.getContext("2d").drawImage(c0,l,t,cw,ch,0,0,cw,ch);
+  if(scale>1.02){ let curW=cw, curH=ch;
+    while(curW<ow){ const nw=Math.min(ow,Math.round(curW*2)), nh=Math.min(oh,Math.round(curH*2)); const nx=document.createElement("canvas"); nx.width=nw; nx.height=nh; const g=nx.getContext("2d"); g.imageSmoothingEnabled=true; g.imageSmoothingQuality="high"; g.drawImage(cur,0,0,nw,nh); cur=nx; curW=nw; curH=nh; }
+    steps.push((Math.round(scale*10)/10)+"倍に拡大"); }
+  /* ③ シャープ化（アンシャープマスク相当：4近傍ぼかしとの差を加算・強さ0.9） */
+  const g=cur.getContext("2d"); const w=cur.width, h=cur.height; const id=g.getImageData(0,0,w,h); const s=id.data, out=new Uint8ClampedArray(s.length); const k=0.9;
+  for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ const i=(y*w+x)*4;
+    if(x===0||y===0||x===w-1||y===h-1){ out[i]=s[i]; out[i+1]=s[i+1]; out[i+2]=s[i+2]; out[i+3]=255; continue; }
+    for(let c=0;c<3;c++){ const v=s[i+c]; const nb=(s[i-4+c]+s[i+4+c]+s[i-w*4+c]+s[i+w*4+c])*0.25; out[i+c]=v+(v-nb)*k; } out[i+3]=255; } }
+  id.data.set(out); g.putImageData(id,0,0); steps.push("シャープ化");
+  return {b64:cur.toDataURL("image/jpeg",0.9).split(",")[1],mime:"image/jpeg",w,h,steps};
+}
+async function dkEnhanceSlot(idx,quiet){
+  const A=dkEnsureAssets(); const o=A&&A.ph&&A.ph[idx]; if(!o||!o.b64){ if(!quiet) toast("写真がありません"); return null; }
+  try{
+    const e=await dkEnhanceImg(o);
+    if(!o._orig&&o.b64.length<400000) o._orig={b64:o.b64,mime:o.mime,w:o.w,h:o.h,_dq:o._dq||null};   /* 元に戻せるよう保持（大きい画像は保持しない） */
+    Object.assign(o,{b64:e.b64,mime:e.mime,w:e.w,h:e.h,enh:{at:(typeof TODAYS!=="undefined"?TODAYS:""),steps:e.steps}}); delete o._dq;
+    if(typeof saveTen==="function") saveTen(); if(typeof logU==="function") logU("ai","画質補正:写真"+(idx+1));
+    if(!quiet){ if(typeof render==="function") render(); toast("✨ 画質を補正しました（"+e.steps.join("・")+"）"+((typeof ppReady==="function"&&ppReady())?"。品質検査をやり直します":"")); if(typeof dkImgAudit==="function") dkImgAudit(); }
+    return e;
+  }catch(err){ if(!quiet) toast("補正できませんでした："+String(err&&err.message||err).slice(0,40)); return null; }
+}
+function dkEnhanceUndo(idx){
+  const A=dkEnsureAssets(); const o=A&&A.ph&&A.ph[idx]; if(!o||!o._orig) return;
+  const p=o._orig; Object.assign(o,{b64:p.b64,mime:p.mime,w:p.w,h:p.h}); if(p._dq) o._dq=p._dq; else delete o._dq; delete o._orig; delete o.enh;
+  if(typeof saveTen==="function") saveTen(); if(typeof render==="function") render(); toast("補正前の写真に戻しました");
+}
+document.addEventListener("click",e=>{
+  const b=e.target&&e.target.closest?e.target.closest("[data-dkenh],[data-dkenhundo]"):null; if(!b) return; e.preventDefault();
+  const key=b.dataset.dkenh||b.dataset.dkenhundo; const idx=parseInt(String(key).slice(2),10)||0;
+  if(b.dataset.dkenhundo!=null){ dkEnhanceUndo(idx); return; }
+  b.disabled=true; b.textContent="補正中…"; dkEnhanceSlot(idx).finally(()=>{ b.disabled=false; b.textContent="✨ 画質補正"; });
+});
+/* ── 画像候補パネル v2：判定理由の表示・4分類での採用・元画像URLへのフォールバック・自動画質補正 ── */
+function openDeckPicker2(SECS){
+  const on=(typeof ppReady==="function"&&ppReady());
+  const ALL=[]; SECS.forEach(sec=>sec.arr.forEach(c=>ALL.push(c)));
+  const card=c=>{const i=ALL.indexOf(c);
+    return `<div style="width:150px;border:1px solid var(--line);border-radius:var(--r2);padding:7px;background:var(--surface-2)">
+    <div style="height:86px;border-radius:6px;background:#fff;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line-2)">
+      <img src="${esc(c.thumb||c.url)}" loading="lazy" style="max-width:100%;max-height:100%;object-fit:contain" onerror="this.parentElement.innerHTML='読込不可'"></div>
+    <p style="font-size:8.5px;color:var(--ink-2);margin:4px 0 1px;line-height:1.35;height:23px;overflow:hidden">${esc(String(c.title||"").slice(0,44))}</p>
+    <p style="font-size:8px;color:var(--ink-3);margin:0 0 5px">${esc(c.from||"")}${c.lic?"・"+esc(c.lic):""}</p>
+    <div class="rw" style="gap:3px;flex-wrap:wrap">
+      <button class="btn g" style="padding:2px 7px;font-size:9.5px" data-pick="${i}">${c.as==="logo"?"ロゴに採用":"写真に採用"}</button>
+    </div><p class="pkNote" style="font-size:9px;line-height:1.35;margin:4px 0 0;color:var(--ink-3)"></p></div>`;};
+  const sec=x=>`<p class="lbl" style="margin-top:11px">${x.title}</p>
+    ${x.note?`<p class="nn" style="margin:2px 0 6px">${x.note}</p>`:""}
+    ${x.arr.length?`<div class="rw" style="gap:7px;flex-wrap:wrap">${x.arr.map(card).join("")}</div>`
+      :`<p style="font-size:11.5px;color:var(--warn);margin:4px 0"><b>${x.empty}</b></p>`}`;
+  openDW(`<h3>🌐 画像の候補 <span class="p ${on?"hi":"lo"}">${on?"採用時にAIが最終判定":"AI未接続・目視でご確認を"}</span></h3>
+    <p class="nn" style="margin-top:4px"><b>自動では挿入しません。</b>内容をご確認のうえ「採用」を押してください。${on?"採用時に接続中のAIが画像を検査します：<b>この商品</b>＝商品写真として採用／<b>同社の別商品</b>＝ラインアップ写真として採用（表紙には使いません）／バナー・無関係＝不採用（理由を表示）。小さい・不鮮明な画像は自動で画質補正（余白カット・拡大・シャープ化）します。":"AI未接続のため、内容の確認はお客様ご自身でお願いします。"}</p>
+    ${SECS.map(sec).join("")}
+    <div class="rw" style="margin-top:12px"><button class="btn g" onclick="closeDW()">閉じる</button></div>
+    <p class="nn" style="margin-top:7px">Web検索の出典：Wikimedia Commons／Openverse（フリーライセンス）。公式サイトの画像は貴社の許可保有が前提です。本番配布ではライセンス・権利の最終確認を推奨します。</p>`);
+  if(typeof dwChrome==="function") dwChrome();
+  document.querySelectorAll("[data-pick]").forEach(b=>b.onclick=async()=>{
+    const c=ALL[+b.dataset.pick]; if(!c) return;
+    const noteEl=b.closest("div").parentElement.querySelector(".pkNote"); const note=(m,col)=>{ if(noteEl){ noteEl.textContent=m; noteEl.style.color=col||"var(--ink-3)"; } };
+    b.disabled=true; b.textContent="確認中…";
+    try{
+      /* 取得：元画像URL → サイズ付きURL の順で試す */
+      const urls=[c.fetchUrl||c.url].concat(c.altUrls||[]); let a=null,lastErr=null;
+      for(const u of urls){ try{ a=await dkFetchImg(u,c.as==="logo"?600:900); break; }catch(e){ lastErr=e; } }
+      if(!a) throw lastErr||new Error("取得失敗");
+      /* AI判定（失敗＝未検査で採用し、接続時に再検査） */
+      let v={ok:true,kind:c.as==="logo"?"logo":"same",reason:""}, checked=false;
+      if(on){ const role=c.as==="logo"?"会社ロゴ":(c.generic?"汎用イメージ素材":(c.site?"公式サイト掲載の商品画像":"商品のイメージ写真"));
+        try{ v=await dkVerifyImg(a,role); checked=true; }catch(e){ v={ok:true,kind:c.as==="logo"?"logo":"same",reason:"AI検査に接続できず未検査のまま採用（接続時に再検査）",unchecked:true}; } }
+      const kind=v.kind||(v.ok?"same":"ng");
+      if(c.as==="logo"){ if(checked&&!v.ok&&kind!=="logo"){ b.textContent="✗ 不採用"; b.title=v.reason; note("AI判定："+(v.reason||"ロゴとして不適"),"var(--warn)"); toast("採用を中止しました："+(v.reason||"この画像はロゴとして不適合です")); return; } }
+      else if(kind==="ng"||(checked&&!v.ok&&!c.site)){ b.textContent="✗ 不採用"; b.title=v.reason; note("AI判定："+(v.reason||"不適合"),"var(--warn)"); toast("採用を中止しました："+(v.reason||"この画像は不適合です")); return; }
+      const A=dkEnsureAssets();
+      if(c.as!=="logo"&&kind==="logo"&&!c.generic){
+        if(A.logo&&A.logo.b64){ b.textContent="✗ ロゴ画像"; note("AI判定：ロゴ画像のため商品写真には採用しません（ロゴは設定済み）","var(--warn)"); return; }
+        A.logo={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:c.site?"site":"web",cap:c.title||"",from:c.from||""};
+        if(typeof saveTen==="function") saveTen(); if(typeof render==="function") render(); b.textContent="✓ ロゴに採用"; note("AI判定：ロゴ画像 → ロゴ枠に設定しました","var(--good)"); toast("ロゴに設定しました"); return; }
+      const other=!!(c.site&&kind==="other"&&!c.generic);
+      const entry={b64:a.b64,mime:a.mime,w:a.w,h:a.h,src:c.site?"site":"web",
+        cap:(c.generic?"イメージ素材: ":other?"ラインアップ: ":"")+(c.title||""),lic:c.lic||"",from:c.from||""};
+      if(other) entry.other=1;
+      if(checked&&!v.unchecked) entry._dq={ok:true,jp:!!v.jp,low:!!v.low,reason:String(v.reason||"").slice(0,40),at:(typeof TODAYS!=="undefined"?TODAYS:"")};
+      /* 小さい／不鮮明な画像は自動で画質補正 */
+      let enh=null;
+      if(c.as!=="logo"&&(Math.min(a.w,a.h)<420||(v.low&&Math.min(a.w,a.h)<900))){ try{ enh=await dkEnhanceImg(entry); Object.assign(entry,{b64:enh.b64,mime:enh.mime,w:enh.w,h:enh.h,enh:{at:(typeof TODAYS!=="undefined"?TODAYS:""),steps:enh.steps}}); if(entry._dq) entry._dq.low=false; }catch(e){} }
+      let slotMsg="ロゴ";
+      if(c.as==="logo") A.logo=entry;
+      else{
+        if(await dkIsDup(entry.b64,entry.mime)){ b.textContent="✗ 登録済みと同じ写真"; note("同じ写真がすでに登録されています","var(--warn)"); toast("同じ写真がすでに登録されています（重複は1枚だけ掲載されます）"); return; }
+        A.ph=A.ph||[];
+        let slot=PH_IDX.find(i=>!A.ph[i]);
+        if(slot===undefined) slot=PH_IDX.find(i=>A.ph[i]&&A.ph[i].src==="web");
+        if(slot===undefined) slot=PH_IDX.find(i=>A.ph[i]&&A.ph[i].other&&!other);
+        if(slot===undefined) slot=DK_NPH-1;
+        const replaced=!!A.ph[slot];
+        A.ph[slot]=entry;
+        slotMsg="商品写真"+(slot+1)+(replaced?"（差し替え）":"");
+      }
+      if(typeof saveTen==="function") saveTen();
+      if(typeof logU==="function") logU("ai","画像を採用:"+slotMsg+(c.site?"（公式サイト）":"")+(other?"（ラインアップ）":""));
+      b.textContent=other?"✓ ラインアップに採用":"✓ 採用済み";
+      note((other?"AI判定：同社の別商品 → ラインアップ写真として採用（表紙・商品ページには使いません）":(v.unchecked?v.reason:("AI判定：この商品の写真"+(v.reason?"（"+v.reason+"）":""))))+(enh?"／✨ "+enh.steps.join("・"):"")+(v.jp?"／⚠ 日本語の説明文入り（表紙には使いません）":""),other?"var(--ink-2)":(v.unchecked?"var(--warn)":"var(--good)"));
+      if(typeof render==="function") render();
+      toast(c.as==="logo"?"ロゴに設定しました":slotMsg+"に設定しました"+(other?"（ラインアップ写真）":""));
+    }catch(e){ b.textContent="✗ 取得失敗"; note("画像を取得できませんでした："+String(e&&e.message||e).slice(0,40),"var(--warn)"); toast("画像を取得できませんでした"); }
+  });
+}
+if(typeof openDeckPicker==="function"){ openDeckPicker=openDeckPicker2; }
 
 </script>
