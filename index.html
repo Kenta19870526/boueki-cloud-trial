@@ -18299,7 +18299,7 @@ async function syncStart(){
   const r=await syncCall("login",{kid,dev:syncDev(),usage:syncUsage(),code_hint:String(SES.code).slice(0,3)});
   if(!r.ok) return {ok:false,reason:r.reason||"login",msg:r.msg||""};
   SYNC.srvAcct=r.acct||null; SYNC.ver=Object.assign({acct:0,fwd:0},r.ver||{});
-  if(r.acct&&typeof findAcct==="function"){ const a=findAcct(SES.code); if(a){ ["co","who","st","expires","role"].forEach(k=>{ if(r.acct[k]!=null&&r.acct[k]!=="") a[k]=r.acct[k]; }); if(typeof asave==="function") asave(); } }
+  if(r.acct&&typeof findAcct==="function"){ const a=findAcct(SES.code); if(a){ ["co","who","st","expires","role","aiMode"].forEach(k=>{ if(r.acct[k]!=null&&r.acct[k]!=="") a[k]=r.acct[k]; }); if(typeof asave==="function") asave(); } }
   /* 取得は並列に（Apps Script は1呼び出し 3〜15秒かかることがあるため、直列にしない） */
   syncStatus("☁ 保存済みの状態を取得しています…");
   await Promise.all([syncPullAcct(true),syncPullFwd(true).catch(()=>{})]);
@@ -18424,7 +18424,7 @@ async function syncLookup(code){
   const r=await syncCall("lookup",{kid});
   if(!r.ok||!r.acct) return null;
   const a={code,co:r.acct.co||"（会社名 未登録）",who:r.acct.who||"—",st:r.acct.st||"active",web:true,role:r.acct.role||"",
-    created:r.acct.created||Date.now(),expires:r.acct.expires||(Date.now()+14*864e5),usage:(typeof emptyU==="function")?emptyU():{},members:r.acct.members||[]};
+    created:r.acct.created||Date.now(),expires:r.acct.expires||(Date.now()+14*864e5),usage:(typeof emptyU==="function")?emptyU():{},members:r.acct.members||[],aiMode:r.acct.aiMode==="all"?"all":"solo"};
   if(typeof ADB!=="undefined"&&ADB){ ADB.accounts.push(a); if(typeof asave==="function") asave(); }
   return a;
 }
@@ -18432,7 +18432,7 @@ async function syncLookup(code){
 async function syncAdminPush(){
   if(!syncOn()||typeof SES==="undefined"||!SES||SES.t!=="admin"||typeof ADB==="undefined") return;
   const accounts=[]; for(const a of ADB.accounts){ const {kid}=await syncDerive(a.code);
-    accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,members:(a.members||[]).map(m=>({name:m.name,st:m.st})),approver:a.approver||""}); }
+    accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,members:(a.members||[]).map(m=>({name:m.name,st:m.st})),approver:a.approver||"",aiMode:a.aiMode==="all"?"all":"solo"}); }
   const r=await syncCall("admin_set",{pw:SES.apw||"",accounts});
   if(r.ok){ SYNC.last.push=Date.now(); SYNC.pwDefault=r.pwDefault?1:0; }
   return r;
@@ -21475,7 +21475,21 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["✗ 登録済みと同じ写真","✗ Same photo already registered","✗ 与已登记照片相同","✗ Misma foto ya registrada"],
 ["補正中…","Enhancing…","补正中…","Mejorando…"],
 ["🧩 ラインアップ（同社の別商品）","🧩 Line-up (another product of the company)","🧩 产品阵容（同公司其他产品）","🧩 Gama (otro producto de la empresa)"],
-["表紙には使いません","Not used on the cover","不用于封面","No se usa en la portada"]);
+["表紙には使いません","Not used on the cover","不用于封面","No se usa en la portada"],
+["🧠 全社版AI商社マン","🧠 Company-wide AI Trade Agent","🧠 全公司版AI商社专员","🧠 Agente IA (versión global)"],
+["🏠 個社版AI商社マン","🏠 Single-company AI Trade Agent","🏠 单公司版AI商社专员","🏠 Agente IA (versión individual)"],
+["🧠 AI商社マン","🧠 AI Trade Agent","🧠 AI商社专员","🧠 Agente IA"],
+["🏠 他社データ","🏠 Other companies' data","🏠 其他公司数据","🏠 Datos de otras empresas"],
+["参照しない（個社版）","Not used (single-company)","不参照（单公司版）","No se usan (individual)"],
+["🧠 全社の匿名知見（Ver2.0）","🧠 Anonymised company-wide insights (Ver2.0)","🧠 全公司匿名洞察（Ver2.0）","🧠 Conocimiento anónimo global (Ver2.0)"],
+["🧠 Ver1.0 本番DBの集計","🧠 Ver1.0 production DB aggregates","🧠 Ver1.0 生产库统计","🧠 Agregados de la BD Ver1.0"],
+["未取込","Not imported","未导入","No importado"],
+["物流会社（対象外）","Forwarder (n/a)","物流公司（不适用）","Transportista (n/a)"],
+["↻ 状態を確認","↻ Check status","↻ 查看状态","↻ Ver estado"],
+["▶ 今すぐ全社データを更新","▶ Update company-wide data now","▶ 立即更新全公司数据","▶ Actualizar datos globales ahora"],
+["⏰ 週次ジョブを設定","⏰ Set up the weekly job","⏰ 设置每周任务","⏰ Configurar tarea semanal"],
+["📥 Ver1.0 集計JSONを取り込む","📥 Import Ver1.0 aggregates (JSON)","📥 导入Ver1.0统计JSON","📥 Importar agregados Ver1.0 (JSON)"],
+["匿名化のルールと週次更新のしくみ","Anonymisation rules and the weekly update","匿名化规则与每周更新机制","Reglas de anonimización y actualización semanal"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -23659,5 +23673,279 @@ function openDeckPicker2(SECS){
   });
 }
 if(typeof openDeckPicker==="function"){ openDeckPicker=openDeckPicker2; }
+
+/* ═══════════ v20.0：AI商社マンの2モード（個社版／全社版）と全社知識プール ═══════════
+   個社版（solo）＝そのユーザーの会社・商品・取組の登録データ＋Web情報・通関統計・規制情報だけを一次情報として学ぶ（従来どおり）。
+   全社版（all） ＝上記に加えて【貿易クラウド Ver1.0（本番DBの集計値）＋ Ver2.0 全ユーザーの匿名ダイジェスト】を学ぶ。
+   ・切替は管理コンソール（アカウント一覧「🧠 AI商社マン」列／発行フォーム）。台帳（admin_set）で同期サーバーに送られ、サーバーは全社版の
+     アカウントにだけ全社データ（pool_get）を返す＝端末側の設定だけでは開けない
+   ・各ユーザーの端末は、自社データを「個社・商品が特定できない項目」だけに丸めたダイジェスト（poolDigest）を1日1回 pool_put で預ける。
+     社名・商品名・人名・連絡先・自由文は構造上含まれない（サーバー側も許可リスト外を捨てる）
+   ・全社版の端末は pool_get（ログイン時＋6時間ごと）で全社データを取得し、端末内で合成（poolCompile）して接続AIの文脈に注入。
+     内蔵エンジンでも「全社では／他社は／業界の相場は」型の質問に統計から即答（poolAsk）
+   ・週次：サーバーのトリガー poolWeekly（毎週月曜 6:00 JST）が Ver1.0 の集計を取り込み（DIGITRAD_TOKEN 設定時）、古いダイジェストを整理
+   ・スマホ：同じ関数を通るためそのまま反映。バッジは AI商社マン画面・右パネル・成長カードに表示 */
+const POOL={mode:"",data:null,at:0,week:0,n:0,v1:null,lastPut:0,lastPull:0,err:"",busy:0,srv:false};
+/* Ver1.0（本番DB）の集計値：サーバーに取込が無いときの既定（読み取り専用APIの件数のみ・個社・個人は含まない） */
+const POOL_V1_DEFAULT={src:"digitrad-v1",asof:"2026-09-15",note:"貿易クラウド Ver1.0 本番DBの件数集計（読み取り専用APIで 2026-09-15 に取得）。個社・個人は含まない",
+  buyers:{total:7598,byStatus:{"Action Pending": 1150, "In Sales": 3286, "Negotiating": 1533, "Contract Pending": 54, "Working": 158, "Complete": 1401},byLikelihood:{"HIGH": 263, "MID": 230, "LOW": 69},active90d:1832},feedbacks:{total:4260,last90d:1746,approved:3873,round2plus:1054},projects:{total:583}};
+function poolLS(){ try{ return JSON.parse(localStorage.getItem("bc20_pool_v1")||"null"); }catch(e){ return null; } }
+function poolLSSet(o){ try{ localStorage.setItem("bc20_pool_v1",JSON.stringify(o)); }catch(e){} }
+function poolAcct(){ try{ if(typeof SES==="undefined"||!SES) return null; if(typeof findAcct==="function"&&SES.code){ const a=findAcct(SES.code); if(a) return a; } }catch(e){} return null; }
+/* いまのモード：admin＝管理者画面／solo＝個社版／all＝全社版。サーバー台帳（ログイン応答）＞端末の台帳の順 */
+function poolMode(){
+  try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin") return "admin"; }catch(e){}
+  if(POOL.srv&&POOL.mode) return POOL.mode==="all"?"all":"solo";   /* サーバーの最新応答（pool_get）が最優先 */
+  try{ if(typeof SYNC!=="undefined"&&SYNC&&SYNC.srvAcct&&SYNC.srvAcct.aiMode) return SYNC.srvAcct.aiMode==="all"?"all":"solo"; }catch(e){}
+  const a=poolAcct(); if(a&&a.aiMode) return a.aiMode==="all"?"all":"solo";
+  return "solo";
+}
+function poolIsAll(){ return poolMode()==="all"; }
+function poolSyncOn(){ try{ if(!(typeof syncOn==="function"&&syncOn())) return false; if(typeof SES!=="undefined"&&SES&&SES.t==="admin") return true; return typeof SYNC!=="undefined"&&SYNC&&!!SYNC.kid; }catch(e){ return false; } }   /* 管理者は接続先URLがあれば可（kid はお客様セッションのみ） */
+function poolLabel(mode){ mode=mode||poolMode(); return mode==="all"?"全社版AI商社マン":mode==="admin"?"管理者":"個社版AI商社マン"; }
+/* ── 匿名化：数値は帯に、文字は語彙に丸める ── */
+function poolNumOf(v){ const m=String(v==null?"":v).replace(/[，,]/g,"").match(/\d+(?:\.\d+)?/); return m?+m[0]:null; }
+function poolPriceBand(rows,cols){
+  try{ const r=(rows||[])[0]; if(!r) return {cur:"",band:""}; const line=(Array.isArray(r)?r:[r]).map(String).join(" "); const cur=/US\$|USD|\$/.test(line)?"USD":/€|EUR/.test(line)?"EUR":/¥|円|JPY/.test(line)?"JPY":"";
+    let v=null; (Array.isArray(r)?r:[r]).forEach((c,i)=>{ if(v!=null) return; const s=String(c); if(/US\$|USD|\$|€|EUR|¥|円|JPY|\d/.test(s)&&i>0){ const n=poolNumOf(s); if(n!=null&&n>0) v=n; } });
+    if(v==null) return {cur,band:""};
+    const usd=cur==="JPY"?v/150:v; const B=[[1,"〜1"],[5,"1〜5"],[10,"5〜10"],[20,"10〜20"],[50,"20〜50"],[100,"50〜100"],[500,"100〜500"],[Infinity,"500〜"]];
+    return {cur:cur||"USD",band:"US$"+(B.find(b=>usd<b[0])||B[B.length-1])[1]}; }catch(e){ return {cur:"",band:""}; }
+}
+function poolMoqBand(s){ const n=poolNumOf(s); if(n==null) return ""; return n<100?"〜100":n<500?"100〜500":n<1000?"500〜1,000":n<5000?"1,000〜5,000":"5,000〜"; }
+function poolLeadBand(s){ const st=String(s||""); let n=poolNumOf(st); if(n==null) return ""; if(/週|week/i.test(st)) n*=7; if(/月|month/i.test(st)) n*=30; return n<14?"〜2週間":n<31?"2〜4週間":n<61?"1〜2か月":"2か月〜"; }
+function poolTerm(s){ const m=String(s||"").toUpperCase().match(/\b(EXW|FCA|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP)\b/); return m?m[1]:""; }
+function poolPay(s){ const t=String(s||""); if(/L\/C|信用状/i.test(t)) return "L/C"; if(/T\/T|TT|電信|送金/i.test(t)) return /前払|advance|100%/i.test(t)?"T/T前払":"T/T"; if(/D\/P|D\/A/i.test(t)) return "D/P・D/A"; if(/paypal|card|カード/i.test(t)) return "カード・決済"; return t?"その他":""; }
+function poolCerts(s){ const t=String(s||""); const out=[]; [["HACCP",/HACCP/i],["ISO",/ISO ?\d*/i],["JAS",/JAS/],["有機",/有機|organic/i],["Halal",/halal|ハラル/i],["Kosher",/kosher|コーシャ/i],["FDA",/FDA/],["CE",/\bCE\b/],["GMP",/GMP/],["FSSC",/FSSC/],["BRC",/BRC/],["受賞",/GOLD|受賞|award|金賞/i],["特許",/特許|patent/i]].forEach(([k,re])=>{ if(re.test(t)) out.push(k); }); return out; }
+function poolLostCat(why){ const t=String(why||""); if(!t) return ""; if(/価格|高い|単価|price|expensive|cost/i.test(t)) return "価格"; if(/品質|仕様|規格|spec|quality|味|サイズ/i.test(t)) return "仕様・品質"; if(/認証|規制|登録|許可|certif|regulat|label|ラベル/i.test(t)) return "規制・認証"; if(/納期|リード|lead|delivery|遅/i.test(t)) return "納期"; if(/ロット|MOQ|数量|quantity|minimum/i.test(t)) return "数量・MOQ"; if(/競合|既存|他社|other supplier|already/i.test(t)) return "競合・既存取引"; if(/時期|タイミング|予算|budget|timing|later/i.test(t)) return "時期・予算"; if(/連絡|返信|反応|no reply|response/i.test(t)) return "音信不通"; return "その他"; }
+const POOL_Q={"価格":/price|quot|cost|単価|価格|見積|報價|报价|precio|cotiz/i,"仕様":/spec|ingredient|material|size|規格|仕様|成分|材質|规格|especific/i,"サンプル":/sample|サンプル|样品|muestra/i,"認証・書類":/certif|document|coa|msds|halal|organic|認証|証明|書類|证书|certificad/i,"物流・納期":/ship|deliver|lead ?time|freight|incoterm|fob|cif|納期|出荷|物流|运|entrega|env[ií]o/i,"数量・MOQ":/moq|minimum|quantity|ロット|数量|最小|cantidad/i,"支払":/payment|pay|terms|t\/t|l\/c|支払|決済|付款|pago/i,"独占・契約":/exclusiv|contract|agreement|distribut|独占|契約|合同|contrato/i};
+function poolQTypes(msgs){ const out={}; (msgs||[]).filter(m=>m&&m.w==="by").forEach(m=>{ const t=String((m.subj||"")+" "+(m.body||"")); Object.entries(POOL_Q).forEach(([k,re])=>{ if(re.test(t)) out[k]=(out[k]||0)+1; }); }); return out; }
+function poolCty(c){ try{ return typeof cnorm==="function"?cnorm(c):String(c||"").trim(); }catch(e){ return String(c||"").trim(); } }
+/* 1商品ぶんのダイジェスト（TEN 相当の t と、D 相当の d） */
+function poolProductDigest(t,d){
+  d=d||{}; t=t||{};
+  const pb=poolPriceBand(d.priceRows||t.priceRows,d.priceCols||t.priceCols);
+  const threads=Object.values(t.dmThreads||{}).filter(x=>x&&x.msgs&&x.msgs.length);
+  const th={n:threads.length,inN:0,byStatus:{},byCty:{},replyDays:null}; const rd=[];
+  threads.forEach(x=>{ const st=(typeof bmStOf==="function")?bmStOf(x):(x.status||""); const stS=(typeof BM_STS!=="undefined"&&BM_STS[st])||st||"不明"; th.byStatus[stS]=(th.byStatus[stS]||0)+1;
+    const c=poolCty(x.cty)||"不明"; const e=th.byCty[c]||(th.byCty[c]={n:0,st:{}}); e.n++; e.st[stS]=(e.st[stS]||0)+1;
+    const ms=x.msgs||[]; th.inN+=ms.filter(m=>m.w==="by").length; const o=ms.find(m=>m.w==="me"), i=ms.find(m=>m.w==="by"); if(o&&i&&i.at&&o.at&&i.at>o.at) rd.push((i.at-o.at)/864e5); });
+  if(rd.length){ rd.sort((a,b)=>a-b); th.replyDays=Math.round(rd[Math.floor(rd.length/2)]*10)/10; }
+  const fbx=(t.fbx||d.fb||[]); const fb={n:fbx.length,hot:fbx.filter(f=>f.react==="高").length,won:fbx.filter(f=>f.st==="受注").length,quotes:fbx.filter(f=>/見積提示|サンプル発送|受注/.test(f.st||"")).length,byCty:{},lost:{}};
+  fbx.forEach(f=>{ const c=poolCty(f.c); if(c) fb.byCty[c]=(fb.byCty[c]||0)+1; if(f.st==="失注"){ const k=poolLostCat(f.why)||"理由未記入"; fb.lost[k]=(fb.lost[k]||0)+1; } });
+  const qTypes={}; threads.forEach(x=>{ Object.entries(poolQTypes(x.msgs)).forEach(([k,n])=>{ qTypes[k]=(qTypes[k]||0)+n; }); });
+  let growth=0; try{ if(typeof aiLevelFor==="function") growth=Math.round((aiLevelFor(d,t)||{}).pct||0); }catch(e){}
+  const regsN=Object.keys(d.regs||t.regs||{}).length;
+  return {cat:String(t.cat||d.cat||""),catKey:(typeof catKeyOf==="function")?catKeyOf(t.cat||d.cat):"",hs4:String(t.hs||d.hs||"").replace(/\D/g,"").slice(0,4),
+    targets:[...new Set((t.targets||d.targets||[]).map(poolCty).filter(Boolean))].slice(0,12),regsN,
+    cur:pb.cur,priceBand:pb.band,moqBand:poolMoqBand(t.moq||d.moq),leadBand:poolLeadBand(t.lead||d.lead),term:poolTerm(t.term||d.term),pay:poolPay(t.pay||d.pay),
+    certs:poolCerts(t.cert||d.cert),docsN:((Object.values(d.regs||{})[0]||{}).docs||[]).length,srcN:(t.sources||[]).length+(t.xdocs||[]).length,
+    threads:th,fb,qTypes,growth};
+}
+/* このアカウント全体のダイジェスト（登録商品ごと・最大8件）。社名・商品名・人名・連絡先・自由文は含めない */
+function poolDigest(){
+  const out={v:1,at:Date.now(),dev:(typeof syncDev==="function"&&syncDev().kind==="mobile")?"mobile":"pc",growth:0,usage:{},products:[]};
+  try{ const a=poolAcct(); const u=(a&&a.usage)||{}; out.usage={aiQ:+u.aiQ||0,webQ:+u.webQ||0,logins:+u.logins||0,days:u.first?Math.round((Date.now()-u.first)/864e5):0}; }catch(e){}
+  try{
+    const list=(typeof TENS!=="undefined"&&Array.isArray(TENS)&&TENS.length)?TENS:((typeof TEN!=="undefined"&&TEN)?[TEN]:[]);
+    list.slice(0,8).forEach(t=>{ try{ const d=(typeof tenantToD==="function")?tenantToD(Object.assign({},t)):{}; out.products.push(poolProductDigest(t,d)); }catch(e){} });
+    if(!out.products.length&&typeof D!=="undefined"&&D) out.products.push(poolProductDigest({},D));
+  }catch(e){}
+  out.growth=out.products.length?Math.round(out.products.reduce((s,p)=>s+(p.growth||0),0)/out.products.length):0;
+  return out;
+}
+/* 安全確認：ダイジェストに自社の固有名が混ざっていないか（テスト・管理コンソールの表示用） */
+function poolDigestCheck(dg){
+  const s=JSON.stringify(dg||poolDigest()); const names=[]; try{ if(typeof D!=="undefined"&&D){ [D.co,D.coEn,D.item,D.itemEn,D.sku].forEach(x=>{ if(x&&String(x).length>=3) names.push(String(x)); }); } }catch(e){}
+  try{ (typeof TENS!=="undefined"?TENS:[]).forEach(t=>{ [t.co,t.coEn,t.item,t.itemEn].forEach(x=>{ if(x&&String(x).length>=3) names.push(String(x)); }); }); }catch(e){}
+  const leaks=names.filter(n=>s.includes(n)); return {ok:!leaks.length&&!/@|https?:\/\//.test(s),leaks,bytes:s.length};
+}
+/* ── サーバーとのやり取り ── */
+async function poolPut(force){
+  try{ if(!poolSyncOn()||typeof SES==="undefined"||!SES||SES.t!=="trial"||SES.role==="fwd") return null; }catch(e){ return null; }
+  const dg=poolDigest(); if(!dg.products.length) return null;
+  const chk=poolDigestCheck(dg); if(!chk.ok) return {ok:false,msg:"固有名が含まれるため送信を中止",leaks:chk.leaks};
+  let last=null; try{ last=JSON.parse(localStorage.getItem("bc20_pool_put")||"null"); }catch(e){}
+  const sig=(typeof djb2==="function")?djb2(JSON.stringify(Object.assign({},dg,{at:0}))):String(JSON.stringify(dg).length);
+  if(!force&&last&&last.sig===sig&&Date.now()-(last.at||0)<12*3600*1000) return {ok:true,skipped:true};
+  if(!force&&last&&Date.now()-(last.at||0)<20*60*1000) return {ok:true,skipped:true};
+  try{ const r=await syncCall("pool_put",{kid:SYNC.kid,digest:dg,force:force?1:0},{timeout:20000}); if(r&&r.ok){ POOL.lastPut=Date.now(); try{ localStorage.setItem("bc20_pool_put",JSON.stringify({sig,at:Date.now()})); }catch(e){} } return r; }catch(e){ POOL.err=String(e.message||e); return null; }
+}
+async function poolPull(force){
+  try{ if(typeof SES==="undefined"||!SES||SES.t!=="trial") return null; }catch(e){ return null; }
+  if(!poolSyncOn()){ const c=poolLS(); if(c&&!POOL.data){ Object.assign(POOL,c); } return null; }
+  if(!force&&Date.now()-(POOL.lastPull||0)<6*3600*1000) return null;
+  if(POOL.busy) return null; POOL.busy=1;
+  try{
+    const r=await syncCall("pool_get",{kid:SYNC.kid},{timeout:25000}); POOL.lastPull=Date.now(); POOL.srv=true;
+    if(!r||!r.ok) return r;
+    try{ const md=r.mode==="all"?"all":"solo"; if(SYNC.srvAcct) SYNC.srvAcct.aiMode=md; const a=poolAcct(); if(a&&a.aiMode!==md){ a.aiMode=md; if(typeof asave==="function") asave(); } }catch(e){}
+    if(r.mode!=="all"){ POOL.mode="solo"; POOL.data=null; POOL.n=0; POOL.v1=null; poolLSSet({mode:"solo",at:Date.now()}); poolPaint(); return r; }
+    POOL.mode="all"; POOL.data=r.digests||[]; POOL.n=r.n||POOL.data.length; POOL.v1=r.v1||null; POOL.week=r.week||0; POOL.at=r.at||Date.now(); POOL.err="";
+    poolLSSet({mode:"all",data:POOL.data,n:POOL.n,v1:POOL.v1,week:POOL.week,at:POOL.at,lastPull:POOL.lastPull});
+    poolPaint(); return r;
+  }catch(e){ POOL.err=String(e.message||e); return null; } finally{ POOL.busy=0; }
+}
+/* ── 合成：匿名ダイジェスト群 → 統計と、接続AIに渡す知識テキスト ── */
+function poolCompile(digests,v1){
+  digests=Array.isArray(digests)?digests:[]; const S={companies:digests.length,products:0,byCat:{},byTarget:{},term:{},pay:{},price:{},moq:{},lead:{},certs:{},threads:{n:0,inN:0,byStatus:{},byCty:{}},fb:{n:0,hot:0,won:0,quotes:0,lost:{},byCty:{}},q:{},reply:[],growth:[],mobile:0,regs:0};
+  const inc=(o,k,n)=>{ if(!k) return; o[k]=(o[k]||0)+(n==null?1:n); };
+  digests.forEach(x=>{ const d=x&&x.d||x||{}; if(d.dev==="mobile") S.mobile++; if(d.growth) S.growth.push(+d.growth||0);
+    /* 国・認証は「社数」で数える（1社が複数商品でも1と数える） */
+    const tgS=new Set(), ctS=new Set(); (d.products||[]).forEach(p=>{ (p.targets||[]).forEach(c=>tgS.add(c)); (p.certs||[]).forEach(c=>ctS.add(c)); }); tgS.forEach(c=>inc(S.byTarget,c)); ctS.forEach(c=>inc(S.certs,c));
+    (d.products||[]).forEach(p=>{ S.products++; inc(S.byCat,p.cat||"未分類"); inc(S.term,p.term); inc(S.pay,p.pay); if(p.priceBand) inc(S.price,(p.cat||"未分類")+"｜"+p.priceBand); inc(S.moq,p.moqBand); inc(S.lead,p.leadBand); S.regs+=+p.regsN||0;
+      const t=p.threads||{}; S.threads.n+=+t.n||0; S.threads.inN+=+t.inN||0; Object.entries(t.byStatus||{}).forEach(([k,n])=>inc(S.threads.byStatus,k,n)); Object.entries(t.byCty||{}).forEach(([c,e])=>{ const g=S.threads.byCty[c]||(S.threads.byCty[c]={n:0,st:{}}); g.n+=(e&&e.n)||0; Object.entries((e&&e.st)||{}).forEach(([k,n])=>inc(g.st,k,n)); }); if(t.replyDays!=null) S.reply.push(+t.replyDays);
+      const f=p.fb||{}; S.fb.n+=+f.n||0; S.fb.hot+=+f.hot||0; S.fb.won+=+f.won||0; S.fb.quotes+=+f.quotes||0; Object.entries(f.lost||{}).forEach(([k,n])=>inc(S.fb.lost,k,n)); Object.entries(f.byCty||{}).forEach(([k,n])=>inc(S.fb.byCty,k,n));
+      Object.entries(p.qTypes||{}).forEach(([k,n])=>inc(S.q,k,n)); }); });
+  const top=(o,n)=>Object.entries(o).filter(([k])=>k).sort((a,b)=>b[1]-a[1]).slice(0,n||8);
+  const pct=(a,b)=>b?Math.round(a/b*100):0; const med=a=>{ if(!a.length) return null; const s=a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
+  const lines=[];
+  lines.push(`対象：Ver2.0 の利用企業 ${S.companies}社・${S.products}商品分の匿名ダイジェスト（社名・商品名・人名は含まれない）${S.mobile?`／スマホ利用 ${S.mobile}社`:""}`);
+  if(S.products){
+    lines.push(`カテゴリ分布（商品数）：${top(S.byCat,8).map(([k,n])=>`${k} ${n}`).join("、")}`);
+    if(Object.keys(S.byTarget).length) lines.push(`進出希望国（社数）：${top(S.byTarget,12).map(([k,n])=>`${k} ${n}社`).join("、")}`);
+    const cond=[]; if(Object.keys(S.term).length) cond.push("取引条件 "+top(S.term,4).map(([k,n])=>`${k} ${pct(n,S.products)}%`).join("・")); if(Object.keys(S.pay).length) cond.push("支払 "+top(S.pay,4).map(([k,n])=>`${k} ${pct(n,S.products)}%`).join("・")); if(Object.keys(S.moq).length) cond.push("MOQ帯 "+top(S.moq,4).map(([k,n])=>`${k} ${n}`).join("・")); if(Object.keys(S.lead).length) cond.push("リードタイム帯 "+top(S.lead,4).map(([k,n])=>`${k} ${n}`).join("・")); if(cond.length) lines.push("取引条件の傾向："+cond.join("／"));
+    if(Object.keys(S.price).length) lines.push(`価格帯（単価・カテゴリ別）：${top(S.price,10).map(([k,n])=>`${k.replace("｜"," ")} ${n}`).join("、")}`);
+    if(Object.keys(S.certs).length) lines.push(`保有する認証・実績：${top(S.certs,8).map(([k,n])=>`${k} ${n}社`).join("、")}`);
+    if(S.regs) lines.push(`規制調査の実施：延べ ${S.regs}か国`);
+  }
+  if(S.threads.n){ const r=med(S.reply); lines.push(`バイヤーとの直接交渉：${S.threads.n}スレッド（受信 ${S.threads.inN}通）／ステータス分布 ${top(S.threads.byStatus,7).map(([k,n])=>`${k} ${n}`).join("、")}${r!=null?`／初回返信までの中央値 ${r}日`:""}`);
+    const cty=Object.entries(S.threads.byCty).sort((a,b)=>b[1].n-a[1].n).slice(0,8); if(cty.length) lines.push(`国別の交渉状況：${cty.map(([c,e])=>`${c} ${e.n}件（${top(e.st,3).map(([k,n])=>k+" "+n).join("・")}）`).join("／")}`); }
+  if(S.fb.n){ lines.push(`商談記録：${S.fb.n}件／反応「高」${pct(S.fb.hot,S.fb.n)}%／見積・サンプル以降 ${pct(S.fb.quotes,S.fb.n)}%／受注 ${S.fb.won}件（${pct(S.fb.won,S.fb.n)}%）`);
+    if(Object.keys(S.fb.lost).length) lines.push(`失注理由の分類：${top(S.fb.lost,6).map(([k,n])=>`${k} ${n}`).join("、")}`); if(Object.keys(S.fb.byCty).length) lines.push(`商談の多い国：${top(S.fb.byCty,8).map(([k,n])=>`${k} ${n}件`).join("、")}`); }
+  if(Object.keys(S.q).length) lines.push(`バイヤーからよく来る質問の種類：${top(S.q,8).map(([k,n])=>`${k} ${n}回`).join("、")}`);
+  if(S.growth.length) lines.push(`各社AI商社マンの成長レベル：平均 ${Math.round(S.growth.reduce((a,b)=>a+b,0)/S.growth.length)}%（${S.growth.length}社）`);
+  const V=v1||POOL_V1_DEFAULT; const vl=[]; if(V){ const b=V.buyers||{}, f=V.feedbacks||{}, p=V.projects||{}, t=V.tasks||{};
+    if(b.total) vl.push(`登録バイヤー ${Number(b.total).toLocaleString()}名${b.active90d?`（直近90日に動きあり ${Number(b.active90d).toLocaleString()}名）`:""}`);
+    if(b.byStatus&&Object.values(b.byStatus).some(x=>x)) vl.push("進捗分布 "+Object.entries(b.byStatus).filter(([,n])=>n).map(([k,n])=>`${k} ${Number(n).toLocaleString()}`).join("・"));
+    if(b.byLikelihood&&Object.values(b.byLikelihood).some(x=>x)) vl.push("受注見込み "+Object.entries(b.byLikelihood).filter(([,n])=>n).map(([k,n])=>`${k} ${Number(n).toLocaleString()}`).join("・"));
+    if(f.total) vl.push(`商談記録 ${Number(f.total).toLocaleString()}件${f.last90d?`（直近90日 ${Number(f.last90d).toLocaleString()}件）`:""}`);
+    if(p.total) vl.push(`支援案件 ${Number(p.total).toLocaleString()}件`); if(t.total) vl.push(`タスク ${Number(t.total).toLocaleString()}件（完了率 ${t.doneRate||"-"}%）`);
+    if(vl.length) lines.push(`Ver1.0（貿易クラウド本番DB・集計値のみ・基準日 ${V.asof||"-"}${V.src==="upload"?"・管理者取込":V.src==="digitrad-v1"?"・API自動取込":""}）：${vl.join("／")}`); }
+  return {stats:S,text:lines.join("\n"),v1:V};
+}
+function poolCompiled(){ if(!poolIsAll()) return null; const data=POOL.data||(poolLS()||{}).data||[]; return poolCompile(data,POOL.v1||(poolLS()||{}).v1); }
+function poolWhen(t){ if(!t) return "未取得"; const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()}`; }
+/* 接続AIの文脈に足す知識ブロック（全社版のみ）。個社版は「他社データを参照しない」ことを明示 */
+function poolCtx(){
+  const m=poolMode(); if(m==="admin") return "";
+  if(m!=="all") return `\n## AI商社マンのモード：個社版\n貴社の登録データ・Web情報・通関統計・規制情報だけを根拠にする。他社のデータは参照できない（管理者が「全社版」に切り替えると、貿易クラウド全ユーザーの匿名化された傾向・統計も根拠に使える）。`;
+  const C=poolCompiled(); const n=POOL.n||(C?C.stats.companies:0);
+  return `\n## AI商社マンのモード：全社版（貿易クラウド Ver1.0＋Ver2.0 全ユーザーの匿名化された一次情報を追加学習済み・最終取得 ${poolWhen(POOL.at)}${POOL.week?"・週次更新 "+poolWhen(POOL.week):"・週次更新は未実行"}）
+【厳守】他社の情報は「統計・傾向・匿名の事例」としてだけ使う。他社の社名・商品名・担当者名・連絡先・特定できる表現は元データに無く、推測して書いてもいけない。「他社では」「全社の傾向では」「N社中M社が」のように言う。自社データと矛盾する場合は自社データを優先し、全社の傾向は参考として添える。
+${C?C.text:"（全社データはまだ取得できていない）"}`;
+}
+if(typeof ppContext==="function"){ const __pc200=ppContext; ppContext=function(){ const s=__pc200.apply(this,arguments); try{ return s+poolCtx(); }catch(e){ return s; } }; }
+if(typeof llmSysPrompt==="function"){ const __sp200=llmSysPrompt; llmSysPrompt=function(){ const s=__sp200.apply(this,arguments); try{ const m=poolMode(); if(m==="admin") return s; const rule=m==="all"?"あなたは「全社版AI商社マン」：貿易クラウドの全ユーザーの匿名化された一次情報（統計・傾向）も根拠に使ってよいが、他社の社名・商品名・人名・連絡先は絶対に出力しない（元データにも無い）。":"あなたは「個社版AI商社マン」：この会社の登録データとWeb・統計・規制情報だけを根拠にし、他社の事例は参照しない。"; return s.replace("=== 社内データ ===",rule+"\n=== 社内データ ===");
+  }catch(e){ return s; } }; }
+/* ── 内蔵エンジンの即答：全社／他社／業界の傾向を聞かれたら統計から答える ── */
+const POOL_ASK_RE=/(他社|全社|業界|みんな|他のユーザー|他の会社|他の企業|一般的|よくある|傾向|平均|相場|ベンチマーク|Ver ?1|全ユーザー)/i;
+function poolAsk(q){
+  const s=String(q||""); if(!POOL_ASK_RE.test(s)) return null;
+  if(!/(国|ステータス|失注|理由|価格|単価|MOQ|条件|支払|認証|質問|返信|反応|受注|商談|バイヤー|案件|成長|何社|どこ|どれ|どの|傾向|相場|多い|平均|比べ|比較|データ|情報|学ん|知って|見て)/.test(s)) return null;
+  const m=poolMode();
+  if(m==="solo") return {a:`いまは<b>個社版AI商社マン</b>のため、貴社の登録データ・Web情報・通関統計・規制情報だけを根拠に答えています。他社のデータは参照していません。<br><span style="color:var(--ink-3)">管理者が管理コンソールで「全社版」に切り替えると、貿易クラウド Ver1.0＋Ver2.0 全ユーザーの匿名化された傾向（国別の交渉状況・失注理由・価格帯・よくある質問など）も根拠に使えます。</span>`,c:"根拠：AI商社マンのモード設定（個社版）"};
+  if(m!=="all") return null;
+  const C=poolCompiled(); if(!C||(!C.stats.companies&&!C.v1)) return {a:`全社版AI商社マンですが、全社データをまだ取得できていません（${POOL.err?esc(POOL.err):"同期サーバー未接続または初回取得前"}）。画面を開き直すか、しばらくしてからもう一度お試しください。`,c:"根拠：全社知識プール（未取得）"};
+  const S=C.stats; const top=(o,n)=>Object.entries(o).filter(([k])=>k).sort((a,b)=>b[1]-a[1]).slice(0,n||6); const pct=(a,b)=>b?Math.round(a/b*100):0; const rows=[];
+  const want=k=>new RegExp(k).test(s);
+  if(want("国|どこ|市場")&&Object.keys(S.byTarget).length) rows.push(`<b>進出希望国（全社・社数）</b>：${top(S.byTarget,10).map(([k,n])=>`${esc(k)} ${n}社`).join("、")}`);
+  if(want("国|交渉|ステータス|商談")&&Object.keys(S.threads.byCty).length) rows.push(`<b>国別の交渉状況</b>：${Object.entries(S.threads.byCty).sort((a,b)=>b[1].n-a[1].n).slice(0,8).map(([c,e])=>`${esc(c)} ${e.n}件（${top(e.st,3).map(([k,n])=>esc(k)+" "+n).join("・")}）`).join("／")}`);
+  if(want("ステータス|進捗|交渉")&&S.threads.n) rows.push(`<b>交渉ステータス分布（全社）</b>：${top(S.threads.byStatus,7).map(([k,n])=>`${esc(k)} ${n}`).join("、")}／${S.threads.n}スレッド`);
+  if(want("失注|理由|断ら")&&Object.keys(S.fb.lost).length) rows.push(`<b>失注理由の分類（全社）</b>：${top(S.fb.lost,6).map(([k,n])=>`${esc(k)} ${n}件`).join("、")}`);
+  if(want("価格|単価|相場|いくら")&&Object.keys(S.price).length) rows.push(`<b>価格帯（単価・カテゴリ別）</b>：${top(S.price,8).map(([k,n])=>`${esc(k.replace("｜"," "))} ${n}`).join("、")}`);
+  if(want("MOQ|数量|ロット")&&Object.keys(S.moq).length) rows.push(`<b>MOQ帯</b>：${top(S.moq,5).map(([k,n])=>`${esc(k)} ${n}`).join("、")}`);
+  if(want("条件|支払|決済|インコタームズ|FOB|CIF")&&(Object.keys(S.term).length||Object.keys(S.pay).length)) rows.push(`<b>取引条件の傾向</b>：${top(S.term,4).map(([k,n])=>`${esc(k)} ${pct(n,S.products)}%`).join("・")}${Object.keys(S.pay).length?"／支払 "+top(S.pay,4).map(([k,n])=>`${esc(k)} ${pct(n,S.products)}%`).join("・"):""}`);
+  if(want("認証|証明|規制")&&Object.keys(S.certs).length) rows.push(`<b>保有する認証・実績</b>：${top(S.certs,8).map(([k,n])=>`${esc(k)} ${n}社`).join("、")}`);
+  if(want("質問|聞か|問い合わせ")&&Object.keys(S.q).length) rows.push(`<b>バイヤーからよく来る質問</b>：${top(S.q,8).map(([k,n])=>`${esc(k)} ${n}回`).join("、")}`);
+  if(want("返信|反応|レスポンス")&&S.reply.length){ const r=S.reply.slice().sort((a,b)=>a-b); rows.push(`<b>初回返信までの日数</b>：中央値 ${r[Math.floor(r.length/2)]}日（${r.length}社）`); }
+  if(want("受注|成約|商談|反応")&&S.fb.n) rows.push(`<b>商談記録（全社）</b>：${S.fb.n}件／反応「高」${pct(S.fb.hot,S.fb.n)}%／受注 ${S.fb.won}件（${pct(S.fb.won,S.fb.n)}%）`);
+  if(want("成長|レベル")&&S.growth.length) rows.push(`<b>各社AI商社マンの成長レベル</b>：平均 ${Math.round(S.growth.reduce((a,b)=>a+b,0)/S.growth.length)}%`);
+  if(want("Ver ?1|バイヤー|案件|本番")&&C.v1){ const V=C.v1, b=V.buyers||{}, f=V.feedbacks||{}, p=V.projects||{}; rows.push(`<b>Ver1.0（本番DB・集計値）</b>：${[b.total?"登録バイヤー "+Number(b.total).toLocaleString()+"名":"",b.active90d?"直近90日に動き "+Number(b.active90d).toLocaleString()+"名":"",f.total?"商談記録 "+Number(f.total).toLocaleString()+"件":"",p.total?"支援案件 "+Number(p.total).toLocaleString()+"件":""].filter(Boolean).join("／")}（基準日 ${esc(V.asof||"-")}）`); }
+  if(!rows.length){ rows.push(`<b>全社の概況</b>：Ver2.0 利用企業 ${S.companies}社・${S.products}商品／カテゴリ ${top(S.byCat,5).map(([k,n])=>`${esc(k)} ${n}`).join("、")||"-"}／交渉 ${S.threads.n}スレッド／商談記録 ${S.fb.n}件`); if(C.v1&&C.v1.buyers&&C.v1.buyers.total) rows.push(`<b>Ver1.0</b>：登録バイヤー ${Number(C.v1.buyers.total).toLocaleString()}名（基準日 ${esc(C.v1.asof||"-")}）`); }
+  rows.push(`<span style="color:var(--ink-3)">※他社の社名・商品名は元データに含まれていません（匿名の統計・傾向として提供）。</span>`);
+  return {a:rows.join("<br>"),c:`根拠：全社知識プール（${S.companies}社・匿名ダイジェスト・最終取得 ${poolWhen(POOL.at)}）${C.v1?"＋Ver1.0 集計値":""}`};
+}
+if(typeof brain==="function"){ const __brain200=brain; brain=function(q,opts){ try{ const q0=(opts&&opts.raw)||q; const r=poolAsk(q0); if(r){ try{ if(typeof logU==="function") logU("ai","全社知識プール照会"); }catch(e){} return r; } }catch(e){} return __brain200.apply(this,arguments); }; }
+/* ── 表示：バッジ・AIが見ているもの・成長カード ── */
+function poolBadgeHtml(small){
+  const m=poolMode(); if(m==="admin") return "";
+  const C=m==="all"?poolCompiled():null; const n=C?C.stats.companies:0;
+  const tip=m==="all"?`全社版：貴社データ＋Web・統計・規制に加えて、貿易クラウド Ver1.0＋Ver2.0 全ユーザーの匿名化された一次情報（${n}社分・社名や商品名は含まない）を学習。最終取得 ${poolWhen(POOL.at)}${POOL.week?"・週次更新 "+poolWhen(POOL.week):""}`:"個社版：貴社の登録データ＋Web・通関統計・規制情報だけを学習（他社データは参照しない）";
+  return `<span class="p ${m==="all"?"or":"lo"} poolbadge" title="${esc(tip)}" style="${small?"font-size:9.5px;":""}cursor:help">${m==="all"?"🧠 全社版AI商社マン"+(n?"・"+n+"社分の匿名知見":""):"🏠 個社版AI商社マン"}</span>`;
+}
+function poolSeenRows(){
+  const m=poolMode(); if(m==="admin") return [];
+  if(m!=="all") return [["🏠 他社データ",`参照しない（個社版）`,0]];
+  const C=poolCompiled(); const S=C?C.stats:null;
+  return [["🧠 全社の匿名知見（Ver2.0）",S?`${S.companies}社・${S.products}商品`:"未取得",S&&S.companies?100:0],["🧠 Ver1.0 本番DBの集計",C&&C.v1&&C.v1.buyers&&C.v1.buyers.total?`バイヤー ${Number(C.v1.buyers.total).toLocaleString()}名 ほか`:"未取込",C&&C.v1?100:0]];
+}
+if(typeof kbSeen==="function"){ const __seen200=kbSeen; kbSeen=function(){ const r=__seen200.apply(this,arguments); try{ return (Array.isArray(r)?r:[]).concat(poolSeenRows()); }catch(e){ return r; } }; }
+if(typeof vAI==="function"){ const __vAI200=vAI; vAI=function(){ let h=__vAI200.apply(this,arguments); try{ const m=poolMode(); if(m!=="admin"){ h=h.replace(/(<span class="p on">[^<]*専用<\/span>)/,'$1 '+poolBadgeHtml()); h=h.replace("他社のデータは混ざりません。貴社のプロジェクトの中だけを見ます。",m==="all"?"<b>全社版</b>：貴社のプロジェクトに加えて、貿易クラウド全ユーザーの<b>匿名化された</b>傾向・統計（社名・商品名なし）も見ます。":"<b>個社版</b>：他社のデータは混ざりません。貴社のプロジェクトの中だけを見ます。"); } }catch(e){} return h; }; }
+if(typeof aiLevelCard==="function"){ const __glc200=aiLevelCard; aiLevelCard=function(){ let h=__glc200.apply(this,arguments); try{ const m=poolMode(); if(m==="admin") return h; const C=m==="all"?poolCompiled():null; const line=m==="all"?`<p class="nn" style="margin-top:6px;border-top:1px dashed var(--line);padding-top:6px">🧠 <b>全社版</b>：貴社データに加えて、貿易クラウド Ver1.0＋Ver2.0 全ユーザーの<b>匿名化された一次情報</b>（${C?C.stats.companies:0}社分・${POOL.week?"週次更新 "+poolWhen(POOL.week):"週次更新は未実行"}・最終取得 ${poolWhen(POOL.at)}）を追加で学習しています。社名・商品名・人名は含まれません。</p>`:`<p class="nn" style="margin-top:6px;border-top:1px dashed var(--line);padding-top:6px">🏠 <b>個社版</b>：貴社の登録データ・Web情報・通関統計・規制情報だけを学習します（他社データは参照しません）。</p>`; const i=h.lastIndexOf("</div>"); if(i>0) h=h.slice(0,i)+line+h.slice(i); }catch(e){} return h; }; }
+/* 右パネル（AI商社マンに質問）の見出しにも小さくバッジ */
+if(typeof openAskAI==="function"){ const __oa200=openAskAI; openAskAI=function(){ __oa200.apply(this,arguments); try{ const pn=document.getElementById("pn"); if(!pn||pn.querySelector(".poolbadge")||poolMode()==="admin") return; const h=pn.querySelector("h3,h2,b"); if(h) h.insertAdjacentHTML("afterend"," "+poolBadgeHtml(true)); }catch(e){} }; }
+function poolPaint(){ try{ document.querySelectorAll(".poolbadge").forEach(b=>{ b.outerHTML=poolBadgeHtml(b.style.fontSize==="9.5px"); }); }catch(e){} }
+/* ── ログイン・同期のフックと1日1回のダイジェスト送信 ── */
+if(typeof syncStart==="function"){ const __ss200=syncStart; syncStart=async function(){ const r=await __ss200.apply(this,arguments); try{ if(r&&r.ok&&!r.skip){ poolPull(true).then(()=>{ try{ if(typeof render==="function"&&typeof cur!=="undefined"&&cur==="ai") render(); }catch(e){} }); setTimeout(()=>poolPut(false),4000); } }catch(e){} return r; }; }
+if(typeof syncBeat==="function"){ const __sb200=syncBeat; syncBeat=async function(){ const r=await __sb200.apply(this,arguments); try{ poolPull(false); if(Date.now()-(POOL.lastPut||0)>3600*1000) poolPut(false); }catch(e){} return r; }; }
+document.addEventListener("visibilitychange",()=>{ try{ if(!document.hidden) poolPull(false); }catch(e){} });
+/* ── 管理コンソール：アカウント一覧の「🧠 AI商社マン」列・発行フォーム・全社知識プールのカード ── */
+async function poolSetMode(code,mode){
+  const a=(typeof findAcct==="function")?findAcct(code):null; if(!a) throw new Error("account"); a.aiMode=mode==="all"?"all":"solo"; if(typeof asave==="function") asave();
+  let srv=""; try{ if(poolSyncOn()&&typeof syncAdminPush==="function"){ const r=await syncAdminPush(); srv=r&&r.ok?"（台帳をサーバーへ送信済み）":"（サーバー送信に失敗：次回の台帳送信で反映）"; } else srv="（クラウド同期なし：この端末の台帳のみ）"; }catch(e){ srv="（サーバー送信に失敗）"; }
+  toast(`${a.co} を ${mode==="all"?"全社版":"個社版"}AI商社マンに設定しました ${srv}`); return a;
+}
+function poolAdmCol(){
+  const tbl=document.querySelector("#accounts table"); if(!tbl||tbl.querySelector("th[data-poolcol]")) return;
+  const webTh=[...tbl.querySelectorAll("thead th")].find(th=>/Web/.test(th.textContent)); if(!webTh) return;
+  webTh.insertAdjacentHTML("afterend",'<th data-poolcol title="個社版＝自社データ＋Web・統計・規制だけを学ぶ／全社版＝貿易クラウド Ver1.0＋Ver2.0 全ユーザーの匿名化された一次情報も学ぶ（社名・商品名は開示しない）">🧠 AI商社マン</th>');
+  tbl.querySelectorAll("tbody tr").forEach(tr=>{ const code=((tr.querySelector(".acode")||{}).textContent||"").trim(); const a=(typeof findAcct==="function")?findAcct(code):null; const webTd=tr.children[4]; if(!a||!webTd) return;
+    const fwd=a.role==="fwd"; webTd.insertAdjacentHTML("afterend",fwd?'<td><span class="p lo" style="font-size:9.5px">物流会社（対象外）</span></td>':`<td><select class="sel" data-poolsel="${esc(a.code)}" style="padding:2px 6px;font-size:10.5px;min-width:96px;${a.aiMode==="all"?"border-color:var(--or);color:var(--or);font-weight:700":""}"><option value="solo" ${a.aiMode==="all"?"":"selected"}>🏠 個社版</option><option value="all" ${a.aiMode==="all"?"selected":""}>🧠 全社版</option></select></td>`); });
+  tbl.querySelectorAll("[data-poolsel]").forEach(sel=>sel.onchange=async()=>{ sel.disabled=true; try{ await poolSetMode(sel.dataset.poolsel,sel.value); sel.style.cssText="padding:2px 6px;font-size:10.5px;min-width:96px;"+(sel.value==="all"?"border-color:var(--or);color:var(--or);font-weight:700":""); }catch(e){ toast("設定できませんでした："+String(e.message||e).slice(0,50)); } sel.disabled=false; poolAdmRefresh(); });
+}
+function poolAdmIssue(){
+  const nrole=document.getElementById("nrole"); if(!nrole||document.getElementById("nmode")) return;
+  nrole.insertAdjacentHTML("afterend",'<select class="sel" id="nmode" style="flex:1;min-width:0" title="AI商社マンのモード（あとから一覧で切替できます）"><option value="solo">🏠 個社版AI商社マン</option><option value="all">🧠 全社版AI商社マン</option></select>');
+  const btn=document.getElementById("nissue"); if(btn&&!btn.__pool){ btn.__pool=1; btn.addEventListener("click",()=>{ try{ const m=(document.getElementById("nmode")||{}).value; setTimeout(()=>{ const a=(typeof ADB!=="undefined"&&ADB&&ADB.accounts||[])[0]; if(a&&typeof admIssued!=="undefined"&&admIssued===a.code&&a.aiMode==null){ a.aiMode=m==="all"?"all":"solo"; asave(); if(m==="all"&&poolSyncOn()&&typeof syncAdminPush==="function") syncAdminPush().catch(()=>{}); renderAdmin(); } },0); }catch(e){} },true); }
+}
+let POOLADM={st:null,busy:0};
+function poolAdmHtml(){
+  const A=((typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]).filter(a=>a.role!=="fwd"); const all=A.filter(a=>a.aiMode==="all").length; const ok=poolSyncOn(); const st=POOLADM.st;
+  const f=t=>t?new Date(t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+  return `<div class="c" id="admpool" style="margin-bottom:11px"><div class="rw" style="justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap"><div><h3>🧠 AI商社マンのモード（個社版／全社版）と全社知識プール <span class="nt">この版で新規</span></h3>
+    <p class="nn"><b>個社版</b>＝そのお客様の会社・商品・取組の登録データ＋Web情報・通関統計・規制情報を一次情報として学習。<b>全社版</b>＝それに加えて<b>貿易クラウド Ver1.0（本番DBの集計値）＋Ver2.0 全ユーザーの匿名ダイジェスト</b>も学習し、国別の交渉状況・失注理由・価格帯・よくある質問などの傾向を伴走に使います。他社の社名・商品名・担当者名・連絡先は<b>そもそも預からない</b>（端末側で帯・語彙に丸め、サーバー側でも許可リスト外を捨てる）ため開示されません。切替はアカウント一覧の「🧠 AI商社マン」列（各アカウントごと・サーバー台帳で強制）。</p></div>
+    <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn g" id="poolst">↻ 状態を確認</button><button class="btn g" id="poolrun" ${ok?"":"disabled"}>▶ 今すぐ全社データを更新</button><button class="btn g" id="poolsetup" ${ok?"":"disabled"}>⏰ 週次ジョブを設定</button><label class="btn g" style="cursor:pointer">📥 Ver1.0 集計JSONを取り込む<input type="file" id="poolv1" accept=".json,application/json" hidden></label></div></div>
+    <div class="rw" style="gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11.5px">
+      <span>全社版のアカウント：<b>${all}</b>／${A.length}社</span>
+      <span>匿名ダイジェスト：<b>${st?st.n:"—"}</b>社分</span>
+      <span>週次更新：<b>${st?(st.week?f(st.week):"未実行"):"—"}</b>${st?(st.trigger?' <span class="p hi">ジョブ設定済み（毎週月曜 6:00）</span>':' <span class="p lo">ジョブ未設定</span>'):""}</span>
+      <span>Ver1.0 集計：<b>${st?(st.v1?`${st.v1.src==="upload"?"管理者取込":"API自動取込"}（基準日 ${esc(st.v1.asof||"-")}・${f(st.v1.at)}）${st.v1.err?" ⚠ "+esc(st.v1.err):""}`:"未取込（端末内の既定値を使用）"):"—"}</b>${st?(st.v1token?' <span class="p hi">DIGITRAD_TOKEN 設定済み</span>':' <span class="p lo">API自動取込は未設定（スクリプト プロパティ DIGITRAD_TOKEN）</span>'):""}</span></div>
+    <div id="poolout" style="margin-top:8px"></div>
+    ${ok?"":'<p class="nn" style="margin-top:6px;color:var(--warn)">クラウド同期が未設定のため、全社データの預かり・配信はできません（モードの切替はこの端末の台帳にだけ保存）。</p>'}
+    <details style="margin-top:8px"><summary style="font-size:11px;cursor:pointer;color:var(--ink-2)">匿名化のルールと週次更新のしくみ</summary><ul class="nn" style="margin-top:6px;padding-left:18px;line-height:1.8">
+      <li>預かる項目：カテゴリ・HS上4桁・進出希望国・規制調査の国数・価格帯（US$帯）・MOQ帯・リードタイム帯・取引条件（FOB等）・支払方法の種別・認証の種別・交渉ステータスの分布（国別）・初回返信までの日数・商談記録の件数と反応率・失注理由の分類・バイヤーからの質問の種類・成長レベル</li>
+      <li>預からない項目：社名・商品名・品番・担当者名・メール・電話・住所・URL・メッセージ本文・会議メモ・添付資料・価格の実額</li>
+      <li>各端末は1日1回ダイジェストを送信（内容が変わったときだけ）。全社版の端末はログイン時と6時間ごとに全社データを取得</li>
+      <li>週次：毎週月曜 6:00（JST）のジョブが Ver1.0 本番DBの集計値（バイヤー数・進捗分布・商談記録数・案件数）を自動取込（スクリプト プロパティ DIGITRAD_TOKEN が有効なとき）。未設定のときは「📥 Ver1.0 集計JSONを取り込む」で手動更新。120日以上更新の無いダイジェストは整理</li></ul></details></div>`;
+}
+async function poolAdmStatus(){ if(!poolSyncOn()) return null; try{ const r=await syncCall("pool_status",{pw:(SES&&SES.apw)||""},{timeout:25000}); if(r&&r.ok) POOLADM.st=r; return r; }catch(e){ return null; } }
+function poolAdmRefresh(){ try{ const card=document.getElementById("admpool"); if(!card) return; const html=poolAdmHtml(); const tmp=document.createElement("div"); tmp.innerHTML=html; card.replaceWith(tmp.firstElementChild); poolAdmBind(); }catch(e){} }
+function poolAdmBind(){
+  const say=m=>{ const o=document.getElementById("poolout"); if(o) o.innerHTML=m; };   /* カードは再描画で入れ替わるため毎回探す */
+  const b1=document.getElementById("poolst"); if(b1) b1.onclick=async()=>{ b1.disabled=true; const r=await poolAdmStatus(); b1.disabled=false; if(!r){ say('<span style="color:var(--warn)">状態を取得できませんでした（クラウド同期未設定か、管理者パスワード不一致）</span>'); return; } poolAdmRefresh();
+    const o=document.getElementById("poolout"); if(o){ const C=poolCompile(r.digests||[],r.v1); o.innerHTML=`<p class="lbl">全社版AI商社マンが読む知識（合成結果のプレビュー・匿名）</p><pre style="white-space:pre-wrap;font-size:10.5px;line-height:1.7;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px;max-height:260px;overflow:auto">${esc(C.text)}</pre>${r.list&&r.list.length?`<div class="tw" style="max-height:200px;margin-top:6px"><table><thead><tr><th>会社</th><th>モード</th><th>ダイジェスト</th><th>商品数</th></tr></thead><tbody>${r.list.map(x=>`<tr><td>${esc(x.co||"")}</td><td>${x.aiMode==="all"?'<span class="p or">全社版</span>':'<span class="p lo">個社版</span>'}</td><td class="n">${x.at?new Date(x.at).toLocaleDateString("ja-JP"):"未送信"}</td><td class="num">${x.products||0}</td></tr>`).join("")}</tbody></table></div>`:""}`; } };
+  const b2=document.getElementById("poolrun"); if(b2) b2.onclick=async()=>{ b2.disabled=true; say('<span class="spin"></span> 全社データを更新しています…'); try{ const r=await syncCall("pool_run",{pw:(SES&&SES.apw)||""},{timeout:120000}); const msg=r&&r.ok?`✅ 更新しました：匿名ダイジェスト ${r.n}社分（整理 ${r.pruned}件）／Ver1.0 取込：${r.v1&&r.v1.ok?"成功":(r.v1&&r.v1.skipped?"スキップ（"+esc(r.v1.note||"")+"）":"失敗："+esc((r.v1&&r.v1.error)||""))}`:`✗ ${esc((r&&r.msg)||"失敗")}`; await poolAdmStatus(); poolAdmRefresh(); say(msg); }catch(e){ say("✗ "+esc(String(e.message||e))); } b2.disabled=false; };
+  const b3=document.getElementById("poolsetup"); if(b3) b3.onclick=async()=>{ b3.disabled=true; try{ const r=await syncCall("pool_setup",{pw:(SES&&SES.apw)||""},{timeout:60000}); const msg=r&&r.ok?"✅ "+esc(r.msg||"設定しました"):"✗ "+esc((r&&r.msg)||"失敗"); await poolAdmStatus(); poolAdmRefresh(); say(msg); }catch(e){ say("✗ "+esc(String(e.message||e))); } b3.disabled=false; };
+  const f=document.getElementById("poolv1"); if(f) f.onchange=async()=>{ const file=f.files[0]; f.value=""; if(!file) return; try{ const j=JSON.parse(await file.text()); if(!poolSyncOn()){ POOL.v1=j; say("クラウド同期が未設定のため、この端末の表示にだけ反映しました"); return; } say('<span class="spin"></span> 取り込んでいます…'); const r=await syncCall("pool_v1_set",{pw:(SES&&SES.apw)||"",data:j},{timeout:60000}); const msg=r&&r.ok?`✅ Ver1.0 集計を取り込みました（基準日 ${esc((r.v1&&r.v1.asof)||"-")}）`:"✗ "+esc((r&&r.msg)||"失敗"); await poolAdmStatus(); poolAdmRefresh(); say(msg); }catch(e){ say("✗ JSONを読めませんでした："+esc(String(e.message||e).slice(0,60))); } };
+}
+if(typeof renderAdmin==="function"){ const __ra200=renderAdmin; renderAdmin=function(){ __ra200.apply(this,arguments); try{ poolAdmCol(); poolAdmIssue(); if(!document.getElementById("admpool")){ const anchor=document.getElementById("accounts")||document.getElementById("admtok"); if(anchor){ anchor.insertAdjacentHTML("beforebegin",poolAdmHtml()); poolAdmBind(); if(poolSyncOn()&&!POOLADM.st) poolAdmStatus().then(r=>{ if(r) poolAdmRefresh(); }); } } }catch(e){} }; }
+/* 管理者AIアシスタントにもモード状況を渡す */
+if(typeof admContext==="function"){ const __ac200=admContext; admContext=function(){ const s=__ac200.apply(this,arguments); try{ const A=((typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]); return s+`\n## AI商社マンのモード\n全社版 ${A.filter(a=>a.aiMode==="all").length}件／個社版 ${A.filter(a=>a.aiMode!=="all"&&a.role!=="fwd").length}件${POOLADM.st?`／全社知識プール ${POOLADM.st.n}社分・週次更新 ${POOLADM.st.week?new Date(POOLADM.st.week).toLocaleDateString("ja-JP"):"未実行"}`:""}`; }catch(e){ return s; } }; }
+/* 起動時：端末に残っている全社データを復元（オフライン・スマホの再表示用） */
+(function(){ try{ const c=poolLS(); if(c&&c.mode==="all"&&c.data){ POOL.mode="all"; POOL.data=c.data; POOL.n=c.n||c.data.length; POOL.v1=c.v1||null; POOL.week=c.week||0; POOL.at=c.at||0; } }catch(e){} })();
+
+/* F5復元（管理者セッション）：起動時の renderAdmin はこのモジュールの読込前に走るため、列とカードが無ければ一度だけ描き直す（v17.6 と同じ考え方） */
+(function(){ try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm"&&document.getElementById("admkpi")&&!document.getElementById("admpool")&&typeof renderAdmin==="function") renderAdmin(); }catch(e){} })();
 
 </script>
