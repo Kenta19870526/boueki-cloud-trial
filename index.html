@@ -2811,7 +2811,7 @@ function tenantToD(t){
     .concat(s.missing.slice(0,6).map((m,i)=>({n:m.n+"を登録する",pri:m.w>=5?"高":m.w>=4?"中":"低",
       s:TODAYS,e:addDays(TODAYS,3+i*3),st:"未着手",who:t.co||"貴社",ref:m.use,kids:[]})))
     .concat((t.targets||[]).slice(0,4).map((c,i)=>({n:c+"の規制調査",pri:"高",s:TODAYS,
-      e:addDays(TODAYS,14+i*7),st:i===0?"対応中":"未着手",who:"STANDAGE／FS",ref:"進出希望国",kids:[]})));
+      e:addDays(TODAYS,14+i*7),st:(t.regKB&&t.regKB[c]&&t.regKB[c].appliedTxt)?"完了":(i===0?"対応中":"未着手"),who:"STANDAGE／FS",ref:"進出希望国",kids:[]})));
   d.today=s.missing.slice(0,3).map(m=>[m.n+"を登録する",m.use+"に使われます。","or"]);
   if(!d.today.length) d.today=[["バイヤーへの接触を開始","規制調査が終わった国から始めます。","or"],
     ["商談記録を貯める","2年で42件が目標です。","bl"],["初回の見積を出す","AIが下書きを作ります。","bl"]];
@@ -21497,7 +21497,21 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["AI商社マンと登録 →","Register with the AI Trade Agent →","与AI商社专员一起登记 →","Registrar con el Agente IA →"],
 ["AI商社マンと確認 →","Check with the AI Trade Agent →","与AI商社专员一起确认 →","Revisar con el Agente IA →"],
 ["商品情報で確認 →","Check in Product info →","在商品信息中确认 →","Ver en Información del producto →"],
-["このままでOK","Keep as is","保持不变","Dejar como está"]);
+["このままでOK","Keep as is","保持不变","Dejar como está"],
+["✅ 内容をAI商社マンに反映","✅ Apply to the AI Trade Agent","✅ 反映到AI商社专员","✅ Aplicar al Agente IA"],
+["🔁 最新の内容で反映し直す","🔁 Re-apply with the latest content","🔁 用最新内容重新反映","🔁 Volver a aplicar con lo último"],
+["内容に問題がなければ、AI商社マンに反映","If the content looks right, apply it to the AI Trade Agent","内容无误的话，反映到AI商社专员","Si el contenido es correcto, aplíquelo al Agente IA"],
+["✅ この調査内容はAI商社マンに反映済みです","✅ This research has been applied to the AI Trade Agent","✅ 此调查内容已反映到AI商社专员","✅ Esta investigación ya está aplicada al Agente IA"],
+["💬 この規制についてAI商社マンに聞く・追加調査を依頼する","💬 Ask the AI Trade Agent about this regulation or request further research","💬 向AI商社专员询问此法规・委托补充调查","💬 Pregunte al Agente IA sobre esta normativa o pida más investigación"],
+["🌐 Web検索で追加調査","🌐 Further research with web search","🌐 用网络搜索补充调查","🌐 Investigar más con búsqueda web"],
+["まだやり取りはありません。上の候補を押すか、下の入力欄から質問・依頼してください。","No conversation yet. Tap a suggestion above or type a question or request below.","尚无对话。请点击上方候选或在下方输入问题・委托。","Aún no hay conversación. Toque una sugerencia o escriba una pregunta abajo."],
+["①の規制当局と制度を、初心者向けにやさしく説明して","Explain the authority and system in ① in plain terms","请通俗解释①的监管机构和制度","Explique la autoridad y el sistema de ① en términos sencillos"],
+["②の輸入登録・認証は、何をどの順番で進める？費用と期間も","For ②, what steps in what order? Include cost and lead time","②的进口登记・认证按什么顺序办？费用和时间","Para ②, ¿qué pasos y en qué orden? Con coste y plazo"],
+["③の必要書類の入手方法と所要期間を教えて","How do I obtain the documents in ③ and how long does it take?","③所需文件如何获取、需要多久","¿Cómo obtengo los documentos de ③ y cuánto tarda?"],
+["④のラベル表示の必須項目を追加調査して","Research the mandatory label items in ④","补充调查④标签的必填项目","Investigue los elementos obligatorios de etiquetado de ④"],
+["⑥直近1年の変更点を最新情報で確認して","Check the latest information on changes in the past year (⑥)","用最新信息确认⑥近一年的变更","Verifique con información actual los cambios del último año (⑥)"],
+["この商品の成分・仕様で引っかかりそうな点は？","What in this product's ingredients or specs could be an issue?","本产品的成分・规格有哪些可能踩坑的点？","¿Qué de los ingredientes o especificaciones podría ser un problema?"],
+["規制の詳細調査（AI・Web検索）","Detailed regulation research (AI / web)","法规详细调查（AI・网络搜索）","Investigación normativa detallada (IA / web)"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -24085,5 +24099,228 @@ if(typeof fillAnswer==="function"){ const __fa202=fillAnswer;
     }catch(e){}
     return __fa202.apply(this,arguments);
   }; }
+
+/* ═══════════ v20.3（2026-09-16）：規制のAI詳細調査パネル＝AI商社マンに聞く・追加調査・「内容をAI商社マンに反映」 ═══════════
+   ご指摘：①調査結果は難解な内容も多い → その場でAI商社マンに聞いたり追加調査を依頼できるように。やり取り・追加調査は
+             AI商社マンの資産として蓄積する
+           ②「今日やること」に規制確認があるとき、調査内容に問題がなければ「内容をAI商社マンに反映」で、AI商社マンのデータベースへの
+             反映と、今日やることの規制調査ステップの完了（ステータス変更）を一度に行う
+   データ：TEN.regKB[国] = {txt（調査本文）, ts, cits, eng, qa:[{q,a,ts,web,cits,eng}], appliedTxt（反映した本文）, appliedTs, appliedResTs}
+           反映すると 取り込んだ情報一覧（TEN.sources）にも登録、ppContext に「規制の詳細調査」節を追加、
+           タスク「国の規制調査」が完了（logic_tenant.js）、今日やることの「送り先国の規制を確認する」が✅ */
+function regKbStore(){ return (typeof TEN!=="undefined"&&TEN)?(TEN.regKB=TEN.regKB||{}):(window.__regKB=window.__regKB||{}); }
+function regKbOf(c){ const S=regKbStore(); const k=S[c]=S[c]||{}; k.qa=k.qa||[]; k.cits=k.cits||[]; return k; }
+function regKbSave(){ try{ if(typeof saveTen==="function"&&typeof TEN!=="undefined"&&TEN) saveTen(); }catch(e){} }
+function regKbApplied(){ const S=regKbStore(); return Object.keys(S).filter(c=>S[c]&&S[c].appliedTxt); }
+function regKbStrip(h){ return String(h||"").replace(/<br\s*\/?>/gi,"\n").replace(/<\/(p|div|li|tr|h\d)>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/[ \t]+/g," ").replace(/\n\s*\n+/g,"\n").trim(); }
+function regKbTxt(c){ const kb=regKbOf(c); if(kb.txt) return kb.txt; const cache=(typeof regStore==="function")?regStore()[c]:null; return (cache&&cache.h)?regKbStrip(cache.h):""; }
+function regKbNow(){ try{ if(typeof legNow==="function") return legNow(); }catch(e){} return new Date().toLocaleString("ja-JP"); }
+/* 国名の別名（今日やることの文面との照合用） */
+const REG_ALIAS={"ヨーロッパ":["欧州","EU","ＥＵ"],"アメリカ":["米国","USA","US"],"イギリス":["英国","UK"],"UAE":["アラブ首長国","ドバイ"],"オーストラリア":["豪州"],"中国":["中華人民共和国"],"韓国":["大韓民国"],"台湾":["台灣"]};
+function regKbNames(c){ const a=[c].concat(REG_ALIAS[c]||[]); try{ if(typeof kbCty==="function") kbCty(c).forEach(x=>{ if(!a.includes(x)) a.push(x); }); }catch(e){} return a; }
+/* 今日やることのうち「送り先国の規制を確認する」ステップを持つタスク */
+function regKbToday(){ try{ if(typeof todayItems!=="function"||typeof todayStepsOf!=="function") return []; return todayItems().filter(x=>todayStepsOf(x).some(s=>s.id==="reg")); }catch(e){ return []; } }
+
+/* ── 調査の実行：本文（プレーンテキスト）も保存する（従来はHTMLのみ） ── */
+regAIRun=async function(c){
+  regAIView(c,`<div class="rw" style="gap:8px"><span class="spin"></span>Web検索で最新規制を調査しています…（20〜60秒）</div>`,"");
+  try{
+    const r=await llmAsk(`${c}向けに日本から「${(D&&D.item)||""}${D&&D.itemEn?"（"+D.itemEn+"）":""}・HSコード${(D&&D.hs)||"不明"}・カテゴリ${(D&&D.cat)||""}」を輸出する際の最新の輸入規制を、Web検索で確認して日本語で整理してください。
+次の見出しで、各2〜3行の簡潔さで：
+①規制当局と根拠制度 ②輸入登録・認証（要否・所要期間・費用目安） ③必要書類 ④ラベル・表示要件 ⑤関税・税 ⑥直近1年の変更・注意点
+規則：確認できなかった項目は「確認できませんでした」と正直に書く。推測で断定しない。`,2400,{forceWeb:1,timeout:150000});
+    let h=(typeof ppFormat==="function"?ppFormat(r.txt):esc(r.txt).replace(/\n/g,"<br>"));
+    if(r.cits&&r.cits.length){
+      h+=`<div style="margin-top:10px;border:1px solid var(--bl);border-radius:8px;overflow:hidden">
+        <div style="background:var(--bl-soft);padding:5px 10px;font-size:10px;font-weight:700;color:var(--bl)">🌐 出典</div>
+        <div style="padding:7px 11px;font-size:10.5px;line-height:1.9;word-break:break-all">
+        ${r.cits.slice(0,5).map((u,i)=>`[${i+1}] <a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,64))}</a>`).join("<br>")}</div></div>`;
+    }
+    h+=`<p class="nn" style="margin-top:8px">使用エンジン：${esc(r.provNm||"")}${r.why?"（"+esc(r.why)+"）":""}／正式な分類はHSコードの事前教示で確定します。</p>`;
+    const ts=regKbNow();
+    regStore()[c]={h,ts};
+    const kb=regKbOf(c); kb.txt=String(r.txt||""); kb.ts=ts; kb.cits=(r.cits||[]).slice(0,5); kb.eng=r.provNm||"";
+    regKbSave();
+    regAIView(c,h,ts);
+  }catch(e){
+    regAIView(c,`<div style="padding:11px;border:1px solid var(--crit);border-radius:8px;color:var(--crit)">調査に失敗しました：${esc(String(e&&e.message).slice(0,110))}<br>
+      <span style="color:var(--ink-2)">もう一度お試しいただくか、「🌐 社内規制DB」のレポートをご利用ください。</span></div>`,"");
+  }
+};
+
+/* スマホ：入力欄を全幅にし、「Web検索で追加調査」と送信はその下の行に（共通の dwmob 横並びだと入力欄が細くなりすぎる） */
+(function(){ if(document.getElementById("regcss")) return; const st=document.createElement("style"); st.id="regcss";
+  st.textContent=`.dwmob .dwfoot #regcomp{flex-wrap:wrap;padding:4px 8px 4px 10px}
+.dwmob .dwfoot #regcomp textarea.sel{flex:1 1 100%!important;width:100%!important}
+.dwmob .dwfoot #regcomp>.rw{flex:1 1 100%;justify-content:space-between;border-top:1px solid var(--line-2)!important;padding:4px 0 2px!important}
+#regchips .q{white-space:normal;text-align:left;line-height:1.4}`; document.head.appendChild(st); })();
+/* ── パネル：調査結果＋反映ボタン＋AI商社マンとのやり取り ── */
+const REG_CHIPS=[["①の規制当局と制度を、初心者向けにやさしく説明して",0],["②の輸入登録・認証は、何をどの順番で進める？費用と期間も",0],
+  ["③の必要書類の入手方法と所要期間を教えて",0],["④のラベル表示の必須項目を追加調査して",1],["⑥直近1年の変更点を最新情報で確認して",1],
+  ["この商品の成分・仕様で引っかかりそうな点は？",0]];
+const REG_WEB_RE=/調査|調べ|検索|最新|確認して|変更点|アップデート|update|search|情報源|出典|裏取り/i;
+function regKbPill(c){
+  const kb=regKbOf(c); const cache=(typeof regStore==="function")?regStore()[c]:null; const resTs=kb.ts||(cache&&cache.ts)||"";
+  if(kb.appliedTxt){ const stale=resTs&&kb.appliedResTs&&resTs!==kb.appliedResTs;
+    return stale?`<span class="p mid" title="反映のあとに再調査しています。最新の内容で問題なければ、もう一度反映してください">⚠ 再調査あり・最新版は未反映（反映 ${esc(kb.appliedTs)}）</span>`
+      :`<span class="p hi">✅ AI商社マンに反映済み（${esc(kb.appliedTs)}）</span>`; }
+  return `<span class="p lo">未反映</span>`;
+}
+regAIView=function(c,html,ts){
+  const kb=regKbOf(c); const txt=regKbTxt(c); const hasRes=!!(txt&&(ts||kb.ts));
+  const online=(typeof ppReady==="function"&&ppReady()); const todayN=regKbToday().length; const cq=c.replace(/'/g,"");
+  const applied=!!kb.appliedTxt;
+  openDW(`<div class="dwhead"><h3>🤖 ${esc(c)}の最新規制 AI詳細調査</h3>${regKbPill(c)}</div>
+    <div class="dwbody" id="regbody" style="overflow-y:auto">
+      <p class="nn">対象：<b>${esc((D&&D.item)||"")}</b>（HS ${esc((D&&D.hs)||"—")}）。Web検索で最新情報を確認して整理します。概算表・社内規制DBのレポートと突き合わせてご利用ください。</p>
+      <div id="regaiO" style="margin-top:9px;font-size:12px;line-height:1.9">${html}</div>
+      <div class="rw" style="margin-top:11px;gap:6px">
+        ${ts?`<span class="nn">調査日時：${esc(ts)}</span>`:""}
+        <button class="btn g" style="margin-left:auto" onclick="regAIRun('${cq}')">🔄 いま再調査</button>
+        <button class="btn g" onclick="openRegdb()">🌐 社内規制DB</button>
+        <button class="btn g" onclick="closeDW()">閉じる</button></div>
+      ${hasRes?`<div id="regapply" style="margin-top:12px;padding:10px 12px;border:1.5px solid ${applied?"var(--good)":"var(--or)"};border-radius:10px;background:${applied?"var(--good-soft)":"var(--or-soft)"}">
+        <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
+          <div style="flex:1;min-width:220px"><b>${applied?"✅ この調査内容はAI商社マンに反映済みです":"内容に問題がなければ、AI商社マンに反映"}</b>
+            <p class="nn" style="margin-top:3px">${applied?"AI商社マンの知識（取り込んだ情報一覧・回答の根拠）に登録済み。再調査した場合は、もう一度反映すると最新の内容に置き換わります。":`反映すると：①この調査内容をAI商社マンの知識に登録（取り込んだ情報一覧・回答の根拠）　②「今日やること」の規制調査ステップ${todayN?`（${todayN}件）`:""}を完了に　③タスク「${esc(c)}の規制調査」を完了に`}</p></div>
+          <button class="btn${applied?" g":""}" id="regapplyb" onclick="regApply('${cq}')">${applied?"🔁 最新の内容で反映し直す":"✅ 内容をAI商社マンに反映"}</button></div></div>`:""}
+      <div style="margin-top:14px">
+        <h4 style="font-size:13px">💬 この規制についてAI商社マンに聞く・追加調査を依頼する</h4>
+        <p class="nn" style="margin-top:2px">難しい項目はそのまま質問してください。追加調査を頼むとWeb検索で確認します。<b>やり取りと追加調査の結果は、AI商社マンの知識として蓄積されます</b>（他の画面での回答にも使われます）。</p>
+        <div class="qb" id="regchips" style="margin-top:7px">${REG_CHIPS.map(([t,w])=>`<button class="q" data-regchip="${esc(t)}" data-web="${w}">${esc(t)}${w?" 🌐":""}</button>`).join("")}</div>
+        <div class="chat" id="regchat" style="max-height:none;margin-top:8px"></div></div>
+    </div>
+    <div class="dwfoot">
+      <div class="composer" id="regcomp">
+        <textarea class="sel" id="regq" rows="2" placeholder="例：②の輸入登録について、必要な手続きを順番に教えて／ラベル表示の必須項目を追加調査して（Enterで送信・Shift+Enterで改行）"
+          style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:56px;max-height:150px;overflow-y:auto;line-height:1.6"></textarea>
+        <div class="rw" style="justify-content:space-between;padding:5px 8px;border-top:1px solid var(--line-2);gap:6px">
+          <label class="rw" style="gap:5px;font-size:11.5px;cursor:pointer;margin:0" title="ONにすると、接続AIがWeb検索で最新情報を確認して答えます（追加調査）"><input type="checkbox" id="regweb" style="accent-color:var(--or)"> 🌐 Web検索で追加調査</label>
+          <button class="btn" id="reggo" style="flex:none">送信</button></div></div>
+      <p class="nn" style="margin-top:5px">${online?"回答は登録データ＋この調査結果を根拠にします。":"⚠ AI未接続：内蔵エンジンが登録データの範囲で答えます（Web検索の追加調査は接続後）。"}</p>
+    </div>`);
+  const pn=$("#pn"); pn.classList.add("dwr"); try{ pn.classList.toggle("dwmob",typeof dwMob==="function"&&dwMob()); }catch(e){}
+  if(typeof dwChrome==="function") dwChrome();
+  regChatRender(c);
+  const tq=$("#regq"), wb=$("#regweb");
+  const grow=()=>{ tq.style.height="auto"; tq.style.height=Math.min(150,Math.max(56,tq.scrollHeight))+"px"; };
+  tq.addEventListener("input",()=>{ grow(); if(REG_WEB_RE.test(tq.value)&&!wb.__touched) wb.checked=true; });
+  wb.addEventListener("change",()=>{ wb.__touched=true; });
+  const send=()=>{ const v=tq.value; tq.value=""; grow(); const w=wb.checked; wb.checked=false; wb.__touched=false; regSend(c,v,w); };
+  $("#reggo").onclick=send;
+  tq.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } };
+  pn.querySelectorAll("[data-regchip]").forEach(b=>b.addEventListener("click",()=>{ regSend(c,b.dataset.regchip,b.dataset.web==="1"); }));
+};
+function regAnsHtml(x){
+  let h=(typeof ppFormat==="function")?ppFormat(String(x.a||"")):esc(String(x.a||"")).replace(/\n/g,"<br>");
+  if(x.cits&&x.cits.length) h+=`<div class="ci">🌐 出典：${x.cits.slice(0,4).map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">[${i+1}] ${esc(String(u).replace(/^https?:\/\//,"").slice(0,44))}</a>`).join("　")}</div>`;
+  h+=`<div class="ci">${esc(x.ts||"")}${x.web?"・🌐 Web検索で追加調査":""}${x.eng?"・"+esc(x.eng):""}　✓ AI商社マンの知識に蓄積</div>`;
+  return h;
+}
+function regChatRender(c){
+  const box=$("#regchat"); if(!box) return; box.innerHTML="";
+  const qa=(regKbOf(c).qa||[]).slice(-20);
+  if(!qa.length){ box.innerHTML=`<p class="nn" id="regchat0">まだやり取りはありません。上の候補を押すか、下の入力欄から質問・依頼してください。</p>`; return; }
+  qa.forEach(x=>{ pushTo(box,"u",esc(x.q)); const bb=pushTo(box,"a",regAnsHtml(x)); if(typeof addCopy==="function") addCopy(bb); });
+  box.scrollTop=1e6;
+}
+async function regAskAI(c,q,web){
+  const kb=regKbOf(c); const res=regKbTxt(c);
+  let ctx=""; try{ ctx=ppContext(); }catch(e){}
+  const hist=(kb.qa||[]).slice(-6).map(x=>"担当者: "+String(x.q).slice(0,300)+"\nAI商社マン: "+String(x.a).slice(0,500)).join("\n");
+  return llmAsk(`=== 対象 ===
+${c}向けに「${(D&&D.item)||""}${D&&D.itemEn?"（"+D.itemEn+"）":""}」（HSコード${(D&&D.hs)||"不明"}・${(D&&D.cat)||""}）を日本から輸出する際の輸入規制
+=== AI詳細調査の結果（${kb.ts||"未調査"}${kb.appliedTxt?"・担当者が確認済み":""}） ===
+${(res||"（まだ調査結果がありません）").slice(0,7000)}
+=== これまでのやり取り ===
+${hist||"（開始直後）"}
+=== 商品・会社の登録データ ===
+${String(ctx).slice(0,6000)}
+=== 担当者の質問・依頼 ===
+${q}`,1400,{forceWeb:web?1:0,noWeb:web?0:1,timeout:120000,
+    sys:`あなたはAI商社マン（総合商社20年の貿易プロ）。担当者は貿易・規制の知識がない。
+・上記「AI詳細調査の結果」と登録データを根拠に、規制の内容をやさしい言葉で説明する（専門用語には（ ）で短い補足）
+・追加調査を頼まれたら${web?"Web検索で最新情報を確認し、出典（URL）を示す":"手元の情報の範囲で答え、最新情報が必要なら「🌐 Web検索で追加調査」をONにして送るよう促す"}
+・確認できないこと・調査結果に無いことは創作せず「要確認」と正直に言う
+・この商品（成分・仕様・送り先）に当てはめて具体的に。次にやることを1〜2個添える
+・簡潔に（見出し・箇条書き可・12行以内目安）`});
+}
+async function regSend(c,q,web){
+  q=String(q||"").trim(); if(!q) return; const box=$("#regchat"); if(!box) return;
+  const z=$("#regchat0"); if(z) z.remove();
+  pushTo(box,"u",esc(q)); const bb=pushTo(box,"a",'<span class="car"></span>'); box.scrollTop=1e6;
+  const body=$("#regbody"); if(body) body.scrollTop=1e9;
+  try{
+    const kb=regKbOf(c); const online=(typeof ppReady==="function"&&ppReady());
+    let a="", cits=[], eng="";
+    if(online){ const r=await regAskAI(c,q,web); a=String(r.txt||""); cits=(r.cits||[]).slice(0,5); eng=r.provNm||""; }
+    else { const r=await Promise.resolve(brain(q)); a=regKbStrip(r&&r.a||""); eng="内蔵エンジン"; }
+    const rec={q,a,ts:regKbNow(),web:!!(web&&online),cits,eng};
+    kb.qa=(kb.qa||[]).concat(rec).slice(-40); regKbSave();
+    bb.innerHTML=regAnsHtml(rec); if(typeof addCopy==="function") addCopy(bb);
+    try{ if(typeof logU==="function") logU("ai","規制Q&A:"+c); }catch(e){}
+    try{ if(typeof syncTenant==="function"&&typeof TEN!=="undefined"&&TEN) syncTenant(); }catch(e){}
+  }catch(e){ bb.innerHTML="うまく処理できませんでした："+esc(String(e&&e.message).slice(0,90)); }
+  box.scrollTop=1e6; if(body) body.scrollTop=1e9;
+}
+/* ── 反映：AI商社マンの知識に登録＋今日やることの規制ステップ完了＋タスク完了 ── */
+function regApply(c){
+  const kb=regKbOf(c); const txt=regKbTxt(c);
+  if(!txt){ toast("反映できる調査結果がありません。先に「🔄 いま再調査」を実行してください"); return; }
+  const cache=(typeof regStore==="function")?regStore()[c]:null; const ts=regKbNow();
+  if(!kb.txt) kb.txt=txt; if(!kb.ts) kb.ts=(cache&&cache.ts)||ts;
+  kb.appliedTxt=txt; kb.appliedTs=ts; kb.appliedResTs=kb.ts;
+  /* ① 取り込んだ情報一覧（AI商社マンの根拠）に登録 */
+  try{ if(typeof TEN!=="undefined"&&TEN){ TEN.sources=TEN.sources||[]; const id="regkb_"+c; const i=TEN.sources.findIndex(s=>s&&s.id===id);
+    const ent={id,name:`${c}の最新規制 AI詳細調査（反映 ${ts}）`,kind:"規制調査（AI・Web検索）",chars:txt.length,txt:txt.slice(0,600)+(txt.length>600?"…":"")+"\n（全文はAI商社マンの規制セクションに反映済み）",on:1,added:(typeof TODAYS!=="undefined"?TODAYS:"")};
+    if(i>=0) Object.assign(TEN.sources[i],ent); else TEN.sources.push(ent); } }catch(e){}
+  /* ② 今日やることの「送り先国の規制を確認する」を完了に */
+  let todayN=0; try{ if(typeof tdStepChkSave==="function") regKbToday().forEach(x=>{ tdStepChkSave(x,"reg",true); todayN++; }); }catch(e){}
+  regKbSave();
+  /* ③ タスク「国の規制調査」→ 完了（tenantToD が regKB を見て判定） */
+  try{ if(typeof syncTenant==="function"&&typeof TEN!=="undefined"&&TEN) syncTenant(); }catch(e){}
+  try{ if(typeof logU==="function") logU("reg","AI詳細調査を反映:"+c); }catch(e){}
+  toast(`${c}の規制調査をAI商社マンに反映しました${todayN?`（今日やること ${todayN}件の規制調査ステップを完了に）`:""}`);
+  regAIView(c,(cache&&cache.h)||(typeof ppFormat==="function"?ppFormat(txt):esc(txt)),(cache&&cache.ts)||kb.ts);
+  try{ if(typeof cur!=="undefined"&&(cur==="today"||cur==="task"||cur==="ai"||cur==="ops"||cur==="srcs")) render(); }catch(e){}
+}
+/* ── AI商社マンの知識：ppContext に「規制の詳細調査」節を追加（反映した本文＋担当者との確認事項） ── */
+function regKbCtx(){
+  const S=regKbStore(); const ks=Object.keys(S).filter(c=>S[c]&&(S[c].appliedTxt||(S[c].qa&&S[c].qa.length))); if(!ks.length) return "";
+  let out="\n## 規制の詳細調査（AI・Web検索。担当者が確認して反映した内容と、担当者との確認事項。回答の根拠にしてよい）\n";
+  ks.slice(0,4).forEach(c=>{ const k=S[c];
+    if(k.appliedTxt) out+=`### ${c}（反映 ${k.appliedTs||""}・調査 ${k.appliedResTs||k.ts||""}）\n${String(k.appliedTxt).slice(0,2200)}\n${k.cits&&k.cits.length?"出典: "+k.cits.slice(0,3).join(" , ")+"\n":""}`;
+    else out+=`### ${c}（調査結果は担当者が未反映。担当者との確認事項のみ）\n`;
+    (k.qa||[]).slice(-6).forEach(x=>{ out+=`Q: ${String(x.q).slice(0,200)}\nA: ${String(x.a).slice(0,450)}\n`; });
+  });
+  return out.slice(0,7500);
+}
+if(typeof ppContext==="function"){ const __pc203=ppContext; ppContext=function(){ const s=__pc203.apply(this,arguments); try{ return s+regKbCtx(); }catch(e){ return s; } }; }
+/* 「AIが見ているもの」一覧に1行 */
+if(typeof kbSeen==="function"){ const __seen203=kbSeen; kbSeen=function(){ const r=__seen203.apply(this,arguments); try{ const S=regKbStore(); const n=regKbApplied().length; const m=Object.keys(S).reduce((a,c)=>a+((S[c]&&S[c].qa)||[]).length,0);
+  return (Array.isArray(r)?r:[]).concat([["規制の詳細調査（AI・Web検索）",`反映${n}か国・Q&A ${m}件`,n?100:(m?50:0)]]); }catch(e){ return r; } }; }
+/* 未接続時の内蔵エンジン：反映済みの規制調査から即答（接続時はLLMが上の節を根拠に答える） */
+function regKbAsk(q){
+  q=String(q||""); if(!/規制|輸入登録|認証|ラベル|表示要件|必要書類|規則|制度|当局/.test(q)) return null;
+  if(typeof ppReady==="function"&&ppReady()) return null;
+  const S=regKbStore(); const ks=regKbApplied(); if(!ks.length) return null;
+  let c=ks.find(k=>regKbNames(k).some(n=>q.includes(n))); if(!c){ if(ks.length===1) c=ks[0]; else return null; }
+  const k=S[c]; const qa=(k.qa||[]).slice(-2).map(x=>`<br><b>Q:</b> ${esc(x.q)}<br><b>A:</b> ${esc(String(x.a).slice(0,300))}`).join("");
+  return {a:`<b>${esc(c)}</b>のAI詳細調査（${esc(k.appliedResTs||k.ts||"")}・担当者が確認して反映済み）から：<br>`+(typeof ppFormat==="function"?ppFormat(String(k.appliedTxt).slice(0,1400)):esc(String(k.appliedTxt).slice(0,1400)).replace(/\n/g,"<br>"))+(qa?`<br><br><b>担当者との確認事項</b>${qa}`:""),
+    c:"根拠：規制のAI詳細調査（貿易実務・書類・出荷 → 規制を調べる で反映済み）"};
+}
+if(typeof brain==="function"){ const __br203=brain; brain=function(q,opts){ try{ const r=regKbAsk(q); if(r) return r; }catch(e){} return __br203.apply(this,arguments); }; }
+/* 今日やること：反映済みの国に関する規制タスクの「送り先国の規制を確認する」は自動で✅ */
+if(typeof todayStepsOf==="function"){ const __ts203=todayStepsOf;
+  todayStepsOf=function(x){ const S=__ts203.apply(this,arguments);
+    try{ const ap=regKbApplied(); if(ap.length){ const T=String((x&&x.t)||"")+"｜"+String((x&&x.d)||"");
+      S.forEach(s=>{ if(s.id==="reg"&&!s.ok&&ap.some(c=>regKbNames(c).some(n=>T.includes(n)))) s.ok=true; }); } }catch(e){}
+    return S; }; }
+/* 規制を調べるの画面：反映状況のピル */
+if(typeof rReg==="function"){ const __rr203=rReg;
+  rReg=function(){ const r=__rr203.apply(this,arguments);
+    try{ const c=$("#rC")&&$("#rC").value; const kb=c&&regKbStore()[c]; const rws=document.querySelectorAll("#rO .rw"); const rw=rws.length?rws[rws.length-1]:null;
+      if(kb&&rw&&(kb.appliedTxt||(kb.qa&&kb.qa.length))) rw.insertAdjacentHTML("beforeend",`<span class="p ${kb.appliedTxt?"hi":"lo"}" style="flex:none">${kb.appliedTxt?"✅ AI詳細調査を反映済み（"+esc(kb.appliedTs||"")+"）":"💬 AI商社マンとのQ&A "+((kb.qa||[]).length)+"件"}</span>`); }catch(e){}
+    return r; }; }
 
 </script>
