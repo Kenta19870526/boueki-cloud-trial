@@ -11863,9 +11863,9 @@ function vToday(p){
           <label class="rw tds" style="gap:7px;min-width:0;flex-wrap:nowrap;cursor:${sp.auto?"default":"pointer"}">
             ${sp.auto?`<span style="flex:none">${sp.ok?"✅":"⬜"}</span>`
               :`<input type="checkbox" ${sp.ok?"checked":""} onclick="event.stopPropagation()" onchange="tdStepChk(${i},'${sp.id}',this.checked)" style="flex:none;accent-color:var(--or)">`}
-            <span style="min-width:0;${sp.ok?"color:var(--ink-3);text-decoration:line-through":""}">${esc(sp.label)}</span>
+            <span style="min-width:0;${sp.ok?"color:var(--ink-3);text-decoration:line-through":""}${sp.auto&&sp.go?";cursor:pointer":""}"${sp.auto&&sp.go?` role="button" title="クリックで「${esc(sp.goNm)}」へ" onclick="tdStepGo('${sp.go}','${sp.pre||""}','${sp.fk||""}')"`:""}>${esc(sp.label)}</span>
             ${sp.auto?`<span class="p lo" style="flex:none" title="登録データから自動判定。どの画面で進めても、ここに即反映されます">自動</span>`:""}</label>
-          ${sp.go?`<button class="btn g" style="font-size:12px;padding:3px 10px;flex:none" type="button" onclick="tdStepGo('${sp.go}','${sp.pre||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
+          ${sp.go?`<button class="btn g" style="font-size:12px;padding:3px 10px;flex:none" type="button" onclick="tdStepGo('${sp.go}','${sp.pre||""}','${sp.fk||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
         <p class="tdh" style="margin:7px 0 0;line-height:1.6">「自動」＝登録データと連動（AIと埋める・営業資料・出荷など、<b>どの画面で進めてもリアルタイムに✅</b>）。チェックボックスはこの商品に保存されます。</p></div>`:""}
       <span class="ddhint">🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸</span></div>`;}).join("")}
   </div>`:`<div class="c" style="margin-bottom:11px;text-align:center;padding:20px"><p class="nn">この商品の「今日やること」はまだありません。${online?"上の「🔄 いま再調査する」からAI調査を実行できます。":"商品情報を充実させると基本提案が表示されます。"}</p></div>`}
@@ -11915,8 +11915,10 @@ function todayStepsOf(x){
   const add=(id,label,o)=>S.push(Object.assign({id,label,auto:0,ok:!!st[id],go:null,goNm:"",pre:""},o||{}));
   const M=re=>re.test(T);
   if(M(/仕様|価格|MOQ|未登録|収集|充足|不足|埋め/)&&sc&&(sc.filled.length+sc.missing.length)){
-    sc.filled.slice(0,13).forEach(f=>add("f_"+f.k,f.n+" を登録する",{auto:1,ok:true,go:"up",goNm:"商品情報を登録"}));
-    sc.missing.slice(0,13).forEach(f=>add("m_"+f.k,f.n+" を登録する",{auto:1,ok:false,go:"up",goNm:"商品情報を登録"}));
+    /* v20.2：項目行 → その項目のAIヒアリングへ直行（登録済みは確認・修正、表形式の登録済みは商品情報ページ） */
+    const V202T={priceRows:1,dimRows:1,compRows:1,strengths:1,targets:1};
+    sc.filled.slice(0,13).forEach(f=>add("f_"+f.k,f.n+" を登録する",V202T[f.k]?{auto:1,ok:true,go:"item",goNm:"商品情報で確認"}:{auto:1,ok:true,go:"fill",fk:f.k,goNm:"AI商社マンと確認"}));
+    sc.missing.slice(0,13).forEach(f=>add("m_"+f.k,f.n+" を登録する",{auto:1,ok:false,go:"fill",fk:f.k,goNm:"AI商社マンと登録"}));
     add("req","不足分を担当者へ依頼する",{go:"msg",goNm:"やりとり"});
   } else if(M(/規制|HS|INCI|事前教示|認証|証明/)){
     add("hs","HSコードを確定する",{auto:1,ok:!!(typeof D!=="undefined"&&D&&D.hs),go:"ops",goNm:"貿易実務・書類・出荷",pre:"reg"});
@@ -11975,9 +11977,11 @@ function tdStepsToggle(i){ const x=todayItems()[i]; if(!x) return;
   const k=tdKey(x); __tdOpen[k]=!__tdOpen[k]; if(typeof render==="function") render(); }
 function tdStepChk(i,id,on){ const x=todayItems()[i]; if(!x) return;
   tdStepChkSave(x,id,on); if(typeof render==="function") render(); }
-function tdStepGo(pg,pre){ if(pre==="reg"){ try{opsTab="reg";}catch(e){} } go(pg); }
+function tdStepGo(pg,pre,fk){
+  if(pg==="fill"){ if(fk&&typeof todayFillGo==="function"){ todayFillGo(fk); return; } pg="up"; }
+  if(pre==="reg"){ try{opsTab="reg";}catch(e){} } go(pg); }
 function tdGoFeat(i){ const x=todayItems()[i]; if(!x) return;
-  const g2=todayGoOf(x); if(!g2) return; tdStepGo(g2.pg,g2.pre); }
+  const g2=todayGoOf(x); if(!g2) return; tdStepGo(g2.pg,g2.pre,g2.fk||""); }
 
 function todayRun(i){
   const items=todayItems(); const x=items[i];
@@ -21489,7 +21493,11 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["▶ 今すぐ全社データを更新","▶ Update company-wide data now","▶ 立即更新全公司数据","▶ Actualizar datos globales ahora"],
 ["⏰ 週次ジョブを設定","⏰ Set up the weekly job","⏰ 设置每周任务","⏰ Configurar tarea semanal"],
 ["📥 Ver1.0 集計JSONを取り込む","📥 Import Ver1.0 aggregates (JSON)","📥 导入Ver1.0统计JSON","📥 Importar agregados Ver1.0 (JSON)"],
-["匿名化のルールと週次更新のしくみ","Anonymisation rules and the weekly update","匿名化规则与每周更新机制","Reglas de anonimización y actualización semanal"]);
+["匿名化のルールと週次更新のしくみ","Anonymisation rules and the weekly update","匿名化规则与每周更新机制","Reglas de anonimización y actualización semanal"],
+["AI商社マンと登録 →","Register with the AI Trade Agent →","与AI商社专员一起登记 →","Registrar con el Agente IA →"],
+["AI商社マンと確認 →","Check with the AI Trade Agent →","与AI商社专员一起确认 →","Revisar con el Agente IA →"],
+["商品情報で確認 →","Check in Product info →","在商品信息中确认 →","Ver en Información del producto →"],
+["このままでOK","Keep as is","保持不变","Dejar como está"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -23974,5 +23982,108 @@ window.addEventListener("resize",dbFitSchedule);
 document.addEventListener("visibilitychange",()=>{ if(!document.hidden) dbFitSchedule(); });
 /* 幅が狭いときに操作ボタン列が行を押し広げ、バイヤー名が何行にも折り返す → ボタンは折り返し可・名前列に最小幅（文字サイズは据え置き） */
 (function(){ try{ if(document.getElementById("dbfitcss")) return; const st=document.createElement("style"); st.id="dbfitcss"; st.textContent="#dbbw td:last-child{white-space:normal!important}#dbbw td:last-child .btn{margin:2px 2px 2px 0}#dbbw td:first-child{min-width:150px}#dbbw td:nth-child(2){min-width:110px}"; document.head.appendChild(st); }catch(e){} })();
+
+/* ═══════════ v20.2（2026-09-16）：「今日やること」の項目行 → その項目のAIヒアリングへ直行 ═══════════
+   ご指摘：やるべきタスク一覧の「英文社名 を登録する」を押しても、商品情報を登録ページの3択ポップアップ（登録メニュー）に
+          飛ぶだけで、英文社名をすぐに登録できない。
+   原因：項目行のボタンが一律 go("up")（商品情報を登録ページの先頭）だった。ヒアリング中でないため登録メニューが開く。
+   対応：未登録の項目 → 「AI商社マンと登録 →」＝その項目からAIヒアリングを開始（登録メニューは出さない・回答欄へスクロール＆フォーカス）
+         登録済みの項目 → 「AI商社マンと確認 →」＝現在の登録値を示して修正を受け付ける（「このままでOK」で次へ）
+         表形式の項目（価格表・寸法・成分表・強み・進出希望国）は登録済みなら「商品情報で確認 →」（商品情報ページ） */
+const V202_TABLE={priceRows:1,dimRows:1,compRows:1,strengths:1,targets:1};
+function todayFillGo(k){
+  const nx=(typeof NEED!=="undefined")?NEED.find(n=>n.k===k):null;
+  if(!nx||typeof TEN==="undefined"||!TEN||typeof fillSay!=="function"||typeof scoreOf!=="function"){ go("up"); return; }
+  /* 読み取り確認待ち（反映してよろしいでしょうか？）があるときは、通常のヒアリング導入（確認から）を優先 */
+  if(TEN._pend&&TEN._pend.prods&&TEN._pend.prods.length&&typeof fillStart==="function"){
+    try{ if(typeof V1811!=="undefined") V1811.sup=true; go("up"); fillStart(); render(); }finally{ try{ if(typeof V1811!=="undefined") V1811.sup=false; }catch(e){} }
+    return;
+  }
+  const filled=(typeof has==="function")?has(TEN[k]):!!TEN[k];
+  if(filled&&V202_TABLE[k]){ go("item"); return; }
+  const s=scoreOf(TEN);
+  FILL={on:true,log:[],cur:null,sel:[],skip:[]};
+  if(filled){
+    const cur0=typeof valPreview==="function"?valPreview(k):esc(String(TEN[k]||""));
+    const cu=Object.assign({},nx,{_keep:1,chips:["このままでOK"].concat(nx.chips||[]),multi:0});
+    FILL.cur=cu;
+    fillSay("ai",`「今日やること」から、<b>${esc(nx.n)}</b>の確認です。<br><span class="p hi">登録済み</span> 現在の登録：<b>${cur0||"—"}</b><br>
+      修正する場合は新しい内容を入力してください。このままでよければ「このままでOK」を押してください。<div class="ci">これは <b>${esc(nx.use)}</b> に使われます。</div>`,{ask:cu});
+  }else{
+    FILL.cur=nx;
+    fillSay("ai",`「今日やること」から、<b>${esc(nx.n)}</b>を先に伺います。<span class="p or">残り ${s.missing.length}項目・充足度 ${s.pct}%</span><br>${nx.q}
+      ${nx.ex?`<br><span style="color:var(--ink-3);font-size:11px">${nx.ex}</span>`:""}
+      <div class="ci">これは <b>${esc(nx.use)}</b> に使われます。登録できたら、残りの項目も続けて伺います（途中でやめてもOK）。</div>`,{ask:nx});
+  }
+  try{ if(typeof V1811!=="undefined") V1811.sup=true; if(typeof cur==="undefined"||cur!=="up") go("up"); else render(); }
+  finally{ try{ if(typeof V1811!=="undefined") V1811.sup=false; }catch(e){} }
+  try{ const ov=document.getElementById("v1811ov"); if(ov&&typeof v1811Close==="function") v1811Close(); }catch(e){}
+  todayFillFocus();
+  try{ if(typeof logU==="function") logU("fill","今日やることから:"+k); }catch(e){}
+}
+/* 回答欄が見える位置へスクロールし、PCではフォーカス（上部バー＋ページ内目次の高さを避ける） */
+function todayFillFocus(){
+  setTimeout(()=>{ try{
+    const c=document.getElementById("fchat"); const card=c&&c.closest(".c"); if(!card) return;
+    const bar=(typeof v1812Bar==="function")?v1812Bar():48, sec=(typeof v1812SecH==="function")?v1812SecH():0;
+    const y=card.getBoundingClientRect().top+scrollY-(bar+sec+12);
+    window.scrollTo(0,Math.max(0,y));
+    if(window.innerWidth>=768){ const f=document.getElementById("fans"); if(f) try{ f.focus({preventScroll:true}); }catch(e){} }
+  }catch(e){} },120);
+}
+/* ── タスクの見出しが項目そのもの（例「英文社名を登録する」「リードタイムを確認する」「英文の商品名・社名を登録する」）のとき、
+      カードの「🔗 …で進める」ボタンとやるべきタスク一覧の先頭行を、その項目のヒアリングに向ける ── */
+const V202_ALIAS={coEn:/英文社名|英文の社名|英語の社名|英語社名/,itemEn:/英文商品名|英文の商品名|英語の商品名|英語商品名/,co:/^会社名|正式名称/,item:/^商品名/,
+  cat:/商材カテゴリ|カテゴリ/,sku:/品番|型番/,hs:/HSコード|HS ?code/i,priceRows:/価格表|卸価格|単価/,moq:/MOQ|最小発注/,lead:/リードタイム|納期/,
+  dimRows:/寸法|重量|サイズ/,ctn:/入数|パレット|コンテナ入数/,compRows:/成分表|材質表|INCI/,strengths:/強み/,cert:/認証|規格/,origin:/産地|製造国|原産/,
+  term:/取引条件|インコタームズ|Incoterms/i,pay:/支払条件|支払い条件/,pol:/仕出港|積出港/,shelf:/賞味期限|保証期間/,targets:/進出希望国|進出国|ターゲット国/};
+function v202FieldsOf(x){
+  const t=String((x&&x.t)||""); if(typeof NEED==="undefined") return [];
+  if(!/登録|確認|決める|埋め|入力|整備|揃え|確定|設定/.test(t)) return [];
+  const ks=[];
+  /* 「英文の商品名・社名」のように並記されたものは両方 */
+  if(/英文|英語/.test(t)){ if(/社名/.test(t)) ks.push("coEn"); if(/商品名/.test(t)) ks.push("itemEn"); }
+  Object.keys(V202_ALIAS).forEach(k=>{ if(ks.includes(k)) return; if(k==="co"||k==="item"){ if(/英文|英語/.test(t)) return; }
+    if(V202_ALIAS[k].test(t)) ks.push(k); });
+  return ks.filter(k=>NEED.some(n=>n.k===k)).slice(0,3);
+}
+function v202RowOf(k,label){
+  const nx=NEED.find(n=>n.k===k); if(!nx) return null;
+  const t0=(typeof TEN!=="undefined"&&TEN&&TEN.src)?TEN:(typeof D!=="undefined"?D:null);
+  const filled=!!(t0&&(typeof has==="function"?has(t0[k]):t0[k]));
+  const table=!!V202_TABLE[k];
+  return Object.assign({id:(filled?"f_":"m_")+k,label:label||(nx.n+" を登録する"),auto:1,ok:filled,pre:""},
+    filled&&table?{go:"item",goNm:"商品情報で確認"}:{go:"fill",fk:k,goNm:filled?"AI商社マンと確認":"AI商社マンと登録"});
+}
+if(typeof todayStepsOf==="function"){ const __ts202=todayStepsOf;
+  todayStepsOf=function(x){
+    const S=__ts202.apply(this,arguments);
+    /* 規制系タスクの「成分表・材質表 を揃える」、提案系の「進出したい国を決める」も、その項目のヒアリングへ（登録済みなら商品情報ページ） */
+    try{ S.forEach(r=>{ const k=r.id==="comp"?"compRows":r.id==="tgt"?"targets":null; if(!k||r.go!=="up") return;
+      Object.assign(r, r.ok?{go:"item",goNm:"商品情報で確認",fk:""}:{go:"fill",fk:k,goNm:"AI商社マンと登録"}); }); }catch(e){}
+    try{ const ks=v202FieldsOf(x); if(!ks.length) return S;
+      const add=[]; ks.forEach(k=>{ if(S.some(s=>s.id==="m_"+k||s.id==="f_"+k)) return; const r=v202RowOf(k); if(r) add.push(r); });
+      if(add.length) S.unshift(...add);
+    }catch(e){}
+    return S; }; }
+if(typeof todayGoOf==="function"){ const __tg202=todayGoOf;
+  todayGoOf=function(x){
+    try{ const ks=v202FieldsOf(x); if(ks.length){
+      const t0=(typeof TEN!=="undefined"&&TEN&&TEN.src)?TEN:(typeof D!=="undefined"?D:null);
+      const miss=ks.find(k=>!(t0&&(typeof has==="function"?has(t0[k]):t0[k])));
+      const k=miss||ks[0]; const r=v202RowOf(k); if(r) return {pg:r.go,nm:r.goNm,pre:"",fk:r.fk||""}; } }catch(e){}
+    return __tg202.apply(this,arguments); }; }
+/* 「このままでOK」：登録値を変えずに次の未登録項目へ */
+if(typeof fillAnswer==="function"){ const __fa202=fillAnswer;
+  fillAnswer=function(v){
+    try{
+      if(typeof FILL!=="undefined"&&FILL&&FILL.cur&&FILL.cur._keep&&/^このままでOK$/.test(String(v||"").trim())){
+        const n=FILL.cur.n; fillSay("u","このままでOK");
+        fillSay("ai",`承知しました。<b>${esc(n)}</b>は現在の登録のままにします。`);
+        FILL.cur=null; fillNext(); return;
+      }
+    }catch(e){}
+    return __fa202.apply(this,arguments);
+  }; }
 
 </script>
