@@ -9760,8 +9760,8 @@ function vDB(p){
         <td>${esc(b.cty)}</td><td><span class="p lo">${esc(b.catNm)}</span> <span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
         <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td></tr>`).join("")}
     </tbody></table></div></div>
-  <div class="g2" style="align-items:start;margin-bottom:11px">
-    <div class="c"><h3>相手を探す <span class="nt">この版で新規</span></h3>
+  <div class="g2" id="dbgrid" style="align-items:start;margin-bottom:11px">
+    <div class="c" id="bnfind"><h3>相手を探す <span class="nt">この版で新規</span></h3>
       <p class="nn">国・カテゴリ・脈あり度で絞り込めます。「実績」＝貿易クラウド上で成立させた取引の件数です。</p>
       <div class="rw" style="margin-top:10px">
         <select class="sel" id="dC"><option value="">すべての国</option>${BN_CTY.map(([c])=>`<option>${c}</option>`).join("")}</select>
@@ -9769,13 +9769,13 @@ function vDB(p){
         <select class="sel" id="dL"><option value="">すべての脈あり度</option><option>高</option><option>中</option></select>
         <button class="btn" style="margin-left:auto;flex:none" onclick="openBuyerAdd()">＋ Buyerを追加（自社開拓）</button></div>
       <p class="nn" id="dbcount" style="margin:8px 0 0"></p>
-      <div class="tw" style="margin-top:10px;max-height:300px"><table><thead><tr>
+      <div class="tw" id="dbbw" style="margin-top:10px;max-height:300px"><table><thead><tr>
         <th>バイヤー</th><th>取扱・関心</th><th>規模</th><th>脈あり</th><th class="num">実績</th><th></th>
       </tr></thead><tbody id="dbb"></tbody></table></div>
       <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。<br>
       <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。
       <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。</p></div>
-    <div class="c"><div class="rw" style="justify-content:space-between;align-items:center;gap:6px">
+    <div class="c" id="bnnet"><div class="rw" style="justify-content:space-between;align-items:center;gap:6px">
         <h3>現地のSTANDAGEネットワーク</h3>
         <button class="btn g" style="padding:4px 10px;font-size:11px;flex:none" onclick="openNetMgr()">✎ 拠点を管理</button></div>
       <p class="nn">2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。ピンを押すかプルダウンで<b>拠点メンバーのプロフィール</b>が見られます。</p>
@@ -23947,5 +23947,32 @@ if(typeof admContext==="function"){ const __ac200=admContext; admContext=functio
 
 /* F5復元（管理者セッション）：起動時の renderAdmin はこのモジュールの読込前に走るため、列とカードが無ければ一度だけ描き直す（v17.6 と同じ考え方） */
 (function(){ try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm"&&document.getElementById("admkpi")&&!document.getElementById("admpool")&&typeof renderAdmin==="function") renderAdmin(); }catch(e){} })();
+
+/* ═══════════ v20.1：バイヤーDB・拠点「相手を探す」の一覧を、右の「現地のSTANDAGEネットワーク」と同じ高さに ═══════════
+   従来は一覧の枠が max-height:300px 固定（3社しか見えない）で、カードの下に大きな空白が残っていた。
+   PC（2列表示）：左カードの高さが右カードと同じになるよう、一覧の枠の高さをその場で計算して設定（右カードの高さは拠点メンバーの描画や地図で変わるため ResizeObserver で追従）。
+   スマホ（1列表示）：右カードとは並ばないので、画面の 60% を上限にして一気に見られるようにする。フォントは変更しない */
+let __dbFitRO=null, __dbFitT=null;
+function dbFit(){
+  const g=document.getElementById("dbgrid"), L=document.getElementById("bnfind"), R=document.getElementById("bnnet"), W=document.getElementById("dbbw"); if(!g||!L||!R||!W) return;
+  const lr=L.getBoundingClientRect(), rr=R.getBoundingClientRect(); const twoCol=rr.left>lr.left+40&&Math.abs(rr.top-lr.top)<40;   /* 横に並んでいるときだけ高さを合わせる */
+  if(!twoCol){ W.style.height=""; W.style.maxHeight="60vh"; W.style.minHeight=""; return; }
+  const other=L.offsetHeight-W.offsetHeight;   /* 一覧の枠以外（見出し・絞り込み・注記）の高さ。枠の高さに依らず一定 */
+  const target=Math.max(300,Math.round(R.offsetHeight-other));
+  if(Math.abs((parseFloat(W.style.height)||0)-target)<2) return;
+  W.style.height=target+"px"; W.style.maxHeight=target+"px"; W.style.minHeight="300px";
+}
+function dbFitSchedule(){ clearTimeout(__dbFitT); __dbFitT=setTimeout(()=>{ try{ dbFit(); }catch(e){} },30); }
+function dbFitWatch(){
+  try{ if(__dbFitRO){ __dbFitRO.disconnect(); __dbFitRO=null; } }catch(e){}
+  const R=document.getElementById("bnnet"); if(!R) return;
+  if("ResizeObserver" in window){ __dbFitRO=new ResizeObserver(()=>dbFitSchedule()); __dbFitRO.observe(R); }
+  dbFitSchedule();
+}
+if(typeof rDB==="function"){ const __rDB201=rDB; rDB=function(){ const r=__rDB201.apply(this,arguments); try{ dbFitWatch(); }catch(e){} return r; }; }
+window.addEventListener("resize",dbFitSchedule);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) dbFitSchedule(); });
+/* 幅が狭いときに操作ボタン列が行を押し広げ、バイヤー名が何行にも折り返す → ボタンは折り返し可・名前列に最小幅（文字サイズは据え置き） */
+(function(){ try{ if(document.getElementById("dbfitcss")) return; const st=document.createElement("style"); st.id="dbfitcss"; st.textContent="#dbbw td:last-child{white-space:normal!important}#dbbw td:last-child .btn{margin:2px 2px 2px 0}#dbbw td:first-child{min-width:150px}#dbbw td:nth-child(2){min-width:110px}"; document.head.appendChild(st); }catch(e){} })();
 
 </script>
