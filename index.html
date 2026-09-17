@@ -16549,7 +16549,7 @@ function aiLevelCard(){
   const cats=L.cats.map(c=>`<details class="growcat" data-k="${c.k}">
       <summary><span class="gic">${c.ic}</span><span class="gnm"><b>${esc(c.nm)}</b><small>配点 ${c.w}点・寄与 ${Math.round(c.pct*c.w/100)}点</small></span><span class="gbar"><i style="width:${c.pct}%;background:${GROW_COL[c.k]}"></i></span><span class="gpc n">${c.pct}%</span></summary>
       <div class="gdt"><b style="color:var(--ink)">いまの根拠：</b>${c.detail}<br><span style="color:var(--ink-3)">${esc(c.how)}</span>
-        ${c.next?`<div class="rw" style="margin-top:6px;gap:6px;align-items:center"><span style="font-size:10.5px;color:var(--or-deep);font-weight:700">次の一手</span><button class="btn g" style="padding:3px 10px;font-size:10.5px" onclick="growGo('${c.next.go}','${c.next.pre||""}')">${esc(c.next.t)} →</button></div>`
+        ${c.next?`<div class="rw" style="margin-top:6px;gap:6px;align-items:center"><span style="font-size:10.5px;color:var(--or-deep);font-weight:700">次の一手</span><button class="btn g" style="padding:3px 10px;font-size:10.5px" onclick="growGo('${c.next.go}','${c.next.pre||""}','${String(c.next.t||"").replace(/['"\\<>]/g,"")}')">${esc(c.next.t)} →</button></div>`
                 :`<div style="margin-top:5px;color:var(--good);font-weight:700">✓ この分野は満点です</div>`}</div></details>`).join("");
   const ladder=`<div class="gladder">${GROW_STAGES.map((s,i)=>`<span class="${L.pct>=s[0]?"on":""} ${i===L.lvIdx?"cur":""}"><i>${s[0]}%〜</i>${s[1]}</span>`).join("")}</div>`;
   const f2=t=>{ const dd=new Date(t); return `${dd.getMonth()+1}/${dd.getDate()}`; };
@@ -21514,7 +21514,9 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["この商品の成分・仕様で引っかかりそうな点は？","What in this product's ingredients or specs could be an issue?","本产品的成分・规格有哪些可能踩坑的点？","¿Qué de los ingredientes o especificaciones podría ser un problema?"],
 ["規制の詳細調査（AI・Web検索）","Detailed regulation research (AI / web)","法规详细调查（AI・网络搜索）","Investigación normativa detallada (IA / web)"],
 ["同じアカウントの他の商品（全件要約＋名指しで詳細）","Other products on this account (summary of all, details when named)","同一账户的其他商品（全部摘要＋指名时详情）","Otros productos de la cuenta (resumen de todos, detalle al nombrarlos)"],
-["タスク実行の会話（今日やること）","Task-run conversations (Today's tasks)","任务执行的对话（今日待办）","Conversaciones de ejecución de tareas (Tareas de hoy)"]);
+["タスク実行の会話（今日やること）","Task-run conversations (Today's tasks)","任务执行的对话（今日待办）","Conversaciones de ejecución de tareas (Tareas de hoy)"],
+["この商品の項目はすべて登録済みです","All items for this product are already registered","此商品的项目已全部登记","Todos los datos de este producto ya están registrados"],
+["Web検索は、管理者がAIエンジンを接続すると使えるようになります","Web search becomes available once the administrator connects an AI engine","管理员连接AI引擎后即可使用网络搜索","La búsqueda web estará disponible cuando el administrador conecte un motor de IA"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -24504,5 +24506,60 @@ if(typeof ppContext==="function"){ const __pc204=ppContext; ppContext=function()
 if(typeof kbSeen==="function"){ const __seen204=kbSeen;
   kbSeen=function(){ const r=__seen204.apply(this,arguments); try{ const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS.length:0; const s=(typeof todayStore==="function")?todayStore():null; const n=s&&s.todayRuns?Object.keys(s.todayRuns).length:0;
     return (Array.isArray(r)?r:[]).concat([["同じアカウントの他の商品（全件要約＋名指しで詳細）",`${Math.max(0,T-1)}件`,T>1?100:0],["タスク実行の会話（今日やること）",`${n}件`,n?100:0]]); }catch(e){ return r; } }; }
+
+/* ═══════════ v20.5（2026-09-17）：AI商社マン画面「次の一手」の導線＝目的の操作へ直行 ═══════════
+   ご指摘：成長レベルの「足りない情報を埋める →」を押すと、商品情報を登録ページの3択ポップアップ（登録メニュー）に飛ぶ。
+          表示中の商品（例：コーズシックス ピーリングジェル）の足りない情報を埋めるページへ直接遷移すべき
+   原因：次の一手は go(画面ID) で画面の先頭に移動するだけだった（ヒアリング中でないため登録メニューが開く）
+   対応：次の一手ごとに「その操作」まで直行する
+     ・足りない情報を埋める → 表示中の商品のAIヒアリングを開始（登録メニューは出さない・回答欄へスクロール＆フォーカス）。足りない項目が無ければ商品情報へ
+     ・強みを追加する → 商品情報ページ＋「＋ 強みを追加」の入力パネルを開く
+     ・通関統計で相場を見る → 商品情報ページの「通関統計コネクト」カードへスクロールして強調
+     ・送り先の規制を調べる／発注書を取り込んで書類をつくる → 貿易実務の該当タブ（規制／書類）
+     ・Web検索ONで質問する／AI商社マンに質問する → 同じ画面なら質問欄へスクロールしてフォーカス（Web検索ONは切替ボタンを押した状態に）
+     ・商談フィードバックを記録する → 商談・バイヤー＋「商談を記録する」フォームを開く
+     ・資料を追加で取り込む → 取り込んだ情報一覧の「ソースを追加」へスクロールし、ファイル選択を開く
+     ・定例会の議事録を残す → 会議メモ＋「新しいメモ」の入力を開く
+     ・出荷を進める → 貿易実務の出荷タブ */
+function growFlash(el){ try{ if(!el) return; el.classList.add("attglow"); setTimeout(()=>{ try{ el.classList.remove("attglow"); }catch(e){} },1800); }catch(e){} }
+function growScrollTo(el){ try{ if(!el) return; const bar=(typeof v1812Bar==="function")?v1812Bar():48, sec=(typeof v1812SecH==="function")?v1812SecH():0; const y=el.getBoundingClientRect().top+scrollY-(bar+sec+12); window.scrollTo(0,Math.max(0,y)); }catch(e){} }
+function growSup(fn){ const has=(typeof V1811!=="undefined"&&V1811); const prev=has?V1811.sup:undefined; try{ if(has) V1811.sup=true; fn(); }finally{ try{ if(has) V1811.sup=prev; }catch(e){} } }
+growGo=function(id,pre,label){
+  label=String(label||""); const T0=(typeof TEN!=="undefined"&&TEN)||null;
+  try{
+    if(id==="up"){
+      if(T0&&typeof fillStart==="function"&&typeof scoreOf==="function"){
+        let miss=0; try{ miss=scoreOf(T0).missing.length; }catch(e){}
+        if(!miss){ go("item"); toast("この商品の項目はすべて登録済みです"); return; }
+        growSup(()=>{ if(typeof cur==="undefined"||cur!=="up") go("up"); if(typeof FILL!=="undefined"&&!FILL.on) fillStart(); else render(); });
+        try{ const ov=document.getElementById("v1811ov"); if(ov&&typeof v1811Close==="function") v1811Close(); }catch(e){}
+        if(typeof todayFillFocus==="function") todayFillFocus();
+        return;
+      }
+      go("up"); return;
+    }
+    if(id==="item"){
+      go("item");
+      if(/強み/.test(label)){ setTimeout(()=>{ try{ if(typeof openStrEdit==="function") openStrEdit(-1); }catch(e){} },160); return; }
+      if(/通関統計|相場/.test(label)){ setTimeout(()=>{ try{ const h=[...document.querySelectorAll("#well h3")].find(x=>/通関統計/.test(x.textContent)); const c=h&&h.closest(".c"); if(c){ growScrollTo(c); growFlash(c); } }catch(e){} },160); return; }
+      return;
+    }
+    if(id==="ops"){ if(pre&&typeof opsTab!=="undefined") opsTab=pre; go("ops"); return; }
+    if(id==="ship"){ go("ship"); return; }
+    if(id==="ai"){
+      const act=()=>{ try{
+        if(/Web検索/.test(label)&&typeof WEBON!=="undefined"&&!WEBON){ const b=document.getElementById("webtg"); if(b&&!b.disabled) b.click(); else toast("Web検索は、管理者がAIエンジンを接続すると使えるようになります"); }
+        const q=document.getElementById("aiq"); if(q){ const card=q.closest(".c"); if(card){ growScrollTo(card); growFlash(card); } try{ q.focus({preventScroll:true}); }catch(e){} }
+      }catch(e){} };
+      if(typeof cur!=="undefined"&&cur==="ai") act(); else { go("ai"); setTimeout(act,160); }
+      return;
+    }
+    if(id==="deal"){ go("deal"); setTimeout(()=>{ try{ if(typeof openDealForm==="function") openDealForm(); }catch(e){} },160); return; }
+    if(id==="srcs"){ go("srcs"); setTimeout(()=>{ try{ const dz=document.getElementById("srcdz"); if(dz){ growScrollTo(dz); growFlash(dz); } const f=document.getElementById("srcf"); if(f&&!window.__noPicker){ try{ f.click(); }catch(e){} } }catch(e){} },160); return; }
+    if(id==="memo"){ go("memo"); setTimeout(()=>{ try{ if(typeof memoEdit==="function") memoEdit(""); }catch(e){} },160); return; }
+  }catch(e){}
+  if(pre&&typeof opsTab!=="undefined") opsTab=pre;
+  go(id);
+};
 
 </script>
