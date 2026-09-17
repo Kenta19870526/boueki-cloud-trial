@@ -12513,6 +12513,7 @@ ${notes}`:""}
 ${(function(){
   const T2=(typeof TEN!=="undefined"&&TEN)?TEN:null; if(!T2) return "";
   const S3=Array.isArray(T2.sources)&&T2.sources.length?T2.sources:null;
+  if(S3&&typeof srcCtxSmart==="function"){ try{ const r=srcCtxSmart(S3); if(r!=null) return r; }catch(e){} }   /* v20.4：質問との関連度で資料を選ぶ */
   if(S3){
     const on=S3.filter(x=>x.on!==false), off=S3.length-on.length;
     if(!on.length) return `\n## 取り込んだ情報（${S3.length}件・すべて参照OFF）\n※ユーザーが全ソースの参照を外している。原文は根拠に使わないこと。`;
@@ -18160,7 +18161,7 @@ function kbProducts(){
 /* ── 全部まとめて（接続AI用） ── */
 function kbCtx(){
   const parts=[]; const add=(f,cap)=>{ try{ const s=f(); if(s) parts.push(String(s).slice(0,cap)); }catch(e){} };
-  add(kbStatsText,2600); add(kbLogi,2200); add(kbCases,1400); add(kbPO,1400); add(kbKpi,1200); add(kbLegal,900); add(kbDeck,500); add(kbMsgs,1200); add(kbXdocs,700); add(kbFob,500); add(kbPlan,600); add(kbGrow,500); add(kbProducts,600);
+  add(kbStatsText,2600); add(kbLogi,2200); add(kbCases,1400); add(kbPO,1400); add(kbKpi,1200); add(kbLegal,900); add(kbDeck,500); add(kbMsgs,1200); add(kbXdocs,700); add(kbFob,500); add(kbPlan,600); add(kbGrow,500); add(kbProducts,7500);
   if(!parts.length) return "";
   return `\n=== 貿易クラウド内の連携データ（AI商社マンが参照できる情報。回答の根拠にしてよい。無いものは「未登録」と答える） ===\n`+parts.join("\n\n");
 }
@@ -21511,7 +21512,9 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["④のラベル表示の必須項目を追加調査して","Research the mandatory label items in ④","补充调查④标签的必填项目","Investigue los elementos obligatorios de etiquetado de ④"],
 ["⑥直近1年の変更点を最新情報で確認して","Check the latest information on changes in the past year (⑥)","用最新信息确认⑥近一年的变更","Verifique con información actual los cambios del último año (⑥)"],
 ["この商品の成分・仕様で引っかかりそうな点は？","What in this product's ingredients or specs could be an issue?","本产品的成分・规格有哪些可能踩坑的点？","¿Qué de los ingredientes o especificaciones podría ser un problema?"],
-["規制の詳細調査（AI・Web検索）","Detailed regulation research (AI / web)","法规详细调查（AI・网络搜索）","Investigación normativa detallada (IA / web)"]);
+["規制の詳細調査（AI・Web検索）","Detailed regulation research (AI / web)","法规详细调查（AI・网络搜索）","Investigación normativa detallada (IA / web)"],
+["同じアカウントの他の商品（全件要約＋名指しで詳細）","Other products on this account (summary of all, details when named)","同一账户的其他商品（全部摘要＋指名时详情）","Otros productos de la cuenta (resumen de todos, detalle al nombrarlos)"],
+["タスク実行の会話（今日やること）","Task-run conversations (Today's tasks)","任务执行的对话（今日待办）","Conversaciones de ejecución de tareas (Tareas de hoy)"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -24322,5 +24325,184 @@ if(typeof rReg==="function"){ const __rr203=rReg;
     try{ const c=$("#rC")&&$("#rC").value; const kb=c&&regKbStore()[c]; const rws=document.querySelectorAll("#rO .rw"); const rw=rws.length?rws[rws.length-1]:null;
       if(kb&&rw&&(kb.appliedTxt||(kb.qa&&kb.qa.length))) rw.insertAdjacentHTML("beforeend",`<span class="p ${kb.appliedTxt?"hi":"lo"}" style="flex:none">${kb.appliedTxt?"✅ AI詳細調査を反映済み（"+esc(kb.appliedTs||"")+"）":"💬 AI商社マンとのQ&A "+((kb.qa||[]).length)+"件"}</span>`); }catch(e){}
     return r; }; }
+
+/* ═══════════ v20.4（2026-09-17）：サーバー負荷対策（同期の軽量化）と保存容量の保護 ═══════════
+   調査で分かったこと：
+   ・同期は「アカウントの全データ（全商品）」を保存のたび（2.5秒まとめ）に暗号化して送っていた。多くの商材を読み込むほど1回の送信が大きくなる
+     （例：商品15件＋取り込んだ資料で約250KB。写真つきの営業資料は1枚あたり100〜200KB上乗せ）
+   ・生存確認（30秒ごと）のたびに Apps Script が Drive のファイルを4〜8回検索・読込していた（版番号を知るためだけに本文全体を読む）
+   対応（クライアント側。サーバーは sync_gas.js v2.4）：
+   ① fmt:2 ＝ JSON を gzip で圧縮してから暗号化（サーバーは中身を読めないまま。サイズは 1/4〜1/8 に）。サーバーが v2.4 のときだけ有効
+   ② 利用状況（usage）は push に毎回添えず 5分に1回
+   ③ 送信に失敗したら 10秒→30秒→60秒→120秒で自動再送（従来は次の編集まで未同期のままだった）
+   ④ 生存確認は「操作中は30秒・5分以上操作がなければ90秒・非表示タブは停止」
+   ⑤ 写真の保存サイズを縮小（長辺 900→720px・品質 0.82→0.76 ＝ 約半分）
+   ⑥ ブラウザの保存容量を超えたときは、表示中以外の商品の写真データを保存対象から外して保存を続け、理由を表示（以後の全保存が止まるのを防ぐ） */
+(function(){
+  if(typeof SYNC==="undefined"||typeof syncCall!=="function") return;
+  SYNC.rel=0; SYNC.usageAt=0; SYNC.retry=0;
+  const gzOk=()=>typeof CompressionStream!=="undefined"&&typeof DecompressionStream!=="undefined"&&typeof Blob!=="undefined"&&Blob.prototype.stream;
+  const useGz=()=>(SYNC.rel||0)>=2.4&&gzOk();
+  async function gz(u8){ const st=new Blob([u8]).stream().pipeThrough(new CompressionStream("gzip")); return new Uint8Array(await new Response(st).arrayBuffer()); }
+  async function gunz(u8){ const st=new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip")); return new Uint8Array(await new Response(st).arrayBuffer()); }
+  /* ① 圧縮→暗号化（v2:）。復号は v1:（従来）と v2: の両方に対応 */
+  if(typeof syncEnc==="function"&&typeof syncDec==="function"){
+    syncEnc=async function(obj){
+      const json=new TextEncoder().encode(JSON.stringify(obj)); let pt=json, tag="v1:";
+      if(useGz()){ try{ pt=await gz(json); tag="v2:"; }catch(e){ pt=json; tag="v1:"; } }
+      const iv=crypto.getRandomValues(new Uint8Array(12));
+      const ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},SYNC.key,pt));
+      const out=new Uint8Array(12+ct.length); out.set(iv); out.set(ct,12); SYNC.lastBlob={plain:json.length,sent:out.length,gz:tag==="v2:"}; return tag+b64(out);
+    };
+    syncDec=async function(s){
+      if(!s||!/^v[12]:/.test(s)) return null; const gzip=s.slice(0,3)==="v2:"; const u=ub64(s.slice(3));
+      let pt=new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv:u.slice(0,12)},SYNC.key,u.slice(12)));
+      if(gzip) pt=await gunz(pt);
+      return JSON.parse(new TextDecoder().decode(pt));
+    };
+  }
+  /* ② usage の間引き・fmt の申告・サーバー版（rel）の取得 */
+  const __call204=syncCall;
+  syncCall=async function(op,body,opt){
+    body=body||{};
+    if(op==="push"){ body=Object.assign({},body);
+      if(body.usage){ const now=Date.now(); if(now-(SYNC.usageAt||0)<300000) delete body.usage; else SYNC.usageAt=now; }
+      if(body.ns!=="fwd") body.fmt=(body.blob&&String(body.blob).slice(0,3)==="v2:")?2:1; }
+    const r=await __call204.call(this,op,body,opt);
+    try{ if(r&&r.rel){ const v=parseFloat(r.rel); if(v) SYNC.rel=v; } }catch(e){}
+    return r;
+  };
+  /* ③ 送信失敗の自動再送 */
+  if(typeof syncPushAcct==="function"){ const __push204=syncPushAcct;
+    syncPushAcct=async function(){
+      try{ const r=await __push204.apply(this,arguments); SYNC.retry=0; return r; }
+      catch(e){
+        if(SYNC.dirty&&SYNC.on&&SYNC.kid&&!SYNC.kicked){ const n=Math.min((SYNC.retry=(SYNC.retry||0)+1),4); const wait=[10,30,60,120][n-1]*1000;
+          clearTimeout(SYNC.timer); SYNC.timer=setTimeout(()=>{ syncPushAcct().catch(()=>{}); },wait); SYNC.err=(SYNC.err||"送信に失敗")+"（"+Math.round(wait/1000)+"秒後に再送）"; }
+        throw e; }
+    }; }
+  /* ④ 生存確認の間隔：操作中30秒・アイドル90秒・非表示は停止 */
+  let lastIn=Date.now(); ["pointerdown","keydown","touchstart"].forEach(ev=>document.addEventListener(ev,()=>{ lastIn=Date.now(); },{passive:true,capture:true}));
+  if(typeof syncBeatStart==="function"){ const __sbs204=syncBeatStart;
+    syncBeatStart=function(){ __sbs204.apply(this,arguments);
+      try{ clearInterval(SYNC.beatT); SYNC.beatT=setInterval(()=>{ if(document.hidden||!SYNC.started||SYNC.kicked) return; const idle=Date.now()-lastIn; const gap=idle>300000?90000:30000;
+        if(Date.now()-(SYNC.last.beat||0)>=gap-500) syncBeat(); },10000); }catch(e){} }; }
+})();
+/* ⑤ 写真：長辺720px・品質0.76（営業資料のスライドには十分な解像度） */
+if(typeof imgNorm==="function"){
+  imgNorm=function(src,cb,err){
+    const im=new Image(); im.crossOrigin="anonymous";
+    im.onload=()=>{ try{ const M=720, r=Math.min(1,M/Math.max(im.naturalWidth,im.naturalHeight));
+        const w=Math.max(1,Math.round(im.naturalWidth*r)), h=Math.max(1,Math.round(im.naturalHeight*r));
+        const cv=document.createElement("canvas"); cv.width=w; cv.height=h; const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,w,h); cx.drawImage(im,0,0,w,h);
+        const durl=cv.toDataURL("image/jpeg",0.76); cb({b64:durl.split(",")[1],mime:"image/jpeg",w,h}); }catch(e){ err&&err(e); } };
+    im.onerror=e=>{ err&&err(e); }; im.src=src; };
+}
+if(typeof dkFetchImg==="function"){
+  dkFetchImg=async function(url,maxPx){
+    const r=await fetch(url); if(!r.ok) throw new Error("HTTP "+r.status);
+    const bm=await createImageBitmap(await r.blob());
+    const M=maxPx||720, sc=Math.min(1,M/Math.max(bm.width,bm.height));
+    const w=Math.max(1,Math.round(bm.width*sc)), h=Math.max(1,Math.round(bm.height*sc));
+    const cv=document.createElement("canvas"); cv.width=w; cv.height=h; const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,w,h); cx.drawImage(bm,0,0,w,h);
+    return {b64:cv.toDataURL("image/jpeg",0.76).split(",")[1],mime:"image/jpeg",w,h}; };
+}
+/* ⑥ 保存容量を超えたとき：表示中以外の商品の写真（b64）を外して保存し直す */
+if(typeof saveTen==="function"){ const __st204=saveTen;
+  saveTen=function(){
+    const r=__st204.apply(this,arguments);
+    try{ if(window.__tenSaveErr&&typeof SES!=="undefined"&&SES&&SES.t==="trial"&&Array.isArray(TENS)){
+      const list=TENS.filter(t=>t&&(t.src==="upload"||t.src==="sample2"));
+      let dropped=0; const slim=list.map(t=>{ if(t===TEN||!(t.assets&&Array.isArray(t.assets.ph)&&t.assets.ph.some(p=>p&&p.b64))) return t;
+        const c=Object.assign({},t); c.assets=Object.assign({},t.assets,{ph:t.assets.ph.map(p=>{ if(!p||!p.b64) return p; dropped++; const q=Object.assign({},p); delete q.b64; q.dropped=1; return q; })}); return c; });
+      if(dropped){ localStorage.setItem("bc20_ten_"+SES.code,JSON.stringify({v:2,list:slim,idx:TIDX})); window.__tenSaveErr=0; window.__tenSlim=1;
+        if(typeof toast==="function") toast(`⚠ 保存容量の上限のため、表示中以外の商品の写真 ${dropped}枚を保存対象から外して保存しました（この端末の再読み込み後は写真の再取得が必要）。不要な商品・添付を整理してください`); }
+    } }catch(e){}
+    return r; }; }
+
+/* ═══════════ v20.4（2026-09-17）：AI商社マンの学習データの網羅性（多くの商材・多くの資料でも賢く） ═══════════
+   調査で分かったこと：
+   ・取り込んだ資料は「件数で均等割り」（7,000字÷件数・最低600字）で渡していたため、資料が増えるほど1件あたりが薄くなり、
+     逆に件数が多いと合計が膨らむ（100件で6万字）
+   ・同じアカウントの他の商品は「1行×600字まで」の一覧だけ。多くの商材を登録すると一覧が途中で切れ、他商品の価格・MOQ・成分は答えられなかった
+   ・「今日やること」のタスク実行ドロワーでの会話（回答・添付の要約）は参照データに入っていなかった
+   対応：
+   ① 資料は質問との関連度で選ぶ（質問の語と資料名・本文の一致）。関連する資料は最大5件×2,500字、その他は見出し＋冒頭。合計12,000字で頭打ち
+   ② 他の商品は全件の要約（1行ずつ）＋質問で名指しされた商品（最大2件）は詳細（価格表・成分・強み・商談記録・資料名）を載せる
+   ③ タスク実行の会話（直近3タスク×4往復）を参照データに追加
+   ④ 「AIが見ているもの」一覧に上記を追加 */
+window.__llmQ=window.__llmQ||"";
+/* 直近の質問を控える（llmAsk の本文末尾。参照データ選択に使う） */
+if(typeof llmAsk==="function"){ const __la204=llmAsk;
+  llmAsk=function(q,maxTok,opts){ try{ const s=String(q||""); const m=s.match(/===\s*[^=\n]*(質問|入力|依頼)[^=\n]*===\s*([\s\S]*)$/); window.__llmQ=(m?m[2]:s).slice(-600); }catch(e){} return __la204.apply(this,arguments); }; }
+function aiTerms(q){
+  q=String(q||"").toLowerCase(); const out=new Set();
+  (q.match(/[a-z0-9][a-z0-9\-\.]{2,}/g)||[]).forEach(w=>out.add(w));
+  (q.match(/[぀-ヿ一-鿿ー]{2,}/g)||[]).forEach(w=>{ if(w.length>=3) out.add(w); for(let i=0;i<w.length-1;i++){ const g=w.slice(i,i+2); if(!/^[のにをはがでとへもやかなしてたます]/.test(g)&&!/[のにをはがでとへもやかなしてたます]$/.test(g)) out.add(g); } });
+  return [...out];
+}
+function aiScore(text,terms){ if(!terms.length) return 0; const t=String(text||"").toLowerCase(); let s=0; terms.forEach(w=>{ if(t.includes(w)) s+=w.length>=3?2:1; }); return s; }
+/* ① 取り込んだ資料：関連度で選ぶ（logic_pplx.js の ppContext から呼ばれる） */
+function srcCtxSmart(S3){
+  const on=S3.filter(x=>x&&x.on!==false), off=S3.length-on.length;
+  if(!on.length) return `\n## 取り込んだ情報（${S3.length}件・すべて参照OFF）\n※ユーザーが全ソースの参照を外している。原文は根拠に使わないこと。`;
+  const terms=aiTerms(window.__llmQ||"");
+  const scored=on.map((x,i)=>({x,i,s:aiScore((x.name||"")+" "+(x.kind||"")+" "+(x.txt||""),terms)}));
+  const byRel=scored.filter(o=>o.s>=2).sort((a,b)=>b.s-a.s||b.i-a.i).slice(0,5); const rel=new Set(byRel.map(o=>o.i));
+  const TOTAL=12000, FULL=2500, HEAD=260; let used=0; const parts=[];
+  byRel.forEach(o=>{ const t=String(o.x.txt||"").slice(0,FULL); parts.push(`◆ ${o.x.name}（${o.x.kind||"資料"}・質問に関連）\n${t}`); used+=t.length; });
+  const rest=scored.filter(o=>!rel.has(o.i)).sort((a,b)=>b.i-a.i);
+  const perRest=byRel.length?HEAD:Math.max(HEAD,Math.floor(9000/Math.max(1,rest.length)));
+  let omitted=0;
+  rest.forEach(o=>{ if(used>=TOTAL){ omitted++; return; } const t=String(o.x.txt||"").slice(0,Math.min(perRest,TOTAL-used)); parts.push(`◆ ${o.x.name}（${o.x.kind||"資料"}）\n${t}`); used+=t.length; });
+  return `\n## 取り込んだ情報一覧（参照ON ${on.length}件${off?"／OFF "+off+"件":""}・ユーザー選択済み${byRel.length?"。質問に関連する"+byRel.length+"件は本文を長めに載せた":""}）\n`+parts.join("\n")
+    +(omitted?`\n（ほか${omitted}件は省略。質問に資料名や内容の語を含めると、その資料を優先して読む）`:"")+`\n※上記の原文も回答の根拠に使ってよい。参照OFFのソースは使わない。`;
+}
+/* ② 他の商品：全件の要約＋名指しされた商品の詳細 */
+function prodDigest(t,full){
+  const f=k=>t[k]?String(Array.isArray(t[k])?t[k].join("、"):t[k]).replace(/\s+/g," ").slice(0,full?120:40):"";
+  const rows=(r,n)=>(r||[]).slice(0,n).map(x=>Array.isArray(x)?x.filter(Boolean).join("|"):String(x)).join("／").slice(0,full?600:120);
+  let pct=""; try{ if(typeof scoreOf==="function") pct=scoreOf(t).pct+"%"; }catch(e){}
+  const head=`${t.item||t.file||"（無題）"}${t.itemEn?"（"+t.itemEn+"）":""}／${t.co||""}／${t.cat||""}／HS ${t.hs||"-"}／品番 ${t.sku||"-"}／充足度 ${pct||"-"}`;
+  if(!full) return head+`／MOQ ${f("moq")||"-"}／納期 ${f("lead")||"-"}／進出希望 ${f("targets")||"-"}／商談 ${(t.fbx||[]).length}件／資料 ${(t.sources||[]).length}件`;
+  return (head+`
+  MOQ ${f("moq")||"-"}／リードタイム ${f("lead")||"-"}／取引条件 ${f("term")||"-"}／支払 ${f("pay")||"-"}／仕出港 ${f("pol")||"-"}／産地 ${f("origin")||"-"}／認証 ${f("cert")||"-"}／賞味・保証 ${f("shelf")||"-"}／入数 ${f("ctn")||"-"}／進出希望 ${f("targets")||"-"}
+  強み：${(t.strengths||[]).slice(0,5).map(x=>Array.isArray(x)?x[0]:x).join("、")||"-"}
+  価格表（${(t.priceCols||[]).join("|")}）：${rows(t.priceRows,6)||"-"}
+  寸法・重量：${rows(t.dimRows,4)||"-"}
+  ${t.compTitle||"成分・材質"}：${rows(t.compRows,12)||"-"}
+  商談記録：${(t.fbx||[]).slice(-3).map(x=>`${x.d||""} ${x.b||""}（${x.c||""}）${x.st||""}${x.why?"／"+x.why:""}`).join("／")||"-"}
+  取り込んだ資料：${(t.sources||[]).slice(0,6).map(x=>x.name).join("、")||"-"}`).slice(0,2500);
+}
+function prodMatchScore(t,q){
+  q=String(q||""); if(!q) return 0; const ql=q.toLowerCase(); let s=0;
+  const toks=[].concat(String(t.item||"").split(/[\s　・／\/（）()]+/),[t.sku||""],String(t.itemEn||"").split(/[\s\-_]+/)).filter(x=>x&&x.length>=2);
+  toks.forEach(x=>{ if(ql.includes(x.toLowerCase())) s+=x.length; });
+  return s;
+}
+if(typeof kbProducts==="function"){
+  kbProducts=function(){
+    const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS:[]; if(T.length<2) return "";
+    const cur=(typeof TIDX!=="undefined")?TIDX:-1; const q=String(window.__llmQ||"");
+    const lines=T.map((t,i)=>i===cur||!t?null:"・"+prodDigest(t,false)).filter(Boolean);
+    let out=`## 同じアカウントの他の商品（${T.length-1}件・各商品の要約。質問で商品名・品番が指定されていれば、その商品の詳細を下に載せる）\n`+lines.join("\n").slice(0,4500);
+    const hits=T.map((t,i)=>({t,i,s:t?prodMatchScore(t,q):0})).filter(o=>o.i!==cur&&o.s>=4).sort((a,b)=>b.s-a.s).slice(0,2);
+    if(hits.length) out+="\n### 質問で指定された商品の詳細\n"+hits.map(o=>"◆ "+prodDigest(o.t,true)).join("\n");
+    return out;
+  };
+}
+/* ③ タスク実行の会話 */
+function todayRunsCtx(){
+  try{ const s=(typeof todayStore==="function")?todayStore():null; const R=s&&s.todayRuns; if(!R) return "";
+    const ks=Object.keys(R).slice(-3); if(!ks.length) return ""; const strip=h=>String(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+    return "\n## 今日やることのタスク実行（AI商社マンとの会話・直近）\n"+ks.map(k=>{ const r=R[k]||{}; const t=k.split("｜").slice(1).join("｜")||k;
+      return `◆ ${t}（${r.at||""}${r.n?"・添付"+r.n+"件":""}）\n`+(r.log||[]).slice(-4).map(m=>(m.w==="u"?"担当者: ":"AI: ")+strip(m.h).slice(0,300)).join("\n"); }).join("\n").slice(0,2200);
+  }catch(e){ return ""; }
+}
+if(typeof ppContext==="function"){ const __pc204=ppContext; ppContext=function(){ const s=__pc204.apply(this,arguments); try{ return s+todayRunsCtx(); }catch(e){ return s; } }; }
+/* ④ 「AIが見ているもの」 */
+if(typeof kbSeen==="function"){ const __seen204=kbSeen;
+  kbSeen=function(){ const r=__seen204.apply(this,arguments); try{ const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS.length:0; const s=(typeof todayStore==="function")?todayStore():null; const n=s&&s.todayRuns?Object.keys(s.todayRuns).length:0;
+    return (Array.isArray(r)?r:[]).concat([["同じアカウントの他の商品（全件要約＋名指しで詳細）",`${Math.max(0,T-1)}件`,T>1?100:0],["タスク実行の会話（今日やること）",`${n}件`,n?100:0]]); }catch(e){ return r; } }; }
 
 </script>
