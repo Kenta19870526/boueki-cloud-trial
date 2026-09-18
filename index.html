@@ -21537,7 +21537,26 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["候補国を決める（最大10か国）","Decide candidate countries (up to 10)","确定候选国（最多10国）","Definir países candidatos (hasta 10)"],
 ["4つの観点で分析し、推奨3か国を見る","Analyse on 4 criteria and see the 3 recommended","按4个维度分析并查看推荐3国","Analizar con 4 criterios y ver los 3 recomendados"],
 ["3か国を確定する（進出希望国・価格・物流・出荷に反映）","Confirm 3 countries (applies to targets, pricing, logistics, shipping)","确定3国（反映到目标国・价格・物流・出货）","Confirmar 3 países (se aplica a objetivos, precios, logística y envíos)"],
-["販売先国の選定（推奨3か国）","Target market selection (3 recommended)","销售目标国选定（推荐3国）","Selección de países objetivo (3 recomendados)"]);
+["販売先国の選定（推奨3か国）","Target market selection (3 recommended)","销售目标国选定（推荐3国）","Selección de países objetivo (3 recomendados)"],
+["← 一覧へ戻る","← Back to the list","← 返回列表","← Volver a la lista"],
+["🤖 AIで詳しく調査（Web検索）","🤖 Research in depth with AI (web search)","🤖 用AI深入调查（网络搜索）","🤖 Investigar a fondo con IA (búsqueda web)"],
+["🔄 AIで再調査（Web検索）","🔄 Re-research with AI (web search)","🔄 用AI重新调查（网络搜索）","🔄 Volver a investigar con IA (búsqueda web)"],
+["📥 この国のPPTX","📥 PPTX for this country","📥 该国PPTX","📥 PPTX de este país"],
+["✅ 確定に含める","✅ Include in the confirmed set","✅ 加入确定","✅ Incluir en la selección"],
+["確定から外す","Remove from the confirmed set","从确定中移除","Quitar de la selección"],
+["📄 詳細レポートを見る（規制・市場・競合・チャネル・価格・ロードマップ）","📄 View the detailed report (regulation, market, competitors, channels, pricing, roadmap)","📄 查看详细报告（法规・市场・竞争・渠道・价格・路线图）","📄 Ver el informe detallado (normativa, mercado, competencia, canales, precios, hoja de ruta)"],
+["詳細 →","Details →","详情 →","Detalles →"],
+["言える表現（OK）","Allowed claims (OK)","可用表述（OK）","Afirmaciones permitidas (OK)"],
+["言えない表現（NG）","Prohibited claims (NG)","不可用表述（NG）","Afirmaciones prohibidas (NG)"],
+["📋 規制・表示","📋 Regulation & labelling","📋 法规・标示","📋 Normativa y etiquetado"],
+["📈 市場性","📈 Market potential","📈 市场性","📈 Potencial de mercado"],
+["⚔ 競合TOP3とポジショニング","⚔ Top-3 competitors & positioning","⚔ 竞争TOP3与定位","⚔ Top 3 competidores y posicionamiento"],
+["🛒 チャネル","🛒 Channels","🛒 渠道","🛒 Canales"],
+["💰 価格根拠","💰 Pricing rationale","💰 定价依据","💰 Fundamento de precios"],
+["🗓 参入ロードマップ","🗓 Entry roadmap","🗓 进入路线图","🗓 Hoja de ruta de entrada"],
+["⚠ 想定リスクと対応","⚠ Risks & mitigation","⚠ 预期风险与应对","⚠ Riesgos y mitigación"],
+["📍 STANDAGE拠点と支援","📍 STANDAGE bases & support","📍 STANDAGE据点与支持","📍 Bases y apoyo de STANDAGE"],
+["📚 出典・根拠","📚 Sources","📚 出处・依据","📚 Fuentes"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -24862,5 +24881,306 @@ function ctyCtx(){
 }
 if(typeof ppContext==="function"){ const __pc206=ppContext; ppContext=function(){ const s=__pc206.apply(this,arguments); try{ return s+ctyCtx(); }catch(e){ return s; } }; }
 if(typeof kbSeen==="function"){ const __seen206=kbSeen; kbSeen=function(){ const r=__seen206.apply(this,arguments); try{ const s=ctyStore(); const ch=ctyChosen(); return (Array.isArray(r)?r:[]).concat([["販売先国の選定（推奨3か国）",ch.length?"確定 "+ch.join("・"):(s.rec?"分析済み・未確定":"未着手"),ch.length?100:(s.rec?50:0)]]); }catch(e){ return r; } }; }
+
+/* ═══════════ v20.7（2026-09-18）：国別 詳細レポート（Country Deep-Dive）＝戦略提案資料の粒度 ═══════════
+   ご指摘：推奨3か国の理由・戦略提案の粒度／精度が低い。各国をクリックすると、戦略提案資料（例：アジア4か国 戦略提案 Ver.8）の
+          レベルの詳細調査（市場規模・CAGR・規制当局・区分・参入期間・登録費用・投入方針・規制／表示（Claim可否）・市場性・
+          競合TOP3・チャネル（越境EC／ライブ／オフライン）・価格根拠（単価分解・税制）・ロードマップ・KPI・リスク・出典）が見られるように
+   仕組み：接続AIがWeb検索（対応エンジン）で国×商品の事実を調べ、構造化JSONで返す → 画面（vCtyDeep）と PPTX（5枚/国）に展開。
+          未接続は内蔵の基礎データ（規制DB・通関統計・バイヤーDB・拠点・当局/チャネルの一般表）で骨組みを作り「要確認」を明示
+   データ：TEN.ctySel.deep[国]={at,eng,web,cits,conf,local,d:{overview,entry,regulation,market,competition,channels,pricing,roadmap,kpi,risks,standage,sources}} */
+const CTY_VIEW={c:""};
+/* 規制当局の一般表（カテゴリ別）：未接続時の骨組み。接続AIは Web で上書き・補強する */
+const CTY_AUTH={
+  "香港":{food:"CFS（食物安全中心）・食品安全条例／事前登録不要",cosme:"C&ED（消費者保護）・事前登録不要（表示は英/中）",parts:"特段の事前登録なし（製品安全条例）",_:"事前登録不要（品目により表示規制）"},
+  "台湾":{food:"TFDA（食品薬物管理署）・輸入査験／一般食品",cosme:"TFDA・化粧品衛生安全管理法（届出制）",parts:"BSMI（標準検験局）・該当品目は検験",_:"TFDA／BSMI（品目による）"},
+  "シンガポール":{food:"SFA（食品庁）・事前承認不要／健康補助食品はHSA",cosme:"HSA（保健科学庁）・ASEAN化粧品指令に基づく届出",parts:"Enterprise SG／該当品目はCPS登録",_:"SFA／HSA（品目による）"},
+  "マレーシア":{food:"MOH 食品安全品質部・健康補助食品はNPRA登録（QUEST3+）",cosme:"NPRA 化粧品届出（Notification）",parts:"SIRIM／該当品目は認証",_:"MOH／NPRA／SIRIM（品目による）"},
+  "タイ":{food:"Thai FDA（食品登録・表示）",cosme:"Thai FDA 化粧品届出",parts:"TISI（工業規格）",_:"Thai FDA／TISI"},
+  "ベトナム":{food:"MOH／VFA（食品安全）・自己公示／登録",cosme:"MOH（化粧品公示）",parts:"MOIT／該当品目は適合宣言",_:"MOH／MOIT"},
+  "インドネシア":{food:"BPOM（食品医薬品監督庁）・ML登録＋ハラール（BPJPH）",cosme:"BPOM 化粧品届出＋ハラール",parts:"SNI（国家規格）",_:"BPOM／SNI"},
+  "フィリピン":{food:"Philippine FDA（食品登録）",cosme:"Philippine FDA（化粧品届出）",parts:"DTI-BPS",_:"FDA／DTI"},
+  "韓国":{food:"MFDS（食品医薬品安全処）・輸入食品申告",cosme:"MFDS（化粧品責任販売業者）",parts:"KATS／KC認証",_:"MFDS／KATS"},
+  "中国":{food:"GACC（海関総署）・海外製造施設登録＋SAMR",cosme:"NMPA（化粧品届出／登録）",parts:"CCC認証（該当品目）",_:"GACC／NMPA／CCC"},
+  "アメリカ":{food:"FDA（施設登録・FSVP・表示）",cosme:"FDA（MoCRA：施設登録・製品リスト）",parts:"該当規格（UL等）・CPSC",_:"FDA／CPSC（品目による）"},
+  "カナダ":{food:"CFIA（表示・輸入許可）",cosme:"Health Canada（化粧品届出）",parts:"該当規格（CSA等）",_:"CFIA／Health Canada"},
+  "UAE":{food:"MOCCAE／ESMA・自治体（Dubai Municipality 食品登録）",cosme:"ESMA／Dubai Municipality（化粧品登録・ハラール任意）",parts:"ESMA（ECAS）",_:"ESMA／自治体"},
+  "サウジアラビア":{food:"SFDA（食品登録・SABER）",cosme:"SFDA（化粧品届出・SABER）",parts:"SASO／SABER",_:"SFDA／SASO"},
+  "フランス":{food:"EU規則（食品情報）・DGCCRF／ANSES",cosme:"EU化粧品規則（CPNP届出・RP設置）",parts:"CEマーキング（該当指令）",_:"EU規則（品目による）"},
+  "ドイツ":{food:"EU規則・BVL／BfR",cosme:"EU化粧品規則（CPNP・RP）",parts:"CEマーキング",_:"EU規則"},
+  "イギリス":{food:"FSA（食品表示・輸入）",cosme:"UK化粧品規則（SCPN届出・RP）",parts:"UKCA",_:"FSA／OPSS"},
+  "イタリア":{food:"EU規則・保健省",cosme:"EU化粧品規則（CPNP・RP）",parts:"CEマーキング",_:"EU規則"},
+  "オランダ":{food:"EU規則・NVWA",cosme:"EU化粧品規則（CPNP・RP）",parts:"CEマーキング",_:"EU規則"},
+  "オーストラリア":{food:"FSANZ／DAFF（輸入食品検査）",cosme:"AICIS（工業化学品）・TGA（治療目的の場合）",parts:"ACMA／該当規格",_:"FSANZ／AICIS"},
+  "インド":{food:"FSSAI（輸入者登録・表示）",cosme:"CDSCO（化粧品輸入登録）",parts:"BIS",_:"FSSAI／CDSCO／BIS"},
+  "エジプト":{food:"NFSA（食品安全庁）・GOEIC 工場登録",cosme:"EDA（医薬品庁）届出",parts:"GOEIC",_:"NFSA／GOEIC"},
+  "ナイジェリア":{food:"NAFDAC 登録",cosme:"NAFDAC 登録",parts:"SON（SONCAP）",_:"NAFDAC／SON"},
+  "ケニア":{food:"KEBS／PVoC",cosme:"KEBS／Pharmacy and Poisons Board",parts:"KEBS PVoC",_:"KEBS"},
+  "メキシコ":{food:"COFEPRIS（表示 NOM-051）",cosme:"COFEPRIS",parts:"NOM 認証",_:"COFEPRIS／NOM"},
+  "ブラジル":{food:"ANVISA／MAPA",cosme:"ANVISA 届出",parts:"INMETRO",_:"ANVISA／INMETRO"}
+};
+/* 一般的なチャネル（カテゴリ共通の骨組み。接続AIが商品に合わせて上書き） */
+const CTY_CH={
+  "香港":{online:["HKTVmall","WeChatミニ店舗","iHerb（健康食品）"],live:"WeChat／Instagramライブ",offline:["Mannings・Watsons（ドラッグ）","ParknShop・Wellcome・city'super（食品）","専門店・百貨店（SOGO等）"]},
+  "台湾":{online:["Shopee台湾","momo・PChome","iHerb"],live:"Shopee Live",offline:["Watsons・Cosmed（ドラッグ）","PX Mart・Carrefour・微風（食品）","百貨店・専門店"]},
+  "シンガポール":{online:["Shopee SG","Lazada RedMart","iHerb"],live:"Shopee Live／TikTok Shop",offline:["Guardian・Watsons（ドラッグ）","FairPrice・Cold Storage・Don Don Donki（食品）","専門店・クリニック"]},
+  "マレーシア":{online:["Shopee MY","Lazada MY","TikTok Shop"],live:"TikTok Shop／Shopee Live",offline:["Guardian・Watsons","AEON・Jaya Grocer・Don Don Donki","専門店"]},
+  "タイ":{online:["Shopee TH","Lazada TH","TikTok Shop"],live:"TikTok Shop／Shopee Live",offline:["Boots・Watsons","Tops・Gourmet Market・Don Don Donki","百貨店（Central等）"]},
+  "ベトナム":{online:["Shopee VN","Lazada VN","Tiki"],live:"TikTok Shop／Shopee Live",offline:["Guardian・Pharmacity","WinMart・AEON・Lotte Mart","専門店"]},
+  "インドネシア":{online:["Tokopedia","Shopee ID","TikTok Shop"],live:"TikTok Shop",offline:["Guardian・Watsons","Ranch Market・AEON","専門店"]},
+  "フィリピン":{online:["Shopee PH","Lazada PH"],live:"TikTok Shop",offline:["Watsons・Mercury Drug","SM Supermarket・Robinsons","専門店"]},
+  "韓国":{online:["Coupang","Naver スマートストア","Olive Young Online"],live:"Naver Shopping Live",offline:["Olive Young（美容）","E-mart・Lotte Mart（食品）","百貨店"]},
+  "中国":{online:["Tmall Global（越境）","JD Worldwide（越境）","Douyin"],live:"Douyin／Taobao Live",offline:["Watsons・Sephora","Ole'・City'super","百貨店"]},
+  "アメリカ":{online:["Amazon.com","iHerb","自社D2C（Shopify）"],live:"TikTok Shop／Amazon Live",offline:["Whole Foods・Sprouts（食品）","CVS・Walgreens・Ulta（美容・健康）","専門店・日系スーパー（Mitsuwa等）"]},
+  "カナダ":{online:["Amazon.ca","Well.ca"],live:"TikTok Shop",offline:["Shoppers Drug Mart","Loblaws・T&T","専門店"]},
+  "UAE":{online:["Amazon.ae","noon","Namshi（美容）"],live:"Instagram／TikTok",offline:["Carrefour・Lulu・Spinneys","Boots・Life Pharmacy","百貨店・専門店"]},
+  "サウジアラビア":{online:["Amazon.sa","noon"],live:"Instagram／Snapchat",offline:["Panda・Carrefour・Danube","Nahdi・Al-Dawaa（薬局）","専門店"]},
+  "フランス":{online:["Amazon.fr","Cdiscount","専門EC"],live:"Instagram／TikTok",offline:["Monoprix・Carrefour","Sephora・Marionnaud（美容）","専門店・エピスリー"]},
+  "ドイツ":{online:["Amazon.de","Otto"],live:"Instagram／TikTok",offline:["Rewe・Edeka","dm・Rossmann（美容・健康）","専門店"]},
+  "イギリス":{online:["Amazon.co.uk","Ocado","Cult Beauty（美容）"],live:"TikTok Shop",offline:["Waitrose・Tesco","Boots・Superdrug（美容・健康）","Selfridges・専門店"]},
+  "オーストラリア":{online:["Amazon.com.au","Chemist Warehouse Online"],live:"TikTok Shop",offline:["Woolworths・Coles","Chemist Warehouse・Priceline","専門店"]},
+  "インド":{online:["Amazon.in","Nykaa（美容）","BigBasket（食品）"],live:"Instagram／Flipkart Live",offline:["Reliance Retail・Spencer's","Apollo Pharmacy・専門店"]},
+  "エジプト":{online:["Amazon.eg","noon"],live:"Instagram／Facebook",offline:["Carrefour・Spinneys","薬局チェーン・専門店"]},
+  "ナイジェリア":{online:["Jumia","Konga"],live:"Instagram／WhatsApp",offline:["Shoprite・Spar","薬局・専門店"]}
+};
+function ctyDeepStore(){ const s=ctyStore(); s.deep=s.deep||{}; return s.deep; }
+function ctyDeepOf(c){ return ctyDeepStore()[c]||null; }
+function ctyEn(c){ const M={"香港":"HONG KONG","台湾":"TAIWAN","シンガポール":"SINGAPORE","マレーシア":"MALAYSIA","タイ":"THAILAND","ベトナム":"VIETNAM","インドネシア":"INDONESIA","フィリピン":"PHILIPPINES","韓国":"KOREA","中国":"CHINA","アメリカ":"USA","カナダ":"CANADA","UAE":"UAE","サウジアラビア":"SAUDI ARABIA","フランス":"FRANCE","ドイツ":"GERMANY","イギリス":"UK","イタリア":"ITALY","オランダ":"NETHERLANDS","スペイン":"SPAIN","オーストラリア":"AUSTRALIA","インド":"INDIA","エジプト":"EGYPT","ナイジェリア":"NIGERIA","ケニア":"KENYA","メキシコ":"MEXICO","ブラジル":"BRAZIL","トルコ":"TURKEY","ニュージーランド":"NEW ZEALAND"}; return M[c]||""; }
+function ctyAuthOf(c){ const A=CTY_AUTH[c]; if(!A) return ""; const k=ctyCatKey(); return A[k]||A._||""; }
+/* ── 基礎データ（規制DB・通関統計・バイヤーDB・拠点・商品）── */
+function ctyDeepBase(c){
+  const s=ctyStore(); let r=(s.rec||[]).find(x=>x.c===c); if(!r){ try{ r=ctyScoreAll([ctyFacts(c,ctyStats())],ctyStats())[0]; }catch(e){ r=null; } }
+  const f=r?r.facts:{}; const B=f.base||ctyBaseOf(c); const ch=CTY_CH[c]||null;
+  return {c,en:ctyEn(c),score:r?r.sc:null,duty:f.duty||"要確認",lead:f.lead||"要確認",docs:f.docs||[],warn:f.warn||"",known:!!f.known,
+    exportUsd:f.exportUsd||0,share:f.share||0,yoy:f.yoy,upunit:f.upunit||null,unit:f.unit||"",statsYear:f.statsYear||"",hs:f.hs||(D&&D.hs)||"",
+    buyers:f.buyers||0,buyersAll:f.buyersAll||0,base:B,authority:ctyAuthOf(c),channels:ch,cat:(D&&D.cat)||"",catKey:ctyCatKey(),
+    item:(D&&D.item)||"",itemEn:(D&&D.itemEn)||"",moq:(D&&D.moq)||"",price:(D&&D.priceRows&&D.priceRows[0])?D.priceRows[0].join(" "):"",cert:(D&&D.cert)||"",shelf:(D&&D.shelf)||"",
+    strengths:((D&&D.strengths)||[]).slice(0,5).map(x=>Array.isArray(x)?x[0]:x),comp:((D&&D.compRows)||[]).slice(0,8).map(x=>Array.isArray(x)?x.filter(Boolean).join(" ") :String(x)),
+    regKb:(function(){ try{ const k=regKbStore()[c]; return k&&k.appliedTxt?String(k.appliedTxt).slice(0,1500):""; }catch(e){ return ""; } })()};
+}
+/* ── 未接続時の骨組み ── */
+function ctyDeepLocal(c){
+  const b=ctyDeepBase(c); const q="要確認（AI接続でWeb調査）"; const ch=b.channels;
+  const d={
+    overview:{marketSize:q,cagr:q,regulator:b.authority||q,classification:q,entryPeriod:b.known?(b.lead||q):q,regCost:q,
+      headline:`${b.known?"関税"+b.duty+"・通関"+b.lead:"規制DB未登録"}${b.exportUsd?"／日本からの輸出 "+ctyM(b.exportUsd)+"（シェア"+Math.round(b.share*100)+"%）":""}${b.base.kind==="direct"?"／STANDAGE拠点あり":""}`,
+      summary:"接続AIがWeb検索で市場規模・成長率・登録制度・競合・チャネルを調査すると、この骨組みが戦略提案の粒度で埋まります。"},
+    entry:{policy:b.known?(b.warn&&!/登録がありません|個別に調査/.test(b.warn)?"表示・書類の調整":"即時投入の可能性"):"要確認",reason:b.known?`規制DBでは関税${b.duty}・必要書類 ${b.docs.join("・")}${b.warn?"。注意："+b.warn:""}`:"規制DBに未登録のため、STANDAGEが個別に調査します",adjustments:b.docs.slice(0,4)},
+    regulation:{authority:b.authority||q,scheme:q,registration:q,period:b.lead||q,cost:q,docs:b.docs,labeling:[q],claimsOK:[q],claimsNG:[q],limits:[q],penalty:q,notes:b.warn||""},
+    market:{size:q,growth:q,demand:[q],targets:[q],trend:q,exportFromJapan:b.exportUsd?`${ctyM(b.exportUsd)}（${b.statsYear}年・日本からの輸出・シェア${Math.round(b.share*100)}%${b.yoy!=null?"・前年比"+(b.yoy>=0?"+":"")+Math.round(b.yoy*100)+"%":""}）`:"通関統計に実績なし",ecommerce:q},
+    competition:{players:[],shareNote:b.exportUsd?`日本からの輸出シェア${Math.round(b.share*100)}%（${b.share>0.25?"日本勢の競合が多い":b.share>0.08?"一定の競合あり":"競合は少なめ"}）`:"通関統計に実績なし（開拓型）",position:q,differentiation:b.strengths.slice(0,3)},
+    channels:{online:(ch?ch.online:[q]).map(x=>({platform:x,note:"一般的なチャネル（要確認）"})),live:{platform:ch?ch.live:q,note:""},offline:(ch?ch.offline:[q]).map(x=>({channel:x,note:"一般的なチャネル（要確認）"})),importer:"現地の正規輸入者（要選定）",notes:""},
+    pricing:{retail:q,retailJpy:"",position:q,vs:q,online:{platformFee:"15〜20%",logistics:"10〜12%",payment:"2〜3%",net:"約65〜70%"},offline:{retailMargin:"35〜40%",distributor:"10〜15%",importer:"10〜15%",net:"約30〜35%"},tax:{duty:b.duty,vat:q,deMinimis:q},rationale:"標準的な流通マージンの配分（要確認）。当社の推奨FOB・DDP価格を算出すると金額入りで裏付けできます"},
+    roadmap:[{phase:"Phase 1",period:"0〜3ヶ月",actions:["規制・表示の確認と必要書類の準備","サンプル・見積の提示（越境EC／輸入者）","現地拠点・バイヤーDBで候補先を選定"]},{phase:"Phase 2",period:"3〜9ヶ月",actions:["正規輸入者との契約・登録手続き","初回出荷・店頭／ECでの販売開始","実績のモニタリング"]},{phase:"Phase 3",period:"9ヶ月〜",actions:["チャネル拡大・SKU追加","定期取引化・現地マーケティング","近隣国への横展開"]}],
+    kpi:[{gate:"6ヶ月",items:["初回受注・出荷の完了","商談5件以上","レビュー／反応の蓄積"]},{gate:"12ヶ月",items:["限界利益 ±0以上","リピート発注の発生","正規ルートの確立"]},{gate:"18ヶ月",items:["取扱店舗・チャネルの拡大","近隣国への展開判断"]}],
+    risks:[{risk:"規制・表示の不適合",mitigation:"事前のリーガルチェック・AI詳細調査・現地拠点の確認"},{risk:"価格競争",mitigation:"強み・エビデンスで差別化し正規ルートで価格を維持"},{risk:"物流・リードタイム",mitigation:"小ロットの初回出荷・AI物流見積で複数社比較"},{risk:"代金回収",mitigation:"前払い／L/C・信用調査"}],
+    standage:{base:b.base.kind==="direct"?`拠点あり（${b.base.c}）`:b.base.kind==="region"?`近隣拠点（${b.base.c}）が担当`:"拠点なし（本社対応）",members:(b.base.staff||[]).slice(0,3).map(x=>`${x.n}（${x.r}・${x.sp||""}）`),support:["規制・表示の調査と書類作成","バイヤー開拓・商談代行（拠点に依頼）","物流AI見積・出荷手続き","越境EC／ライブコマースの設計"]},
+    sources:[{title:"貿易クラウド 規制DB",url:""},{title:"通関統計（日本からの輸出）",url:""},{title:"貿易クラウド バイヤーDB・STANDAGE拠点",url:""}]};
+  return {at:ctyNow(),eng:"",web:false,cits:[],conf:"low",local:true,d};
+}
+function ctyClean(o,max){ if(o==null) return ""; if(typeof o==="object"){ try{ return JSON.stringify(o).slice(0,max||200); }catch(e){ return ""; } } return String(o).replace(/\s+/g," ").trim().slice(0,max||200); }
+function ctyArr(a,n,max){ return (Array.isArray(a)?a:(a?[a]:[])).map(x=>ctyClean(x,max||160)).filter(Boolean).slice(0,n||6); }
+/* ── 接続AI：Web検索で国×商品の詳細を構造化 ── */
+async function ctyDeepAI(c){
+  const b=ctyDeepBase(c); const local=ctyDeepLocal(c).d; let ctx=""; try{ ctx=ppContext(); }catch(e){}
+  const r=await llmAsk(`=== 目的 ===
+「${b.item}${b.itemEn?"（"+b.itemEn+"）":""}」（${b.cat}・HS ${b.hs||"未確定"}）を日本から ${c} へ輸出・販売するための「国別戦略レポート」を、戦略提案資料の粒度で作る。
+=== 貿易クラウドの基礎データ（事実） ===
+規制DB：関税 ${b.duty}／通関 ${b.lead}／必要書類 ${b.docs.join("・")||"—"}${b.warn?"／注意 "+b.warn:""}
+規制当局（一般表）：${b.authority||"—"}
+通関統計：${b.exportUsd?"日本→"+c+" 輸出 "+ctyM(b.exportUsd)+"（"+b.statsYear+"年・シェア"+Math.round(b.share*100)+"%"+(b.yoy!=null?"・前年比"+(b.yoy>=0?"+":"")+Math.round(b.yoy*100)+"%":"")+(b.upunit?"・市場平均単価 $"+b.upunit.toFixed(2)+"/"+b.unit:"")+"）":"実績なし"}
+バイヤーDB：${c} 登録 ${b.buyersAll}名（同カテゴリ換算 約${b.buyers}社）／STANDAGE拠点：${b.base.kind==="direct"?"あり（"+b.base.c+"）":b.base.kind==="region"?"近隣拠点 "+b.base.c:"なし"}
+一般的なチャネル（骨組み）：${b.channels?"越境EC "+b.channels.online.join("・")+"／ライブ "+b.channels.live+"／店頭 "+b.channels.offline.join("・"):"—"}
+${b.regKb?"AI詳細調査（規制・反映済み）：\n"+b.regKb+"\n":""}=== 商品・会社の登録データ ===
+${String(ctx).slice(0,5000)}
+=== 依頼 ===
+Web検索で確認できる最新の一次情報（当局サイト・統計・業界レポート・EC/店頭価格）をもとに、次のJSONだけを返す。確認できない項目は「要確認」と書き、推測で断定しない。数値には単位と年を付ける。日本語。
+{"overview":{"marketSize":"市場規模（例：14.6億USD・2024年）","cagr":"年平均成長率（期間つき）","regulator":"規制当局と根拠法","classification":"当社商品の区分（一般食品／化粧品届出／登録制 など）","entryPeriod":"参入までの期間","regCost":"登録・届出費用の目安","headline":"1文の要約（市場・成長・参入しやすさ）","summary":"3〜4文の総括"},
+ "entry":{"policy":"即時投入可|表示調整|改良処方|登録後投入|要確認","reason":"理由（2文）","adjustments":["必要な調整（表示・成分・書類）"]},
+ "regulation":{"authority":"当局","scheme":"制度・区分","registration":"登録／届出の要否と手順","period":"期間","cost":"費用","docs":["必要書類"],"labeling":["表示要件"],"claimsOK":["言える表現"],"claimsNG":["言えない表現"],"limits":["成分・規格の上限など"],"penalty":"違反時の罰則","notes":"留意点"},
+ "market":{"size":"市場規模と年","growth":"成長率と要因","demand":["需要トレンド（3〜5個）"],"targets":["主要ターゲット層"],"trend":"直近の変化","exportFromJapan":"日本からの輸出動向","ecommerce":"EC・越境ECの状況"},
+ "competition":{"players":[{"name":"製品／ブランド","company":"企業（親会社）","origin":"国","listing":"上場／非上場","size":"規模（従業員・時価総額など）","revenue":"推定年商","product":"主力製品","price":"店頭・EC価格","share":"シェア感","strength":"強み"}],"shareNote":"カテゴリ上位の構図","position":"当社が狙うポジション","differentiation":["差別化ポイント（当社の強み・エビデンスに基づく）"]},
+ "channels":{"online":[{"platform":"越境EC／ECプラットフォーム","note":"手数料・要件・向き不向き"}],"live":{"platform":"ライブコマース基盤","note":"表現上の注意"},"offline":[{"channel":"小売・専門チャネル","note":"参入方法"}],"importer":"正規輸入者・ディストリビューターの探し方","notes":"補足"},
+ "pricing":{"retail":"推奨小売価格（現地通貨）","retailJpy":"円換算","position":"価格ポジション","vs":"比較対象の競合と価格","online":{"platformFee":"%","logistics":"%","payment":"%","net":"当社手取り%"},"offline":{"retailMargin":"%","distributor":"%","importer":"%","net":"当社手取り%"},"tax":{"duty":"関税","vat":"VAT/GST/売上税","deMinimis":"越境ECの免税枠"},"rationale":"価格根拠（3文）"},
+ "roadmap":[{"phase":"Phase 1","period":"期間","actions":["具体的アクション（3つ）"]},{"phase":"Phase 2","period":"","actions":[]},{"phase":"Phase 3","period":"","actions":[]}],
+ "kpi":[{"gate":"6ヶ月","items":["判断基準"]},{"gate":"12ヶ月","items":[]},{"gate":"18ヶ月","items":[]}],
+ "risks":[{"risk":"リスク","mitigation":"対応"}],
+ "standage":{"base":"拠点の状況","members":["拠点メンバー（上のデータから）"],"support":["STANDAGEが提供できる支援"]},
+ "sources":[{"title":"出典名","url":"URL"}],
+ "confidence":"high|mid|low"}
+規則：competition.players は3件、risks は4〜6件、sources は5件以上（URLつき。Web検索できなかった場合は空配列にし confidence を low にする）。この商品の成分・価格帯・強み・認証・MOQに即して書く。`,3600,{forceWeb:1,timeout:240000,
+    sys:"あなたはAI商社マン（総合商社20年の貿易プロ・海外市場調査の専門家）。一次情報を重視し、確認できない事実は「要確認」と明記する。JSON以外は出力しない。"});
+  let t=String(r.txt||"").replace(/```json|```/g,"").trim(); const a=t.indexOf("{"),z=t.lastIndexOf("}"); if(a<0||z<=a) throw new Error("AIの回答形式が不正でした");
+  const j=JSON.parse(t.slice(a,z+1)); const g=(o,k)=>(o&&typeof o==="object")?o[k]:undefined;
+  const ov=j.overview||{}, en=j.entry||{}, rg=j.regulation||{}, mk=j.market||{}, cp=j.competition||{}, chn=j.channels||{}, pr=j.pricing||{}, st=j.standage||{};
+  const d={
+    overview:{marketSize:ctyClean(ov.marketSize,80)||"要確認",cagr:ctyClean(ov.cagr,60)||"要確認",regulator:ctyClean(ov.regulator,120)||local.overview.regulator,classification:ctyClean(ov.classification,80)||"要確認",entryPeriod:ctyClean(ov.entryPeriod,60)||"要確認",regCost:ctyClean(ov.regCost,80)||"要確認",headline:ctyClean(ov.headline,160)||local.overview.headline,summary:ctyClean(ov.summary,600)||""},
+    entry:{policy:ctyClean(en.policy,30)||"要確認",reason:ctyClean(en.reason,300)||"",adjustments:ctyArr(en.adjustments,5,120)},
+    regulation:{authority:ctyClean(rg.authority,120)||local.regulation.authority,scheme:ctyClean(rg.scheme,160),registration:ctyClean(rg.registration,300),period:ctyClean(rg.period,60),cost:ctyClean(rg.cost,80),docs:ctyArr(rg.docs,8,80).length?ctyArr(rg.docs,8,80):b.docs,labeling:ctyArr(rg.labeling,6,120),claimsOK:ctyArr(rg.claimsOK,6,120),claimsNG:ctyArr(rg.claimsNG,6,120),limits:ctyArr(rg.limits,6,120),penalty:ctyClean(rg.penalty,160),notes:ctyClean(rg.notes,300)},
+    market:{size:ctyClean(mk.size,120),growth:ctyClean(mk.growth,160),demand:ctyArr(mk.demand,5,120),targets:ctyArr(mk.targets,5,100),trend:ctyClean(mk.trend,200),exportFromJapan:ctyClean(mk.exportFromJapan,160)||local.market.exportFromJapan,ecommerce:ctyClean(mk.ecommerce,200)},
+    competition:{players:(Array.isArray(cp.players)?cp.players:[]).slice(0,3).map(p=>({name:ctyClean(g(p,"name"),60),company:ctyClean(g(p,"company"),80),origin:ctyClean(g(p,"origin"),30),listing:ctyClean(g(p,"listing"),40),size:ctyClean(g(p,"size"),60),revenue:ctyClean(g(p,"revenue"),60),product:ctyClean(g(p,"product"),80),price:ctyClean(g(p,"price"),60),share:ctyClean(g(p,"share"),40),strength:ctyClean(g(p,"strength"),140)})).filter(p=>p.name),shareNote:ctyClean(cp.shareNote,200),position:ctyClean(cp.position,160),differentiation:ctyArr(cp.differentiation,5,140)},
+    channels:{online:(Array.isArray(chn.online)?chn.online:[]).slice(0,5).map(x=>({platform:ctyClean(g(x,"platform"),60),note:ctyClean(g(x,"note"),140)})).filter(x=>x.platform),live:{platform:ctyClean(g(chn.live,"platform"),60),note:ctyClean(g(chn.live,"note"),160)},offline:(Array.isArray(chn.offline)?chn.offline:[]).slice(0,5).map(x=>({channel:ctyClean(g(x,"channel"),60),note:ctyClean(g(x,"note"),140)})).filter(x=>x.channel),importer:ctyClean(chn.importer,200),notes:ctyClean(chn.notes,200)},
+    pricing:{retail:ctyClean(pr.retail,60),retailJpy:ctyClean(pr.retailJpy,40),position:ctyClean(pr.position,60),vs:ctyClean(pr.vs,120),online:{platformFee:ctyClean(g(pr.online,"platformFee"),30),logistics:ctyClean(g(pr.online,"logistics"),30),payment:ctyClean(g(pr.online,"payment"),30),net:ctyClean(g(pr.online,"net"),30)},offline:{retailMargin:ctyClean(g(pr.offline,"retailMargin"),30),distributor:ctyClean(g(pr.offline,"distributor"),30),importer:ctyClean(g(pr.offline,"importer"),30),net:ctyClean(g(pr.offline,"net"),30)},tax:{duty:ctyClean(g(pr.tax,"duty"),80)||b.duty,vat:ctyClean(g(pr.tax,"vat"),80),deMinimis:ctyClean(g(pr.tax,"deMinimis"),100)},rationale:ctyClean(pr.rationale,400)},
+    roadmap:(Array.isArray(j.roadmap)?j.roadmap:[]).slice(0,3).map(x=>({phase:ctyClean(g(x,"phase"),20),period:ctyClean(g(x,"period"),40),actions:ctyArr(g(x,"actions"),4,120)})).filter(x=>x.phase),
+    kpi:(Array.isArray(j.kpi)?j.kpi:[]).slice(0,3).map(x=>({gate:ctyClean(g(x,"gate"),30),items:ctyArr(g(x,"items"),4,80)})).filter(x=>x.gate),
+    risks:(Array.isArray(j.risks)?j.risks:[]).slice(0,6).map(x=>({risk:ctyClean(g(x,"risk"),80),mitigation:ctyClean(g(x,"mitigation"),160)})).filter(x=>x.risk),
+    standage:{base:ctyClean(st.base,120)||local.standage.base,members:ctyArr(st.members,3,120).length?ctyArr(st.members,3,120):local.standage.members,support:ctyArr(st.support,5,100).length?ctyArr(st.support,5,100):local.standage.support},
+    sources:(Array.isArray(j.sources)?j.sources:[]).slice(0,10).map(x=>({title:ctyClean(g(x,"title"),80),url:ctyClean(g(x,"url"),200)})).filter(x=>x.title||x.url)};
+  if(!d.roadmap.length) d.roadmap=local.roadmap; if(!d.kpi.length) d.kpi=local.kpi; if(!d.risks.length) d.risks=local.risks;
+  (r.cits||[]).slice(0,6).forEach(u=>{ if(!d.sources.some(x=>x.url===u)) d.sources.push({title:String(u).replace(/^https?:\/\//,"").slice(0,60),url:String(u)}); });
+  const web=!!((r.cits&&r.cits.length)||d.sources.some(x=>/^https?:/.test(x.url)));
+  const conf=/^(high|mid|low)$/.test(String(j.confidence||""))?String(j.confidence):(web?"mid":"low");
+  return {at:ctyNow(),eng:r.provNm||"",web,cits:(r.cits||[]).slice(0,10),conf,local:false,d};
+}
+async function ctyDeepRun(c,force){
+  const S=ctyDeepStore(); if(window.__ctyDeepBusy) return; const cur0=S[c];
+  if(cur0&&!cur0.local&&!force) return;
+  window.__ctyDeepBusy=c; try{ render(); }catch(e){}
+  try{
+    const online=(typeof ppReady==="function"&&ppReady());
+    if(!online){ S[c]=ctyDeepLocal(c); }
+    else { try{ S[c]=await ctyDeepAI(c); }catch(e){ const L=ctyDeepLocal(c); L.err=String(e&&e.message||e).slice(0,100); S[c]=L; } }
+    ctySave(); try{ if(typeof logU==="function") logU("ai","国別詳細レポート:"+c); }catch(e){}
+  } finally { window.__ctyDeepBusy=""; try{ render(); }catch(e){} }
+}
+function ctyDeepOpen(c){ CTY_VIEW.c=c; if(typeof cur==="undefined"||cur!=="cty") go("cty"); else { render(); scrollTo({top:0}); } const D0=ctyDeepOf(c); if(!D0||(D0.local&&typeof ppReady==="function"&&ppReady())) ctyDeepRun(c,false); }
+function ctyDeepClose(){ CTY_VIEW.c=""; render(); scrollTo({top:0}); }
+function ctyDeepToggle(c){ const s=ctyStore(); const ch=ctyChosen(); if(ch.includes(c)){ s.chosen=ch.filter(x=>x!==c); } else { if(ch.length>=3){ toast("確定は3か国までです。先に1か国外してください"); return; } s.chosen=ch.concat([c]); } s.chosenAt=ctyNow(); if(typeof TEN!=="undefined"&&TEN){ TEN.targets=s.chosen.slice(); try{ if(typeof syncTenant==="function") syncTenant(); }catch(e){} } ctySave(); render(); }
+/* ── 画面：国別詳細 ── */
+function ctyDeepView(c){
+  const s=ctyStore(); const rec=(s.rec||[]).find(x=>x.c===c); const sc=rec?rec.sc:null; const ch=ctyChosen(); const top=s.top||[];
+  const DP=ctyDeepOf(c); const busy=window.__ctyDeepBusy===c; const online=(typeof ppReady==="function"&&ppReady());
+  const ul=a=>(a&&a.length)?`<ul style="margin:4px 0 0 16px;padding:0;line-height:1.7">${a.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:`<p class="nn">—</p>`;
+  const kv=(k,v)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line-2)"><span style="color:var(--ink-3);flex:none">${k}</span><b style="text-align:right">${esc(v||"—")}</b></div>`;
+  const tile=(k,v)=>`<div style="padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)"><p class="lbl">${k}</p><div style="font-size:14px;font-weight:700;margin-top:3px;line-height:1.4">${esc(v||"—")}</div></div>`;
+  const q=/要確認/;
+  const head=`<div class="rw" style="gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button class="btn g" onclick="ctyDeepClose()">← 一覧へ戻る</button>
+    ${(top.filter(x=>x!==c)).slice(0,3).map(x=>`<button class="q" onclick="ctyDeepOpen('${esc(x)}')">${esc(x)} の詳細 →</button>`).join("")}</div>
+    <div class="c" style="margin-bottom:11px;border-color:var(--or)"><div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+      <div style="min-width:260px;flex:1"><p class="lbl" style="color:var(--or-deep)">COUNTRY DEEP-DIVE</p><h2 style="font-size:22px;margin-top:2px">国別戦略：${esc(c)}${ctyEn(c)?` <span style="font-size:13px;color:var(--ink-3)">${esc(ctyEn(c))}</span>`:""}</h2>
+        <div class="rw" style="gap:5px;margin-top:6px;flex-wrap:wrap">${sc?`<span class="p or">総合 ${sc.total}</span><span class="p lo">市場性 ${sc.mkt}</span><span class="p lo">規制 ${sc.reg}</span><span class="p lo">競合 ${sc.comp}</span><span class="p lo">拠点 ${sc.base}</span>`:""}${top.includes(c)?`<span class="p or">推奨</span>`:""}${ch.includes(c)?`<span class="p hi">確定</span>`:""}</div>
+        ${DP?`<p class="nn" style="margin-top:6px">${DP.local?"内蔵データの骨組み（AI未接続／未調査）":`${esc(DP.eng)} が調査（${DP.web?"🌐 Web検索あり・出典"+(DP.d.sources||[]).length+"件":"Web検索なし・エンジンの知識"}・信頼度 ${DP.conf==="high"?"高":DP.conf==="mid"?"中":"低"}）`}・${esc(DP.at||"")}${DP.err?`・⚠ ${esc(DP.err)}`:""}</p>`:""}</div>
+      <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn" onclick="ctyDeepRun('${esc(c)}',true)" ${busy?"disabled":""}>${DP&&!DP.local?"🔄 AIで再調査（Web検索）":"🤖 AIで詳しく調査（Web検索）"}</button><button class="btn g" onclick="ctyPptxCountry('${esc(c)}')" ${DP?"":"disabled"}>📥 この国のPPTX</button><button class="btn g" onclick="ctyDeepToggle('${esc(c)}')">${ch.includes(c)?"確定から外す":"✅ 確定に含める"}</button></div></div>
+      ${busy?`<p class="nn" style="margin-top:8px"><span class="spin"></span> AI商社マンが ${esc(c)} を調査しています…（当局・統計・競合・チャネル・価格をWeb検索で確認。30〜120秒）</p>`:""}
+      ${!online&&!busy?`<p class="nn" style="margin-top:8px">⚠ AI未接続のため、規制DB・通関統計・バイヤーDB・拠点・一般表の骨組みだけを表示しています。管理者がAIエンジンを接続すると、Web検索で戦略提案資料の粒度に埋まります。</p>`:""}</div>`;
+  if(!DP) return head+`<div class="c"><p class="nn">調査結果がまだありません。「🤖 AIで詳しく調査」を押してください。</p></div>`;
+  const d=DP.d, o=d.overview, r=d.regulation, m=d.market, cp=d.competition, chn=d.channels, pr=d.pricing;
+  const overview=`<div class="c" style="margin-bottom:11px"><h3>概要</h3><p style="margin-top:6px;font-size:13px;line-height:1.7"><b>${esc(o.headline||"")}</b></p>${o.summary?`<p class="nn" style="margin-top:4px;font-size:12px">${esc(o.summary)}</p>`:""}
+    <div class="g3" style="margin-top:10px;gap:8px">${tile("市場規模",o.marketSize)}${tile("CAGR（成長率）",o.cagr)}${tile("規制当局",o.regulator)}${tile("区分",o.classification)}${tile("参入期間",o.entryPeriod)}${tile("登録費用",o.regCost)}</div>
+    <div style="margin-top:10px;padding:9px 11px;border-left:4px solid ${/即時/.test(d.entry.policy)?"var(--good)":/要確認/.test(d.entry.policy)?"var(--ink-3)":"var(--or)"};background:var(--surface-2);border-radius:0 8px 8px 0"><b>当社商品の投入方針：${esc(d.entry.policy)}</b><p class="nn" style="margin-top:3px">${esc(d.entry.reason||"")}</p>${d.entry.adjustments.length?`<p class="nn" style="margin-top:3px">必要な調整：${d.entry.adjustments.map(esc).join("・")}</p>`:""}</div></div>`;
+  const reg=`<div class="c"><h3>📋 規制・表示</h3><div style="font-size:12px">${kv("当局",r.authority)}${kv("制度・区分",r.scheme)}${kv("登録／届出",r.registration)}${kv("期間",r.period)}${kv("費用",r.cost)}${kv("罰則",r.penalty)}</div>
+    <p class="lbl" style="margin-top:8px">必要書類</p>${ul(r.docs)}<p class="lbl" style="margin-top:8px">表示要件</p>${ul(r.labeling)}
+    <div class="g2" style="gap:8px;margin-top:8px"><div style="padding:8px 10px;border-radius:8px;background:var(--good-soft)"><b style="color:var(--good)">言える表現（OK）</b>${ul(r.claimsOK)}</div><div style="padding:8px 10px;border-radius:8px;background:var(--crit-soft)"><b style="color:var(--crit)">言えない表現（NG）</b>${ul(r.claimsNG)}</div></div>
+    <p class="lbl" style="margin-top:8px">成分・規格の上限</p>${ul(r.limits)}${r.notes?`<p class="nn" style="margin-top:6px;color:var(--warn)">⚠ ${esc(r.notes)}</p>`:""}</div>`;
+  const mkt=`<div class="c"><h3>📈 市場性</h3><div style="font-size:12px">${kv("市場規模",m.size||o.marketSize)}${kv("成長",m.growth||o.cagr)}${kv("直近の変化",m.trend)}${kv("日本からの輸出",m.exportFromJapan)}${kv("EC・越境EC",m.ecommerce)}</div>
+    <p class="lbl" style="margin-top:8px">需要トレンド</p>${ul(m.demand)}<p class="lbl" style="margin-top:8px">主要ターゲット層</p>${ul(m.targets)}</div>`;
+  const comp=`<div class="c"><h3>⚔ 競合TOP3とポジショニング</h3>${cp.players.length?`<div class="tw" style="margin-top:8px;max-height:none"><table><thead><tr><th>競合</th><th>企業</th><th>価格</th><th>シェア</th><th>強み</th></tr></thead><tbody>${cp.players.map(p=>`<tr><td style="white-space:nowrap"><b>${esc(p.name)}</b><br><span style="font-size:10px;color:var(--ink-3)">${esc(p.product)}</span></td><td style="font-size:11px">${esc(p.company)}${p.origin?"（"+esc(p.origin)+"）":""}<br><span style="font-size:10px;color:var(--ink-3)">${[p.listing,p.size,p.revenue].filter(Boolean).map(esc).join("・")}</span></td><td style="font-size:11px;white-space:nowrap">${esc(p.price)}</td><td style="font-size:11px;white-space:nowrap">${esc(p.share)}</td><td style="font-size:11px">${esc(p.strength)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="nn" style="margin-top:6px">主要競合はAI接続（Web検索）で調査します。</p>`}
+    <div style="font-size:12px;margin-top:8px">${kv("競合の構図",cp.shareNote)}${kv("狙うポジション",cp.position)}</div><p class="lbl" style="margin-top:8px">差別化ポイント</p>${ul(cp.differentiation)}</div>`;
+  const chan=`<div class="c"><h3>🛒 チャネル</h3><p class="lbl" style="margin-top:6px">オンライン（越境EC・EC）</p>${chn.online.length?`<ul style="margin:4px 0 0 16px;padding:0;line-height:1.7">${chn.online.map(x=>`<li><b>${esc(x.platform)}</b>${x.note?"：" +esc(x.note):""}</li>`).join("")}</ul>`:`<p class="nn">—</p>`}
+    <p class="lbl" style="margin-top:8px">ライブコマース</p><p style="font-size:12px;margin-top:3px"><b>${esc(chn.live.platform||"—")}</b>${chn.live.note?"：" +esc(chn.live.note):""}</p>
+    <p class="lbl" style="margin-top:8px">オフライン（小売・専門チャネル）</p>${chn.offline.length?`<ul style="margin:4px 0 0 16px;padding:0;line-height:1.7">${chn.offline.map(x=>`<li><b>${esc(x.channel)}</b>${x.note?"：" +esc(x.note):""}</li>`).join("")}</ul>`:`<p class="nn">—</p>`}
+    <div style="font-size:12px;margin-top:8px">${kv("正規輸入者",chn.importer)}</div>${chn.notes?`<p class="nn" style="margin-top:4px">${esc(chn.notes)}</p>`:""}</div>`;
+  const price=`<div class="c"><h3>💰 価格根拠</h3><div style="font-size:12px">${kv("推奨小売価格",pr.retail+(pr.retailJpy?"（≈"+pr.retailJpy+"）":""))}${kv("ポジション",pr.position)}${kv("比較対象",pr.vs)}</div>
+    <div class="g2" style="gap:8px;margin-top:8px"><div style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"><b>オンライン（越境EC）単価分解</b><div style="font-size:12px">${kv("プラットフォーム手数料",pr.online.platformFee)}${kv("国際物流・FF",pr.online.logistics)}${kv("決済手数料",pr.online.payment)}${kv("当社手取り（概算）",pr.online.net)}</div></div>
+      <div style="padding:8px 10px;border:1px solid var(--line);border-radius:8px"><b>オフライン（正規流通）単価分解</b><div style="font-size:12px">${kv("小売マージン",pr.offline.retailMargin)}${kv("ディストリビューター",pr.offline.distributor)}${kv("輸入者・諸経費",pr.offline.importer)}${kv("当社手取り（概算）",pr.offline.net)}</div></div></div>
+    <div style="font-size:12px;margin-top:8px">${kv("関税",pr.tax.duty)}${kv("VAT／GST／売上税",pr.tax.vat)}${kv("越境ECの免税枠（de minimis）",pr.tax.deMinimis)}</div>${pr.rationale?`<p style="font-size:12px;margin-top:8px;padding:8px 10px;background:var(--or-soft);border-radius:8px"><b>価格根拠</b>：${esc(pr.rationale)}</p>`:""}</div>`;
+  const road=`<div class="c"><h3>🗓 参入ロードマップ</h3><div class="g3" style="gap:8px;margin-top:8px">${d.roadmap.map(p=>`<div style="padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)"><b style="color:var(--or-deep)">${esc(p.phase)}</b> <span class="nn">${esc(p.period)}</span>${ul(p.actions)}</div>`).join("")}</div>
+    <p class="lbl" style="margin-top:10px">KPIと判断ゲート</p><div class="g3" style="gap:8px;margin-top:4px">${d.kpi.map(k=>`<div style="padding:8px 10px;border:1px dashed var(--line);border-radius:8px"><b>${esc(k.gate)}</b>${ul(k.items)}</div>`).join("")}</div></div>`;
+  const risk=`<div class="c"><h3>⚠ 想定リスクと対応</h3><div class="tw" style="margin-top:8px;max-height:none"><table><thead><tr><th>リスク</th><th>対応</th></tr></thead><tbody>${d.risks.map(x=>`<tr><td style="font-size:12px"><b>${esc(x.risk)}</b></td><td style="font-size:12px">${esc(x.mitigation)}</td></tr>`).join("")}</tbody></table></div></div>`;
+  const stg=`<div class="c"><h3>📍 STANDAGE拠点と支援</h3><p style="font-size:12px;margin-top:6px"><b>${esc(d.standage.base)}</b></p>${ul(d.standage.members)}<p class="lbl" style="margin-top:8px">提供できる支援</p>${ul(d.standage.support)}
+    <div class="rw" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn g" onclick="go('db')">拠点に依頼 →</button><button class="btn g" onclick="opsTab='reg';go('ops')">規制を調べる →</button><button class="btn g" onclick="go('ship')">物流AI見積 →</button></div></div>`;
+  const src=`<div class="c"><h3>📚 出典・根拠</h3>${d.sources.length?`<ul style="margin:6px 0 0 16px;padding:0;font-size:11.5px;line-height:1.8">${d.sources.map(x=>`<li>${x.url&&/^https?:/.test(x.url)?`<a href="${esc(x.url)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(x.title||x.url)}</a>`:esc(x.title)}</li>`).join("")}</ul>`:`<p class="nn">出典なし（Web検索が使えないエンジン、または未接続）</p>`}
+    <p class="nn" style="margin-top:8px">「要確認」の項目は一次情報で未確認です。最終判断の前に、規制の詳細調査（AI）・税関の事前教示・現地拠点への確認をお勧めします。</p></div>`;
+  return head+overview+`<div class="g2" style="align-items:start;gap:11px">${reg}${mkt}${comp}${chan}${price}${road}${risk}${stg}${src}</div>`;
+}
+if(typeof vCty==="function"){ const __vc207=vCty; vCty=function(p){ if(CTY_VIEW.c){ const s=ctyStore(); if(!s.rec&&!ctyDeepOf(CTY_VIEW.c)){ /* 分析前でも開ける */ } return ph(p,"<b>国別 詳細レポート：</b>市場・規制・競合・チャネル・価格・ロードマップを、戦略提案資料の粒度で確認できます。")+ctyDeepView(CTY_VIEW.c); } return __vc207.apply(this,arguments); }; }
+/* 一覧からの導線：表の行と推奨カードに「詳細」ボタン（描画後に差し込む） */
+if(typeof ctyBind==="function"){ const __cb207=ctyBind; ctyBind=function(){ __cb207.apply(this,arguments); try{ if(CTY_VIEW.c) return;
+  document.querySelectorAll("#well tbody tr td:first-child label").forEach(l=>{ const cb=l.querySelector("[data-ctypick]"); if(!cb||l.querySelector("[data-ctydeep]")) return; const c=cb.dataset.ctypick; l.insertAdjacentHTML("beforeend",` <button class="q" data-ctydeep="${esc(c)}" style="padding:1px 8px;font-size:10.5px;margin-left:4px" title="市場・規制・競合・チャネル・価格・ロードマップの詳細レポート">詳細 →</button>`); });
+  document.querySelectorAll("#well .c[style*='border-color:var(--or)'] h3").forEach(h=>{ const card=h.closest(".c"); const c=(h.textContent||"").trim().split(/\s/)[0]; if(!c||card.querySelector("[data-ctydeep]")) return; const dp=ctyDeepOf(c); card.insertAdjacentHTML("beforeend",`<div class="rw" style="margin-top:9px;gap:6px"><button class="btn" data-ctydeep="${esc(c)}">📄 詳細レポートを見る（規制・市場・競合・チャネル・価格・ロードマップ）</button>${dp?`<span class="p ${dp.local?"lo":"hi"}">${dp.local?"骨組みのみ":"調査済み・"+esc(dp.at||"")}</span>`:""}</div>`); });
+  document.querySelectorAll("[data-ctydeep]").forEach(b=>{ b.onclick=e=>{ e.preventDefault(); e.stopPropagation(); ctyDeepOpen(b.dataset.ctydeep); }; }); }catch(e){} }; }
+/* ── PPTX：国別 5枚 ── */
+function ctyDeepSlides(c,P,ctx){
+  const DP=ctyDeepOf(c); if(!DP) return []; const d=DP.d; const s=ctyStore(); const rec=(s.rec||[]).find(x=>x.c===c); const sc=rec?rec.sc:null;
+  const {AC,TT,TN,TN2,INK,SUB,MUT,OR,GOOD,ea,bg,foot,head,fit,cap,DKc}=ctx; const S=[]; const clip=(t,n)=>cap(t).slice(0,n);
+  const src=(d.sources||[]).slice(0,4).map(x=>x.title||x.url).join("／")||"貿易クラウド 規制DB・通関統計・バイヤーDB";
+  const srcLine=()=>shpText(48,490,864,14,[{t:"出典："+clip(src,150)+(DP.web?"（Web検索・"+DP.eng+"）":DP.local?"（内蔵データの骨組み・要確認）":"（"+DP.eng+"・Web検索なし）"),sz:8,c:MUT}],{ea});
+  const list=(x,y,w,h,items,sz)=>shpText(x,y,w,h,items.slice(0,6).map(t=>({t:"• "+clip(t,90),sz:sz||9.5,c:INK})),{ea});
+  /* D1 概要 */
+  const tiles=[["市場規模",d.overview.marketSize],["CAGR",d.overview.cagr],["規制当局",d.overview.regulator],["区分",d.overview.classification],["参入期間",d.overview.entryPeriod],["登録費用",d.overview.regCost]];
+  let t1=dk2Card(48,118,300,92,DKc,{round:6000})+shpText(48,132,300,40,[{t:c,sz:30,b:1,c:"FFFFFF",al:"ctr"},{t:ctyEn(c)||" ",sz:11,b:1,c:OR,al:"ctr"}],{ea});
+  tiles.forEach(([k,v],i)=>{ const y=218+i*46; t1+=dk2Card(60,y,276,40,i%2?TN:"FFFFFF",{line:TN2})+shpText(72,y+12,90,18,[{t:k,sz:10,c:SUB}],{ea})+shpText(150,y+8,178,26,[{t:clip(v,40),sz:fit(clip(v,40),178,[12,10.5,9],2),b:1,c:INK,al:"r"}],{ea}); });
+  const pol=d.entry.policy||"要確認"; const polC=/即時/.test(pol)?GOOD:/要確認/.test(pol)?MUT:OR;
+  t1+=shpText(376,118,536,20,[{t:"当社商品の投入方針",sz:14,b:1,c:OR}],{ea})+dk2Card(376,146,536,120,"FFFFFF",{line:TN2,shadow:true})+shpRect(376,146,6,120,polC)+shpText(396,158,300,22,[{t:clip((D&&D.item)||"",30),sz:13,b:1,c:INK}],{ea})+dk2Card(396,186,150,26,polC,{round:14000})+shpText(396,191,150,18,[{t:pol,sz:10.5,b:1,c:"FFFFFF",al:"ctr"}],{ea})+shpText(560,158,340,104,[{t:clip(d.entry.reason,200),sz:fit(clip(d.entry.reason,200),340,[10.5,9.5,8.5],6),c:INK}],{ea});
+  t1+=shpText(376,280,536,18,[{t:"総括",sz:12,b:1,c:AC}],{ea})+shpText(376,300,536,120,[{t:clip(d.overview.summary||d.overview.headline,420),sz:fit(clip(d.overview.summary||d.overview.headline,420),536,[11,10,9],8),c:INK}],{ea});
+  if(d.entry.adjustments.length) t1+=shpText(376,424,536,22,[{t:"必要な調整："+d.entry.adjustments.map(x=>clip(x,40)).join("・"),sz:9.5,c:SUB}],{ea});
+  if(d.regulation.notes) t1+=shpText(376,450,536,36,[{t:"留意："+clip(d.regulation.notes,150),sz:9,c:"C43D3B"}],{ea});
+  S.push(bg(4)+head("COUNTRY DEEP-DIVE",`国別戦略：${c}${sc?"　総合 "+sc.total+"点":""}`)+t1+srcLine()+foot());
+  /* D2 規制・表示 */
+  let t2=dk2Card(48,118,420,200,"FFFFFF",{line:TN2})+shpText(62,126,390,18,[{t:"登録・制度",sz:12,b:1,c:AC}],{ea});
+  [["当局",d.regulation.authority],["制度・区分",d.regulation.scheme],["登録／届出",d.regulation.registration],["期間／費用",[d.regulation.period,d.regulation.cost].filter(Boolean).join("／")],["罰則",d.regulation.penalty]].forEach(([k,v],i)=>{ const y=148+i*32; t2+=shpText(62,y,80,26,[{t:k,sz:9.5,c:SUB}],{ea})+shpText(146,y,308,30,[{t:clip(v,90),sz:fit(clip(v,90),308,[9.5,8.5,7.5],2),c:INK}],{ea}); });
+  t2+=dk2Card(492,118,420,200,"FFFFFF",{line:TN2})+shpText(506,126,390,18,[{t:"必要書類・表示要件",sz:12,b:1,c:AC}],{ea})+list(506,148,390,80,d.regulation.docs,9.5)+shpText(506,232,390,14,[{t:"表示要件",sz:9.5,b:1,c:SUB}],{ea})+list(506,248,390,66,d.regulation.labeling,9);
+  t2+=dk2Card(48,330,420,150,"E6F4EC",{})+shpText(62,338,390,18,[{t:"言える表現（OK）",sz:12,b:1,c:GOOD}],{ea})+list(62,360,392,110,d.regulation.claimsOK,9.5);
+  t2+=dk2Card(492,330,420,150,"FBEBEA",{})+shpText(506,338,390,18,[{t:"言えない表現（NG）",sz:12,b:1,c:"C43D3B"}],{ea})+list(506,360,392,110,d.regulation.claimsNG,9.5);
+  if(d.regulation.limits.length) t2+=shpText(48,484,864,14,[{t:"成分・規格の上限："+d.regulation.limits.map(x=>clip(x,50)).join("／"),sz:8.5,c:SUB}],{ea});
+  S.push(bg(5)+head("REGULATION & CLAIMS",`${c}：規制・表示・Claim戦略`)+t2+(d.regulation.limits.length?"":srcLine())+foot());
+  /* D3 市場性・競合 */
+  let t3=dk2Card(48,118,300,362,TN,{})+shpText(62,128,272,18,[{t:"市場性",sz:12,b:1,c:AC}],{ea});
+  [["市場規模",d.market.size||d.overview.marketSize],["成長",d.market.growth||d.overview.cagr],["直近の変化",d.market.trend],["日本からの輸出",d.market.exportFromJapan],["EC・越境EC",d.market.ecommerce]].forEach(([k,v],i)=>{ const y=150+i*44; t3+=shpText(62,y,272,12,[{t:k,sz:8.5,b:1,c:SUB}],{ea})+shpText(62,y+13,272,30,[{t:clip(v,80),sz:fit(clip(v,80),272,[9.5,8.5,7.5],2),c:INK}],{ea}); });
+  t3+=shpText(62,372,272,12,[{t:"需要トレンド",sz:8.5,b:1,c:SUB}],{ea})+list(62,386,272,90,d.market.demand,8.5);
+  t3+=shpText(372,118,540,18,[{t:"競合TOP3",sz:12,b:1,c:AC}],{ea});
+  const cols=[["競合",372,120],["企業",492,150],["価格",642,90],["シェア",732,70],["強み",802,110]]; t3+=cols.map(([n,x,w])=>shpText(x,140,w,14,[{t:n,sz:9,b:1,c:SUB}],{ea})).join("")+dk2Line(372,156,540,1,TN2);
+  (d.competition.players.length?d.competition.players:[{name:"（AI接続・Web検索で調査）",company:"",price:"",share:"",strength:""}]).slice(0,3).forEach((p,i)=>{ const y=162+i*62; t3+=(i%2?shpRect(372,y-4,540,60,"F6F8FB",{round:3000}):"")+shpText(376,y,116,56,[{t:clip(p.name,26),sz:9.5,b:1,c:INK},{t:clip(p.product,30),sz:7.5,c:MUT}],{ea})+shpText(494,y,146,56,[{t:clip(p.company,34),sz:8.5,c:INK},{t:[p.origin,p.listing,p.revenue].filter(Boolean).map(x=>clip(x,20)).join("・"),sz:7.5,c:MUT}],{ea})+shpText(644,y,86,56,[{t:clip(p.price,24),sz:8.5,c:INK}],{ea})+shpText(734,y,66,56,[{t:clip(p.share,16),sz:8.5,c:INK}],{ea})+shpText(804,y,108,56,[{t:clip(p.strength,60),sz:7.5,c:INK}],{ea}); });
+  t3+=dk2Card(372,352,540,128,"FFFFFF",{line:TN2})+shpText(386,360,250,16,[{t:"競合の構図・狙うポジション",sz:10.5,b:1,c:AC}],{ea})+shpText(386,378,250,98,[{t:clip([d.competition.shareNote,d.competition.position].filter(Boolean).join("／"),220),sz:fit(clip([d.competition.shareNote,d.competition.position].filter(Boolean).join("／"),220),250,[9,8.5,7.5],7),c:INK}],{ea})+shpText(650,360,250,16,[{t:"差別化ポイント",sz:10.5,b:1,c:OR}],{ea})+list(650,378,250,98,d.competition.differentiation,8.5);
+  S.push(bg(6)+head("MARKET & COMPETITION",`${c}：市場性と競合`)+t3+foot());
+  /* D4 チャネル・価格 */
+  let t4=dk2Card(48,118,420,362,"FFFFFF",{line:TN2})+shpText(62,126,390,18,[{t:"チャネル",sz:12,b:1,c:AC}],{ea})+shpText(62,148,390,12,[{t:"オンライン（越境EC・EC）",sz:8.5,b:1,c:SUB}],{ea})+list(62,162,390,90,d.channels.online.map(x=>x.platform+(x.note?"：" +x.note:"")),8.5)
+    +shpText(62,254,390,12,[{t:"ライブコマース",sz:8.5,b:1,c:SUB}],{ea})+shpText(62,268,390,30,[{t:clip((d.channels.live.platform||"—")+(d.channels.live.note?"：" +d.channels.live.note:""),110),sz:8.5,c:INK}],{ea})
+    +shpText(62,300,390,12,[{t:"オフライン（小売・専門チャネル）",sz:8.5,b:1,c:SUB}],{ea})+list(62,314,390,110,d.channels.offline.map(x=>x.channel+(x.note?"：" +x.note:"")),8.5)+shpText(62,428,390,46,[{t:"正規輸入者："+clip(d.channels.importer,120),sz:8.5,c:INK}],{ea});
+  const pr=d.pricing; t4+=dk2Card(492,118,420,362,TN,{})+shpText(506,126,390,18,[{t:"価格根拠",sz:12,b:1,c:AC}],{ea})+shpText(506,148,390,26,[{t:"推奨小売価格 "+(pr.retail||"要確認")+(pr.retailJpy?"（≈"+pr.retailJpy+"）":""),sz:13,b:1,c:INK}],{ea})+shpText(506,176,390,26,[{t:[pr.position?"ポジション "+pr.position:"",pr.vs?"vs "+pr.vs:""].filter(Boolean).join("　"),sz:9,c:SUB}],{ea});
+  const brk=(x,y,title,rows)=>{ let o=dk2Card(x,y,196,132,"FFFFFF",{line:TN2})+shpText(x+10,y+8,176,14,[{t:title,sz:9.5,b:1,c:AC}],{ea}); rows.forEach(([k,v],i)=>{ o+=shpText(x+10,y+28+i*24,110,20,[{t:k,sz:8.5,c:SUB}],{ea})+shpText(x+118,y+28+i*24,68,20,[{t:clip(v,14),sz:8.5,b:1,c:INK,al:"r"}],{ea}); }); return o; };
+  t4+=brk(506,206,"オンライン（越境EC）",[["ﾌﾟﾗｯﾄﾌｫｰﾑ手数料",pr.online.platformFee],["国際物流・FF",pr.online.logistics],["決済手数料",pr.online.payment],["当社手取り",pr.online.net]])+brk(710,206,"オフライン（正規流通）",[["小売マージン",pr.offline.retailMargin],["ﾃﾞｨｽﾄﾘﾋﾞｭｰﾀｰ",pr.offline.distributor],["輸入者・諸経費",pr.offline.importer],["当社手取り",pr.offline.net]]);
+  t4+=shpText(506,346,400,40,[{t:"関税 "+(pr.tax.duty||"要確認")+"／税 "+(pr.tax.vat||"要確認")+"／越境EC免税枠 "+(pr.tax.deMinimis||"要確認"),sz:8.5,c:INK}],{ea})+shpText(506,384,400,92,[{t:"価格根拠："+clip(pr.rationale,260),sz:fit("価格根拠："+clip(pr.rationale,260),400,[9,8.5,7.5],6),c:INK}],{ea});
+  S.push(bg(7)+head("CHANNELS & PRICING",`${c}：チャネルと価格根拠`)+t4+foot());
+  /* D5 ロードマップ・KPI・リスク */
+  let t5=""; d.roadmap.slice(0,3).forEach((p,i)=>{ const x=48+i*292; t5+=dk2Card(x,118,272,150,"FFFFFF",{line:TN2,shadow:true})+dk2Circle(x+14,130,34,i===0?OR:AC,String(i+1),13,"FFFFFF",ea)+shpText(x+56,132,200,30,[{t:p.phase,sz:12,b:1,c:INK},{t:p.period,sz:9,c:SUB}],{ea})+list(x+14,172,244,92,p.actions,8.5); });
+  t5+=shpText(48,282,400,16,[{t:"KPIと判断ゲート",sz:11,b:1,c:AC}],{ea}); d.kpi.slice(0,3).forEach((k,i)=>{ const x=48+i*148; t5+=dk2Card(x,302,138,86,TN,{})+shpText(x+10,308,120,14,[{t:k.gate,sz:9.5,b:1,c:INK}],{ea})+list(x+10,324,120,62,k.items,7.5); });
+  t5+=shpText(500,282,412,16,[{t:"想定リスクと対応",sz:11,b:1,c:"C43D3B"}],{ea}); d.risks.slice(0,5).forEach((r,i)=>{ const y=302+i*37; t5+=shpText(500,y,140,34,[{t:clip(r.risk,24),sz:8.5,b:1,c:INK}],{ea})+shpText(644,y,268,34,[{t:clip(r.mitigation,70),sz:8,c:SUB}],{ea})+dk2Line(500,y+35,412,0.6,TN2); });
+  t5+=dk2Card(48,398,440,82,"FFFFFF",{line:TN2})+shpText(60,404,420,14,[{t:"STANDAGE拠点と支援："+clip(d.standage.base,40),sz:9.5,b:1,c:AC}],{ea})+shpText(60,420,420,58,[{t:d.standage.support.map(x=>clip(x,30)).join("／"),sz:8.5,c:INK}],{ea});
+  S.push(bg(1)+head("ROADMAP, KPI & RISKS",`${c}：参入ロードマップ・KPI・リスク`)+t5+srcLine()+foot());
+  return S;
+}
+/* 全体レポートに国別詳細を差し込む（推奨国のうち調査済みのもの）。国別だけの出力も */
+if(typeof ctySlides==="function"){ const __cs207=ctySlides;
+  ctySlides=function(only){
+    const S=__cs207.apply(this,[]); const s=ctyStore(); const list=only?[only]:(s.top||[]).filter(c=>ctyDeepOf(c));
+    if(!list.length) return S;
+    const P=(typeof dk2Pal==="function")?dk2Pal():{ac:"0064BF",ttl:"0064BF",tint:"EDF4FD",tint2:"D8E6F5",blob:"9BC7F0",ink:"1A1A1A",sub:"46566D",mut:"8A97A6",dk:"0F2E5A"};
+    const ctx={AC:P.ac,TT:P.ttl,TN:P.tint,TN2:P.tint2,INK:P.ink,SUB:P.sub,MUT:P.mut,OR:"F8951D",GOOD:"12874B",DKc:P.dk||"0F2E5A",ea:"Yu Gothic UI",cap:x=>String(x==null?"":x).replace(/\s+/g," ").trim()};
+    let PGN=S.length; const co=ctx.cap((D&&D.co)||"");
+    ctx.bg=k=>dk2Grad(0,0,960,540,"FFFFFF",ctx.TN,45)+dk2Blob(k%2?-140:560,k%2?320:-120,520,400,ctx.AC,12000,60,k%2?15:-20);
+    ctx.foot=()=>{ PGN++; return dk2Line(48,506,864,0.8,ctx.TN2)+shpText(48,512,600,16,[{t:`${co}　·　販売先国 選定レポート　·　貿易クラウド2.0 AI商社マン　·　社外秘`,sz:9,c:ctx.MUT}],{ea:ctx.ea})+shpText(860,512,52,16,[{t:String(PGN),sz:9.5,b:1,c:ctx.AC,al:"r"}],{ea:ctx.ea}); };
+    ctx.head=(eb,t)=>{ const z=(typeof dk2Fit==="function")?dk2Fit(t,760,[30,26,22,18],{b:1}):24; return shpText(48,30,760,16,[{t:eb,sz:10,b:1,c:ctx.AC,spc:2}],{ea:ctx.ea})+shpText(48,46,760,z*1.4,[{t,sz:z,b:1,c:ctx.TT}],{ea:ctx.ea})+dk2Line(48,98,64,2.2,ctx.AC); };
+    ctx.fit=(t,w,sizes,maxL)=>(typeof dk2Fit==="function")?dk2Fit(t,w,sizes,{},maxL):sizes[sizes.length-1];
+    const deep=[]; list.forEach(c=>{ deep.push(...ctyDeepSlides(c,P,ctx)); });
+    if(only) return [S[0]].concat(deep);
+    const last=S.pop(); return S.concat(deep,[last]);
+  }; }
+function ctyPptxCountry(c){
+  if(!ctyDeepOf(c)){ toast("先に「AIで詳しく調査」を実行してください"); return; }
+  if(typeof buildPptx!=="function"||typeof deckSlides!=="function"){ toast("PPTX生成の部品が読み込まれていません"); return; }
+  const __ds=deckSlides; let blob=null; try{ deckSlides=function(){ return ctySlides(c); }; blob=buildPptx("ja",{}); }catch(e){ toast("PPTXの生成に失敗しました："+String(e&&e.message||e).slice(0,60)); return; } finally{ deckSlides=__ds; }
+  const base=(D.item&&String(D.item).trim())||"product"; const nm=`${base.replace(/[\\\/:*?"<>|]/g,"").slice(0,40)}_${c}_国別戦略_${(typeof TODAYS!=="undefined"?TODAYS:"").replace(/-/g,"")}.pptx`;
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nm; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast(`${nm} をダウンロードしました（${window.__dkN||0}枚・${Math.round(blob.size/1024)}KB）`);
+}
+/* AI商社マンの参照データ：確定／推奨国の詳細レポート要約 */
+function ctyDeepCtx(){
+  const s=ctyStore(); const ch=ctyChosen(); const list=(ch.length?ch:(s.top||[])).filter(c=>ctyDeepOf(c)&&!ctyDeepOf(c).local).slice(0,3); if(!list.length) return "";
+  return "\n## 国別 詳細レポート（AI商社マンの調査。戦略・価格・チャネルの助言はこれを根拠に）\n"+list.map(c=>{ const d=ctyDeepOf(c).d; return `### ${c}（${ctyDeepOf(c).at}）\n概要：${d.overview.headline}／市場 ${d.overview.marketSize}・${d.overview.cagr}／当局 ${d.overview.regulator}／区分 ${d.overview.classification}／参入 ${d.overview.entryPeriod}・${d.overview.regCost}\n投入方針：${d.entry.policy}（${d.entry.reason}）\n規制：${d.regulation.registration}／書類 ${d.regulation.docs.join("・")}／OK ${d.regulation.claimsOK.slice(0,3).join("・")}／NG ${d.regulation.claimsNG.slice(0,3).join("・")}\n競合：${d.competition.players.map(p=>p.name+"("+p.price+")").join("、")}／${d.competition.position}\nチャネル：${d.channels.online.map(x=>x.platform).join("・")}／店頭 ${d.channels.offline.map(x=>x.channel).join("・")}\n価格：${d.pricing.retail}${d.pricing.retailJpy?"（"+d.pricing.retailJpy+"）":""}・関税 ${d.pricing.tax.duty}・税 ${d.pricing.tax.vat}／${d.pricing.rationale}\nリスク：${d.risks.slice(0,3).map(r=>r.risk).join("・")}`.slice(0,1400); }).join("\n");
+}
+if(typeof ppContext==="function"){ const __pc207=ppContext; ppContext=function(){ const s=__pc207.apply(this,arguments); try{ return s+ctyDeepCtx(); }catch(e){ return s; } }; }
+/* 画面遷移で詳細ビューを閉じる */
+{ const __go207=go; go=function(id){ if(id!=="cty") CTY_VIEW.c=""; return __go207.apply(this,arguments); }; }
 
 </script>
