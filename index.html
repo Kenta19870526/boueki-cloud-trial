@@ -8102,7 +8102,7 @@ function buildNav(){
 function ph(p,can,extra){
   /* ④ 全ページ共通：「AIに質問」→ 画面遷移せず右サイドバーでAI商社マンと対話 */
   const ask=(PID&&!p.free&&p.id!=="ai")
-    ?`<button class="btn g" onclick="openAskAI()" title="画面はこのまま、右側でAI商社マンに質問できます">🤖 AIに質問</button>`:"";
+    ?`<button class="btn askai" onclick="openAskAI()" title="画面はこのまま、右側でAI商社マンに質問できます">🤖 AIに質問</button>`:"";
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px">
     <span class="lt">レイヤー${p.ly}　${p.grp}</span>${p.nw?'<span class="nt">この版で新規</span>':""}
     ${PID&&!p.free?`<span class="src">${cmeta(D&&D.catKey?D.catKey:PID).ic} ${esc(D.cat)}／${esc(D.item)}</span>`:""}</div>
@@ -18608,7 +18608,7 @@ function admBrain(q){
 }
 async function admFetchSync(){ try{ toast("サーバーから取得しています…"); const r=await syncAdminGet(); SYNC.admData=r; SYNC.admAt=Date.now(); admSend("ログイン中の端末は？"); }catch(e){ toast("取得できません："+String(e&&e.message||e).slice(0,60)); } }
 async function admSend(v){
-  v=String(v||"").trim(); if(!v) return; const c=document.getElementById("admchat"); if(!c) return;
+  v=String(v||"").trim(); if(!v) return; const c=document.getElementById("admchat")||document.getElementById("dwadmchat"); if(!c) return;
   ADMCHAT.push({w:"u",h:esc(v)}); admChatPaint();
   let r=null;
   const direct=/期限|残り|切れ|よく使|利用状況|アクティブ|ランキング|無効|停止|同期|端末|サーバー|ログイン中|コスト|費用|料金|通関統計|輸出額|輸出数量|統計/.test(v);
@@ -18619,7 +18619,7 @@ async function admSend(v){
   } else r=admBrain(v);
   ADMCHAT.push({w:"a",h:r.a+`<div class="ci">${r.c}</div>`}); ADMCHAT=ADMCHAT.slice(-30); admChatPaint();
 }
-function admChatPaint(){ const c=document.getElementById("admchat"); if(!c) return; c.innerHTML=ADMCHAT.length?ADMCHAT.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av"${m.w==="a"?' style="background:var(--bl);color:#fff"':""}>${m.w==="u"?"管":"AI"}</span><div class="bb">${m.h}</div></div>`).join(""):`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">管理者AIアシスタントです。発行済みアカウント・利用状況・同期サーバーの端末・AIエンジン設定とコスト・物流会社・通関統計の版を見ています。下の質問例からどうぞ。</div></div>`; c.scrollTop=c.scrollHeight; }
+function admChatPaint(){ document.querySelectorAll("#admchat,#dwadmchat").forEach(c=>{ c.innerHTML=ADMCHAT.length?ADMCHAT.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av"${m.w==="a"?' style="background:var(--bl);color:#fff"':""}>${m.w==="u"?"管":"AI"}</span><div class="bb">${m.h}</div></div>`).join(""):`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">管理者AIアシスタントです。発行済みアカウント・利用状況・同期サーバーの端末・AIエンジン設定とコスト・物流会社・通関統計の版を見ています。下の質問例からどうぞ。</div></div>`; c.scrollTop=c.scrollHeight; }); }
 function admAiCardHtml(){
   const Q=["期限が7日以内のアカウントは？","よく使われているアカウントは？","ログイン中の端末は？","AIエンジンの接続状況は？","今月のAPIコストは？","物流会社の登録状況は？","日本酒の輸出統計は？"];
   return `<div class="c" id="admai" style="margin-bottom:11px">
@@ -21556,7 +21556,13 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["🗓 参入ロードマップ","🗓 Entry roadmap","🗓 进入路线图","🗓 Hoja de ruta de entrada"],
 ["⚠ 想定リスクと対応","⚠ Risks & mitigation","⚠ 预期风险与应对","⚠ Riesgos y mitigación"],
 ["📍 STANDAGE拠点と支援","📍 STANDAGE bases & support","📍 STANDAGE据点与支持","📍 Bases y apoyo de STANDAGE"],
-["📚 出典・根拠","📚 Sources","📚 出处・依据","📚 Fuentes"]);
+["📚 出典・根拠","📚 Sources","📚 出处・依据","📚 Fuentes"],
+["🤖 AI物流マンに質問","🤖 Ask the AI Logistics Agent","🤖 向AI物流专员提问","🤖 Preguntar a la IA logística"],
+["🤖 管理者AIに質問","🤖 Ask the admin AI","🤖 向管理员AI提问","🤖 Preguntar a la IA de administración"],
+["画面はこのまま、右側で完結します。レート表・見積依頼・履歴を根拠に答えます。やり取りは「AI物流マンに相談」の画面と共通です。","Stay on this screen; everything happens in the side panel. Answers are based on your rate table, quote requests and history. The conversation is shared with the \"Ask AI Logistics\" screen.","停留在本页面，在右侧完成。以费率表・报价请求・历史为依据回答。对话与「咨询AI物流专员」页面共享。","Sin salir de la pantalla: todo ocurre en el panel lateral. Responde según su tabla de tarifas, solicitudes de cotización e historial. La conversación se comparte con la pantalla \"Consultar IA logística\"."],
+["画面はこのまま、右側で完結します。台帳・利用状況・端末・AIエンジン設定とコスト・物流会社・通関統計の版を根拠に答えます。やり取りは管理コンソールのカードと共通です。","Stay on this screen; everything happens in the side panel. Answers are based on the account ledger, usage, devices, AI engine settings and costs, forwarders and the customs-statistics edition. The conversation is shared with the admin console card.","停留在本页面，在右侧完成。以账户台账・使用情况・设备・AI引擎设置与成本・物流公司・海关统计版本为依据回答。对话与管理控制台的卡片共享。","Sin salir de la pantalla: todo ocurre en el panel lateral. Responde según el registro de cuentas, uso, dispositivos, ajustes y costes de IA, transitarios y la edición de estadísticas aduaneras. La conversación se comparte con la tarjeta de la consola."],
+["AI物流マンの画面へ →","Go to the AI Logistics screen →","前往AI物流专员页面 →","Ir a la pantalla de la IA logística →"],
+["AIパネルを開けませんでした","Could not open the AI panel","无法打开AI面板","No se pudo abrir el panel de IA"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -25182,5 +25188,232 @@ function ctyDeepCtx(){
 if(typeof ppContext==="function"){ const __pc207=ppContext; ppContext=function(){ const s=__pc207.apply(this,arguments); try{ return s+ctyDeepCtx(); }catch(e){ return s; } }; }
 /* 画面遷移で詳細ビューを閉じる */
 { const __go207=go; go=function(id){ if(id!=="cty") CTY_VIEW.c=""; return __go207.apply(this,arguments); }; }
+
+/* ═══════════ v20.8：「🤖 AIに質問」をどの画面でも・スクロールしても押せるように（フロート化＋見出しボタンの強調） ═══════════
+   ご指摘：各画面の見出しにある「🤖 AIに質問」が、下にスクロールすると見えなくなる。もう少し目立たせ、邪魔にならず見やすい位置で一緒に動くように。
+   対応：
+   ① 見出しの「🤖 AIに質問」を AIの色（ネイビー）の主ボタンに（.btn.askai）。オレンジの操作ボタンと役割が見分けられる。
+   ② 画面右下に固定の「AIに質問」フロートボタン（#askfab）。見出しのボタンが画面内にある間は丸いアイコンだけ（控えめ）、
+      スクロールで見出しが隠れると「🤖 AIに質問／画面はそのまま・右側で回答」のピルに広がる。押すと今の画面のまま右パネルで対話。
+   ③ モード別：荷主＝AI商社マン（openAskAI。AI商社マンの画面では質問欄へ移動）／物流会社＝AI物流マン（右パネルの小チャット、履歴は「AI物流マンに相談」と共通）／
+      管理者＝管理者AIアシスタント（右パネル、履歴は管理コンソールのカードと共通）。
+   ④ 邪魔にならない：右パネル表示中・ログイン画面・ロック中・スマホのキーボード表示中・スマホのチャット画面（入力欄が下に固定）では隠す。
+      「↑ 先頭へ」はフロートボタンの上へ。スマホは下部タブの上。コンテンツ末尾に余白を足して最後の行が隠れない。
+   ⑤ 初回だけ「どの画面でもここから質問できます」の吹き出し（6秒）。4言語のラベルは専用表（翻訳エンジンの対象外）。 */
+const ASKFAB={io:null,shown:0,rt:null,tipT:null};
+const ASKFAB_L={
+  user:{ja:["AIに質問","画面はそのまま・右側で回答","画面はこのまま、右側でAI商社マンに質問できます（どの画面からでも）"],
+        en:["Ask AI","Stay on this screen","Ask the AI trade agent in the side panel without leaving this screen"],
+        zh:["向AI提问","停留在本页面・右侧回答","不离开当前页面，在右侧向AI商社专员提问"],
+        es:["Preguntar a la IA","Sin salir de la pantalla","Pregunte al agente comercial IA en el panel lateral sin salir de esta pantalla"]},
+  aiq:{ja:["AIに質問","入力欄へ移動","AI商社マンの質問欄へ移動します"],
+       en:["Ask AI","Go to the input box","Jump to the AI trade agent's question box"],
+       zh:["向AI提问","前往输入框","跳转到AI商社专员的提问框"],
+       es:["Preguntar a la IA","Ir al cuadro de texto","Ir al cuadro de preguntas del agente IA"]},
+  fwd:{ja:["AI物流マンに質問","画面はそのまま・右側で回答","画面はこのまま、右側でAI物流マンに質問できます"],
+       en:["Ask AI Logistics","Stay on this screen","Ask the AI logistics agent in the side panel"],
+       zh:["向AI物流专员提问","停留在本页面・右侧回答","不离开当前页面，在右侧向AI物流专员提问"],
+       es:["Preguntar a la IA logística","Sin salir de la pantalla","Pregunte al agente logístico IA en el panel lateral"]},
+  fwdq:{ja:["AI物流マンに質問","入力欄へ移動","AI物流マンの質問欄へ移動します"],
+        en:["Ask AI Logistics","Go to the input box","Jump to the AI logistics agent's question box"],
+        zh:["向AI物流专员提问","前往输入框","跳转到AI物流专员的提问框"],
+        es:["Preguntar a la IA logística","Ir al cuadro de texto","Ir al cuadro de preguntas de la IA logística"]},
+  adm:{ja:["管理者AIに質問","画面はそのまま・右側で回答","画面はこのまま、右側で管理者AIアシスタントに質問できます"],
+       en:["Ask the admin AI","Stay on this screen","Ask the admin AI assistant in the side panel"],
+       zh:["向管理员AI提问","停留在本页面・右侧回答","不离开当前页面，在右侧向管理员AI助手提问"],
+       es:["Preguntar a la IA admin","Sin salir de la pantalla","Pregunte al asistente IA de administración en el panel lateral"]},
+  tip:{ja:"どの画面でも、ここからAIに質問できます",en:"Ask the AI from any screen, right here",zh:"在任何页面都可以从这里向AI提问",es:"Pregunte a la IA desde cualquier pantalla, aquí"}
+};
+function askFabLang(){ try{ const l=(typeof I18N!=="undefined"&&I18N&&I18N.lang)||"ja"; return ASKFAB_L.user[l]?l:"ja"; }catch(e){ return "ja"; } }
+function askFabCss(){
+  if(document.getElementById("askfabcss")) return;
+  const s=document.createElement("style"); s.id="askfabcss";
+  s.textContent=`
+.btn.askai{background:linear-gradient(135deg,#0064BF,#2F8BE6);color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(0,100,191,.28);padding:9px 16px;white-space:nowrap}
+.btn.askai:hover{filter:brightness(1.06);box-shadow:0 6px 18px rgba(0,100,191,.36);transform:translateY(-1px)}
+#askfab{position:fixed;right:22px;bottom:24px;z-index:56;display:flex;align-items:center;gap:9px;height:52px;padding:0 20px 0 15px;border:0;border-radius:999px;
+  background:linear-gradient(135deg,#0064BF,#2F8BE6);color:#fff;font:inherit;font-weight:800;line-height:1.15;text-align:left;
+  box-shadow:0 10px 28px rgba(0,100,191,.38),0 2px 6px rgba(0,0,0,.14);cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  transition:transform .18s ease,box-shadow .18s ease,padding .22s ease,opacity .18s ease}
+#askfab:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(0,100,191,.46),0 3px 8px rgba(0,0,0,.16)}
+#askfab:active{transform:translateY(0)}
+#askfab:focus-visible{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 6px rgba(0,100,191,.45)}
+#askfab[hidden]{display:none}
+#askfab .afi{font-size:23px;line-height:1;display:inline-block;flex:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+#askfab .afl{display:inline-flex;flex-direction:column;max-width:260px;overflow:hidden;transition:max-width .22s ease,opacity .18s ease}
+#askfab .afl b{font-size:14.5px;font-weight:800;letter-spacing:.01em}
+#askfab .afl small{font-size:10.5px;font-weight:600;opacity:.88;margin-top:2px}
+#askfab.mini{padding:0 14px;gap:0}
+#askfab.mini .afl{max-width:0;opacity:0}
+#askfab.pulse::after{content:"";position:absolute;inset:-5px;border-radius:999px;border:2px solid rgba(0,100,191,.6);animation:askfabPulse 1.3s ease-out 2;pointer-events:none}
+@keyframes askfabPulse{0%{transform:scale(.92);opacity:.9}100%{transform:scale(1.32);opacity:0}}
+#askfab .aftip{position:absolute;right:calc(100% + 12px);top:50%;transform:translateY(-50%);background:var(--ink);color:var(--canvas);font-size:12px;font-weight:700;padding:8px 12px;border-radius:10px;white-space:nowrap;box-shadow:var(--pop);pointer-events:none;max-width:min(300px,70vw);white-space:normal;line-height:1.4;width:max-content}
+#askfab .aftip::after{content:"";position:absolute;left:100%;top:50%;margin-top:-6px;border:6px solid transparent;border-left-color:var(--ink)}
+#uxtop{bottom:90px}
+#well{padding-bottom:72px}
+body.dwopen #askfab,body.locked #askfab,body.kbopen #askfab{display:none}
+@media (max-width:820px){
+  #askfab{right:12px;bottom:calc(var(--tabbar-h,0px) + 14px + env(safe-area-inset-bottom));height:48px;padding:0 17px 0 13px;gap:7px}
+  #askfab .afl b{font-size:13.5px} #askfab .afl small{display:none}
+  #uxtop{bottom:calc(var(--tabbar-h,0px) + 74px + env(safe-area-inset-bottom))}
+  #well{padding-bottom:64px}
+}
+@media (prefers-reduced-motion:reduce){#askfab,#askfab .afl,.btn.askai{transition:none} #askfab.pulse::after{animation:none} #askfab:hover{transform:none}}`;
+  document.head.appendChild(s);
+}
+function askFabEl(){
+  let b=document.getElementById("askfab");
+  if(!b){
+    askFabCss();
+    b=document.createElement("button"); b.id="askfab"; b.type="button"; b.setAttribute("data-noi18n","");
+    b.innerHTML=`<span class="afi" aria-hidden="true">🤖</span><span class="afl"><b></b><small></small></span>`;
+    b.onclick=askFabGo; document.body.appendChild(b);
+  }
+  return b;
+}
+function askFabMode(){ try{ return typeof ux17Mode==="function"?ux17Mode():"user"; }catch(e){ return "user"; } }
+function askFabMob(){ try{ return typeof ux17Mob==="function"?ux17Mob():false; }catch(e){ return false; } }
+/* いま出せるか・押したら何をするか（null＝出さない） */
+function askFabState(){
+  const mode=askFabMode(); if(mode==="none") return null;
+  if(document.body.classList.contains("locked")) return null;
+  try{ const lg=document.getElementById("lgv"); if(lg&&!lg.hidden&&getComputedStyle(lg).display!=="none") return null; }catch(e){}
+  if(mode==="user"){
+    if(typeof PID==="undefined"||!PID||typeof D==="undefined"||!D) return null;   /* 商品未登録＝AIの根拠が無い（見出しのボタンも出ない） */
+    if(typeof cur!=="undefined"&&cur==="ai"){ if(askFabMob()||document.querySelector(".aimob")) return null; return {mode,act:"aiq",key:"aiq"}; }
+    if(typeof openAskAI!=="function") return null;
+    return {mode,act:"dw",key:"user"};
+  }
+  if(mode==="fwd"){
+    if(typeof fwdCur!=="undefined"&&fwdCur==="fai"){ if(askFabMob()) return null; return {mode,act:"fwdq",key:"fwdq"}; }
+    return {mode,act:"fwddw",key:"fwd"};
+  }
+  if(mode==="admin"){ if(typeof admSend!=="function") return null; return {mode,act:"admdw",key:"adm"}; }
+  return null;
+}
+function askFabSync(){
+  const b=askFabEl(); const st=askFabState();
+  if(!st){ b.hidden=true; askFabWatch(null); return; }
+  const L=ASKFAB_L[st.key][askFabLang()];
+  b.querySelector(".afl b").textContent=L[0]; b.querySelector(".afl small").textContent=L[1];
+  b.title=L[2]; b.setAttribute("aria-label",L[0]); b.dataset.act=st.act;
+  const was=!b.hidden; b.hidden=false;
+  askFabWatch(document.querySelector("#well .ph .btn.askai"));
+  if(!ASKFAB.shown){ ASKFAB.shown=1; b.classList.add("pulse"); setTimeout(()=>b.classList.remove("pulse"),2800); askFabTip(b); }
+  else if(!was){ b.classList.add("pulse"); setTimeout(()=>b.classList.remove("pulse"),2800); }
+}
+/* 見出しの「AIに質問」が画面内にある間は丸いアイコンだけ（上部バー・案内バーの下に隠れている分は「見えていない」扱い） */
+function askFabWatch(el){
+  const b=document.getElementById("askfab"); if(!b) return;
+  if(ASKFAB.io){ ASKFAB.io.disconnect(); ASKFAB.io=null; }
+  if(!el||!("IntersectionObserver" in window)){ b.classList.remove("mini"); return; }
+  let top=48; try{ top=(typeof ux17SecTop==="function")?ux17SecTop():48; }catch(e){}
+  ASKFAB.io=new IntersectionObserver(es=>{ const e=es[es.length-1]; b.classList.toggle("mini",!!(e&&e.isIntersecting&&e.intersectionRatio>=0.5)); },{root:null,rootMargin:`-${Math.max(0,top)}px 0px 0px 0px`,threshold:[0,0.5,1]});
+  ASKFAB.io.observe(el);
+}
+function askFabTip(b){
+  try{ if(localStorage.getItem("bc20_askfab_hint")==="1") return; }catch(e){}
+  const t=document.createElement("span"); t.className="aftip"; t.textContent=ASKFAB_L.tip[askFabLang()]; b.appendChild(t);
+  const done=()=>{ try{ localStorage.setItem("bc20_askfab_hint","1"); }catch(e){} if(t.parentNode) t.remove(); clearTimeout(ASKFAB.tipT); };
+  ASKFAB.tipT=setTimeout(done,6500); b.addEventListener("click",done,{once:true});
+}
+function askFabFocus(sel,scroll){
+  setTimeout(()=>{ const el=document.querySelector(sel); if(!el) return;
+    if(scroll){ try{ el.scrollIntoView({behavior:(typeof uxReduce==="function"&&uxReduce())?"auto":"smooth",block:"center"}); }catch(e){} }
+    try{ el.focus({preventScroll:!!scroll}); }catch(e){ try{ el.focus(); }catch(e2){} } },scroll?60:180);
+}
+function askFabGo(){
+  const b=document.getElementById("askfab"); const act=b?b.dataset.act:"";
+  try{
+    if(act==="dw"){ openAskAI(); askFabFocus("#dwq",false); }
+    else if(act==="aiq"){ askFabFocus("#aiq",true); }
+    else if(act==="fwdq"){ askFabFocus("#fwdq",true); }
+    else if(act==="fwddw"){ openAskFwd(); askFabFocus("#dwfq",false); }
+    else if(act==="admdw"){ openAskAdm(); askFabFocus("#dwaq",false); }
+  }catch(e){ console.warn("askfab",e); if(typeof toast==="function") toast("AIパネルを開けませんでした"); }
+}
+/* ── 物流会社モード：右パネルのAI物流マン（履歴 FWDB.chat を「AI物流マンに相談」画面と共有） ── */
+function askFwdPaint(){
+  const c=document.getElementById("dwfwdchat"); if(!c||typeof FWDB==="undefined"||!FWDB) return;
+  const chat=FWDB.chat||[];
+  c.innerHTML=chat.length?chat.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av" style="${m.w==="a"?"background:var(--bl);color:#fff":""}">${m.w==="u"?"物":"AI"}</span><div class="bb">${m.t}</div></div>`).join("")
+    :`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">こんにちは。${esc((FWDB.profile&&FWDB.profile.co)||"")}のAI物流マンです。<b>レート表 ${(FWDB.rates||[]).length}レーン・見積依頼 ${(FWDB.reqs||[]).length}件・操作履歴</b>を読み込んでいます。画面を見ながら、そのまま聞いてください。</div></div>`;
+  c.scrollTop=c.scrollHeight;
+}
+function openAskFwd(){
+  try{ if(typeof fwdLoad==="function") fwdLoad(); }catch(e){}
+  if(typeof FWDB==="undefined"||!FWDB){ if(typeof toast==="function") toast("物流会社モードのデータがありません"); return; }
+  const on=typeof fwdReady==="function"&&fwdReady();
+  const SUGS=["香港向けの推奨はどの会社？","相見積があるレーンは？","有効期限が近いレートは？","未対応の依頼は？"];
+  openDW(`<div class="dwhead"><h3>🤖 AI物流マンに質問</h3>
+      <span class="p ${on?"on":"lo"}" style="font-size:9.5px">${on?esc(typeof fwdEngLabel==="function"?fwdEngLabel():"AI接続中"):"内蔵エンジン"}</span></div>
+    <div class="dwbody">
+      <p class="nn">画面はこのまま、右側で完結します。レート表・見積依頼・履歴を根拠に答えます。やり取りは「AI物流マンに相談」の画面と共通です。</p>
+      <div class="chat" id="dwfwdchat" style="flex:1;min-height:0;max-height:none;margin-top:9px"></div>
+      <div class="qb" style="margin-top:8px">${SUGS.map(s=>`<button class="q" data-dwfq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+    </div>
+    <div class="dwfoot">
+      <div class="composer">
+      <textarea class="sel" id="dwfq" rows="3" placeholder="自由に質問（例：釜山向けの運賃は？）　Enterで送信・Shift+Enterで改行"
+        style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:180px;overflow-y:auto;line-height:1.6"></textarea>
+      <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
+        <button class="btn" id="dwfqgo">質問する</button></div></div>
+      <p class="nn" style="margin-top:6px;text-align:right">じっくり使うときは <a style="cursor:pointer;color:var(--bl);font-weight:700" onclick="closeDW();try{fwdCur='fai';fwdNav();fwdRender();}catch(e){}">AI物流マンの画面へ →</a></p>
+    </div>`);
+  const pn=$("#pn"); pn.classList.add("dwr");
+  if(typeof dwChrome==="function") dwChrome();
+  const mx=$("#dwmax"); if(mx&&typeof dwToggleMax==="function") mx.onclick=dwToggleMax;
+  if(typeof dwApplyW==="function") dwApplyW();
+  askFwdPaint();
+  const send=async v=>{
+    v=String(v||"").trim(); if(!v||window.__fwdQuiet) return;
+    window.__fwdQuiet=1;
+    try{
+      const p=fwdAsk(v);                         /* 同期部分で質問が履歴に入り、fwdRender（静音）→ 右パネルを描画 */
+      const c=document.getElementById("dwfwdchat");
+      if(c){ const d=document.createElement("div"); d.className="m a"; d.innerHTML=`<span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb"><span class="car"></span></div>`; c.appendChild(d); c.scrollTop=c.scrollHeight; }
+      await p;
+    }catch(e){}
+    window.__fwdQuiet=0; askFwdPaint();
+    if(typeof fwdCur!=="undefined"&&fwdCur==="fai"){ try{ fwdRender(); }catch(e){} }
+  };
+  document.querySelectorAll("[data-dwfq]").forEach(b=>b.onclick=()=>send(b.dataset.dwfq));
+  const dq=$("#dwfq");
+  const grow=()=>{ dq.style.height="auto"; dq.style.height=Math.min(180,Math.max(84,dq.scrollHeight))+"px"; };
+  dq.addEventListener("input",grow);
+  $("#dwfqgo").onclick=()=>{ const v=dq.value; dq.value=""; grow(); send(v); };
+  dq.onkeydown=e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); const v=dq.value; dq.value=""; grow(); send(v); } };
+}
+/* ── 管理者モード：右パネルの管理者AIアシスタント（履歴 ADMCHAT を管理コンソールのカードと共有。admChatPaint が #dwadmchat にも描く） ── */
+function openAskAdm(){
+  const on=typeof admOnline==="function"&&admOnline();
+  const Q=["期限が7日以内のアカウントは？","よく使われているアカウントは？","ログイン中の端末は？","今月のAPIコストは？"];
+  openDW(`<div class="dwhead"><h3>🤖 管理者AIに質問</h3>
+      <span class="p ${on?"on":"lo"}" style="font-size:9.5px">${on?"接続AI＋内蔵":"内蔵エンジン"}</span></div>
+    <div class="dwbody">
+      <p class="nn">画面はこのまま、右側で完結します。台帳・利用状況・端末・AIエンジン設定とコスト・物流会社・通関統計の版を根拠に答えます。やり取りは管理コンソールのカードと共通です。</p>
+      <div class="chat" id="dwadmchat" style="flex:1;min-height:0;max-height:none;margin-top:9px"></div>
+      <div class="qb" style="margin-top:8px">${Q.map(s=>`<button class="q" data-dwaq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
+    </div>
+    <div class="dwfoot">
+      <div class="rw" style="gap:6px"><input class="sel" id="dwaq" placeholder="管理データについて自由に質問（Enterで送信）" style="flex:1;min-width:0"><button class="btn" id="dwaqgo">質問する</button></div>
+    </div>`);
+  const pn=$("#pn"); pn.classList.add("dwr");
+  if(typeof dwChrome==="function") dwChrome();
+  const mx=$("#dwmax"); if(mx&&typeof dwToggleMax==="function") mx.onclick=dwToggleMax;
+  if(typeof dwApplyW==="function") dwApplyW();
+  try{ admChatPaint(); }catch(e){}
+  const send=v=>{ v=String(v||"").trim(); if(!v) return; try{ admSend(v); }catch(e){} };
+  document.querySelectorAll("[data-dwaq]").forEach(b=>b.onclick=()=>send(b.dataset.dwaq));
+  const i=$("#dwaq"); $("#dwaqgo").onclick=()=>{ const v=i.value; i.value=""; send(v); };
+  i.onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); const v=i.value; i.value=""; send(v); } };
+}
+/* ── 描画のたびに同期（荷主・物流会社・管理者）。物流会社の fwdRender は右パネル送信中は静音（画面を描き直さない） ── */
+if(typeof render==="function"){ const __r208=render; render=function(){ const r=__r208.apply(this,arguments); try{ askFabSync(); }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr208=fwdRender; fwdRender=function(){ if(window.__fwdQuiet){ try{ askFwdPaint(); }catch(e){} return; } const r=__fr208.apply(this,arguments); try{ askFabSync(); }catch(e){} return r; }; }
+if(typeof renderAdmin==="function"){ const __ra208=renderAdmin; renderAdmin=function(){ const r=__ra208.apply(this,arguments); try{ askFabSync(); }catch(e){} return r; }; }
+addEventListener("resize",()=>{ clearTimeout(ASKFAB.rt); ASKFAB.rt=setTimeout(()=>{ try{ askFabSync(); }catch(e){} },160); });
+try{ askFabSync(); }catch(e){}
+addEventListener("load",()=>{ try{ askFabSync(); }catch(e){} });
 
 </script>
