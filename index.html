@@ -3576,9 +3576,12 @@ function mergeTen(t,x){
     if(t.targets.length>before) ch.push("進出希望国");
   }
   if(Array.isArray(x.strengths)&&x.strengths.length){
-    const cur=t.strengths||[], n0=cur.length, seen=new Set(cur.map(s=>s[0]));
-    x.strengths.forEach(s=>{ const tt=Array.isArray(s)?s[0]:String(s);
-      if(tt&&!seen.has(tt)){ cur.push([String(tt).slice(0,60),Array.isArray(s)?String(s[1]||"").slice(0,90):""]); seen.add(tt);}});
+    /* v20.9：表記ゆれ（空白・句読点・記号・末尾の言い回し）を無視して同じ強みを二重登録しない（同じ資料の再読取・AIの言い換え対策） */
+    const nk=v=>String(v||"").toLowerCase().replace(/[\s　、。・,.:：;／/()（）「」『』【】\[\]"'’“”!！?？\-–—~〜%％]/g,"");
+    const cur=t.strengths||[], n0=cur.length, keys=cur.map(s=>nk(s[0]));
+    const dup=k=>keys.some(o=>o===k||(k.length>=12&&o.length>=12&&(o.startsWith(k)||k.startsWith(o))));
+    x.strengths.forEach(s=>{ const tt=Array.isArray(s)?s[0]:String(s); const kk=nk(tt);
+      if(tt&&kk&&!dup(kk)){ cur.push([String(tt).slice(0,60),Array.isArray(s)?String(s[1]||"").slice(0,90):""]); keys.push(kk);}});
     if(cur.length>n0) ch.push("商品の強み");
     t.strengths=cur;
   }
@@ -6876,7 +6879,7 @@ function dropZone(el,onFile){
   if(!el||el._dz) return; el._dz=1;
   ["dragenter","dragover"].forEach(t=>el.addEventListener(t,e=>{e.preventDefault();el.style.outline="2px dashed var(--or)";el.style.outlineOffset="-4px";}));
   ["dragleave","drop"].forEach(t=>el.addEventListener(t,e=>{e.preventDefault();el.style.outline="";}));
-  el.addEventListener("drop",e=>{const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) onFile(f);});
+  el.addEventListener("drop",e=>{e.stopPropagation();const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) onFile(f);});   /* v20.9：入れ子のドロップゾーン（ヒアリング欄とその親カード等）で同じ drop が二重に発火しない */
 }
 let msgNewScope="共有";
 function msgStore(){
@@ -21562,7 +21565,8 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["画面はこのまま、右側で完結します。レート表・見積依頼・履歴を根拠に答えます。やり取りは「AI物流マンに相談」の画面と共通です。","Stay on this screen; everything happens in the side panel. Answers are based on your rate table, quote requests and history. The conversation is shared with the \"Ask AI Logistics\" screen.","停留在本页面，在右侧完成。以费率表・报价请求・历史为依据回答。对话与「咨询AI物流专员」页面共享。","Sin salir de la pantalla: todo ocurre en el panel lateral. Responde según su tabla de tarifas, solicitudes de cotización e historial. La conversación se comparte con la pantalla \"Consultar IA logística\"."],
 ["画面はこのまま、右側で完結します。台帳・利用状況・端末・AIエンジン設定とコスト・物流会社・通関統計の版を根拠に答えます。やり取りは管理コンソールのカードと共通です。","Stay on this screen; everything happens in the side panel. Answers are based on the account ledger, usage, devices, AI engine settings and costs, forwarders and the customs-statistics edition. The conversation is shared with the admin console card.","停留在本页面，在右侧完成。以账户台账・使用情况・设备・AI引擎设置与成本・物流公司・海关统计版本为依据回答。对话与管理控制台的卡片共享。","Sin salir de la pantalla: todo ocurre en el panel lateral. Responde según el registro de cuentas, uso, dispositivos, ajustes y costes de IA, transitarios y la edición de estadísticas aduaneras. La conversación se comparte con la tarjeta de la consola."],
 ["AI物流マンの画面へ →","Go to the AI Logistics screen →","前往AI物流专员页面 →","Ir a la pantalla de la IA logística →"],
-["AIパネルを開けませんでした","Could not open the AI panel","无法打开AI面板","No se pudo abrir el panel de IA"]);
+["AIパネルを開けませんでした","Could not open the AI panel","无法打开AI面板","No se pudo abrir el panel de IA"],
+["つづき","Continued","继续","Continuación"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -25415,5 +25419,58 @@ if(typeof renderAdmin==="function"){ const __ra208=renderAdmin; renderAdmin=func
 addEventListener("resize",()=>{ clearTimeout(ASKFAB.rt); ASKFAB.rt=setTimeout(()=>{ try{ askFabSync(); }catch(e){} },160); });
 try{ askFabSync(); }catch(e){}
 addEventListener("load",()=>{ try{ askFabSync(); }catch(e){} });
+
+/* ═══════════ v20.9：ヒアリング中の資料添付が二重に処理される不具合の修正 ═══════════
+   事象：ヒアリング欄にPDF（成分表）をドラッグ＆ドロップすると「📎 ファイル」「読み取っています…」が2回並び、
+        1回目の結果で次の質問（英文社名）が出た後に、2回目の結果「…取り込みました。残りを続けて伺います」が質問の下に割り込む。
+   原因：dropZone() が drop の伝播を止めておらず、ヒアリング欄（#fanswrap）とその親カード（.c）の2つのドロップゾーンが
+        同じ drop で両方発火 → fillAttach() が同じファイルで2回並走。2回目はAI抽出の表記ゆれで「商品の強み」を重複登録していた。
+   対応：① dropZone の drop で stopPropagation（logic_ops.js）
+        ② fillAttach は「同じファイルの短時間の二重投入は1回だけ」＋「添付は1件ずつ順番に処理」
+        ③ 添付の処理後、いま尋ねている質問が未回答のままなら、その質問を下に再掲（会話の順序が崩れない）
+        ④ 強みの重複判定を表記ゆれに強く（logic_files.js mergeTen）。過去に二重登録された分は同期時に自己修復 */
+const V209={key:"",at:0,q:null};
+function v209Norm(v){ return String(v||"").toLowerCase().replace(/[\s　、。・,.:：;／/()（）「」『』【】\[\]"'’“”!！?？\-–—~〜%％]/g,""); }
+/* 表記ゆれ（空白・句読点・記号・末尾の言い回し）を無視して同じ強みを1件に */
+function v209DedupeStrengths(t){
+  if(!t||!Array.isArray(t.strengths)||t.strengths.length<2) return 0;
+  const keep=[], keys=[];
+  t.strengths.forEach(s=>{ const tt=Array.isArray(s)?s[0]:String(s); const k=v209Norm(tt);
+    const dup=keys.some(o=>o===k||(k.length>=12&&o.length>=12&&(o.startsWith(k)||k.startsWith(o))));
+    if(!k||dup) return; keys.push(k); keep.push(Array.isArray(s)?s:[String(s),""]); });
+  const removed=t.strengths.length-keep.length; if(removed>0) t.strengths=keep; return removed;
+}
+/* 添付の処理が終わった時点で、いまの質問が未回答のままなら下に再掲（結果の吹き出しの後に質問が来る） */
+function v209Reask(){
+  try{
+    if(typeof FILL==="undefined"||!FILL||!FILL.on||!FILL.cur) return false;
+    const last=FILL.log[FILL.log.length-1];
+    if(last&&last.extra&&(last.extra.ask||last.extra.done)) return false;
+    const nx=FILL.cur; if(!nx||!nx.n) return false;
+    fillSay("ai",`<span class="p or">つづき</span><br><b>${nx.n}</b>を教えてください。<br>${nx.q||""}${nx.ex?`<br><span style="color:var(--ink-3);font-size:11px">${nx.ex}</span>`:""}`,{ask:nx,re:1});
+    render(); return true;
+  }catch(e){ return false; }
+}
+if(typeof fillAttach==="function"){
+  const __fa209=fillAttach;
+  fillAttach=function(f){
+    if(!f) return Promise.resolve();
+    const key=[f.name,f.size,f.lastModified].join("|"), now=Date.now();
+    if(V209.key===key&&now-V209.at<3000) return Promise.resolve();       /* 二重投入（入れ子ドロップゾーン・二重イベント）は1回だけ処理 */
+    V209.key=key; V209.at=now;
+    const run=()=>Promise.resolve().then(()=>__fa209.call(this,f)).catch(e=>{ console.warn("fillAttach",e); }).then(()=>{ v209Reask(); });
+    V209.q=(V209.q||Promise.resolve()).then(run,run);                    /* 1件ずつ順番に（結果と質問の順序を保つ） */
+    return V209.q;
+  };
+}
+if(typeof fillUrlIngest==="function"){
+  const __fu209=fillUrlIngest;
+  fillUrlIngest=async function(u){ try{ return await __fu209.apply(this,arguments); } finally{ v209Reask(); } };
+}
+/* 過去に二重登録された強みを、同期（表示データの再生成）のたびに自己修復 */
+if(typeof syncTenant==="function"){
+  const __sy209=syncTenant;
+  syncTenant=function(){ try{ if(typeof TEN!=="undefined"&&TEN) v209DedupeStrengths(TEN); }catch(e){} return __sy209.apply(this,arguments); };
+}
 
 </script>
