@@ -21566,7 +21566,12 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["画面はこのまま、右側で完結します。台帳・利用状況・端末・AIエンジン設定とコスト・物流会社・通関統計の版を根拠に答えます。やり取りは管理コンソールのカードと共通です。","Stay on this screen; everything happens in the side panel. Answers are based on the account ledger, usage, devices, AI engine settings and costs, forwarders and the customs-statistics edition. The conversation is shared with the admin console card.","停留在本页面，在右侧完成。以账户台账・使用情况・设备・AI引擎设置与成本・物流公司・海关统计版本为依据回答。对话与管理控制台的卡片共享。","Sin salir de la pantalla: todo ocurre en el panel lateral. Responde según el registro de cuentas, uso, dispositivos, ajustes y costes de IA, transitarios y la edición de estadísticas aduaneras. La conversación se comparte con la tarjeta de la consola."],
 ["AI物流マンの画面へ →","Go to the AI Logistics screen →","前往AI物流专员页面 →","Ir a la pantalla de la IA logística →"],
 ["AIパネルを開けませんでした","Could not open the AI panel","无法打开AI面板","No se pudo abrir el panel de IA"],
-["つづき","Continued","继续","Continuación"]);
+["つづき","Continued","继续","Continuación"],
+["🧠 Ver1.0 の内容学習（全社版AI商社マン）","🧠 Ver1.0 content learning (company-wide AI agent)","🧠 Ver1.0 内容学习（全公司版AI商社专员）","🧠 Aprendizaje de contenido Ver1.0 (IA de toda la empresa)"],
+["🔑 取込キーを登録","🔑 Register the ingestion key","🔑 登记导入密钥","🔑 Registrar la clave de ingesta"],
+["👁 学習内容のプレビュー","👁 Preview the learned knowledge","👁 预览学习内容","👁 Vista previa del conocimiento"],
+["週次ジョブのしくみと手順","How the weekly job works","每周任务的机制与步骤","Cómo funciona el trabajo semanal"],
+["取込キー（16文字以上・週次ジョブと同じもの）","Ingestion key (16+ characters, same as the weekly job)","导入密钥（16字符以上，与每周任务相同）","Clave de ingesta (16+ caracteres, la misma del trabajo semanal)"]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -25472,5 +25477,114 @@ if(typeof syncTenant==="function"){
   const __sy209=syncTenant;
   syncTenant=function(){ try{ if(typeof TEN!=="undefined"&&TEN) v209DedupeStrengths(TEN); }catch(e){} return __sy209.apply(this,arguments); };
 }
+
+/* ═══════════ v21.0：全社版AI商社マン＝貿易クラウド Ver1.0 の「内容」を匿名で学習（週次）＋利用者データ優先の伴走 ═══════════
+   ご指摘：全社版が Ver1.0 の全社のBuyer議事録／メッセージ／活動ログ／進捗も学習しているか → 従来は「件数の集計値」だけだった。
+   対応：
+   ① Ver1.0 学習ダイジェスト v2（内容ベース）：ローカルの週次ジョブ v1_learn.py が Digitrad 本番APIを読み取り専用で集計し、
+      同期サーバー（pool_v1_put・POOL_V1_KEY 認証）へ預ける。取り込むのは個社・個人・商品が特定できない分布・件数だけ：
+      バイヤー台帳（国・業種・進捗・受注見込み・案件数・活動の新しさ）／商談記録（時期・ラウンド・連絡手段・獲得経路・国・進捗・承認＋本文の「話題の言及件数」）／
+      案件（カテゴリ・進出希望国／地域・契約期間・商談記録数・最終更新・相手方チャットの新しさ）／タスク（種類別の件数・完了率・期限超過・計画日数）／
+      週次タイムラインと会議メモ（件数と話題）／メッセージ（チャンネル数と活性。本文は取り込まない）
+   ② 全社版の端末は pool_get で受け取り（v1.v>=2）、poolCompile の Ver1.0 節を「内容ベースの知識」に差し替えて接続AIの文脈に注入。内蔵エンジンも即答（v1Ask）
+   ③ 優先順位の明示：回答・戦略・伴走は「その利用者の登録データ」を最優先。全社知識は相場・傾向・一般的な経験則として補助的に使い、使うときは明示する。
+      全社知識から他社・商品・人物を推定・言及しない（システムプロンプト＋文脈の節に明記）
+   ④ 管理コンソール：Ver1.0 学習の状態（基準日・取込方法・内訳）・取込キーの登録・週次ジョブの手順・学習内容のプレビュー */
+function v1Data(){ try{ const V=(typeof POOL!=="undefined"&&POOL.v1)||((typeof poolLS==="function"&&(poolLS()||{}).v1)||null); return (V&&+V.v>=2)?V:null; }catch(e){ return null; } }
+function v1Num(n){ return (n==null||n==="")?"-":Number(n).toLocaleString(); }
+function v1Pct(a,b){ a=+a||0; b=+b||0; return b?Math.round(a/b*100):0; }
+function v1TopN(o,n){ return Object.entries(o||{}).filter(([k,v])=>k&&v!=null).map(([k,v])=>[k,(typeof v==="number")?v:(+(v&&v.n)||0),v]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n||8); }
+function v1List(o,n,unit){ return v1TopN(o,n).map(([k,v])=>`${k} ${v1Num(v)}${unit||""}`).join("、"); }
+function v1Ordered(o,unit){ return Object.entries(o||{}).filter(([k,v])=>k&&v!=null).map(([k,v])=>`${k} ${v1Num(v)}${unit||""}`).join("、"); }
+/* 接続AIに渡す Ver1.0 の知識（匿名の集計値だけ） */
+function v1Text(V){
+  if(!V) return [];
+  const L=[]; const b=V.buyers||{}, f=V.feedbacks||{}, p=V.projects||{}, t=V.tasks||{}, tl=V.timelines||{}, mm=V.memos||{}, ms=V.messages||{};
+  L.push(`Ver1.0（貿易クラウド本番DB・匿名の集計値のみ・基準日 ${V.asof||"-"}・${V.builtBy==="local-cli"?"週次自動取込":"管理者取込"}${V.quick?"・簡易取込":""}）。社名・担当者名・バイヤー名・本文は含まれない。`);
+  if(b.total) L.push(`【バイヤー台帳】登録 ${v1Num(b.total)}名（直近90日に動き ${v1Num(b.active90d)}名・1年 ${v1Num(b.active365d)}名）／進捗 ${v1Ordered(b.byStatus)}／受注見込み ${v1Ordered(b.byLikelihood)}`);
+  if(b.byCountry&&Object.keys(b.byCountry).length) L.push(`バイヤーの国（上位）：${v1TopN(b.byCountry,14).map(([k,n,v])=>`${k} ${v1Num(n)}${v&&v.st?"（"+v1List(v.st,2)+"）":""}`).join("／")}`);
+  if(b.byBizType&&Object.keys(b.byBizType).length) L.push(`バイヤーの業種：${v1List(b.byBizType,10)}／1バイヤーあたりの案件数：${v1Ordered(b.byProjects)}／最終活動：${v1Ordered(b.byActivity)}`);
+  if(f.total) L.push(`【商談記録（Buyer議事録）】${v1Num(f.total)}件（直近90日 ${v1Num(f.last90d)}・1年 ${v1Num(f.last365d)}）／承認済み ${v1Pct(f.approved,f.total)}%／2回目以降の商談 ${v1Pct(f.round2plus,f.total)}%／ラウンド ${v1Ordered(f.byRound)}`);
+  if(f.byChannel&&Object.keys(f.byChannel).length) L.push(`連絡手段：${v1List(f.byChannel,6)}／獲得経路：${v1List(f.byOrigin,6)}／相手の進捗：${v1Ordered(f.byBuyerStatus)}／受注見込み：${v1Ordered(f.byLikelihood)}`);
+  if(f.byCountry&&Object.keys(f.byCountry).length) L.push(`商談記録の多い国：${v1List(f.byCountry,12,"件")}`);
+  if(f.perProject&&f.perProject.projects) L.push(`案件あたりの商談記録：中央値 ${v1Num(f.perProject.median)}件・上位25% ${v1Num(f.perProject.p75)}件・最大 ${v1Num(f.perProject.max)}件（${v1Num(f.perProject.projects)}案件）`);
+  if(f.byMonth&&Object.keys(f.byMonth).length){ const m=Object.entries(f.byMonth).slice(-12); L.push(`商談記録の月次推移（直近12か月）：${m.map(([k,n])=>`${k.slice(2)} ${n}`).join("、")}`); }
+  if(f.topics&&Object.keys(f.topics).length) L.push(`商談で出た話題（本文の言及件数・のべ）：${v1TopN(f.topics,14).map(([k,n])=>`${k} ${v1Num(n)}${f.topics365&&f.topics365[k]!=null?"（直近1年 "+v1Num(f.topics365[k])+"）":""}`).join("、")}`);
+  if(p.total) L.push(`【支援案件】${v1Num(p.total)}件（直近90日に更新 ${v1Num(p.active90d)}）／カテゴリ：${v1List(p.byCategory,10)}／契約期間：${v1Ordered(p.byContractMonths)}／経過月：${v1Ordered(p.byElapsed)}`);
+  if(p.byTargetCountry&&Object.keys(p.byTargetCountry).length) L.push(`案件の進出希望国（上位）：${v1List(p.byTargetCountry,14)}／地域：${v1List(p.byMarketArea,8)}`);
+  if(p.fbPerProject&&p.fbPerProject.median!=null) L.push(`案件あたりの商談記録数：中央値 ${v1Num(p.fbPerProject.median)}・平均 ${v1Num(p.fbPerProject.mean)}・上位25% ${v1Num(p.fbPerProject.p75)}（0件の案件 ${v1Num(p.fbPerProject.zero)}）／相手方チャットの新しさ：${v1Ordered(p.chatRecency)}`);
+  const st=t.stats||{}; if(st.total) L.push(`【タスク（スケジュール進捗）】全 ${v1Num(st.total)}件・完了率 ${st.completionRate}%・期限超過 ${v1Num(st.overdue)}・着手遅れ ${v1Num(st.lateStart)}・今週期限 ${v1Num(st.dueWithinWeek)}`);
+  if(t.byType&&Object.keys(t.byType).length) L.push(`タスクの種類（${t.window||"直近"}・${v1Num(t.sampled)}件）：${v1TopN(t.byType,14).map(([k,n,v])=>`${k} ${v1Num(n)}（完了 ${v&&v.doneRate!=null?v.doneRate:"-"}%${v&&v.planDaysMedian!=null?"・計画 "+v.planDaysMedian+"日":""}${v&&v.overdue?"・超過 "+v.overdue:""}）`).join("／")}`);
+  if(t.byPriority&&Object.keys(t.byPriority).length) L.push(`タスクの優先度：${v1Ordered(t.byPriority)}／バイヤー紐づき ${v1Num(t.buyerLinked)}／案件あたり中央値 ${v1Num((t.perProject||{}).median)}件`);
+  if(tl.entries){ const pg=tl.progress||{}; const pgS=((+pg.done||0)+(+pg.pending||0)+(+pg.warn||0))?`／完了✅ ${v1Num(pg.done)}・進行中⏳ ${v1Num(pg.pending)}・注意⚠ ${v1Num(pg.warn)}`:""; L.push(`【週次の進捗サマリー】${v1Num(tl.projects)}案件・${v1Num(tl.entries)}件（${tl.coverage||""}）／進行中の話題：${v1List(tl.signals,14)}${pgS}`); }
+  if(mm.memos) L.push(`【会議メモ】${v1Num(mm.memos)}件（${mm.coverage||""}・メモのある案件 ${v1Num(mm.withMemo)}）／話題：${v1List(mm.topics,12)}`);
+  if(ms.channels) L.push(`【メッセージ】チャンネル ${v1Num(ms.channels)}（${ms.note||"本文は取り込まない"}）`);
+  return L;
+}
+/* poolCompile：Ver1.0 の1行を、内容ベースの知識に差し替える */
+if(typeof poolCompile==="function"){ const __pc210=poolCompile;
+  poolCompile=function(digests,v1){ const r=__pc210.apply(this,arguments); try{ const V=(v1&&+v1.v>=2)?v1:v1Data(); if(V){ const lines=String(r.text||"").split("\n").filter(l=>!/^Ver1\.0（/.test(l)); r.text=lines.concat(v1Text(V)).join("\n"); r.v1=V; r.v1v2=true; } }catch(e){} return r; }; }
+/* 文脈：全社知識は補助情報（利用者自身の登録データを優先） */
+if(typeof poolCtx==="function"){ const __px210=poolCtx;
+  poolCtx=function(){ let s=__px210.apply(this,arguments); try{ if(typeof poolMode==="function"&&poolMode()==="all"&&s){ s=s.replace("【厳守】","【優先順位】この節は補助情報。回答・戦略・伴走は、まず上に書かれた利用者自身の登録データ（会社・商品・条件・進出希望国・商談・タスク・やり取り）を最優先の根拠にし、全社知識は相場・平均・一般的な経験則として補助的に使う。全社知識を使うときは「全社の傾向では」「Ver1.0の実績では」と明示し、利用者のデータと食い違うときは利用者のデータを優先しつつ差を指摘する。\n【厳守】"); } }catch(e){} return s; }; }
+if(typeof llmSysPrompt==="function"){ const __sp210=llmSysPrompt;
+  llmSysPrompt=function(){ const s=__sp210.apply(this,arguments); try{ if(typeof poolMode==="function"&&poolMode()==="all") return s+"\n【優先順位（全社版）】①この利用者の登録データを最優先の根拠にする ②全社知識（Ver1.0＋Ver2.0の匿名統計・傾向）は相場・平均・一般的な経験則として補助的に使い、使うときは「全社の傾向では」「Ver1.0の実績では」と明示する ③全社知識から特定の他社・商品・人物を推定・言及しない（元データに無い） ④利用者のデータと全社の傾向が食い違うときは、利用者のデータを優先しつつ差を指摘する"; }catch(e){} return s; }; }
+/* 内蔵エンジンの即答：Ver1.0 の実績を聞かれたら該当する行を返す */
+const V1_ASK_RE=/(Ver ?1|本番|過去の案件|実績|バイヤー台帳|商談記録|議事録|話題|タスク|進捗|スケジュール|会議メモ|案件数|全社|他社|業界|傾向|相場|平均)/i;
+function v1Ask(q){
+  const s=String(q||""); if(!V1_ASK_RE.test(s)) return null;
+  if(typeof poolMode!=="function"||poolMode()!=="all") return null;
+  const V=v1Data(); if(!V) return null;
+  const L=v1Text(V); const pick=[]; const want=k=>new RegExp(k).test(s);
+  /* 質問に近い節から順に（具体的な意図＝案件・商談・タスク…を、汎用の「国」より先に） */
+  const ORDER=[["案件|カテゴリ|契約|進出|希望国",/^【支援案件】|^案件の進出|^案件あたりの商談記録数/],["商談|議事録|話題|ラウンド|連絡|経路|月次|推移",/^【商談記録|^連絡手段|^商談記録の|^案件あたりの商談記録：|^商談で出た話題/],
+    ["タスク|スケジュール|期限|完了",/^【タスク|^タスクの/],["進捗|サマリー|タイムライン|週次",/^【週次の進捗/],["メモ|会議",/^【会議メモ】/],["メッセージ|チャット|やりとり",/^【メッセージ】/],["バイヤー|国|業種|台帳",/^【バイヤー台帳】|^バイヤーの/]];
+  ORDER.forEach(([q,re])=>{ if(want(q)) L.forEach(l=>{ if(re.test(l)&&!pick.includes(l)) pick.push(l); }); });
+  if(!pick.length) pick.push(...L.slice(0,4));
+  const uniq=[...new Set(pick)].slice(0,8);
+  return {a:uniq.map(l=>esc(l).replace(/^【([^】]+)】/,"<b>$1</b>：")).join("<br>")+`<br><span style="color:var(--ink-3)">※Ver1.0の元データに社名・担当者名・本文は含まれていません（匿名の集計値）。貴社の登録データを優先して助言します。</span>`,
+    c:`根拠：全社知識プール（Ver1.0 学習ダイジェスト v2・基準日 ${esc(V.asof||"-")}）`};
+}
+if(typeof brain==="function"){ const __brain210=brain; brain=function(q,opts){ try{ const q0=(opts&&opts.raw)||q; if(/Ver ?1|本番|実績|議事録|商談記録|話題|タスク|進捗|会議メモ/i.test(String(q0||""))){ const r=v1Ask(q0); if(r){ try{ if(typeof logU==="function") logU("ai","Ver1.0 学習照会"); }catch(e){} return r; } } }catch(e){} return __brain210.apply(this,arguments); }; }
+/* AIが見ているもの：Ver1.0 の行を内容ベースに */
+if(typeof poolSeenRows==="function"){ const __sr210=poolSeenRows;
+  poolSeenRows=function(){ const r=__sr210.apply(this,arguments); try{ const V=v1Data(); if(!V||typeof poolMode!=="function"||poolMode()!=="all") return r; const b=V.buyers||{},f=V.feedbacks||{},p=V.projects||{},t=(V.tasks||{}).stats||{},tl=V.timelines||{};
+    return (Array.isArray(r)?r:[]).filter(x=>!/Ver1\.0/.test(String(x[0]))).concat([["🧠 Ver1.0 本番DBの学習（匿名・内容ベース）",`バイヤー ${v1Num(b.total)}名・商談記録 ${v1Num(f.total)}件・案件 ${v1Num(p.total)}件・タスク ${v1Num(t.total)}件・進捗サマリー ${v1Num(tl.entries)}件（基準日 ${V.asof||"-"}）`,100]]); }catch(e){ return r; } }; }
+/* バッジの説明にも基準日 */
+if(typeof poolBadgeHtml==="function"){ const __pb210=poolBadgeHtml; poolBadgeHtml=function(){ let h=__pb210.apply(this,arguments); try{ const V=v1Data(); if(V&&/全社版/.test(h)) h=h.replace('title="','title="Ver1.0 学習（基準日 '+esc(V.asof||"-")+'・匿名の集計値）＋'); }catch(e){} return h; }; }
+/* ── 管理コンソール：Ver1.0 学習のカード ── */
+function v1AdmHtml(){
+  const st=(typeof POOLADM!=="undefined"&&POOLADM.st)||null; const v=st&&st.v1; const V=st&&st.v1full; const f=t=>t?new Date(t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+  const age=v&&v.at?Math.round((Date.now()-v.at)/864e5):null;
+  const src=v?(v.v>=2?`内容ベース v2（基準日 ${esc(v.asof||"-")}・${v.builtBy==="local-cli"?"週次ジョブ":"管理者取込"}・${f(v.at)}）`:`件数のみ v1（基準日 ${esc(v.asof||"-")}）`):"未取込";
+  const runs=(st&&st.v1runs||[]).slice(-5).map(r=>`${f(r.at)} ${esc(r.asof||"")}${r.quick?"（簡易）":""}${r.err?" ⚠API失敗"+r.err:""}`).join("／");
+  const b=V&&V.buyers||{},fb=V&&V.feedbacks||{},pj=V&&V.projects||{},tk=V&&(V.tasks||{}).stats||{},tl=V&&V.timelines||{},mm=V&&V.memos||{};
+  return `<div class="c" id="admpoolv1" style="margin-bottom:11px"><div class="rw" style="justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap"><div><h3>🧠 Ver1.0 の内容学習（全社版AI商社マン）<span class="nt">この版で新規</span></h3>
+      <p class="nn">貿易クラウド Ver1.0（本番DB）の<b>Buyer議事録（商談記録）・バイヤー台帳・案件・タスク（スケジュール進捗）・週次の進捗サマリー・会議メモ・メッセージ</b>を、<b>個社・個人・商品が特定できない集計値だけ</b>に丸めて週次で取り込みます（本文・社名・担当者名・連絡先は保存しない）。全社版のお客様のAI商社マンだけがこの知識を使い、助言は<b>そのお客様の登録データを最優先</b>にします。</p></div>
+      <span class="p ${v&&v.v>=2?(age!=null&&age>10?"mid":"hi"):"lo"}" style="flex:none">${v&&v.v>=2?(age!=null&&age>10?"⚠ "+age+"日更新なし":"稼働中"):"未取込"}</span></div>
+    <div class="rw" style="gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11.5px">
+      <span>取込状態：<b>${src}</b></span>
+      <span>取込キー：${st?(st.v1key?'<span class="p hi">登録済み</span>':'<span class="p lo">未登録</span>'):"—"}</span>
+      ${V?`<span>内訳：バイヤー <b>${v1Num(b.total)}</b>名／商談記録 <b>${v1Num(fb.total)}</b>件／案件 <b>${v1Num(pj.total)}</b>件／タスク <b>${v1Num(tk.total)}</b>件／進捗サマリー <b>${v1Num(tl.entries)}</b>件／会議メモ <b>${v1Num(mm.memos)}</b>件</span>`:""}
+    </div>
+    ${runs?`<p class="nn" style="margin-top:4px">直近の取込：${runs}</p>`:""}
+    <div class="rw" style="gap:6px;flex-wrap:wrap;margin-top:8px"><input class="sel" id="v1key" placeholder="取込キー（16文字以上・週次ジョブと同じもの）" style="flex:1;min-width:220px" autocomplete="off"><button class="btn g" id="v1keyset">🔑 取込キーを登録</button><button class="btn g" id="v1prev" ${V?"":"disabled"}>👁 学習内容のプレビュー</button></div>
+    <div id="v1out" style="margin-top:8px"></div>
+    <details style="margin-top:8px"><summary style="font-size:11px;cursor:pointer;color:var(--ink-2)">週次ジョブのしくみと手順</summary><ul class="nn" style="margin-top:6px;padding-left:18px;line-height:1.8">
+      <li>管理者PCの週次ジョブ（タスク スケジューラ「貿易クラウド2.0_全社版AI_Ver1学習」・毎週月曜 6:30）が <code>v1_learn.py</code> を実行し、Digitrad 本番APIを<b>読み取り専用</b>で集計して、このサーバーに <code>pool_v1_put</code> で預けます（認証は上の取込キー）</li>
+      <li>手動で更新するとき：PowerShell で <code>python v1_learn.py --push</code>（約10〜15分）。動作確認だけなら <code>--quick --dry</code></li>
+      <li>Digitrad の認証が切れると取込が止まります（上の状態が「⚠ 更新なし」）。<code>digitrad-openapi-cli auth --user-email …</code> で再認証してから再実行してください</li>
+      <li>取り込む項目は分布・件数・話題の言及件数だけ。本文・社名・担当者名・連絡先・URLは、ローカルで集計した時点で捨て、サーバーの許可リストでも二重に落とします。出力に固有名の疑いがあるとジョブ自体が中止します</li>
+      <li>「📥 Ver1.0 集計JSONを取り込む」（上のカード）でも、ジョブが作った <code>v1_learn_last.json</code> を手動で取り込めます</li></ul></details></div>`;
+}
+function v1AdmBind(){
+  const say=m=>{ const o=document.getElementById("v1out"); if(o) o.innerHTML=m; };
+  const b1=document.getElementById("v1keyset"); if(b1) b1.onclick=async()=>{ const k=(document.getElementById("v1key")||{}).value||""; if(k.trim().length<16){ say('<span style="color:var(--warn)">取込キーは16文字以上にしてください</span>'); return; } if(typeof poolSyncOn!=="function"||!poolSyncOn()){ say('<span style="color:var(--warn)">クラウド同期が未設定です</span>'); return; } b1.disabled=true; try{ const r=await syncCall("pool_v1_key_set",{pw:(SES&&SES.apw)||"",key:k.trim()},{timeout:30000}); say(r&&r.ok?"✅ "+esc(r.msg||"登録しました"):"✗ "+esc((r&&r.msg)||"失敗")); if(r&&r.ok){ document.getElementById("v1key").value=""; if(typeof poolAdmStatus==="function"){ await poolAdmStatus(); v1AdmRefresh(); } } }catch(e){ say("✗ "+esc(String(e.message||e))); } b1.disabled=false; };
+  const b2=document.getElementById("v1prev"); if(b2) b2.onclick=()=>{ const V=(typeof POOLADM!=="undefined"&&POOLADM.st&&POOLADM.st.v1full)||null; if(!V){ say("まだ取り込まれていません"); return; } say(`<p class="lbl">全社版AI商社マンが読む Ver1.0 の知識（匿名の集計値）</p><pre style="white-space:pre-wrap;font-size:10.5px;line-height:1.7;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:380px;overflow:auto">${esc(v1Text(V).join("\n"))}</pre>`); };
+}
+function v1AdmRefresh(){ try{ const card=document.getElementById("admpoolv1"); if(!card) return; const tmp=document.createElement("div"); tmp.innerHTML=v1AdmHtml(); card.replaceWith(tmp.firstElementChild); v1AdmBind(); }catch(e){} }
+if(typeof poolAdmRefresh==="function"){ const __par210=poolAdmRefresh; poolAdmRefresh=function(){ __par210.apply(this,arguments); try{ v1AdmRefresh(); }catch(e){} }; }
+if(typeof renderAdmin==="function"){ const __ra210=renderAdmin; renderAdmin=function(){ __ra210.apply(this,arguments); try{ const p=document.getElementById("admpool"); if(p&&!document.getElementById("admpoolv1")){ p.insertAdjacentHTML("afterend",v1AdmHtml()); v1AdmBind(); } }catch(e){} }; }
+(function(){ try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&document.getElementById("admpool")&&!document.getElementById("admpoolv1")){ document.getElementById("admpool").insertAdjacentHTML("afterend",v1AdmHtml()); v1AdmBind(); } }catch(e){} })();
 
 </script>
