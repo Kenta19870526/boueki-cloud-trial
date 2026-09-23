@@ -531,41 +531,83 @@ td[data-aprtd] .btn{white-space:nowrap}
 .optab.on i{background:var(--or);color:#fff}
 .optab.sub{flex:0 0 auto;min-width:0}
 @media (max-width:700px){.optab small{display:none}.optab{min-width:0;flex:1 1 40%}}
-/* ── v15.18：AI商社マンの成長レベル ── */
-.growwrap{display:grid;grid-template-columns:210px minmax(0,1fr);gap:16px;align-items:start;margin-top:10px}
-@media (max-width:760px){.growwrap{grid-template-columns:1fr}}
-.growring{text-align:center}
-.growring svg{width:186px;height:186px;display:block;margin:0 auto}
-.gseg{fill:none;stroke-width:11}
-.gseg.bg{stroke:var(--sunk)}
+/* ── v15.18 → v21.2：AI商社マンの成長レベル（左：大きなゲージ・段階・次の一手／右：6分野。広い画面では半々の2列） ── */
+.c.grow{container-type:inline-size}
+.growhd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.growhd>div{flex:1 1 auto;min-width:0}
+.growhd>.btn{flex:none}
+.growwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:stretch;margin-top:14px}
+@container (min-width:860px){.growwrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}}
+.g2hero{container-type:inline-size;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:22px;padding:24px;border-radius:14px;background:var(--or-soft);border:1px solid rgba(248,149,29,.32)}
+.g2top{display:grid;grid-template-columns:clamp(220px,42cqi,280px) minmax(0,1fr);grid-template-rows:1fr auto auto 1fr;grid-template-areas:"ring ." "ring pri" "ring sec" "ring .";column-gap:28px;align-items:center}
+.g2ring{grid-area:ring}.g2pri{grid-area:pri;min-width:0}.g2sec{grid-area:sec;min-width:0}
+.g2ring{container-type:inline-size;position:relative;width:100%;aspect-ratio:1/1}
+.g2ring svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.gseg{fill:none;stroke-width:10}
+.gseg.bg{stroke:var(--surface)}
 .gseg.fg{transition:stroke-dasharray .9s ease,stroke-width .15s}
-.gseg.fg.hl{stroke-width:15}
-.gmark{stroke:var(--ink);stroke-width:2;stroke-linecap:round}
-.gpct{font-size:26px;font-weight:800;fill:var(--ink);letter-spacing:-.03em}
-.gunit{font-size:12px;font-weight:700;fill:var(--ink-3)}
-.glv{font-size:9.5px;font-weight:700;fill:var(--or-deep)}
-.gtxt{font-size:7px;fill:var(--ink-3)}
-.growlv{margin-top:4px;font-size:10.5px;color:var(--ink-2);line-height:1.6}
-.growlv b{display:block;font-size:13px;color:var(--ink)}
-.gladder{display:flex;gap:4px;margin-top:8px;font-size:9.5px}
-.gladder span{flex:1;text-align:center;padding:4px 2px;border-radius:6px;background:var(--sunk);color:var(--ink-3);font-weight:700;line-height:1.3}
-.gladder span i{display:block;font-style:normal;font-size:8.5px;font-weight:600;opacity:.8}
-.gladder span.on{background:var(--or-soft);color:var(--or-deep)}
-.gladder span.cur{background:var(--or);color:#fff;box-shadow:var(--sh-2)}
-.growcat{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);margin-bottom:6px}
-.growcat>summary{list-style:none;display:grid;grid-template-columns:24px minmax(0,1fr) 120px 44px;gap:8px;align-items:center;padding:7px 10px;cursor:pointer}
+.gseg.fg.hl{stroke-width:13}
+.gmark{stroke:var(--ink);stroke-width:2.4;stroke-linecap:round}
+.g2ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.g2ctr b{font-size:clamp(36px,22cqi,60px);font-weight:800;line-height:1;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+.g2ctr b small{font-size:.38em;font-weight:700;margin-left:2px;letter-spacing:0;color:var(--ink-2)}
+.g2ctr span{margin-top:8px;font-size:clamp(13px,5.4cqi,15px);font-weight:700;color:var(--ink-2)}
+.g2stage{display:inline-flex;align-items:center;padding:6px 16px;border-radius:999px;background:var(--or);color:var(--btn-ink,#14243C);font-size:18px;font-weight:800;letter-spacing:.02em;line-height:1.3}
+.g2to{margin-top:14px;font-size:24px;font-weight:800;color:var(--ink);line-height:1.35}
+.g2nx{margin-top:6px;font-size:var(--fs-md);color:var(--ink-2);line-height:1.6}
+.g2mk{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:var(--fs-sm);color:var(--ink-2);line-height:1.5}
+.g2mk i{flex:none;width:4px;height:16px;border-radius:2px;background:var(--ink)}
+.g2go{margin-top:16px;padding-top:14px;border-top:1px solid rgba(248,149,29,.32);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.g2gol{font-size:var(--fs-sm);font-weight:800;color:var(--or-deep)}
+.g2gos{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.5}
+.g2track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.g2st{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;text-align:center}
+.g2seg{display:block;width:100%;height:10px;border-radius:5px;overflow:hidden;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.g2seg i{display:block;height:100%;background:var(--or)}
+.g2st b{font-size:var(--fs-sm);font-weight:700;line-height:1.3;color:var(--ink-2);word-break:keep-all}
+.g2st small{font-size:13px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.g2st.done b{color:var(--ink)}
+.g2st.cur b{color:var(--or-deep);font-weight:800}
+.g2st em{font-style:normal;font-size:13px;font-weight:800;line-height:1.6;padding:0 10px;white-space:nowrap;border-radius:999px;background:var(--or);color:var(--btn-ink,#14243C)}
+/* 中間幅（左側の中身が 380〜520px）：ゲージの右は段階と「あと何点」だけ。次の段階・黒い印・次の一手は下に全幅で */
+@container (max-width:519.98px){.g2top{grid-template-columns:clamp(180px,50cqi,230px) minmax(0,1fr);grid-template-rows:auto auto;grid-template-areas:"ring pri" "sec sec";column-gap:20px;row-gap:16px}
+  .g2to{font-size:19px}.g2stage{font-size:16px;padding:5px 14px}
+  .g2sec{padding-top:14px;border-top:1px solid rgba(248,149,29,.32)}.g2nx{margin-top:0}
+  .g2go{flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;margin-top:12px;padding-top:0;border-top:0}.g2gol{flex-basis:100%}}
+/* 狭い幅（スマホ）：縦に積んで中央ぞろえ */
+@container (max-width:379.98px){.g2top{grid-template-columns:minmax(0,1fr);grid-template-rows:auto;grid-template-areas:"ring" "pri" "sec";justify-items:center;text-align:center;row-gap:14px}
+  .g2ring{width:min(220px,100%)}.g2sec{padding-top:0;border-top:0}.g2mk{justify-content:center}
+  .g2go{flex-direction:column;align-items:center;margin-top:14px;padding-top:14px;border-top:1px solid rgba(248,149,29,.32)}
+  .g2track{gap:4px}.g2st b,.g2st small{font-size:13px}.g2st em{padding:0 6px}.g2mk{display:block}.g2mk i{display:inline-block;vertical-align:-3px;margin-right:6px}}
+@media (max-width:480px){.g2hero{padding:20px 14px}}
+/* 右：6分野。1行目＝名前と％、2行目＝進み具合と点数。クリックで根拠と次の一手 */
+.growcats{display:flex;flex-direction:column;gap:8px;min-width:0}
+.g2cathd{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;padding:0 2px}
+.g2cathd b{font-size:var(--fs-lg);color:var(--ink)}
+.g2cathd span{font-size:var(--fs-sm);color:var(--ink-2)}
+.growcat{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.growcat>summary{list-style:none;display:grid;grid-template-columns:34px minmax(0,1fr) auto 18px;grid-template-areas:"ic nm pc ch" ". l2 l2 .";gap:6px 12px;align-items:center;padding:11px 14px;cursor:pointer;border-radius:12px}
 .growcat>summary::-webkit-details-marker{display:none}
-.growcat .gic{font-size:15px;text-align:center}
-.growcat .gnm b{font-size:12px;display:block} .growcat .gnm small{font-size:9.5px;color:var(--ink-3)}
-.growcat .gbar{height:7px;border-radius:4px;background:var(--sunk);overflow:hidden;display:block}
-.growcat .gbar i{display:block;height:100%;border-radius:4px;transition:width .6s ease}
-.growcat .gpc{text-align:right;font-weight:700;font-size:12px}
-.growcat[open]>summary{background:var(--surface-2);border-bottom:1px solid var(--line-2)}
+.growcat .gic{grid-area:ic;font-size:20px;line-height:1;text-align:center}
+.g2nm{grid-area:nm;min-width:0;font-size:var(--fs-lg);font-weight:700;line-height:1.35;color:var(--ink)}
+.grow .growcat .gpc{grid-area:pc;font-size:20px;font-weight:800;line-height:1.2;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.g2chev{grid-area:ch;justify-self:center;width:9px;height:9px;margin-top:-5px;border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);transform:rotate(45deg);transition:transform .2s}
+.growcat[open] .g2chev{transform:rotate(-135deg);margin-top:5px}
+.g2l2{grid-area:l2;display:flex;align-items:center;gap:12px;min-width:0}
+.grow .growcat .gbar{display:block;flex:1 1 auto;height:10px;border-radius:5px;overflow:hidden;background:var(--sunk)}
+.growcat .gbar i{display:block;height:100%;border-radius:5px;transition:width .6s ease}
+.g2pt{flex:none;font-size:var(--fs-sm);line-height:1.4;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.growcat[open]>summary{background:var(--surface-2);border-bottom:1px solid var(--line-2);border-radius:12px 12px 0 0}
 .growcat:hover{border-color:var(--or)}
-.growcat .gdt{padding:8px 10px 10px;font-size:11px;color:var(--ink-2);line-height:1.65}
+.grow .growcat .gdt{padding:12px 16px 14px 60px;font-size:var(--fs-md);line-height:1.75;color:var(--ink-2)}
+.growcat .gdt p+p{margin-top:4px}
+.growcat .gdt b{color:var(--ink)}
+.g2next{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:10px}
+.g2next>span{font-size:var(--fs-sm);font-weight:800;color:var(--or-deep)}
+.g2full{margin-top:8px;font-weight:700;color:var(--good)}
 .growlog{display:flex;flex-wrap:wrap;gap:6px;font-size:10.5px;color:var(--ink-2)}
 .growlog span{background:var(--surface-2);border:1px solid var(--line-2);border-radius:999px;padding:2px 9px}
-@media (max-width:700px){.growcat>summary{grid-template-columns:24px minmax(0,1fr) 44px}.growcat .gbar{display:none}}
+@media (max-width:700px){.grow .growcat .gdt{padding-left:16px}.growhd{flex-wrap:wrap}.growcat>summary{grid-template-areas:"ic nm pc ch" "l2 l2 l2 l2";column-gap:10px;padding:11px 12px}}
 
 .pg-ft{max-width:1440px;margin:22px auto 0;font-size:10.5px;color:var(--ink-3);line-height:1.75;padding:0 2px 30px}
 .pg-ft b{color:var(--ink-2)}
@@ -13519,7 +13561,7 @@ function showWelcome(){
       <div><b style="font-size:16px">はじめまして。AI商社マンです。</b><br>
       <span style="font-size:11px;color:var(--ink-3)">貿易の知識はいりません。3つのステップだけ覚えてください。</span></div></div>
     <div class="g3" style="margin-top:15px">
-      ${[["1","商品資料をアップロード","お手元のExcelをドラッグするだけ。中身はこのブラウザの外に出ません。","🗂"],
+      ${[["1","商品資料をアップロード","お手元のExcelをドラッグするだけ。中身はこの端末で暗号化してから保存します。","🗂"],
          ["2","足りない情報に答える","AIが必要なことだけ質問します。わからなければ「わからない」でOKです。","💬"],
          ["3","あとはAIに聞く・任せる","「どの国に売れる？」「500個でいくら？」。出荷の手続きまで任せられます。","🤝"]]
         .map(([n,t2,d,ic])=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:13px;background:var(--surface-2)">
@@ -16507,7 +16549,7 @@ function aiLevelFor(d,t){
     how:"見積・書類・出荷・物流見積を実際に回すほど、手続きの段取りと注意点を身につけます。",next:shipAct<2?{t:"出荷を進める",go:"ship"}:po<1?{t:"発注書を取り込んで書類をつくる",go:"ops",pre:"doc"}:null};
   /* ⑥ 資料・データの蓄積：アップロード回数と取り込んだ資料・添付 */
   const uploads=+u.uploads||0, srcN=cnt(t&&t.sources)+cnt(t&&t.xdocs)+cnt(d.docs);
-  const c6={k:"data",nm:"資料・データの蓄積",ic:"🗂",w:10,pct:Math.round(growN(uploads,6)*0.5+growN(srcN,8)*0.5),
+  const c6={k:"data",nm:"資料・データの蓄積",ic:"📁",w:10,pct:Math.round(growN(uploads,6)*0.5+growN(srcN,8)*0.5),
     detail:`アップロード ${uploads}回（目安6回）／取り込んだ資料・添付 ${srcN}件（目安8件）`,
     how:"規格書・カタログ・契約書・メールを取り込むほど、根拠つきで答えられる範囲が広がります。",next:srcN<8?{t:"資料を追加で取り込む",go:"srcs"}:null};
   const cats=[c1,c2,c3,c4,c5,c6];
@@ -16543,35 +16585,50 @@ function aiLevelCard(){
   const L=aiLevel(); const C=2*Math.PI*50; let off=0;
   const segs=L.cats.map(c=>{ const len=C*c.w/100, gap=2.2, fill=Math.max(0,(len-gap)*c.pct/100);
     const bg=`<circle class="gseg bg" data-k="${c.k}" cx="60" cy="60" r="50" stroke-dasharray="${(len-gap).toFixed(2)} ${(C-len+gap).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
-    const fg=`<circle class="gseg fg" data-k="${c.k}" cx="60" cy="60" r="50" style="stroke:${GROW_COL[c.k]}" stroke-dasharray="0 ${C.toFixed(2)}" data-fill="${fill.toFixed(2)}" data-rest="${(C-fill).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"><title>${esc(c.nm)} ${c.pct}%（配点${c.w}）</title></circle>`;
+    const fg=`<circle class="gseg fg" data-k="${c.k}" cx="60" cy="60" r="50" style="stroke:${GROW_COL[c.k]}" stroke-dasharray="0 ${C.toFixed(2)}" data-fill="${fill.toFixed(2)}" data-rest="${(C-fill).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"><title>${esc(c.nm)} ${c.pct}%（${c.w}点満点）</title></circle>`;
     off+=len; return bg+fg; }).join("");
-  const a=(GROW_PRO/100*360-90)*Math.PI/180, mx1=60+43*Math.cos(a), my1=60+43*Math.sin(a), mx2=60+57*Math.cos(a), my2=60+57*Math.sin(a);
-  const ring=`<svg viewBox="0 0 120 120" role="img" aria-label="AI商社マンの成長レベル ${L.pct}%">
+  const a=(GROW_PRO/100*360-90)*Math.PI/180, mx1=60+42*Math.cos(a), my1=60+42*Math.sin(a), mx2=60+58*Math.cos(a), my2=60+58*Math.sin(a);
+  /* v21.2：中央の数字は HTML で重ねる（SVG の文字は文字サイズの底上げ層に 12px へ拡大され、段階と一人前ラインの行が重なっていた） */
+  const ring=`<div class="g2ring"><svg viewBox="0 0 120 120" role="img" aria-label="AI商社マンの成長レベル ${L.pct}%">
       <g transform="rotate(-90 60 60)">${segs}</g>
-      <line class="gmark" x1="${mx1.toFixed(1)}" y1="${my1.toFixed(1)}" x2="${mx2.toFixed(1)}" y2="${my2.toFixed(1)}"/>
-      <text class="gpct" x="60" y="58" text-anchor="middle">${L.pct}<tspan class="gunit">%</tspan></text>
-      <text class="glv" x="60" y="73" text-anchor="middle">Lv.${L.lv} ${esc(L.stage)}</text>
-      <text class="gtxt" x="60" y="84" text-anchor="middle">${L.pro?"一人前に到達":"一人前ライン "+GROW_PRO+"%"}</text></svg>`;
+      <line class="gmark" x1="${mx1.toFixed(1)}" y1="${my1.toFixed(1)}" x2="${mx2.toFixed(1)}" y2="${my2.toFixed(1)}"/></svg>
+      <div class="g2ctr" aria-hidden="true"><b class="n">${L.pct}<small>%</small></b><span>成長レベル</span></div></div>`;
+  const toNext=L.nextStage?Math.max(0,L.nextTh-L.pct):0;
+  /* いちばん伸びる次の一手：満点までの残り（配点×残り%）が最も大きい分野の「次の一手」 */
+  /* 6分野の点数：それぞれ四捨五入すると合計が成長レベルと1点ずれることがあるため、端数の大きい順に配って合計を一致させる */
+  const raw=L.cats.map(c=>c.pct*c.w/100), pts=raw.map(Math.floor);
+  { let k=L.pct-pts.reduce((a,b)=>a+b,0); raw.map((v,i)=>[v-pts[i],i]).sort((x,y)=>y[0]-x[0]).forEach(([f,i])=>{ if(k>0&&pts[i]<L.cats[i].w){ pts[i]++; k--; } }); }
+  const ptOf=c=>pts[L.cats.indexOf(c)];
+  const gain=c=>Math.max(0,c.w-ptOf(c));
+  const goCall=c=>`growGo('${c.next.go}','${c.next.pre||""}','${String(c.next.t||"").replace(/['"\\<>]/g,"")}')`;
+  const best=L.cats.filter(c=>c.next&&gain(c)>0).sort((x,y)=>gain(y)-gain(x))[0];
+  /* 段階と「あと何点」（pri）／次の段階・黒い印・次の一手（sec）。幅に応じて ゲージの右に両方／右に pri・下に sec／縦積み を切り替える */
+  const facts=`<div class="g2pri"><span class="g2stage">Lv.${L.lv} ${esc(L.stage)}</span>
+      <p class="g2to">${L.pro?"🎉 一人前に到達しました":`一人前まで あと ${L.to}点`}</p></div>
+    <div class="g2sec"><p class="g2nx">${L.nextStage?`次の段階「${esc(L.nextStage)}」まで あと ${toNext}点`:"最上位の段階です"}</p>
+      <p class="g2mk"><i aria-hidden="true"></i><span>${L.pro?`一人前ライン（${GROW_PRO}%）を超えました`:`黒い印が一人前ライン（${GROW_PRO}%）`}</span></p>
+      ${best?`<div class="g2go"><span class="g2gol">いちばん伸びる次の一手</span><button class="btn" onclick="${goCall(best)}">${esc(best.next.t)} →</button><span class="g2gos">「${esc(best.nm)}」が最大 ${gain(best)}点 伸びます</span></div>`:""}</div>`;
+  /* 段階：5つを同じ幅で並べ、いまの段階の中の進み具合を塗る */
+  const S=GROW_STAGES, segPct=i=>{ const lo=S[i][0], hi=S[i+1]?S[i+1][0]:100; if(L.pct>=hi) return 100; if(L.pct<lo) return 0; return Math.round((L.pct-lo)/Math.max(1,hi-lo)*100); };
+  const track=`<div class="g2track" role="list" aria-label="成長の段階">${S.map((s,i)=>`<div class="g2st ${i<L.lvIdx?"done":i===L.lvIdx?"cur":""}" role="listitem"><span class="g2seg"><i style="width:${segPct(i)}%"></i></span><b>${esc(s[1]).replace("ベテラン候補","ベテラン\u200B候補")}</b><small>${s[0]}%〜</small>${i===L.lvIdx?"<em>いまここ</em>":""}</div>`).join("")}</div>`;
   const cats=L.cats.map(c=>`<details class="growcat" data-k="${c.k}">
-      <summary><span class="gic">${c.ic}</span><span class="gnm"><b>${esc(c.nm)}</b><small>配点 ${c.w}点・寄与 ${Math.round(c.pct*c.w/100)}点</small></span><span class="gbar"><i style="width:${c.pct}%;background:${GROW_COL[c.k]}"></i></span><span class="gpc n">${c.pct}%</span></summary>
-      <div class="gdt"><b style="color:var(--ink)">いまの根拠：</b>${c.detail}<br><span style="color:var(--ink-3)">${esc(c.how)}</span>
-        ${c.next?`<div class="rw" style="margin-top:6px;gap:6px;align-items:center"><span style="font-size:10.5px;color:var(--or-deep);font-weight:700">次の一手</span><button class="btn g" style="padding:3px 10px;font-size:10.5px" onclick="growGo('${c.next.go}','${c.next.pre||""}','${String(c.next.t||"").replace(/['"\\<>]/g,"")}')">${esc(c.next.t)} →</button></div>`
-                :`<div style="margin-top:5px;color:var(--good);font-weight:700">✓ この分野は満点です</div>`}</div></details>`).join("");
-  const ladder=`<div class="gladder">${GROW_STAGES.map((s,i)=>`<span class="${L.pct>=s[0]?"on":""} ${i===L.lvIdx?"cur":""}"><i>${s[0]}%〜</i>${s[1]}</span>`).join("")}</div>`;
+      <summary><span class="gic" aria-hidden="true">${c.ic}</span><span class="g2nm">${esc(c.nm)}</span><span class="gpc n">${c.pct}%</span><span class="g2chev" aria-hidden="true"></span>
+        <span class="g2l2"><span class="gbar"><i style="width:${c.pct}%;background:${GROW_COL[c.k]}"></i></span><span class="g2pt n">${c.w}点満点中 ${ptOf(c)}点</span></span></summary>
+      <div class="gdt"><p><b>いまの根拠：</b>${c.detail}</p><p class="g2how">${esc(c.how)}</p>
+        ${c.next?`<div class="g2next"><span>次の一手</span><button class="btn" onclick="${goCall(c)}">${esc(c.next.t)} →</button></div>`
+                :`<p class="g2full">✓ この分野は満点です</p>`}</div></details>`).join("");
   const f2=t=>{ const dd=new Date(t); return `${dd.getMonth()+1}/${dd.getDate()}`; };
   const log=L.events.length?L.events.map(e=>`<span title="${esc(String(e[2]||""))}">${GROW_EVIC[e[1]]||"•"} ${f2(e[0])} ${esc(String(e[2]||e[1]||"")).slice(0,26)}</span>`).join("")
     :`<span>まだ記録はありません。質問・資料の取り込み・商談記録のたびに、ここに積み上がります。</span>`;
   return `<div class="c grow" style="margin-bottom:11px">
-    <div class="rw" style="justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+    <div class="growhd">
       <div><h3>🤖 AI商社マンの成長レベル <span class="nt">この版で新規</span></h3>
         <p class="nn">貿易クラウドに入力・取り込まれた情報、Web検索、商談フィードバック、実務の経験をAI商社マンが学び、<b>貴社専用の「一人前」</b>へ育ちます。一人前＝貴社の貿易開拓に本当の意味で伴走できる状態（このゲージで <b>${GROW_PRO}% 以上</b>）。分野をクリックすると根拠と次の一手が見えます。</p></div>
-      <button class="btn g" style="flex:none" onclick="growRefresh()">↻ 再計算</button></div>
+      <button class="btn g" onclick="growRefresh()">↻ 再計算</button></div>
     <div class="growwrap">
-      <div class="growring">${ring}
-        <div class="growlv"><b>${L.pro?"🎉 一人前に到達しました":`一人前まで あと ${L.to} pt`}</b>${L.nextStage?`次の段階「${esc(L.nextStage)}」まで あと ${Math.max(0,L.nextTh-L.pct)} pt`:"最上位の段階です"}</div>
-        ${ladder}</div>
-      <div class="growcats">${cats}</div></div>
-    <p class="lbl" style="margin-top:10px">最近の成長の記録</p>
+      <section class="g2hero" aria-label="いまの成長レベル"><div class="g2top">${ring}${facts}</div>${track}</section>
+      <div class="growcats"><div class="g2cathd"><b>6つの分野</b><span>点数の合計が成長レベルです（100点満点）</span></div>${cats}</div></div>
+    <p class="lbl" style="margin-top:14px">最近の成長の記録</p>
     <div class="growlog">${log}</div>
     <p class="nn" style="margin-top:7px">採点は内蔵ロジック（6分野の加重合計・根拠を明示）で、AIエンジンの接続有無にかかわらず同じ基準です。数値はこのアカウントの利用記録と登録データから算出しています。</p>
   </div>`;
@@ -18157,7 +18214,7 @@ function kbFob(){
 }
 function kbGrow(){
   if(typeof aiLevel!=="function") return ""; let L=null; try{ L=aiLevel(); }catch(e){ return ""; }
-  return `## AI商社マンの成長レベル\n${L.pct}%（Lv.${L.lv} ${L.stage}・一人前ライン${typeof GROW_PRO!=="undefined"?GROW_PRO:90}%まで あと${L.to}pt）／分野：${L.cats.map(c=>c.nm+" "+c.pct+"%").join("、")}／次の一手：${L.cats.filter(c=>c.next).slice(0,3).map(c=>c.next.t).join("、")||"—"}`;
+  return `## AI商社マンの成長レベル\n${L.pct}%（Lv.${L.lv} ${L.stage}・一人前ライン${typeof GROW_PRO!=="undefined"?GROW_PRO:90}%まで あと${L.to}点）／分野：${L.cats.map(c=>c.nm+" "+c.pct+"%").join("、")}／次の一手：${L.cats.filter(c=>c.next).slice(0,3).map(c=>c.next.t).join("、")||"—"}`;
 }
 function kbProducts(){
   const T=(typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS:[]; if(T.length<2) return "";
@@ -18203,7 +18260,7 @@ function kbAsk(q){
     if(/営業資料|プレゼン資料|外国語の資料|カタログ/.test(s)){ const t=kbDeck(); return t?wrap("外国語 営業資料",t.replace(/^##[^\n]*\n/,""),"根拠：営業資料（生成済み）"):{a:"外国語の営業資料はまだ作成していません。「外国語 営業資料」から生成できます。",c:"根拠：営業資料 0件"}; }
     if(/やりとり|メール|連絡(履歴|の記録)|返信/.test(s)){ const t=kbMsgs(); return t?wrap("やりとり（直近）",t.replace(/^##[^\n]*\n/,""),"根拠：やりとり（記録）"):{a:"やりとりの記録はまだありません。「やりとり」に投稿・取り込みすると参照できます。",c:"根拠：やりとり 0件"}; }
     if(/出荷案件|案件の状況|進行中の案件|案件は/.test(s)){ const t=kbCases(); return t?wrap("出荷案件",t.replace(/^##[^\n]*\n/,""),"根拠：出荷案件（登録済み）"):{a:"出荷案件はまだありません。「貿易実務・書類・出荷 › 出荷を進める」から始められます。",c:"根拠：出荷案件 0件"}; }
-    if(/成長|レベル|一人前|育っ/.test(s)&&typeof aiLevel==="function"){ const L=aiLevel(); return {a:`AI商社マンの成長レベルは <b>${L.pct}%（Lv.${L.lv} ${esc(L.stage)}）</b>、一人前ライン${typeof GROW_PRO!=="undefined"?GROW_PRO:90}%まで あと ${L.to} pt です。<br>${L.cats.map(c=>`・${esc(c.nm)} ${c.pct}%${c.next?"（次の一手："+esc(c.next.t)+"）":""}`).join("<br>")}`,c:"根拠：成長レベル（内蔵の採点ロジック）"}; }
+    if(/成長|レベル|一人前|育っ/.test(s)&&typeof aiLevel==="function"){ const L=aiLevel(); return {a:`AI商社マンの成長レベルは <b>${L.pct}%（Lv.${L.lv} ${esc(L.stage)}）</b>、一人前ライン${typeof GROW_PRO!=="undefined"?GROW_PRO:90}%まで あと ${L.to}点です。<br>${L.cats.map(c=>`・${esc(c.nm)} ${c.pct}%${c.next?"（次の一手："+esc(c.next.t)+"）":""}`).join("<br>")}`,c:"根拠：成長レベル（内蔵の採点ロジック）"}; }
   }
   return null;
 }
@@ -19934,7 +19991,7 @@ function ux17Help(){
   let cando=""; try{ const p=document.querySelector("#well .cando"); cando=p?p.innerHTML.replace(/^\s*<b>[^<]*[：:]<\/b>\s*/,""):""; }catch(e){}
   const steps=mode==="admin"?[["1","アカウントを発行する","会社名・担当者・期間を入れて「発行する」。コードをお客様に渡すだけで始められます。","🎫"],["2","利用状況を見る","一覧の「詳細」で画面別の利用回数と行動の時系列。期限切れ・無効の絞り込みもできます。","📊"],["3","AI接続を共有する","「📱 AI接続の共有」をONにすると、そのアカウントのスマホ・別PCでも実AIが使えます。","🔐"]]
     :mode==="fwd"?[["1","見積依頼を受け取る","受信箱に荷主からの依頼が届きます。AI物流マンが返答の下書きを用意します。","📥"],["2","レートを整える","物流レート管理に自社のレートを入れるほど、見積の精度が上がります。","🚚"],["3","相見積・AI推奨で速く返す","相見積の比較とAI物流マンの推奨で、返答までの時間を短くします。","📊"]]
-    :[["1","商品資料をアップロード","お手元のExcelをドラッグするだけ。中身はこのブラウザの外に出ません。","🗂"],["2","足りない情報に答える","AIが必要なことだけ質問します。わからなければ「わからない」でOKです。","💬"],["3","あとはAIに聞く・任せる","「どの国に売れる？」「500個でいくら？」。出荷の手続きまで任せられます。","🤝"]];
+    :[["1","商品資料をアップロード","お手元のExcelをドラッグするだけ。中身はこの端末で暗号化してから保存します。","🗂"],["2","足りない情報に答える","AIが必要なことだけ質問します。わからなければ「わからない」でOKです。","💬"],["3","あとはAIに聞く・任せる","「どの国に売れる？」「500個でいくら？」。出荷の手続きまで任せられます。","🤝"]];
   const card=(h,b)=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:var(--surface-2);margin-top:8px"><p class="lbl">${h}</p>${b}</div>`;
   openDW(`<h3>❔ ヘルプ・使い方</h3>
     ${cando?card("この画面でできること",`<p style="font-size:12.5px;margin-top:4px;line-height:1.7">${cando}</p>`):""}
@@ -21604,6 +21661,39 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["今日やることは","Today's tasks:","今日待办：","Tareas de hoy:"],
 ["対象の商品：","Product:","对象商品：","Producto:"],
 ["物流会社への見積依頼は、依頼先の物流会社と共有されます。AIに質問すると、回答に必要な範囲だけを接続中のAIに送ります。","Quote requests to forwarders are shared with those forwarders. When you ask the AI, only what is needed for the answer is sent to the connected AI.","发给物流公司的询价会与该物流公司共享。向AI提问时，只会把回答所需的部分发送给已连接的AI。","Las solicitudes de cotización se comparten con los transitarios destinatarios. Al preguntar a la IA, solo se envía lo necesario para responder."]);
+
+/* ── v21.2：AI商社マンの成長レベル（左右半々の新レイアウト） ── */
+I18N_ROWS2.push(
+["成長レベル","Growth level","成长等级","Nivel de crecimiento"],
+["6つの分野","6 areas","6个领域","6 áreas"],
+["点数の合計が成長レベルです（100点満点）","The sum of these scores is the growth level (out of 100)","各领域得分之和即为成长等级（满分100分）","La suma de estas puntuaciones es el nivel de crecimiento (sobre 100)"],
+["いちばん伸びる次の一手","The next move that helps most","提升最大的下一步","El siguiente paso que más ayuda"],
+["いまここ","You are here","当前位置","Estás aquí"],
+["🎉 一人前に到達しました","🎉 Full-fledged level reached","🎉 已达到独当一面","🎉 Nivel completo alcanzado"],
+["最上位の段階です","This is the top stage","已是最高阶段","Es la etapa más alta"]);
+I18N_PAT2.push(
+ {re:/^一人前まで あと (\d+)点$/,en:"$1 pts to full-fledged",zh:"距独当一面还差 $1 分",es:"$1 pts para el nivel completo"},
+ {re:/^次の段階「(.+?)」まで あと (\d+)点$/,en:(m,d)=>m[2]+" pts to the next stage “"+(d[m[1]]||m[1])+"”",zh:(m,d)=>"距下一阶段“"+(d[m[1]]||m[1])+"”还差 "+m[2]+" 分",es:(m,d)=>m[2]+" pts para la siguiente etapa “"+(d[m[1]]||m[1])+"”"},
+ {re:/^(\d+)点満点中 (\d+)点$/,en:"$2 of $1 pts",zh:"满分$1分中得$2分",es:"$2 de $1 pts"},
+ {re:/^グラフの黒い印が一人前ライン（(\d+)%）です$/,en:"The black mark on the chart is the full-fledged line ($1%)",zh:"图中的黑色标记是独当一面线（$1%）",es:"La marca negra del gráfico es la línea de nivel completo ($1%)"},
+ {re:/^一人前ライン（(\d+)%）を超えました$/,en:"Passed the full-fledged line ($1%)",zh:"已超过独当一面线（$1%）",es:"Superó la línea de nivel completo ($1%)"},
+ {re:/^「(.+?)」が最大 (\d+)点 伸びます$/,en:(m,d)=>"“"+(d[m[1]]||m[1])+"” can gain up to "+m[2]+" pts",zh:(m,d)=>"“"+(d[m[1]]||m[1])+"”最多可提升 "+m[2]+" 分",es:(m,d)=>"“"+(d[m[1]]||m[1])+"” puede subir hasta "+m[2]+" pts"});
+
+/* ── v21.2 第2弾：段階名の改行位置・初回案内の文言 ── */
+I18N_ROWS2.push(
+["ベテラン​候補","Senior candidate","资深候选","Senior"],
+["お手元のExcelをドラッグするだけ。中身はこの端末で暗号化してから保存します。","Just drag in your Excel file. Its contents are encrypted on this device before they are saved.","只需拖入您的Excel文件。内容会先在本设备加密后再保存。","Solo arrastre su archivo de Excel. El contenido se cifra en este dispositivo antes de guardarse."]);
+
+I18N_PAT2.push({re:/^黒い印が一人前ライン（(\d+)%）$/,en:"Black mark = full-fledged line ($1%)",zh:"黑色标记＝独当一面线（$1%）",es:"Marca negra = línea de nivel completo ($1%)"});
+
+/* ── v21.2 第5弾：成長レベルの「次の一手」ボタン（矢印つき）と、対話分野の説明（v21.1） ── */
+I18N_ROWS2.push(
+["足りない情報を埋める →","Fill in the gaps →","补全信息 →","Completar datos →"],
+["強みを追加する →","Add strengths →","添加优势 →","Añadir fortalezas →"],
+["送り先の規制を調べる →","Check destination regulations →","调查目的地法规 →","Revisar la normativa del destino →"],
+["通関統計で相場を見る →","Check market prices in customs statistics →","用海关统计查看行情 →","Ver precios de mercado en las estadísticas aduaneras →"],
+["発注書を取り込んで書類をつくる →","Import a purchase order and create documents →","导入订单并制作单证 →","Importar la orden de compra y crear documentos →"],
+["質問と回答はAIの記憶に残り、次の相談で前回の続きとして使います。回答に👎を付けて正しい内容を教えると、次から最優先で守ります。","Questions and answers stay in the AI's memory and carry over to your next consultation. Mark an answer 👎 and teach the correct content, and it will follow that first from then on.","提问和回答会保存在AI的记忆中，下次咨询时接着使用。给回答点👎并教它正确内容后，今后会优先遵守。","Las preguntas y respuestas quedan en la memoria de la IA y se retoman en la siguiente consulta. Marque una respuesta con 👎 y enseñe el contenido correcto: desde entonces lo seguirá con prioridad."]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
