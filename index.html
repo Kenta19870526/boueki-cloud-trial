@@ -13424,7 +13424,8 @@ function showLogin(){
        <span style="font-size:10.5px;color:var(--ink-3)">トライアル環境</span></div></div>
      <p style="font-size:12px;color:var(--ink-2);margin-top:13px;line-height:1.75">
        お渡ししたアクセスコードでログインしてください。<br>
-       <b>アップロードいただく商品データは、このブラウザの外には送信されません。</b></p>
+       <b>商品データは、この端末で暗号化してから保存・同期します（サーバーには暗号化された状態でのみ置かれます）。</b><br>
+       物流会社への見積依頼は、依頼先の物流会社と共有されます。AIに質問すると、回答に必要な範囲だけを接続中のAIに送ります。</p>
      <div class="lgtabs">
        <button class="btn ${tab==="trial"?"":"g"}" data-t="trial" style="flex:1">お客様ログイン</button>
        <button class="btn ${tab==="admin"?"":"g"}" data-t="admin" style="flex:1">STANDAGE管理者</button></div>
@@ -14080,7 +14081,8 @@ async function fwdRequest(opts){
     cty:ctys.join("・"),pol,pod:legs.map(l=>l.pod).join("・"),mode:opts.mode||"LCL",cbm,term:opts.term||D.ship.term||D.term||"FOB",
     legs,status:ok.length?(ok.length<legs.length?"一部AI回答":"AI回答済み"):"レーン未登録",
     cargo:opts.cargo||"",docs:opts.docs||[],poNo:opts.poNo||"",caseNo:opts.caseNo||D.ship.no||"",etd:opts.etd||"",weight:opts.weight||0,cartons:opts.cartons||0,
-    toCo:opts.co||"",msgs:[],quote:null,note:opts.note||"",parentId:opts.parentId||"",requote:opts.requote?1:0};
+    toCo:opts.co||"",msgs:[],quote:null,note:opts.note||"",parentId:opts.parentId||"",requote:opts.requote?1:0,
+    kid:(typeof SYNC!=="undefined"&&SYNC&&SYNC.kid)||""};   /* v2.6：依頼したアカウント（他の荷主には見せない） */
   openDW(`<h3>🚚 貿易クラウド内 物流会社へのAI見積</h3>
     <p class="nn" style="margin-top:8px"><span class="spin"></span> AI物流マン（参加物流会社 ${fwdCos().length}社${opts.co?"・"+esc(opts.co)+"を指名":""}）と、貴社のAI商社マンが<b>${ctys.length}か国分</b>を交渉しています…（数秒〜30秒）</p>`);
   let msgs;
@@ -14428,7 +14430,7 @@ function fwdRender(){
   well.innerHTML=fwdCur==="frates"?fwdRatesHtml():fwdCur==="fagg"?fwdAggHtml():fwdCur==="fai"?fwdChatHtml():fwdInboxHtml();
   fwdBindPage();
   const fc=$("#fwdchat"); if(fc) fc.scrollTop=fc.scrollHeight;
-  const ft=$("#ft"); if(ft) ft.innerHTML=`<b>物流会社モードについて</b>　レート表とAI物流マンの応答は、この端末のブラウザに保存されます（bc20_fwd_v1・製品版ではクラウドで荷主と接続）。
+  const ft=$("#ft"); if(ft) ft.innerHTML=`<b>物流会社モードについて</b>　レート表と見積依頼は、クラウドを通じて荷主と共有します（各荷主に届くのは、その荷主自身の依頼だけです）。AI物流マンとの相談と操作履歴は、物流会社のアカウントだけが見られます。
     荷主が「出荷を進める」からAI見積を依頼すると、登録レートから<b>AI物流マンが自動で回答</b>し、この受信箱に記録されます。実際の予約・手配は行われません。Copyright © 2026, STANDAGE, Inc.`;
   scrollTo({top:0});
 }
@@ -18364,7 +18366,7 @@ function fwdMerge(loc,rem){
 }
 async function syncPullFwd(initial){
   if(!SYNC.on||typeof FWDB==="undefined") return;
-  let p; try{ p=await syncCall("pull",{ns:"fwd"}); }catch(e){ return; }
+  let p; try{ p=await syncCall("pull",{ns:"fwd",kid:SYNC.kid||""}); }catch(e){ return; }   /* v2.6：サーバーが kid で権限を確認（荷主には自社の依頼だけ） */
   SYNC.ver.fwd=p.ver||0;
   if(p.blob){ let rem=null; try{ rem=JSON.parse(p.blob); }catch(e){}
     if(rem){ if(typeof fwdLoad==="function") fwdLoad(); const merged=fwdMerge(FWDB,rem); SYNC.applying=1; try{ FWDB=merged; if(typeof fwdSave==="function") fwdSave(); } finally{ SYNC.applying=0; }
@@ -21571,7 +21573,37 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["🔑 取込キーを登録","🔑 Register the ingestion key","🔑 登记导入密钥","🔑 Registrar la clave de ingesta"],
 ["👁 学習内容のプレビュー","👁 Preview the learned knowledge","👁 预览学习内容","👁 Vista previa del conocimiento"],
 ["週次ジョブのしくみと手順","How the weekly job works","每周任务的机制与步骤","Cómo funciona el trabajo semanal"],
-["取込キー（16文字以上・週次ジョブと同じもの）","Ingestion key (16+ characters, same as the weekly job)","导入密钥（16字符以上，与每周任务相同）","Clave de ingesta (16+ caracteres, la misma del trabajo semanal)"]);
+["取込キー（16文字以上・週次ジョブと同じもの）","Ingestion key (16+ characters, same as the weekly job)","导入密钥（16字符以上，与每周任务相同）","Clave de ingesta (16+ caracteres, la misma del trabajo semanal)"],
+["👍 役に立った","👍 Helpful","👍 有帮助","👍 Útil"],
+["👎 ちがう・直したい","👎 Not right — correct it","👎 不对，需要更正","👎 No es correcto — corregir"],
+["覚えさせる","Teach it","让它记住","Enseñar"],
+["やめる","Cancel","取消","Cancelar"],
+["✓ ありがとうございます。この答え方を参考にします","✓ Thank you. The AI will use this kind of answer as a reference","✓ 谢谢。今后会参考这种回答方式","✓ Gracias. La IA tomará esta respuesta como referencia"],
+["✓ 教えていただいた内容を覚えました（次の回答から優先します）","✓ Learned what you taught (it takes priority from the next answer)","✓ 已记住您教的内容（下次回答起优先使用）","✓ Aprendido (tendrá prioridad desde la próxima respuesta)"],
+["覚えました。次の回答から反映します","Learned. It will be reflected from the next answer","已记住。下次回答起生效","Aprendido. Se aplicará desde la próxima respuesta"],
+["ありがとうございます。この答え方を参考にします","Thank you. The AI will use this answer as a reference","谢谢。今后会参考这种回答方式","Gracias. La IA tomará esta respuesta como referencia"],
+["正しい内容を入力してください","Please enter the correct information","请输入正确的内容","Introduzca la información correcta"],
+["記憶を見る・直す","View / edit memory","查看・修改记忆","Ver / editar memoria"],
+["すべての記憶を見る・直す","View / edit all memory","查看・修改全部记忆","Ver / editar toda la memoria"],
+["＋ 新しく教える","+ Teach something new","+ 教新的内容","+ Enseñar algo nuevo"],
+["会話の記憶をすべて消す","Clear all conversation memory","清除全部对话记忆","Borrar toda la memoria de conversación"],
+["記憶から消しました","Removed from memory","已从记忆中删除","Eliminado de la memoria"],
+["会話の記憶を消しました","Conversation memory cleared","已清除对话记忆","Memoria de conversación borrada"],
+["教える内容を入力してください","Please enter what to teach","请输入要教的内容","Introduzca lo que desea enseñar"],
+["消す","Delete","删除","Eliminar"],
+["今日やることを開く","Open today's tasks","打开今日待办","Abrir tareas de hoy"],
+["おはようございます","Good morning","早上好","Buenos días"],
+["こんにちは","Hello","您好","Hola"],
+["こんばんは","Good evening","晚上好","Buenas tardes"],
+["自社バイヤー・直接連絡","Your buyers / direct contacts","自有买家・直接联系","Sus compradores / contactos directos"],
+["AIの記憶（会話・教えたこと）","AI memory (conversations / taught facts)","AI的记忆（对话・教过的内容）","Memoria de la IA (conversaciones / enseñanzas)"],
+["商品データは、この端末で暗号化してから保存・同期します（サーバーには暗号化された状態でのみ置かれます）。","Product data is encrypted on this device before it is saved and synced (the server only ever holds it encrypted).","商品数据会先在本设备加密后再保存和同步（服务器上只保存加密后的数据）。","Los datos del producto se cifran en este dispositivo antes de guardarse y sincronizarse (el servidor solo los guarda cifrados)."],
+["AIに質問すると、回答に必要な範囲だけを接続中のAIに送ります。","When you ask the AI, only what is needed for the answer is sent to the connected AI.","向AI提问时，只会把回答所需的部分发送给已连接的AI。","Al preguntar a la IA, solo se envía a la IA conectada lo necesario para responder."],
+["レート表と見積依頼は、クラウドを通じて荷主と共有します（各荷主に届くのは、その荷主自身の依頼だけです）。AI物流マンとの相談と操作履歴は、物流会社のアカウントだけが見られます。","Rate tables and quote requests are shared with shippers through the cloud (each shipper only receives its own requests). Chats with the AI Logistics agent and the operation history are visible only to forwarder accounts.","运价表和询价请求通过云端与货主共享（每个货主只会收到自己的请求）。与AI物流专员的对话和操作记录只有物流公司账号可以查看。","Las tarifas y solicitudes se comparten con los cargadores por la nube (cada cargador solo recibe sus propias solicitudes). Las conversaciones con la IA logística y el historial solo son visibles para las cuentas de transitarios."],
+["その他の操作","More actions","更多操作","Más acciones"],
+["今日やることは","Today's tasks:","今日待办：","Tareas de hoy:"],
+["対象の商品：","Product:","对象商品：","Producto:"],
+["物流会社への見積依頼は、依頼先の物流会社と共有されます。AIに質問すると、回答に必要な範囲だけを接続中のAIに送ります。","Quote requests to forwarders are shared with those forwarders. When you ask the AI, only what is needed for the answer is sent to the connected AI.","发给物流公司的询价会与该物流公司共享。向AI提问时，只会把回答所需的部分发送给已连接的AI。","Las solicitudes de cotización se comparten con los transitarios destinatarios. Al preguntar a la IA, solo se envía lo necesario para responder."]);
 
 /* ═══════════════════════════════════════════════════════════════
    v15.23b: element-level translation (paragraphs with inline <b>/<span>)
@@ -25586,5 +25618,505 @@ function v1AdmRefresh(){ try{ const card=document.getElementById("admpoolv1"); i
 if(typeof poolAdmRefresh==="function"){ const __par210=poolAdmRefresh; poolAdmRefresh=function(){ __par210.apply(this,arguments); try{ v1AdmRefresh(); }catch(e){} }; }
 if(typeof renderAdmin==="function"){ const __ra210=renderAdmin; renderAdmin=function(){ __ra210.apply(this,arguments); try{ const p=document.getElementById("admpool"); if(p&&!document.getElementById("admpoolv1")){ p.insertAdjacentHTML("afterend",v1AdmHtml()); v1AdmBind(); } }catch(e){} }; }
 (function(){ try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&document.getElementById("admpool")&&!document.getElementById("admpoolv1")){ document.getElementById("admpool").insertAdjacentHTML("afterend",v1AdmHtml()); v1AdmBind(); } }catch(e){} })();
+
+/* ═══════════ v21.1：AI商社マンの学習の網羅（入力 → 個社AI → 全社プール → 成長レベル） ═══════════
+   2026-09-23 の総点検で見つかった漏れを埋める層（両ビルドの末尾・logic_v210v1.js の後）。
+   ① AIの記憶：AI商社マン画面・右パネル・出荷画面の質問と回答を商品ごとに保存（TEN.aiMem.log）し、接続AIの文脈に「これまでの相談」として渡す
+   ② 教える：回答ごとに「👍 役に立った／👎 ちがう・直したい」。直したい内容は「担当者が教えた事実」（TEN.aiMem.taught）として最優先で使う
+   ③ 自社で登録したバイヤー・バイヤーDBからの直接連絡・物流会社の区間別運賃を AI商社マンの参照データへ
+   ④ 手動で作った出荷案件・想定案件の進み具合と会話を保存（再読み込みで消えていた）
+   ⑤ 強みの9件目以降が「追加しました」と出るのに捨てられていた → 20件まで保存、超えるときは知らせる
+   ⑥ 成長レベル：契約書が数えられていなかった不具合の修正＋詳細調査・国選定・直接交渉・自社バイヤー・AIの記憶・タスク実行・やりとりを加点
+   ⑦ 全社プール：販売先国・規制の詳細調査・物流見積・現地価格の利益率・タスク・会議メモ／商談の話題・連絡手段・AIへの質問の話題・訂正・実務件数・強みの観点を
+      「件数・帯・分類」だけで匿名ダイジェストに追加（自由文・社名・商品名・人名・連絡先は入れない。Ver1.0 学習と同じ分類で集計） */
+const L211={memT:0,shipT:0,shipSig:"",v:"21.1"};
+/* ── 分類（bc20_v1_learn/v1_learn.py の FB_TOPICS・TASK_TYPES と同じ語彙＝Ver1.0 と比べられる） ── */
+const L211_TOPICS=[["サンプル",/サンプル|sample/i],["価格・見積",/価格|見積|price|quot/i],["MOQ・ロット",/MOQ|ロット|minimum order/i],["納期・リードタイム",/納期|lead ?time|delivery|リードタイム/i],
+ ["規制・認証",/規制|認証|certif/i],["ラベル・表示",/ラベル|label/i],["成分・仕様",/成分|仕様|ingredient/i],["決済・支払",/支払|payment|L\/C/i],["物流・輸送",/輸送|物流|shipping|運賃/i],
+ ["契約・独占",/契約|contract|独占/i],["展示会",/展示会|exhibition|expo/i],["テスト販売",/テスト販売|試験販売|trial/i],["リピート・追加注文",/リピート|repeat|追加注文/i],
+ ["失注・見送り",/失注|見送り|not interested/i],["競合",/競合|competitor/i],["OEM・PB",/OEM|private label/i],["賞味期限",/賞味期限|shelf life/i],["関税",/関税|tariff/i],
+ ["為替",/為替|exchange rate/i],["代理店・卸",/代理店|distributor|卸/i],["小売・EC",/小売|retail|Amazon/i],["訪問・出張",/訪問|visit|出張/i],["受注・発注",/受注|発注|purchase order/i],["品質・クレーム",/品質|quality|クレーム/i]];
+const L211_TASK=[["サンプル発送",/サンプル|sample/i],["見積・価格",/見積|価格|quot|price/i],["規制・認証・分析",/規制|認証|certif|登録|許可|FDA|Halal|HACCP|成分表|分析|analysis|test report/i],
+ ["ラベル・表示・パッケージ",/ラベル|label|表示|パッケージ|package|packag/i],["契約書",/契約|contract|NDA|MOU/i],["出荷・物流・書類",/出荷|物流|輸送|船積|B\/L|インボイス|invoice|packing|通関|customs|shipment/i],
+ ["商談・面談",/商談|面談|MTG|ミーティング|meeting|打合せ|打ち合わせ|訪問|visit|call|商談準備/i],["資料作成",/資料|提案書|カタログ|プレゼン|deck|presentation|brochure|catalog/i],
+ ["バイヤー探索・アプローチ",/バイヤー|buyer|リスト|list|探索|アプローチ|approach|候補|リード|lead/i],["展示会",/展示会|exhibition|expo|show/i],["翻訳",/翻訳|translat/i],
+ ["支払・請求",/支払|請求|payment|入金/i],["定例会・報告",/定例|報告|レポート|report|週次|月次/i],["Web・EC",/\bEC\b|Amazon|Web|HP|サイト|LP|online|SNS/i],
+ ["確認・レビュー",/確認|チェック|review|check|承認|approv/i],["連絡・フォロー",/連絡|フォロー|follow|返信|reply|送付|送る|send|共有|share|案内/i],["登録・入力・更新",/登録|入力|更新|update|入稿|作成|create|設定/i],
+ ["調査・検討",/調査|リサーチ|research|検討|分析|analy|比較/i],["発送・手配",/発送|郵送|手配|arrange|dispatch/i]];
+const L211_STR=[["品質・製法",/品質|製法|職人|手作り|伝統|独自|特許|技術/],["原料・産地",/原料|産地|国産|有機|オーガニック|無添加|天然|農薬/],["認証・安全",/認証|HACCP|ISO|ハラール|Halal|FDA|GMP|安全|検査|試験/i],
+ ["価格・コスト",/価格|安価|コスト|低価格|お手頃|リーズナブル/],["実績・評価",/実績|受賞|シェア|No\.?1|ナンバーワン|累計|販売数|採用|評価|口コミ/i],["機能・効果",/機能|効果|効能|成分|配合|mg|%|濃度|保湿|吸収/i],
+ ["デザイン・パッケージ",/デザイン|パッケージ|見た目|容器|ギフト/],["供給・対応力",/供給|在庫|小ロット|MOQ|納期|OEM|カスタム|対応/i]];
+function l211Topics(s){ const t=String(s||""); return L211_TOPICS.filter(([,r])=>r.test(t)).map(([k])=>k); }
+function l211TaskType(s){ const t=String(s||""); const h=L211_TASK.find(([,r])=>r.test(t)); return h?h[0]:"その他"; }
+function l211Inc(o,k,n){ if(!k) return; o[k]=(o[k]||0)+(n==null?1:n); }
+function l211Plain(h){ return String(h||"").replace(/<br\s*\/?>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g," ").trim(); }
+function l211Save(){ clearTimeout(L211.memT); L211.memT=setTimeout(()=>{ try{ if(typeof saveTen==="function") saveTen(); }catch(e){} },350); }
+
+/* ══ ① AIの記憶 ══ */
+const AIMEM_LOG_MAX=40, AIMEM_TAUGHT_MAX=60;
+function aiMem(){
+  const t=(typeof TEN!=="undefined"&&TEN)?TEN:null;
+  const m=t?(t.aiMem=t.aiMem||{}):(window.__aiMem=window.__aiMem||{});
+  if(!Array.isArray(m.log)) m.log=[]; if(!Array.isArray(m.taught)) m.taught=[]; return m;
+}
+function aiMemId(){ return "am"+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+function aiMemAdd(src,q,a,c){
+  q=l211Plain(q).slice(0,240); a=l211Plain(a).slice(0,480); if(!q||!a) return "";
+  const m=aiMem(); const id=aiMemId();
+  m.log.push({id,at:Date.now(),d:(typeof TODAYS!=="undefined"?TODAYS:""),src:String(src||"").slice(0,12),q,a,c:l211Plain(c).slice(0,90),fb:0,tp:l211Topics(q).slice(0,4)});
+  if(m.log.length>AIMEM_LOG_MAX) m.log=m.log.slice(-AIMEM_LOG_MAX);
+  l211Save(); try{ aiMemCardPaint(); }catch(e){} return id;
+}
+function aiMemFind(id){ const m=aiMem(); return m.log.find(x=>x.id===id)||null; }
+function aiMemTeach(txt,q,mid){
+  txt=String(txt||"").trim().slice(0,300); if(!txt) return null;
+  const m=aiMem(); const e={id:aiMemId(),at:Date.now(),d:(typeof TODAYS!=="undefined"?TODAYS:""),txt,q:l211Plain(q).slice(0,120),tp:l211Topics(txt+" "+(q||"")).slice(0,4)};
+  m.taught.unshift(e); if(m.taught.length>AIMEM_TAUGHT_MAX) m.taught=m.taught.slice(0,AIMEM_TAUGHT_MAX);
+  if(mid){ const L=aiMemFind(mid); if(L){ L.fb=-1; L.fix=e.id; } }
+  l211Save(); try{ if(typeof logU==="function") logU("ai","AI商社マンに教えた："+txt.slice(0,24)); }catch(e2){}
+  return e;
+}
+/* 質問との関連：分類が重なる、または2文字の並びが4つ以上重なる */
+function aiMemBigrams(s){ const t=String(s||"").replace(/[\s、。・「」（）()！？!?,.:：]/g,""); const o=new Set(); for(let i=0;i<t.length-1;i++) o.add(t.slice(i,i+2)); return o; }
+function aiMemRelevant(q,max){
+  const m=aiMem(); if(!m.taught.length) return []; const tq=new Set(l211Topics(q)); const bq=aiMemBigrams(q);
+  return m.taught.map(x=>{ let sc=0; (x.tp||[]).forEach(k=>{ if(tq.has(k)) sc+=3; }); aiMemBigrams(x.txt+" "+(x.q||"")).forEach(b=>{ if(bq.has(b)) sc++; }); return {x,sc}; })
+    .filter(o=>o.sc>=4).sort((a,b)=>b.sc-a.sc).slice(0,max||2).map(o=>o.x);
+}
+function aiMemCtx(){
+  const m=aiMem(); let s="";
+  if(m.taught.length) s+=`\n## 担当者が教えた事実・訂正（AI商社マンの記憶。最優先で守る。登録データや資料と食い違う場合はこちらを採用し、食い違いがあることを一言添える）\n`+
+    m.taught.slice(0,30).map(x=>`・（${x.d||""}）${x.txt}${x.q?"　※きっかけの質問："+x.q:""}`).join("\n");
+  const L=m.log.slice(-8);
+  if(L.length) s+=`\n## これまでの相談（AI商社マンとの会話・直近${L.length}件の要約。前回の続きとして扱い、同じ質問には一貫した答えを返す。👎の付いた回答は同じ誤りを繰り返さない）\n`+
+    L.map(x=>`・${x.d||""}［${x.src||""}］Q: ${x.q.slice(0,110)} → A: ${x.a.slice(0,170)}${x.fb>0?"（👍役に立った）":x.fb<0?"（👎ちがうと指摘あり）":""}`).join("\n");
+  return s;
+}
+/* 完了したタスク（従来は未完了のみ渡していた＝「何が終わったか」に答えられなかった） */
+function l211DoneTasksCtx(){ try{ const L=((typeof D!=="undefined"&&D&&D.tasks)||[]).filter(t=>t&&/完了|済/.test(String(t.st||""))); if(!L.length) return ""; const s=L.slice().sort((a,b)=>String(b.e||"").localeCompare(String(a.e||""))).slice(0,8);
+  return `\n## 完了したタスク（${L.length}件・期限の新しい順に最大8件）\n`+s.map(t=>`・${t.n}（期限${t.e||"-"}・${t.who||"-"}）`).join("\n"); }catch(e){ return ""; } }
+if(typeof ppContext==="function"){ const __pc211=ppContext; ppContext=function(){ const s=__pc211.apply(this,arguments); try{ return s+l211DoneTasksCtx()+l211DeckCtx()+aiMemCtx(); }catch(e){ return s; } }; }
+if(typeof llmSysPrompt==="function"){ const __sp211=llmSysPrompt; llmSysPrompt=function(){ const s=__sp211.apply(this,arguments); try{ if(aiMem().taught.length) return s+"\n【記憶】社内データ内の「担当者が教えた事実・訂正」は、担当者が直接AI商社マンに教えた最新の事実。資料や登録データより優先し、矛盾があれば一言添える。"; }catch(e){} return s; }; }
+/* 内蔵エンジン（未接続）でも、関係する「教わったこと」を回答の下に添える */
+if(typeof brain==="function"){ const __br211=brain; brain=function(q,opts){
+  const r=__br211.apply(this,arguments);
+  const add=o=>{ try{ if(!o||typeof o.a!=="string") return o; if(typeof ppReady==="function"&&ppReady()) return o; const q0=(opts&&opts.raw)||q; const hit=aiMemRelevant(q0,2); if(!hit.length) return o;
+      return Object.assign({},o,{a:o.a+`<div class="l211tg">📝 <b>担当者から教わったこと</b>：${hit.map(x=>esc(x.txt)).join("／")}</div>`}); }catch(e){ return o; } };
+  return (r&&typeof r.then==="function")?r.then(add):add(r); }; }
+/* 質問と回答の記録：AI商社マン画面（#chat）・右パネル（#dwchat）・出荷画面（#schat） */
+const L211_CHATS={chat:"AI商社マン",dwchat:"右パネル",schat:"出荷画面"};
+function aiFbRow(bb,mid){
+  if(!bb||bb.querySelector(".l211fb")) return;
+  const m=mid?aiMemFind(mid):null;
+  const row=document.createElement("div"); row.className="l211fb"; if(mid) row.dataset.mid=mid;
+  const paint=()=>{ const x=row.dataset.mid?aiMemFind(row.dataset.mid):null; const st=x?x.fb:0;
+    row.innerHTML=st>0?`<span class="l211ok">✓ ありがとうございます。この答え方を参考にします</span>`:st<0&&x&&x.fix?`<span class="l211ok">✓ 教えていただいた内容を覚えました（次の回答から優先します）</span>`
+      :`<button type="button" class="l211b" data-v="up" title="この回答は役に立った">👍 役に立った</button><button type="button" class="l211b" data-v="dn" title="まちがい・足りない点をAI商社マンに教える">👎 ちがう・直したい</button>`; };
+  paint();
+  row.addEventListener("click",ev=>{ const b=ev.target.closest("[data-v]"); if(!b) return; ev.stopPropagation(); const v=b.dataset.v;
+    let x=row.dataset.mid?aiMemFind(row.dataset.mid):null;
+    if(!x&&v!=="cancel"){ /* 記録前の回答（履歴の再表示など）：その場で記録してから評価 */
+      const cl=bb.cloneNode(true); cl.querySelectorAll(".ci,.cpy,.l211fb,.l211tg").forEach(z=>z.remove()); const id=aiMemAdd("画面",bb.closest(".chat")&&bb.closest(".chat").__l211last||"（質問不明）",cl.innerHTML,""); if(id){ row.dataset.mid=id; x=aiMemFind(id); } }
+    if(v==="up"){ if(x){ x.fb=1; l211Save(); } paint(); toast("ありがとうございます。この答え方を参考にします"); }
+    else if(v==="dn"){ row.innerHTML=`<div class="l211teach"><p>どこがちがいましたか？ <b>正しい内容</b>を書いてください。AI商社マンが覚えて、次の回答から優先して使います。</p>
+        <textarea rows="2" class="sel" placeholder="例：MOQは300箱に変わりました／UAE向けはハラール証明が必須です"></textarea>
+        <div class="rw"><button type="button" class="btn" data-v="save">覚えさせる</button><button type="button" class="btn g" data-v="cancel">やめる</button></div></div>`;
+      const ta=row.querySelector("textarea"); if(ta) setTimeout(()=>ta.focus(),30); }
+    else if(v==="save"){ const ta=row.querySelector("textarea"); const txt=ta?ta.value.trim():""; if(!txt){ toast("正しい内容を入力してください"); if(ta) ta.focus(); return; }
+      const e=aiMemTeach(txt,x?x.q:"",row.dataset.mid); if(e){ toast("覚えました。次の回答から反映します"); paint(); aiMemCardPaint(); } }
+    else if(v==="cancel"){ paint(); } });
+  bb.appendChild(row);
+}
+function aiMemWatch(c,bb){
+  const done=()=>!!bb.querySelector(".ci")&&!bb.querySelector(".car");
+  if(done()){ aiFbRow(bb,null); return; }
+  const q=c.__l211q||""; if(!q) return; c.__l211q="";
+  const tm=setTimeout(()=>mo.disconnect(),180000);
+  const mo=new MutationObserver(()=>{ if(!done()) return; mo.disconnect(); clearTimeout(tm);
+    try{ const ci=bb.querySelector(".ci"); const cl=bb.cloneNode(true); cl.querySelectorAll(".ci,.cpy,.l211fb,.l211tg").forEach(z=>z.remove());
+      const id=aiMemAdd(L211_CHATS[c.id]||c.id,q,cl.innerHTML,ci?ci.innerHTML:""); aiFbRow(bb,id||null); }catch(e){} });
+  mo.observe(bb,{childList:true,subtree:true,characterData:true});
+}
+if(typeof pushTo==="function"){ const __pt211=pushTo; pushTo=function(c,who,html){ const bb=__pt211.apply(this,arguments);
+  try{ const id=c&&c.id; if(id&&L211_CHATS[id]){ if(who==="u"){ const q=l211Plain(html).replace(/📎.*$/,"").trim(); c.__l211q=q; c.__l211last=q; } else if(who==="a") aiMemWatch(c,bb); } }catch(e){} return bb; }; }
+/* AI商社マン画面：これまでの相談（折りたたみ）＋記憶カード */
+function aiMemHistHtml(){
+  const m=aiMem(); const L=m.log.slice(-6).reverse(); if(!L.length) return "";
+  return `<details class="l211hist"><summary>🕘 これまでの相談（${m.log.length}件）<span>クリックで開く</span></summary>
+    ${L.map(x=>`<div class="l211h"><div class="q">Q. ${esc(x.q)}</div><div class="a">${esc(x.a.slice(0,220))}${x.a.length>220?"…":""}</div><div class="s">${esc(x.d||"")}・${esc(x.src||"")}${x.fb>0?"・👍":x.fb<0?"・👎→訂正済み":""}</div></div>`).join("")}
+    <button type="button" class="btn g" onclick="openAiMem()" style="margin-top:6px">すべての記憶を見る・直す</button></details>`;
+}
+function aiMemCardHtml(){
+  const m=aiMem();
+  return `<div class="l211card" id="l211card"><span class="ic">🧠</span><div class="tx"><b>AI商社マンの記憶</b>（この商品）：会話 <b>${m.log.length}</b>件・教えたこと <b>${m.taught.length}</b>件<br>
+    <span>回答に「👎 ちがう・直したい」と押して正しい内容を書くと、次から優先して使います。</span></div>
+    <button type="button" class="btn g" onclick="openAiMem()">記憶を見る・直す</button></div>`;
+}
+function aiMemCardPaint(){ const el=document.getElementById("l211card"); if(el) el.outerHTML=aiMemCardHtml(); }
+function openAiMem(){
+  const m=aiMem();
+  const tRows=m.taught.map((x,i)=>`<div class="l211row"><div><b>${esc(x.txt)}</b><div class="s">${esc(x.d||"")}${x.q?"・きっかけ："+esc(x.q.slice(0,60)):""}</div></div><button type="button" class="btn g" data-amdel="t${i}" title="この記憶を消す">消す</button></div>`).join("")
+    ||`<p class="nn">まだありません。下の欄から教えるか、回答の「👎 ちがう・直したい」から教えられます。</p>`;
+  const lRows=m.log.slice().reverse().map(x=>{ const i=m.log.indexOf(x); return `<div class="l211row"><div><div>Q. ${esc(x.q)}</div><div class="s">${esc(x.a.slice(0,140))}${x.a.length>140?"…":""}</div><div class="s">${esc(x.d||"")}・${esc(x.src||"")}${x.fb>0?"・👍":x.fb<0?"・👎":""}</div></div><button type="button" class="btn g" data-amdel="l${i}" title="この会話を記憶から消す">消す</button></div>`; }).join("")
+    ||`<p class="nn">まだありません。AI商社マンに質問すると、ここに残ります。</p>`;
+  openDW(`<h3>🧠 AI商社マンの記憶（${esc((typeof D!=="undefined"&&D&&D.item)||"この商品")}）</h3>
+    <p class="nn" style="margin-top:4px">AI商社マンは、ここにある内容を<b>次の回答から使います</b>。まちがっている記憶は「消す」を押してください。記憶は商品ごとに分かれていて、他社には共有されません（全社版でも件数と話題の分類だけが匿名で集計されます）。</p>
+    <p class="lbl" style="margin-top:12px">＋ 新しく教える</p>
+    <textarea class="sel" id="l211new" rows="2" placeholder="例：シンガポールの代理店とは独占契約を結ばない方針です" style="width:100%;box-sizing:border-box"></textarea>
+    <div class="rw" style="margin-top:6px"><button type="button" class="btn" id="l211newgo">覚えさせる</button></div>
+    <h3 style="margin-top:16px">教えたこと（${m.taught.length}件・最優先で使う）</h3><div class="l211list">${tRows}</div>
+    <h3 style="margin-top:16px">これまでの相談（${m.log.length}件・新しい順）</h3><div class="l211list">${lRows}</div>
+    ${m.log.length?`<div class="rw" style="margin-top:10px"><button type="button" class="btn g" id="l211clr">会話の記憶をすべて消す</button></div>`:""}`);
+  const go=document.getElementById("l211newgo"); if(go) go.onclick=()=>{ const ta=document.getElementById("l211new"); const v=ta?ta.value.trim():""; if(!v){ toast("教える内容を入力してください"); return; } aiMemTeach(v,"",""); toast("覚えました。次の回答から反映します"); openAiMem(); aiMemCardPaint(); };
+  const tomb=(mm,id)=>{ if(!id) return; mm.del=Array.isArray(mm.del)?mm.del:[]; if(!mm.del.includes(id)) mm.del.push(id); if(mm.del.length>300) mm.del=mm.del.slice(-300); };
+  document.querySelectorAll("[data-amdel]").forEach(b=>b.onclick=()=>{ const k=b.dataset.amdel, i=+k.slice(1); const mm=aiMem(); const L=k[0]==="t"?mm.taught:mm.log; const x=L[i]; if(x) tomb(mm,x.id); L.splice(i,1); l211Save(); toast("記憶から消しました"); openAiMem(); aiMemCardPaint(); });
+  const clr=document.getElementById("l211clr"); if(clr) clr.onclick=()=>{ if(!confirm("会話の記憶をすべて消しますか？（教えたことは残ります）")) return; const mm=aiMem(); mm.log.forEach(x=>tomb(mm,x&&x.id)); mm.log=[]; l211Save(); toast("会話の記憶を消しました"); openAiMem(); aiMemCardPaint(); };
+}
+if(typeof vAI==="function"){ const __vAI211=vAI; vAI=function(){ let h=__vAI211.apply(this,arguments);
+  try{ h=h.replace('<div class="chat" id="chat"></div>',aiMemHistHtml()+'<div class="chat" id="chat"></div>');
+    h=h.replace(/(<p class="nn"[^>]*>回答は<b>登録されている情報だけ<\/b>[^<]*(?:<[^>]+>[^<]*)*?<\/p>)/,"$1"+aiMemCardHtml()); if(h.indexOf('id="l211card"')<0) h=h.replace('<div class="chat" id="chat"></div>','<div class="chat" id="chat"></div>'+aiMemCardHtml()); }catch(e){} return h; }; }
+
+/* ══ ③ 自社バイヤー・直接連絡・物流会社の区間別運賃を参照データへ ══ */
+function kbMyBuyers(){
+  const L=(typeof myBuyers==="function")?myBuyers():[]; const O=(typeof outreachList==="function")?outreachList():[]; if(!L.length&&!O.length) return "";
+  let s="";
+  if(L.length) s+=`## 自社で登録したバイヤー（${L.length}件・貴社の営業リスト。提案先・次の一手の助言に使う）\n`+L.slice(0,15).map(b=>`・${b.co||"（社名未入力）"}（${b.cty||"国未設定"}${b.biz?"・"+b.biz:""}${b.size?"・"+b.size:""}）${b.ints?"／取扱 "+String(b.ints).slice(0,40):""}${b.memo?"／メモ "+String(b.memo).slice(0,80):""}${b.ai&&b.ai.sum?"／AI確認 "+String(b.ai.sum).slice(0,60):""}`).join("\n")+(L.length>15?`\n（ほか${L.length-15}件）`:"");
+  if(O.length){ const by={}; O.forEach(o=>l211Inc(by,o.cty||"不明")); s+=`${s?"\n":""}## バイヤーDBから直接連絡した相手（${O.length}件）\n国別：${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,n])=>k+" "+n+"件").join("、")}／直近：`+O.slice(-5).reverse().map(o=>`${o.id}（${o.cty||""}${o.d?"・"+o.d:""}${o.lang?"・"+o.lang:""}）`).join("、"); }
+  return s;
+}
+function kbLanes(){
+  if(typeof fwdLaneAgg!=="function"||typeof FWDB==="undefined"||!FWDB) return ""; let A=[]; try{ A=fwdLaneAgg(); }catch(e){ return ""; } if(!A.length) return "";
+  const tg=new Set(((typeof D!=="undefined"&&D&&D.targets)||[]).map(c=>(typeof cnorm==="function"?cnorm(c):c)));
+  const L=A.filter(x=>tg.has(x.cty)).concat(A.filter(x=>!tg.has(x.cty))).slice(0,12);
+  return `## 物流会社が登録した区間別の運賃（${A.length}区間・進出希望国を先頭に。運賃・所要日数の質問はこれを根拠に答え、正式な金額はAI見積で確定すると添える）\n`+
+    L.map(x=>`・${x.cty&&x.cty!==x.pod?x.cty+" ":""}${x.pod}（${x.mode}）${x.n}社：¥${Number(x.min||0).toLocaleString()}〜¥${Number(x.max||0).toLocaleString()}${x.unit||""}／所要${x.ttMin}〜${x.ttMax}日${x.rec?"／AI物流マンの推奨 "+x.rec:""}`).join("\n");
+}
+if(typeof kbCtx==="function"){ const __kbc211=kbCtx; kbCtx=function(){ let base=""; try{ base=__kbc211.apply(this,arguments)||""; }catch(e){} const add=[]; try{ const a=kbMyBuyers(); if(a) add.push(a.slice(0,2400)); }catch(e){} try{ const b=kbLanes(); if(b) add.push(b.slice(0,1500)); }catch(e){}
+  if(!add.length) return base; return (base||`\n=== 貿易クラウド内の連携データ（AI商社マンが参照できる情報。回答の根拠にしてよい。無いものは「未登録」と答える） ===`)+"\n\n"+add.join("\n\n"); }; }
+if(typeof kbSeen==="function"){ const __ks211=kbSeen; kbSeen=function(){ const rows=__ks211.apply(this,arguments)||[]; try{ const nb=(typeof myBuyers==="function"?myBuyers().length:0), no=(typeof outreachList==="function"?outreachList().length:0); rows.push(["自社バイヤー・直接連絡",`登録${nb}件・連絡${no}件`,Math.min(100,Math.round((nb+no)/5*100))]); const m=aiMem(); rows.push(["AIの記憶（会話・教えたこと）",`会話${m.log.length}件・教えたこと${m.taught.length}件`,Math.min(100,Math.round((m.log.length+m.taught.length*3)/20*100))]); }catch(e){} return rows; }; }
+
+/* ══ ④ 出荷案件（手動で作った案件・想定案件の進み具合・会話）を保存 ══ */
+function shp211Ser(){
+  if(typeof SHIPS==="undefined"||!SHIPS||typeof PID==="undefined"||SHIPS._pid!==PID) return null;
+  if(typeof TEN==="undefined"||!TEN||TEN.src==="sample") return null;
+  const cur2=SHIPS[SHIPA]; if(cur2){ cur2.step=shipStep; cur2.qa=SHIPQA; }
+  const qa=L=>(L||[]).slice(-8).map(x=>({q:String(x.q||"").slice(0,300),a:String(x.a||"").slice(0,900),ci:String(x.ci||"").slice(0,160)}));
+  const man=SHIPS.filter(c=>c&&c.custom&&c.src!=="po"&&c.ship).map(c=>({ship:c.ship,step:c.step||0,qa:qa(c.qa),mods:c.mods||{},open:c.open===false?false:1,src:c.src||""}));
+  const sd=SHIPS.find(c=>c&&c.seed); return {man,seed:sd?{no:sd.ship&&sd.ship.no,step:sd.step||0,qa:qa(sd.qa),mods:sd.mods||{}}:null};
+}
+function shp211Save(){ clearTimeout(L211.shipT); L211.shipT=setTimeout(()=>{ try{ const s=shp211Ser(); if(!s) return; const sig=JSON.stringify(s); if(sig===L211.shipSig) return;
+  const prev=JSON.stringify({man:TEN.shipCases||[],seed:TEN.shipSeed||null}); L211.shipSig=sig; if(sig===prev) return;
+  TEN.shipCases=s.man; TEN.shipSeed=s.seed; if(typeof saveTen==="function") saveTen(); }catch(e){} },500); }
+function shp211Rehydrate(){
+  if(typeof SHIPS==="undefined"||!SHIPS||typeof TEN==="undefined"||!TEN) return;
+  (Array.isArray(TEN.shipCases)?TEN.shipCases:[]).forEach(r=>{ if(!r||!r.ship||SHIPS.some(c=>c&&c.ship&&c.ship.no===r.ship.no)) return;
+    SHIPS.push({ship:JSON.parse(JSON.stringify(r.ship)),step:r.step||0,qa:(r.qa||[]).slice(),custom:1,src:r.src||"",mods:r.mods||{},open:r.open===false?false:1,at:(SHIPS._seq=(SHIPS._seq||1)+1)}); });
+  const sd=TEN.shipSeed; if(sd&&!SHIPS.__seed211&&SHIPS[0]&&SHIPS[0].seed&&(!sd.no||!SHIPS[0].ship||SHIPS[0].ship.no===sd.no)){ SHIPS.__seed211=1;
+    SHIPS[0].step=sd.step||0; SHIPS[0].qa=(sd.qa||[]).slice(); SHIPS[0].mods=sd.mods||{}; if(SHIPA===0){ shipStep=SHIPS[0].step; SHIPQA=SHIPS[0].qa; } }
+  else if(!SHIPS.__seed211) SHIPS.__seed211=1;
+}
+if(typeof shipEnsure==="function"){ const __se211=shipEnsure; shipEnsure=function(){ __se211.apply(this,arguments); try{ shp211Rehydrate(); if(SHIPS&&SHIPS[SHIPA]){ const c=SHIPS[SHIPA]; if(c.custom&&typeof D!=="undefined"&&D) D.ship=c.ship; } }catch(e){} }; }
+if(typeof askShip==="function"){ const __as211=askShip; askShip=async function(){ const r=await __as211.apply(this,arguments); try{ shp211Save(); }catch(e){} return r; }; }
+
+/* ══ ⑤ 強み：20件まで保存（9件目以降が黙って捨てられていた） ══ */
+const STR_MAX=20;
+strSave=function(list){
+  list=(list||[]).filter(s2=>s2&&String(s2[0]||"").trim());
+  if(list.length>STR_MAX){ toast(`強みは${STR_MAX}件まで登録できます。新しい強みを入れるには、使わない強みを消してください（${list.length-STR_MAX}件は保存していません）`); list=list.slice(0,STR_MAX); }
+  if(typeof TEN!=="undefined"&&TEN&&TEN.src!=="sample"){
+    TEN.strengths=list;
+    if(typeof saveTen==="function") saveTen();
+    if(typeof syncTenant==="function") syncTenant(); else D.strengths=list;
+  } else D.strengths=list;
+  render();
+};
+
+/* ══ ⑥ 成長レベル：数え漏れの修正と加点 ══ */
+function l211GrowExtra(d,t){
+  const cnt=a=>Array.isArray(a)?a.length:0; const o={legal:0,deep:0,touch:0,memN:0,taught:0,up:0,today:0,decks:0,msgs:0,hear:0,facts:0,ddp:0,fob:0,detail:{}};
+  if(!t) return o;
+  o.legal=(t.legal&&Array.isArray(t.legal.docs))?t.legal.docs.length:0;
+  const rk=t.regKB||{}; const regAI=Object.keys(rk).filter(c=>rk[c]&&rk[c].appliedTxt).length; const cs=t.ctySel||{}; const deepN=Object.values(cs.deep||{}).filter(x=>x&&!x.local).length;
+  o.deep=regAI+(cnt(cs.chosen)?1:0)+deepN; o.detail.deep=`規制の詳細調査 ${regAI}か国・販売先国 ${cnt(cs.chosen)?"確定":"未確定"}・国別レポート ${deepN}件`;
+  const th=Object.values(t.dmThreads||{}).filter(x=>x&&x.msgs&&x.msgs.length); const replied=th.filter(x=>x.msgs.some(m=>m.w==="by")).length;
+  o.touch=replied*3+(th.length-replied)+cnt(t.myBuyers)+cnt(t.outreach); o.detail.touch=`直接メッセージ ${th.length}件（返信あり ${replied}）・自社バイヤー ${cnt(t.myBuyers)}件・直接連絡 ${cnt(t.outreach)}件`;
+  const m=t.aiMem||{}; o.memN=cnt(m.log); o.taught=cnt(m.taught); o.up=(m.log||[]).filter(x=>x&&x.fb>0).length;
+  o.today=Object.keys(t.todayRuns||{}).length; o.decks=l211DeckGen(t).length; o.msgs=cnt(t.msgs);
+  o.hear=cnt(t.extraQA); o.facts=(t.deckMeta&&t.deckMeta.facts)?1:0; o.ddp=Object.keys(t.ddpPx||{}).length; o.fob=t.fobIn?1:0;
+  return o;
+}
+if(typeof aiLevelFor==="function"){ const __lvl211=aiLevelFor;
+  aiLevelFor=function(d,t){ const L=__lvl211.apply(this,arguments); try{
+      const curD=(typeof D!=="undefined"&&D)||null; const dd=d||curD||{}; const tt=(t===undefined)?((dd===curD&&typeof TEN!=="undefined")?TEN:null):t;
+      const X=l211GrowExtra(dd,tt); const cat=k=>L.cats.find(c=>c.k===k);
+      const c1=cat("product"); if(c1&&(X.hear||X.facts)){ c1.pct=Math.min(100,c1.pct+Math.min(10,X.hear*2)+(X.facts?5:0)); c1.detail+=`${X.hear?"／ヒアリングの回答 "+X.hear+"件":""}${X.facts?"／会社リサーチ 済":""}`; }
+      const c2=cat("market"); if(c2&&(X.deep||X.ddp||X.fob)){ c2.pct=Math.min(100,c2.pct+Math.min(20,X.deep*5)+Math.min(10,(X.ddp+X.fob)*4)); if(X.deep) c2.detail+=`／${X.detail.deep}`; if(X.ddp||X.fob) c2.detail+=`／現地価格の確定 ${X.ddp}件${X.fob?"・推奨FOB 済":""}`; }
+      const c3=cat("fb"); if(c3&&X.touch){ c3.pct=Math.min(100,c3.pct+Math.min(15,X.touch)); c3.detail+=`／${X.detail.touch}`; }
+      const c4=cat("dialog"); if(c4){ const b=Math.min(25,Math.min(12,X.memN)+Math.min(9,X.taught*3)+Math.min(4,X.up)); if(b){ c4.pct=Math.min(100,c4.pct+b); } c4.detail+=`／AIの記憶 会話${X.memN}件・教えたこと${X.taught}件${X.up?"・👍"+X.up:""}`;
+        c4.how="質問と回答はAIの記憶に残り、次の相談で前回の続きとして使います。回答に👎を付けて正しい内容を教えると、次から最優先で守ります。"; }
+      const c5=cat("practice"); if(c5){ const legal0=(tt&&Array.isArray(tt.legal))?tt.legal.length:0; const addLegal=legal0?0:X.legal; const extra=addLegal+Math.min(5,X.today)+Math.min(3,X.decks);
+        if(extra){ const m=/^(.*?)契約書 (\d+)件/.exec(c5.detail); const prevExp=Math.round((c5.pct/100)*16); c5.pct=Math.max(c5.pct,growN(prevExp+extra,16)); if(addLegal&&m) c5.detail=c5.detail.replace(/契約書 \d+件/,"契約書 "+X.legal+"件"); c5.detail+=`${X.today?"／今日やることの実行 "+X.today+"件":""}${X.decks?"／営業資料 "+X.decks+"件":""}`; } }
+      const c6=cat("data"); if(c6&&X.msgs){ c6.pct=Math.min(100,c6.pct+Math.min(10,X.msgs*2)); c6.detail+=`／やりとり ${X.msgs}件`; }
+      const pct=Math.max(0,Math.min(100,Math.round(L.cats.reduce((a,c)=>a+c.pct*c.w/100,0)))); let lvIdx=0; GROW_STAGES.forEach((s,i)=>{ if(pct>=s[0]) lvIdx=i; });
+      L.pct=pct; L.lv=lvIdx+1; L.lvIdx=lvIdx; L.stage=GROW_STAGES[lvIdx][1]; L.nextStage=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][1]:null; L.nextTh=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][0]:null; L.to=Math.max(0,GROW_PRO-pct); L.pro=pct>=GROW_PRO;
+    }catch(e){} return L; }; }
+
+/* ══ ⑦ 全社プール：件数・帯・分類だけを追加（自由文・固有名は入れない） ══ */
+function l211Band(v,edges,unit){ v=+v; if(!isFinite(v)||v<=0) return ""; for(let i=0;i<edges.length;i++){ if(v<edges[i]) return (i?edges[i-1].toLocaleString():"")+"〜"+edges[i].toLocaleString()+(unit||""); } return edges[edges.length-1].toLocaleString()+(unit||"")+"〜"; }
+function l211LegalKind(x){ const s=[x&&x.kind,x&&x.type,x&&x.title,x&&x.name].join(" "); return /NDA|秘密保持|機密/i.test(s)?"NDA・秘密保持":/販売店|代理店|distribut|agency/i.test(s)?"販売店・代理店":/売買|供給|supply|purchase|sales/i.test(s)?"売買・供給":/委託|service/i.test(s)?"業務委託":/MOU|覚書|LOI/i.test(s)?"覚書・MOU":"その他"; }
+function l211DigestX(t,d){
+  t=t||{}; d=d||{}; const cnt=a=>Array.isArray(a)?a.length:0; const C=s=>(typeof poolCty==="function"?poolCty(s):String(s||"").trim()).slice(0,20);
+  const x={v:2};
+  const cs=t.ctySel||{}; x.cty={ch:(cs.chosen||[]).map(C).filter(Boolean).slice(0,3),top:(cs.top||[]).map(C).filter(Boolean).slice(0,5),n:cnt(cs.cands)};
+  const rk=t.regKB||{}; x.regAI=Object.keys(rk).filter(c=>rk[c]&&rk[c].appliedTxt).map(C).filter(Boolean).slice(0,12);
+  x.deepN=Object.values(cs.deep||{}).filter(v=>v&&!v.local).length;
+  /* 物流：自社のAI見積依頼で物流会社が回答した内容（国・形態・容積帯・1m³あたりの金額帯・日数） */
+  x.logi=[]; try{ if(typeof FWDB!=="undefined"&&FWDB&&Array.isArray(FWDB.reqs)){ const co=t.co||d.co||""; FWDB.reqs.filter(r=>r&&r.co===co).slice(0,12).forEach(r=>{ (r.legs||[]).forEach(l=>{ if(!l||!l.ok||!l.quote||x.logi.length>=10) return; const cbm=+r.cbm||0; const tot=+l.quote.total||0;
+      x.logi.push({c:C(l.cty||r.cty),m:String(l.quote.mode||r.mode||"").slice(0,8),cb:l211Band(cbm,[1,5,15,30],"m³"),pb:cbm?l211Band(tot/cbm,[10000,20000,40000,80000,160000],"円/m³"):"",tt:Math.max(0,Math.min(180,Math.round(+l.quote.tt||0)))}); }); }); } }catch(e){}
+  /* 現地販売価格（DDP等を確定した国・条件・経路・利益率帯） */
+  x.ddp=[]; try{ const P=t.ddpPx||{}; Object.values(P).slice(0,8).forEach(r=>{ if(!r) return; x.ddp.push({c:C(r.cty),tm:String(r.term||"").slice(0,6),rt:String(r.route||"").slice(0,6),mg:l211Band(r.margin,[10,20,30,40,60],"%")}); }); }catch(e){}
+  /* タスク（種類別・完了・期限超過） */
+  const tasks=(d.tasks||[]).concat([]); const today=(typeof TODAYS!=="undefined"?TODAYS:""); const tk={n:0,done:0,od:0,by:{}};
+  tasks.forEach(k=>{ if(!k||!k.n) return; tk.n++; const dn=/完了|済/.test(String(k.st||"")); if(dn) tk.done++; else if(k.e&&today&&k.e<today) tk.od++; l211Inc(tk.by,l211TaskType(k.n)); }); x.tasks=tk;
+  /* 会議メモ・商談記録・直接メッセージの話題（分類の件数だけ） */
+  const mt={n:0,tp:{}}; (t.memos||[]).forEach(m=>{ if(!m) return; mt.n++; l211Topics((m.t||"")+" "+(m.body||"")).forEach(k=>l211Inc(mt.tp,k)); }); x.memos=mt;
+  const fb={ch:{},tp:{},react:{}}; (t.fbx||d.fb||[]).forEach(f=>{ if(!f) return; l211Inc(fb.ch,String(f.ch||"").slice(0,12)||"不明"); l211Inc(fb.react,String(f.react||"").slice(0,4)||"不明"); l211Topics([f.note,f.why,f.price,f.lot,f.term,f.spec].join(" ")).forEach(k=>l211Inc(fb.tp,k)); }); x.fb2=fb;
+  /* AIへの質問（話題）・評価・訂正 */
+  const am=t.aiMem||{}; const ai={q:cnt(am.log),up:(am.log||[]).filter(v=>v&&v.fb>0).length,dn:(am.log||[]).filter(v=>v&&v.fb<0).length,tg:cnt(am.taught),tp:{},fx:{}};
+  (am.log||[]).forEach(v=>(v.tp||l211Topics(v.q)).forEach(k=>l211Inc(ai.tp,k))); (am.taught||[]).forEach(v=>(v.tp||[]).forEach(k=>l211Inc(ai.fx,k))); x.ai=ai;
+  /* 実務（件数）・契約書の種類・営業資料の言語 */
+  const lg={}; ((t.legal&&t.legal.docs)||[]).forEach(v=>l211Inc(lg,l211LegalKind(v)));
+  const dg=l211DeckGen(t); const langs=[...new Set(dg.map(v=>String(v&&v.lang||"").slice(0,5).toLowerCase()).filter(v=>/^[a-z]{2,3}(-[a-z]{2})?$/.test(v)))].slice(0,8);
+  x.ops={po:cnt(t.poCases),shp:cnt(t.shipCases)+(t.shipSeed?1:0),shd:(t.shipCases||[]).filter(c=>(c.step||0)>=6).length+((t.shipSeed&&(t.shipSeed.step||0)>=6)?1:0),lg,dk:dg.length,lang:langs,today:Object.keys(t.todayRuns||{}).length,msgs:cnt(t.msgs)};
+  /* バイヤー（自社登録・直接連絡の国） */
+  const mc={}, oc={}; (t.myBuyers||[]).forEach(b=>l211Inc(mc,C(b&&b.cty)||"不明")); (t.outreach||[]).forEach(o=>l211Inc(oc,C(o&&o.cty)||"不明")); x.byr={mine:cnt(t.myBuyers),mc,out:cnt(t.outreach),oc};
+  /* 強みの観点（本文は入れない） */
+  const st={n:0,tp:{}}; (t.strengths||d.strengths||[]).forEach(s=>{ const tx=Array.isArray(s)?s.join(" "):String(s||""); if(!tx.trim()) return; st.n++; L211_STR.forEach(([k,r])=>{ if(r.test(tx)) l211Inc(st.tp,k); }); }); x.str=st;
+  const hq={n:cnt(t.extraQA),tp:{}}; (t.extraQA||[]).forEach(v=>l211Topics(v&&v.q).forEach(k=>l211Inc(hq.tp,k))); x.hear=hq; x.notes=cnt(t.aiNotes); x.fob=t.fobIn?1:0;
+  return x;
+}
+if(typeof poolProductDigest==="function"){ const __ppd211=poolProductDigest; poolProductDigest=function(t,d){ const p=__ppd211.apply(this,arguments); try{ p.x=l211DigestX(t,d); }catch(e){} return p; }; }
+/* 合成：全社版の知識に「Ver2.0 の実務・話題・物流・国選定」の行を足す */
+function l211Compile(digests){
+  const S={cty:{},top:{},regAI:{},deep:0,logi:{},ddp:{},tasks:{n:0,done:0,od:0,by:{}},memos:{n:0,tp:{}},fbCh:{},fbTp:{},ai:{q:0,up:0,dn:0,tg:0,tp:{},fx:{}},ops:{po:0,shp:0,shd:0,lg:{},dk:0,lang:{},today:0,msgs:0},byr:{mine:0,mc:{},out:0,oc:{}},str:{n:0,tp:{}},cos:0};
+  (digests||[]).forEach(z=>{ const dg=z&&z.d||z||{}; let has=0; const chS=new Set(), topS=new Set();
+    (dg.products||[]).forEach(p=>{ const x=p&&p.x; if(!x) return; has=1;
+      ((x.cty||{}).ch||[]).forEach(c=>chS.add(c)); ((x.cty||{}).top||[]).forEach(c=>topS.add(c)); (x.regAI||[]).forEach(c=>l211Inc(S.regAI,c)); S.deep+=+x.deepN||0;
+      (x.logi||[]).forEach(l=>{ if(!l||!l.c) return; const k=l.c+"｜"+(l.m||"-"); const e=S.logi[k]||(S.logi[k]={n:0,pb:{},tt:[]}); e.n++; if(l.pb) l211Inc(e.pb,l.pb); if(l.tt) e.tt.push(+l.tt); });
+      (x.ddp||[]).forEach(r=>{ if(!r||!r.c) return; const k=r.c+"｜"+(r.tm||"-")+(r.rt?"・"+r.rt:""); const e=S.ddp[k]||(S.ddp[k]={n:0,mg:{}}); e.n++; if(r.mg) l211Inc(e.mg,r.mg); });
+      const tk=x.tasks||{}; S.tasks.n+=+tk.n||0; S.tasks.done+=+tk.done||0; S.tasks.od+=+tk.od||0; Object.entries(tk.by||{}).forEach(([k,n])=>l211Inc(S.tasks.by,k,+n||0));
+      const mt=x.memos||{}; S.memos.n+=+mt.n||0; Object.entries(mt.tp||{}).forEach(([k,n])=>l211Inc(S.memos.tp,k,+n||0));
+      const f2=x.fb2||{}; Object.entries(f2.ch||{}).forEach(([k,n])=>l211Inc(S.fbCh,k,+n||0)); Object.entries(f2.tp||{}).forEach(([k,n])=>l211Inc(S.fbTp,k,+n||0));
+      const ai=x.ai||{}; ["q","up","dn","tg"].forEach(k=>S.ai[k]+=+ai[k]||0); Object.entries(ai.tp||{}).forEach(([k,n])=>l211Inc(S.ai.tp,k,+n||0)); Object.entries(ai.fx||{}).forEach(([k,n])=>l211Inc(S.ai.fx,k,+n||0));
+      const op=x.ops||{}; ["po","shp","shd","dk","today","msgs"].forEach(k=>S.ops[k]+=+op[k]||0); Object.entries(op.lg||{}).forEach(([k,n])=>l211Inc(S.ops.lg,k,+n||0)); (op.lang||[]).forEach(v=>l211Inc(S.ops.lang,v));
+      const by=x.byr||{}; S.byr.mine+=+by.mine||0; S.byr.out+=+by.out||0; Object.entries(by.mc||{}).forEach(([k,n])=>l211Inc(S.byr.mc,k,+n||0)); Object.entries(by.oc||{}).forEach(([k,n])=>l211Inc(S.byr.oc,k,+n||0));
+      const st=x.str||{}; S.str.n+=+st.n||0; Object.entries(st.tp||{}).forEach(([k,n])=>l211Inc(S.str.tp,k,+n||0)); });
+    chS.forEach(c=>l211Inc(S.cty,c)); topS.forEach(c=>l211Inc(S.top,c)); if(has) S.cos++; });
+  const top=(o,n)=>Object.entries(o||{}).filter(([k])=>k&&k!=="不明").sort((a,b)=>b[1]-a[1]).slice(0,n||8);
+  const med=a=>{ if(!a||!a.length) return null; const s=a.slice().sort((p,q)=>p-q); return s[Math.floor(s.length/2)]; };
+  const lines=[];
+  if(!S.cos) return {S,lines};
+  if(Object.keys(S.cty).length) lines.push(`販売先国の確定（Ver2.0・社数）：${top(S.cty,8).map(([k,n])=>`${k} ${n}社`).join("、")}${Object.keys(S.top).length?`／AIの推奨上位に入った国：${top(S.top,8).map(([k,n])=>`${k} ${n}社`).join("、")}`:""}`);
+  if(Object.keys(S.regAI).length||S.deep) lines.push(`規制の詳細調査（担当者が確認して反映した国・延べ）：${top(S.regAI,10).map(([k,n])=>`${k} ${n}`).join("、")||"-"}${S.deep?`／国別の詳細レポート ${S.deep}件`:""}`);
+  const lg=Object.entries(S.logi).sort((a,b)=>b[1].n-a[1].n).slice(0,10); if(lg.length) lines.push(`物流の見積実績（Ver2.0・物流会社の回答・1m³あたり）：${lg.map(([k,e])=>{ const [c,m]=k.split("｜"); const pb=top(e.pb,1)[0]; const tt=med(e.tt); return `${c} ${m}${pb?" "+pb[0]+"帯":""}${tt!=null?"・約"+tt+"日":""}（${e.n}件）`; }).join("、")}`);
+  const dp=Object.entries(S.ddp).sort((a,b)=>b[1].n-a[1].n).slice(0,8); if(dp.length) lines.push(`現地販売価格を確定した条件と利益率帯（Ver2.0）：${dp.map(([k,e])=>{ const mg=top(e.mg,1)[0]; return `${k.replace("｜"," ")}${mg?" 利益率"+mg[0]:""}（${e.n}件）`; }).join("、")}`);
+  if(S.tasks.n) lines.push(`タスク（Ver2.0）：${S.tasks.n}件・完了率 ${Math.round(S.tasks.done/S.tasks.n*100)}%・期限超過 ${S.tasks.od}件／多い種類 ${top(S.tasks.by,6).map(([k,n])=>`${k} ${n}`).join("、")}`);
+  const tp={}; [S.memos.tp,S.fbTp].forEach(o=>Object.entries(o).forEach(([k,n])=>l211Inc(tp,k,n))); if(Object.keys(tp).length) lines.push(`会議メモ・商談記録の話題（Ver2.0・言及件数）：${top(tp,10).map(([k,n])=>`${k} ${n}`).join("、")}`);
+  if(Object.keys(S.fbCh).length) lines.push(`商談の連絡手段（Ver2.0）：${top(S.fbCh,6).map(([k,n])=>`${k} ${n}`).join("、")}`);
+  if(S.ai.q||S.ai.tg) lines.push(`AI商社マンへの相談（Ver2.0）：${S.ai.q}件（👍${S.ai.up}・👎${S.ai.dn}）／多い話題 ${top(S.ai.tp,6).map(([k,n])=>`${k} ${n}`).join("、")||"-"}${S.ai.tg?`／担当者がAIに教えた訂正 ${S.ai.tg}件（話題：${top(S.ai.fx,4).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）＝この話題は特に慎重に、根拠を示して答える`:""}`);
+  const op=S.ops; if(op.po||op.shp||Object.keys(op.lg).length||op.dk) lines.push(`実務の件数（Ver2.0）：発注書案件 ${op.po}件・出荷手続き ${op.shp}件（完了 ${op.shd}）${Object.keys(op.lg).length?"・契約書 "+top(op.lg,5).map(([k,n])=>`${k} ${n}`).join("・"):""}${op.dk?"・外国語営業資料 "+op.dk+"回（言語："+(top(op.lang,5).map(([k,n])=>`${k} ${n}社`).join("・")||"-")+"）":""}${op.today?"・今日やることの実行 "+op.today+"件":""}`);
+  if(S.byr.mine||S.byr.out) lines.push(`自社で見つけたバイヤー・直接連絡（Ver2.0）：自社登録 ${S.byr.mine}件（国：${top(S.byr.mc,5).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）／バイヤーDBからの直接連絡 ${S.byr.out}件（国：${top(S.byr.oc,5).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）`);
+  if(S.str.n) lines.push(`各社が打ち出している強みの観点（Ver2.0）：${top(S.str.tp,8).map(([k,n])=>`${k} ${n}`).join("、")}`);
+  return {S,lines};
+}
+if(typeof poolCompile==="function"){ const __pcmp211=poolCompile; poolCompile=function(digests,v1){ const C=__pcmp211.apply(this,arguments); try{ const X=l211Compile(digests); C.x=X.S; if(X.lines.length){ C.text=(C.text?C.text+"\n":"")+X.lines.join("\n"); } }catch(e){} return C; }; }
+/* 全社版の即答：他社の販売先国・物流費の相場・利益率・タスクの段取り・よく出る話題 */
+function l211PoolAsk(q){
+  const s=String(q||""); if(typeof poolMode!=="function"||poolMode()!=="all") return null;
+  if(!/(他社|全社|みんな|他の(会社|企業|ユーザー)|一般的|相場|平均|傾向|よくある)/.test(s)) return null;
+  const C=(typeof poolCompiled==="function")?poolCompiled():null; const X=C&&C.x; if(!X||!X.cos) return null;
+  const top=(o,n)=>Object.entries(o||{}).filter(([k])=>k&&k!=="不明").sort((a,b)=>b[1]-a[1]).slice(0,n||6); const rows=[];
+  if(/国|どこ|市場|販売先/.test(s)&&Object.keys(X.cty).length) rows.push(`<b>他社が確定した販売先国（Ver2.0・社数）</b>：${top(X.cty,8).map(([k,n])=>`${esc(k)} ${n}社`).join("、")}`);
+  if(/物流|運賃|送料|輸送費|船|航空|日数/.test(s)&&Object.keys(X.logi).length){ const lg=Object.entries(X.logi).sort((a,b)=>b[1].n-a[1].n).slice(0,8); rows.push(`<b>物流の見積実績（全社・1m³あたり）</b>：<br>`+lg.map(([k,e])=>{ const [c,m]=k.split("｜"); const pb=top(e.pb,1)[0]; const tt=e.tt.length?e.tt.slice().sort((a,b)=>a-b)[Math.floor(e.tt.length/2)]:null; return `・${esc(c)} ${esc(m)}：${pb?esc(pb[0])+"帯":"金額帯なし"}${tt!=null?"・約"+tt+"日":""}（${e.n}件）`; }).join("<br>")); }
+  if(/利益率|マージン|DDP|現地価格|値付け/.test(s)&&Object.keys(X.ddp).length) rows.push(`<b>現地販売価格を確定した条件と利益率帯（全社）</b>：${Object.entries(X.ddp).sort((a,b)=>b[1].n-a[1].n).slice(0,6).map(([k,e])=>{ const mg=top(e.mg,1)[0]; return `${esc(k.replace("｜"," "))}${mg?" 利益率"+esc(mg[0]):""}（${e.n}件）`; }).join("、")}`);
+  if(/タスク|段取り|手順|何から|完了率/.test(s)&&X.tasks.n) rows.push(`<b>タスクの傾向（全社）</b>：${X.tasks.n}件・完了率 ${Math.round(X.tasks.done/X.tasks.n*100)}%／多い種類 ${top(X.tasks.by,6).map(([k,n])=>`${esc(k)} ${n}`).join("、")}`);
+  if(/話題|議題|よく話|聞かれ|論点/.test(s)){ const tp={}; [X.memos.tp,X.fbTp].forEach(o=>Object.entries(o).forEach(([k,n])=>l211Inc(tp,k,n))); if(Object.keys(tp).length) rows.push(`<b>会議メモ・商談記録の話題（全社・言及件数）</b>：${top(tp,10).map(([k,n])=>`${esc(k)} ${n}`).join("、")}`); }
+  if(/強み|アピール|打ち出/.test(s)&&X.str.n) rows.push(`<b>各社が打ち出している強みの観点（全社）</b>：${top(X.str.tp,8).map(([k,n])=>`${esc(k)} ${n}`).join("、")}`);
+  if(!rows.length) return null;
+  rows.push(`<span style="color:var(--ink-3)">※貿易クラウド2.0 の利用企業 ${X.cos}社分の匿名集計です（社名・商品名・本文は含みません）。貴社の登録データがある場合はそちらを優先してください。</span>`);
+  return {a:rows.join("<br>"),c:`根拠：全社知識プール（Ver2.0・${X.cos}社の匿名集計・最終取得 ${typeof poolWhen==="function"?poolWhen(POOL.at):"-"}）`};
+}
+if(typeof brain==="function"){ const __br211p=brain; brain=function(q,opts){ try{ const r=l211PoolAsk((opts&&opts.raw)||q); if(r) return r; }catch(e){} return __br211p.apply(this,arguments); }; }
+
+/* ── 同期の結合：AIの記憶（会話・教えたこと）と手動の出荷案件を、両端末から足し合わせる（v16 の結合は やりとり／会議メモ／商談記録／タスクだけだった） ── */
+function l211UnionMem(dt,st){
+  const a=dt.aiMem||{}, b=st.aiMem||{}; if(!b.log&&!b.taught&&!b.del) return false;
+  const del=new Set([...(a.del||[]),...(b.del||[])]); let ch=false;
+  const uni=(A,B)=>{ const ids=new Set((A||[]).map(x=>x&&x.id)); const add=(B||[]).filter(x=>x&&x.id&&!ids.has(x.id)&&!del.has(x.id)); if(add.length) ch=true; return (A||[]).concat(add).filter(x=>x&&!del.has(x.id)); };
+  const log=uni(a.log,b.log).sort((x,y)=>(x.at||0)-(y.at||0)).slice(-AIMEM_LOG_MAX);
+  const taught=uni(a.taught,b.taught).sort((x,y)=>(y.at||0)-(x.at||0)).slice(0,AIMEM_TAUGHT_MAX);
+  (b.log||[]).forEach(x=>{ const y=log.find(z=>z.id===x.id); if(y&&x.fb&&!y.fb){ y.fb=x.fb; if(x.fix) y.fix=x.fix; ch=true; } });
+  const dl=[...del].slice(-300); if(dl.length!==(a.del||[]).length) ch=true;
+  if(ch) dt.aiMem={log,taught,del:dl}; return ch;
+}
+function l211UnionShip(dt,st){
+  const A=dt.shipCases||[], B=st.shipCases||[]; if(!B.length) return false; const nos=new Set(A.map(c=>c&&c.ship&&c.ship.no)); const add=B.filter(c=>c&&c.ship&&!nos.has(c.ship.no)); if(!add.length) return false; dt.shipCases=A.concat(add); return true;
+}
+if(typeof v16UnionInto==="function"){ const __un211=v16UnionInto; v16UnionInto=function(DST,SRC){ const c=__un211.apply(this,arguments); let c2=false;
+  try{ (SRC||[]).forEach(st=>{ if(!st) return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt||dt===st) return; if(l211UnionMem(dt,st)) c2=true; if(l211UnionShip(dt,st)) c2=true; }); }catch(e){} return c||c2; }; }
+/* ── 外国語営業資料の生成を商品ごとに記録（従来は利用履歴の1行だけ＝AIも全社プールも数えられなかった） ── */
+function l211DeckGen(t){ t=t||((typeof TEN!=="undefined")?TEN:null); return (t&&Array.isArray(t.deckGen))?t.deckGen:[]; }
+if(typeof logU==="function"){ const __lu211=logU; logU=function(type,detail){ const r=__lu211.apply(this,arguments);
+  try{ const m=/^営業資料生成:(.+)$/.exec(String(detail||"")); if(type==="ai"&&m&&typeof TEN!=="undefined"&&TEN&&TEN.src!=="sample"){ TEN.deckGen=l211DeckGen(TEN).concat([{lang:String(m[1]).slice(0,12),d:(typeof TODAYS!=="undefined"?TODAYS:""),at:Date.now()}]).slice(-50); l211Save(); } }catch(e){} return r; }; }
+function l211DeckCtx(){ const L=l211DeckGen(); if(!L.length) return ""; const by={}; L.forEach(x=>l211Inc(by,x.lang)); return `\n## 外国語 営業資料の生成（${L.length}回）\n言語：${Object.entries(by).map(([k,n])=>k+" "+n+"回").join("、")}／最終 ${L[L.length-1].d||""}`; }
+/* ── 物流の共有領域（v2.6）：荷主の端末には自社の依頼だけを置く（サーバーも荷主には自社分だけを返す）。物流会社の相談・操作履歴は荷主の端末に残さない ── */
+function l211FwdTidy(){
+  try{ if(typeof FWDB==="undefined"||!FWDB||typeof SES==="undefined"||!SES||SES.role==="fwd"||typeof SYNC==="undefined"||!SYNC.kid) return false;
+    if(!((+SYNC.rel||0)>=2.6)) return false;   /* サーバーが v2.6 以上（荷主の保存を自社の依頼だけに絞る）の時だけ。旧サーバーでは全体を上書き保存するため、整理すると相談履歴を消してしまう */
+    const me=SYNC.kid; const b=(FWDB.reqs||[]).length, c=(FWDB.chat||[]).length+(FWDB.hist||[]).length;
+    FWDB.reqs=(FWDB.reqs||[]).filter(r=>r&&(!r.kid||r.kid===me)); FWDB.chat=[]; FWDB.hist=[];
+    return b!==FWDB.reqs.length||c>0; }catch(e){ return false; } }
+if(typeof syncPullFwd==="function"){ const __spf211=syncPullFwd; syncPullFwd=async function(){ const r=await __spf211.apply(this,arguments); try{ if(l211FwdTidy()){ SYNC.applying=1; try{ localStorage.setItem("bc20_fwd_v1",JSON.stringify(FWDB)); }catch(e){} finally{ SYNC.applying=0; } } }catch(e){} return r; }; }
+/* ── 画面：保存・再描画のたびに出荷案件を控える／AI画面の記憶カードを更新 ── */
+if(typeof render==="function"){ const __rd211=render; render=function(){ const r=__rd211.apply(this,arguments); try{ shp211Save(); }catch(e){} return r; }; }
+(function(){ if(document.getElementById("l211css")) return; const st=document.createElement("style"); st.id="l211css"; st.textContent=`
+.l211fb{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding-top:7px;border-top:1px dashed var(--line)}
+.l211b{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);cursor:pointer;min-height:30px}
+.l211b:hover{border-color:var(--or);color:var(--ink)}
+.l211b:focus-visible{outline:2px solid var(--or);outline-offset:1px}
+.l211ok{font-size:12.5px;color:var(--good)}
+.l211teach{width:100%}.l211teach p{margin:0 0 6px;font-size:13px;line-height:1.6;color:var(--ink)}
+.l211teach textarea{width:100%;box-sizing:border-box;min-height:58px;font-size:14px}.l211teach .rw{margin-top:6px;gap:6px}
+.l211tg{margin-top:8px;padding:7px 10px;border-radius:8px;background:var(--or-soft);font-size:13px;line-height:1.6}
+.l211card{display:flex;gap:10px;align-items:center;margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--canvas)}
+.l211card .ic{font-size:20px}.l211card .tx{flex:1;font-size:13px;line-height:1.6}.l211card .tx span{color:var(--ink-3);font-size:12.5px}
+.l211hist{margin:0 0 8px;border:1px solid var(--line);border-radius:10px;background:var(--canvas)}
+.l211hist summary{cursor:pointer;padding:8px 12px;font-size:13.5px;font-weight:700;list-style:none}.l211hist summary span{font-weight:400;color:var(--ink-3);font-size:12px;margin-left:8px}
+.l211hist[open] summary{border-bottom:1px solid var(--line)}.l211hist>div,.l211hist>button{margin:8px 12px}
+.l211h .q{font-weight:700;font-size:13px}.l211h .a{font-size:13px;color:var(--ink-2);line-height:1.6;margin-top:2px}.l211h .s{font-size:12px;color:var(--ink-3);margin-top:2px}
+.l211list{display:flex;flex-direction:column;gap:6px;margin-top:6px}.l211row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;line-height:1.6}
+.l211row .s{font-size:12px;color:var(--ink-3)}.l211row .btn{flex:none}
+@media (max-width:700px){.l211card{flex-wrap:wrap}.l211card .btn{width:100%}}
+`; document.head.appendChild(st); })();
+
+/* ═══════════ v21.1 UI/UX：日・米・英・豪・仏のSaaS 50社の共通点を反映（2026-09-23） ═══════════
+   方針（ベンチマークの共通点と、高齢者・初心者向けの公的基準＝デジタル庁：本文16px・行間1.5以上・コントラスト4.5:1）
+   ① 読みやすさ：文字の段階を1段上げる（PC 本文15px／スマホ16px）。灰色・オレンジ・緑の文字を 4.5:1 以上の濃さへ。
+      オレンジのボタンは白文字（2.3:1）→ 紺文字（約9:1）。オレンジは「塗り」に使い、優しいオレンジ基調はそのまま。
+   ② 迷わない：社内用語（レイヤー①〜⑤）と「この版で新規」を利用者画面から外す。赤は本当に急ぐときだけ（今日やることの全カードが赤だった）。
+   ③ AIの入口は1つを主役に：右下の「AIに質問」と各ページの「AIに質問」を主役に、上部の成長レベルは静かな表示へ。
+   ④ ホーム＝次の一手：ダッシュボード最上部に「あいさつ＋今日やること N件＋最初の1件」（移動のお知らせ帯を置き換え）。
+   ⑤ AI商社マン画面は会話を先頭に（成長レベルはその下）。
+   ⑥ 押しやすさ：ボタン 40px（スマホ 44px）以上、キーボード操作の枠線、動きを減らす設定の尊重。
+   ⑦ 横はみ出しの修正（AIが見ているものの長い値）。 */
+const UX211={on:1};
+function ux211Mode(){ try{ return (typeof ux17Mode==="function")?ux17Mode():"user"; }catch(e){ return "user"; } }
+function ux211Css(){
+  if(document.getElementById("ux211css")) return;
+  const st=document.createElement("style"); st.id="ux211css"; st.textContent=`
+/* ① 色（ライト）：文字は 4.5:1 以上 */
+:root,:root[data-theme="light"]{--ink-3:#56637A;--or-deep:#8F4F00;--warn:#8F4F00;--good:#0B6B3A;--btn-ink:#14243C}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--btn-ink:#14243C}}
+:root[data-theme="dark"]{--btn-ink:#14243C}
+/* ① 文字の段階（PC）：xs13／sm14／md15／lg16／h3 17／h1 24、スマホ：xs13／sm14.5／md16／lg17／h3 18／h1 21 */
+:root{--fs-xs:13px;--fs-sm:14px;--fs-md:15px;--fs-lg:16px;--fs-h3:17px;--fs-h1:24px;--rm-a:13px;--rm-b:13.5px;--rm-c:14px;--rm-d:14.5px;--rm-e:15.5px}
+@media (max-width:820px){:root{--fs-xs:13px;--fs-sm:14.5px;--fs-md:16px;--fs-lg:17px;--fs-h3:18px;--fs-h1:21px;--rm-a:13px;--rm-b:13.5px;--rm-c:14.5px;--rm-d:15px;--rm-e:16px}}
+.ph .cando{font-size:var(--fs-md);line-height:1.75}
+.c .nn,.nn{line-height:1.75}
+.ngrp{font-size:12.5px;letter-spacing:.04em}
+.side-ft{font-size:12.5px}
+.bb .cpy{font-size:12.5px}
+.kd{font-size:var(--fs-sm)}
+.ci{font-size:13px}
+::placeholder{color:#6B7788;opacity:1}
+/* ① ボタン：オレンジの塗り＋紺の文字（青・紺のボタンは白文字のまま） */
+.btn{color:var(--btn-ink);min-height:40px;padding:9px 18px;border-radius:10px;letter-spacing:.02em}
+.btn.b,.btn[style*="background:var(--bl)"],.btn.askai{color:#fff}
+.btn.g{color:var(--ink)}
+.btn:disabled,.btn[disabled]{opacity:.5;cursor:not-allowed}
+/* ⑥ 押しやすさ・キーボード */
+.q{min-height:34px}
+button:focus-visible,.btn:focus-visible,a:focus-visible,[role=button]:focus-visible,.nb:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--bl);outline-offset:2px}
+@media (max-width:820px){.btn{min-height:44px}.q{min-height:40px}.nb{min-height:46px}}
+@media (prefers-reduced-motion:reduce){#askfab.pulse,#askfab .pulse{animation:none!important}#well.uxin,.uxin{animation:none!important}}
+/* ② 社内用語・「この版で新規」は利用者画面では出さない */
+body.ux211u .ph .lt{display:none}
+body.ux211u .ux211new{display:none!important}
+/* ② 今日やること：赤は使わず、優先度はオレンジの目印で（赤＝期限切れ・失敗だけ） */
+#well .ddc[onclick^="todayRun"][style*="var(--crit)"]{border-left-color:var(--or)!important}
+#well .ddc[onclick^="todayRun"] .p.no{background:var(--or-soft);color:var(--or-deep)}
+/* ③ 上部の成長レベル：主役のボタンではなく静かな表示に */
+#gai.btn.gai{background:var(--surface);color:var(--ink);border:1.5px solid var(--or);box-shadow:none}
+#gai.btn.gai .lv{background:var(--or-soft);color:var(--or-deep)}
+#gai.btn.gai .lvs{color:var(--ink-2)}
+/* ④ ホーム：あいさつ＋今日やること */
+.ux211next{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:11px;padding:14px 16px;border:1px solid var(--or);background:linear-gradient(0deg,var(--surface),var(--surface)),var(--or-soft);border-left:6px solid var(--or);cursor:pointer}
+.ux211next .tx{flex:1 1 320px;min-width:0}
+.ux211next .hi{font-size:var(--fs-lg);font-weight:700;color:var(--ink)}
+.ux211next .nx{font-size:var(--fs-md);line-height:1.7;margin-top:2px;color:var(--ink)}
+.ux211next .nx q{quotes:"「" "」";font-weight:700}
+.ux211next .sub{font-size:var(--fs-sm);color:var(--ink-3);margin-top:2px}
+/* ① オレンジの丸・帯に載る白文字 → 紺（番号・AIアイコン・段階・進み具合の帯） */
+:root,:root[data-theme="light"]{--crit:#B5302E}
+.stno,.m.a .av,.gladder .on.cur{color:var(--btn-ink)!important}
+.tdno[style*="var(--or)"],.ddr span[style*="background:var(--or)"],#guide .gst.on i{color:var(--btn-ink)!important}
+/* ① 小さく残っていた文字（目次チップ・項目名・空欄の案内） */
+#uxsec .uxsl{font-size:13px}#uxsec .uxsc{font-size:13.5px}
+#well div.k{font-size:13px}#well .v186empty{font-size:13.5px}
+/* ⑥ 表の中のボタンは折り返さない（物流会社の受信箱で「交渉記録」が縦1字ずつに折れていた） */
+#well table .btn,#pn table .btn{white-space:nowrap;min-height:34px}
+@media (max-width:820px){#well table .btn,#pn table .btn{min-height:44px}#uxsec .uxsc{min-height:40px}}
+.ux211more{width:100%;margin-top:2px}
+.ux211more>summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:700;font-size:var(--fs-sm);color:var(--ink)}
+.ux211more>summary::after{content:"▾";margin-left:6px;color:var(--ink-3)}
+.ux211more[open]>summary::after{content:"▴"}
+.ux211more>.rw{margin-top:8px;gap:8px;flex-wrap:wrap}
+/* ⑦ 長い値は折り返す（横はみ出し防止） */
+#well div[style*="justify-content:space-between"]>span.n[style*="nowrap"]{white-space:normal!important;text-align:right;overflow-wrap:anywhere;min-width:0}
+#well div[style*="justify-content:space-between"]>span:first-child{flex:none;max-width:60%}
+`; document.head.appendChild(st);
+}
+/* ② 利用者モードの印（管理者・デモでは従来どおり表示） */
+function ux211Body(){ try{ const m=ux211Mode(); const trial=(typeof SES!=="undefined"&&SES&&SES.t==="trial"); document.body.classList.toggle("ux211u",trial&&(m==="user"||m==="fwd")); }catch(e){} }
+function ux211MarkNew(root){ try{ (root||document).querySelectorAll(".nt").forEach(el=>{ const t=(el.textContent||"").trim(); if(t==="この版で新規"||/^(New in this version|本版新增|Nuevo en esta versión)$/i.test(t)) el.classList.add("ux211new"); }); }catch(e){} }
+/* ④ ダッシュボード：お知らせ帯 → あいさつ＋次の一手 */
+function ux211Greet(){ const h=new Date().getHours(); return h>=5&&h<11?"おはようございます":h>=11&&h<18?"こんにちは":"こんばんは"; }
+function ux211NextHtml(){
+  let items=[]; try{ if(typeof todayItems==="function") items=todayItems()||[]; }catch(e){}
+  const who=(typeof SES!=="undefined"&&SES&&SES.who)?String(SES.who):""; const first=items[0];
+  const item=(typeof D!=="undefined"&&D&&D.item)?D.item:"";
+  const plain=s=>String(s||"").replace(/<[^>]+>/g,"").replace(/\s+/g," ").trim();
+  return `<div class="c ux211next" role="button" tabindex="0" onclick="go('today')" onkeydown="if(event.key==='Enter')go('today')" title="今日やることを開く">
+    <div class="tx"><div class="hi">${who?esc(who)+"さん、":""}${ux211Greet()}。</div>
+      <div class="nx">${items.length?`今日やることは <b>${items.length}件</b> です。まずはこれから：<q>${esc(plain(first.t).slice(0,60))}</q>`:"今日やることは、商品情報がそろうとAI商社マンが毎日ご提案します。"}</div>
+      ${item?`<div class="sub">対象の商品：${esc(item)}（上の切替メニューで変えられます）</div>`:""}</div>
+    <button class="btn" type="button" onclick="event.stopPropagation();go('today')">今日やることを開く</button></div>`;
+}
+if(typeof vDash==="function"){ const __vd211=vDash; vDash=function(){ let h=__vd211.apply(this,arguments);
+  try{ const i=h.indexOf("は専用ページに移りました"); if(i>0){ const a=h.lastIndexOf('<div class="c ddc"',i); const e1=h.indexOf("</div></div>",i); if(a>=0&&e1>i) h=h.slice(0,a)+h.slice(e1+12); }
+    const card=ux211NextHtml(); const s=h.indexOf('<div class="c dscope"'); h=s>=0?h.slice(0,s)+card+h.slice(s):h+card; }catch(e){} return h; }; }
+/* ⑤ AI商社マン画面：会話を先頭に */
+function ux211AiFirst(){
+  try{ if(typeof cur==="undefined"||cur!=="ai") return; const w=document.getElementById("well"); const ch=document.getElementById("chat"); if(!w||!ch) return;
+    const g2=ch.closest(".g2"); const ph=w.querySelector(".ph"); if(!g2||!ph||g2.dataset.ux211) return; g2.dataset.ux211="1";
+    ph.insertAdjacentElement("afterend",g2); g2.style.marginBottom="11px"; }catch(e){}
+}
+/* ⑥ スマホ：ページ上部の操作ボタンは2つ＋「AIに質問」だけ出し、残りは「その他の操作」に畳む（スマホは1画面1タスク） */
+function ux211MobActions(){
+  try{ if(innerWidth>700) return; const w=document.getElementById("well"); const ph=w&&w.querySelector(".ph"); if(!ph) return; const row=ph.querySelector(":scope>.rw"); if(!row||row.dataset.ux211m) return;
+    const btns=[...row.children].filter(b=>b.matches&&b.matches("button,.btn")&&!b.classList.contains("askai")); if(btns.length<=3) return;
+    row.dataset.ux211m="1"; const more=btns.slice(2); const d=document.createElement("details"); d.className="ux211more"; d.innerHTML=`<summary><span>その他の操作</span>&nbsp;<b>${more.length}</b></summary><div class="rw"></div>`;
+    const box=d.querySelector(".rw"); more.forEach(b=>box.appendChild(b)); row.appendChild(d); }catch(e){}
+}
+/* 描画のたびに適用 */
+function ux211After(root){ ux211Body(); ux211MarkNew(root); ux211AiFirst(); ux211MobActions(); }
+if(typeof render==="function"){ const __r211u=render; render=function(){ const r=__r211u.apply(this,arguments); try{ ux211After(document.getElementById("well")); }catch(e){} return r; }; }
+if(typeof openDW==="function"){ const __dw211u=openDW; openDW=function(){ const r=__dw211u.apply(this,arguments); try{ ux211MarkNew(document.getElementById("pn")); }catch(e){} return r; }; }
+/* 物流会社モードの説明文：荷主ごとの絞り込みはサーバー v2.6 以上で有効。旧サーバーの間は、その約束の部分を出さない（誤情報ゼロ） */
+function ux211FwdFoot(){ try{ const ft=document.getElementById("ft"); if(!ft) return; const rel=(typeof SYNC!=="undefined"&&SYNC)?(+SYNC.rel||0):0; if(rel>=2.6) return;
+  ft.innerHTML=ft.innerHTML.replace("（各荷主に届くのは、その荷主自身の依頼だけです）","").replace("AI物流マンとの相談と操作履歴は、物流会社のアカウントだけが見られます。",""); }catch(e){} }
+if(typeof fwdRender==="function"){ const __fr211u=fwdRender; fwdRender=function(){ const r=__fr211u.apply(this,arguments); try{ ux211After(document.getElementById("well")); ux211FwdFoot(); }catch(e){} return r; }; }
+if(typeof renderAdmin==="function"){ const __ra211u=renderAdmin; renderAdmin=function(){ const r=__ra211u.apply(this,arguments); try{ ux211Body(); }catch(e){} return r; }; }
+ux211Css(); try{ ux211Body(); }catch(e){}
 
 </script>
