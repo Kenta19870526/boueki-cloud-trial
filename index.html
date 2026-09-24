@@ -1023,6 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
+const BC20_BUILD="d860a474fd80";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -13483,9 +13484,11 @@ function showLogin(){
        アカウントの発行・再有効化は、STANDAGEの担当までご連絡ください。<br>
        Copyright © 2026, STANDAGE, Inc.</p></div>`;
     v.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{tab=b.dataset.t;paint();});
-    const err=m=>{const e=$("#lg-err");e.hidden=false;e.textContent=m;};
+    const err=m=>{const e=$("#lg-err");e.hidden=false;e.textContent=m;e.classList.toggle("lgwait",/^☁/.test(m));};   /* v21.4：確認中（☁）は赤くしない */
     if(tab==="trial"){
-      const go2=async()=>{
+      let busy2=0;   /* v21.4：サーバーの確認を待っている間に何度押しても1回だけ */
+      const go2=async()=>{ if(busy2) return; busy2=1; try{ await go2i(); } finally{ busy2=0; } };
+      const go2i=async()=>{
         const code=($("#lg-code").value||"").trim().toUpperCase();
         if(!code) return err("アクセスコードを入力してください。");
         let a=findAcct(code), srvDown=false;
@@ -13494,6 +13497,9 @@ function showLogin(){
         if(typeof syncRefreshAcct==="function"){ try{ err("☁ サーバーの台帳を確認しています…"); const r=await syncRefreshAcct(code); if(r&&!r.unknown) a=r; if(r===null) srvDown=true; }catch(e){} }
         else if(!a&&typeof syncLookup==="function"){ try{ err("☁ サーバーの台帳を確認しています…"); a=await syncLookup(code); }catch(e){} }
         if(!a) return err(srvDown&&typeof syncOn==="function"&&syncOn()?"サーバーに接続できませんでした。通信状況を確認して、もう一度お試しください。":"このコードは登録されていません。入力内容をご確認ください。");
+        /* v21.4：サーバーに確認できなかったときは、この端末に残っている古い記録だけで「期限切れ」「無効」と言い切らない
+           （別のPC・ブラウザで延長・再有効化した内容は、サーバーに確認するまでこの端末には届いていない） */
+        if(srvDown&&(a.st!=="active"||a.expires<NOW())) return err(`サーバーに接続できず、最新の状態を確認できませんでした（この端末に残っている以前の記録では「${a.st!=="active"?"無効":"期限切れ"}」です。別の端末で延長・再有効化した場合は、サーバーに確認すると反映されます）。通信状況を確認して、もう一度お試しください。`);
         if(a.st!=="active") return err("このアカウントは無効化されています。STANDAGEの担当までご連絡ください。");
         if(a.expires<NOW()) return err("このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。");
         const who=($("#lg-name").value||"").trim();
@@ -26472,5 +26478,176 @@ if(typeof aiLevelFor==="function"){ const __alf213=aiLevelFor; aiLevelFor=functi
 /* ── 読み込み時点で開いているセッション（F5で復元）にも適用 ── */
 try{ if(v213Trial()){ v213FmBaseAll(); v213GrowEnsure(); } }catch(e){}
 try{ if(v213Admin()){ v213AdmBaseline(); setTimeout(v213AdmAuto,300); } }catch(e){}
+
+/* ═══════════ v21.4（2026-09-24）別のPC・ブラウザでも同じ状態に（トライアル版のみ） ═══════════
+   報告：Chrome で再有効化したデモアカウントが、Edge で開くと「有効期限が切れています」と表示された。
+   調べて分かったこと・直したこと：
+   ① サーバーの台帳：TRIAL-2026 は 10/8 まで有効だった一方、FWD-2026 は 9/23 に延長した期限（10/7）が、最初の期限（9/22）に
+      変更時刻（_m）の無いまま戻っていた＝旧版の管理コンソールがその端末の台帳を丸ごと送った跡（v2.7 以降の画面は _m の無い値で上書きできない）。
+      v2.7 でも、変更時刻の無いアカウントには旧版の送信を受け付けていた → GAS v2.8 で旧版からの送信を拒否し、台帳の変更履歴（どの端末が何を変えたか）を残す
+   ② ログイン：サーバーへの確認が時間切れ（15秒）・通信失敗になると、この端末に残っている以前の記録で「期限切れ」「無効」と判定していた
+      → 待ち時間を延ばして再試行し、確認できなかったときは以前の記録だけで言い切らない。ログイン画面を開いた時点でサーバーを起こしておく
+   ③ 古い版の画面：タブの復元・キャッシュで古い版が動いていると、直した判定が使われない
+      → 公開中の版（version.json）と比べ、ログイン前なら自動で読み込み直し、ログイン中は「新しい版があります」を出す
+   ④ 管理コンソール：開いている間は2分ごと（と画面に戻ったとき）にサーバーの台帳を取り込む。送れなかったときは必ず知らせて自動で送り直し、同期の状態と変更履歴を表示
+   ⑤ 同じPCの Chrome と Edge：言語設定の並びが違うと端末指紋が変わり、別の端末と判定されて先の画面が締め出されることがあった → 言語を含まない機器の特徴（hw）も送る */
+const BC20_VER="21.4";
+const V214={verAt:0,verBusy:0,newer:"",srv:"",warm:0,pullAt:0,pullErr:"",pushAt:0,pushErr:"",log:[],pend:0};
+function v214Toast(m){ try{ if(typeof toast==="function") toast(m); }catch(e){} }
+(function(){ try{ const st=document.createElement("style"); st.textContent=`
+#v214upd{position:fixed;left:0;right:0;margin:0 auto;width:fit-content;bottom:calc(20px + env(safe-area-inset-bottom));z-index:140;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;
+  max-width:min(620px,calc(100vw - 24px));box-sizing:border-box;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:var(--pop);padding:10px 12px;font-size:13px;line-height:1.6}
+#v214upd .btn{font-size:12px;padding:5px 12px}
+@media (max-width:760px){#v214upd{bottom:calc(76px + env(safe-area-inset-bottom))}}
+.lgerr.lgwait{color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line)}
+#v214adm{margin-top:8px;font-size:12px;line-height:1.7;color:var(--ink-2)}
+#v214adm .ok{color:var(--good)} #v214adm .ng{color:var(--crit)}
+#v214adm details{margin-top:4px} #v214adm summary{cursor:pointer;color:var(--ink)}
+#v214adm ul{margin:6px 0 0;padding-left:1.2em} #v214adm li{margin:2px 0;font-variant-numeric:tabular-nums}`;
+  document.head.appendChild(st); }catch(e){} })();
+
+/* ── 送信に画面の版を添える（サーバーの変更履歴に残す）。台帳の送信には端末名も ── */
+/* 応答の取り違えを防ぐ：Apps Script の転送が乱れると、送った処理ではなく状態確認（ping と同じ内容）が返ることがある（2026-09-24 本番で確認）。
+   それを「照会の結果」「送信の成功」と読み違えないよう、失敗として扱う（照会は再試行、管理者の送信は失敗の知らせ→自動の送り直し） */
+if(typeof syncCall==="function"){ const __sc214=syncCall; syncCall=async function(op,body,opt){ const b=Object.assign({cv:BC20_VER},body||{});
+  if(op==="admin_set"&&!b.dev){ try{ b.dev=syncDev(); }catch(e){} }
+  const r=await __sc214.call(this,op,b,opt);
+  if(op!=="ping"&&r&&typeof r.name==="string"&&/^bc20-sync/.test(r.name)){ if(typeof SYNC!=="undefined") SYNC.err="サーバーの応答が別の処理のものでした（もう一度お試しください）"; throw new Error("サーバーの応答が別の処理のものでした（もう一度お試しください）"); }
+  return r; }; }
+
+/* ══ ⑤ 端末：言語を含まない機器の特徴（hw）。同じPCの別ブラウザを同じ端末と判定するため ══ */
+function v214Hw(){ try{ const w=screen.width||0, h=screen.height||0; if(!w||!h) return "";   /* 画面の大きさが取れないときは送らない（従来の指紋だけで判定） */
+  return fnv1a(["hw1",navigator.platform||"",Math.min(w,h),Math.max(w,h),screen.colorDepth,navigator.hardwareConcurrency||0,navigator.deviceMemory||0,
+  (Intl.DateTimeFormat().resolvedOptions()||{}).timeZone||""].join("|")); }catch(e){ return ""; } }
+if(typeof syncDev==="function"){ const __sd214=syncDev; syncDev=function(){ const d=__sd214.apply(this,arguments); if(d&&!d.hw) d.hw=(window.__hwOverride)||v214Hw(); return d; }; }
+try{ if(typeof SYNC!=="undefined"&&SYNC.dev&&!SYNC.dev.hw) SYNC.dev.hw=(window.__hwOverride)||v214Hw(); }catch(e){}
+
+/* ══ ② ログイン：サーバーの確認を待ち切る（2回まで・最大55秒）。確認できたかどうかを呼び出し側へ正しく返す ══ */
+function v214Say(t){ try{ const e=document.getElementById("lg-err"); if(e&&!e.hidden&&/^☁/.test(e.textContent||"")) e.textContent=t; }catch(x){} }
+if(typeof syncRefreshAcct==="function"){ syncRefreshAcct=async function(code){
+  if(!v213SyncOn()||!code||typeof ADB==="undefined"||!ADB) return null;
+  let kid; try{ kid=await v213Kid(code); }catch(e){ return null; }
+  let r=null;
+  for(let i=0;i<2&&!r;i++){
+    if(i) v214Say("☁ サーバーにもう一度問い合わせています…");
+    const slow=setTimeout(()=>v214Say(i?"☁ サーバーの応答を待っています（あと少しお待ちください）…":"☁ サーバーの応答を待っています（混み合っているときは30秒ほどかかります）…"),6000);
+    try{ r=await syncCall("lookup",{kid},{timeout:i?30000:25000}); }catch(e){ r=null; } finally{ clearTimeout(slow); }
+  }
+  if(!r){ V214.srv="ng"; v214LoginLine(); return null; }
+  V214.srv="ok"; v214LoginLine();
+  if(!r.ok||!r.acct) return {unknown:1};
+  let a=findAcct(code);
+  if(!a){ a={code,co:"（会社名 未登録）",who:"—",st:"active",web:true,role:"",created:Date.now(),expires:Date.now(),usage:(typeof emptyU==="function")?emptyU():{},members:[]}; ADB.accounts.push(a); }
+  const ch=v213SrvApply(a,r.acct); V213.accAt=Date.now(); if(ch) v213SaveADB();
+  return a; }; }
+/* ログイン画面：開いた時点でサーバーを起こし（Apps Script は最初の1回が遅い）、接続できるかを表示する */
+function v214LoginLine(){ try{ const e=document.getElementById("lgsync"); if(e&&typeof syncStatusText==="function") e.textContent=syncStatusText(); }catch(x){} }
+if(typeof syncStatusText==="function"){ const __sst214=syncStatusText; syncStatusText=function(){ const t=__sst214.apply(this,arguments);
+  if(!syncOn()) return t;
+  if(V214.srv==="ok") return t.replace("☁ クラウド同期：有効","☁ クラウド同期：有効（サーバーに接続済み）");
+  if(V214.srv==="ng") return "☁ クラウド同期：サーバーに接続できません。通信状況を確認してください（ログインするときに、もう一度確認します）";
+  return t; }; }
+function v214Warm(){
+  if(V214.warm||!v213SyncOn()) return; V214.warm=1;
+  syncCall("ping",{},{timeout:30000}).then(r=>{ V214.srv=r&&r.ok?"ok":"ng"; v214LoginLine(); }).catch(()=>{ V214.srv="ng"; v214LoginLine(); });
+}
+
+/* ══ ③ 古い版の画面を残さない：公開中の版（version.json）と比べる ══ */
+function v214Build(){ return (typeof BC20_BUILD!=="undefined"&&BC20_BUILD)||""; }
+async function v214VerCheck(force){
+  const cur=v214Build(); if(!cur||V214.verBusy||!/^https?:$/.test(location.protocol)) return;
+  if(!force&&Date.now()-V214.verAt<60000) return; V214.verBusy=1; V214.verAt=Date.now();
+  try{ const r=await fetch("version.json?t="+Date.now(),{cache:"no-store"}); if(!r.ok) return;
+    const j=await r.json(); const b=j&&String(j.build||""); if(b&&/^[0-9a-f]{6,40}$/.test(b)&&b!==cur){ V214.newer=b; v214OnNewer(b); } }
+  catch(e){} finally{ V214.verBusy=0; }
+}
+function v214OnNewer(b){
+  if(typeof SES==="undefined"||!SES){   /* ログイン前：失うものが無いので、その場で新しい版へ（同じ版へは10分に1回まで＝配信の反映待ちで繰り返さない） */
+    let last={}; try{ last=JSON.parse(sessionStorage.getItem("bc20_upd")||"{}")||{}; }catch(e){}
+    if(last.b===b&&Date.now()-(+last.t||0)<600000) return;
+    try{ sessionStorage.setItem("bc20_upd",JSON.stringify({b,t:Date.now()})); }catch(e){}
+    location.replace(location.pathname+"?v="+encodeURIComponent(b)+location.hash); return; }
+  v214Bar();
+}
+function v214Bar(){
+  if(document.getElementById("v214upd")) return;
+  const d=document.createElement("div"); d.id="v214upd"; d.setAttribute("role","status");
+  d.innerHTML=`<span>🔄 新しい版を公開しました。再読み込みすると反映されます（保存済みの内容はそのまま残ります）。</span><button class="btn" type="button" id="v214go">いま再読み込み</button><button class="btn g" type="button" id="v214later">あとで</button>`;
+  document.body.appendChild(d);
+  d.querySelector("#v214go").onclick=async()=>{ const g=d.querySelector("#v214go"); g.disabled=true; g.textContent="保存しています…";
+    const wait=(p,ms)=>Promise.race([p,new Promise(res=>setTimeout(res,ms))]);
+    try{ if(typeof syncFlush==="function"&&typeof SES!=="undefined"&&SES&&SES.t==="trial") await wait(syncFlush(),8000); }catch(e){}
+    try{ if(typeof SYNC!=="undefined"&&SYNC.admT&&v213Admin()){ clearTimeout(SYNC.admT); await wait(syncAdminPush(),12000); } }catch(e){}
+    location.replace(location.pathname+"?v="+encodeURIComponent(V214.newer||"")+location.hash); };
+  d.querySelector("#v214later").onclick=()=>d.remove();
+}
+
+/* ══ ④ 管理コンソール：台帳の取り込み（2分ごと・画面に戻ったとき）・送信の結果・変更履歴 ══ */
+/* 取り込んだ後も「この画面にだけある変更」（前回の送信が通信の失敗などで届かなかったもの）が残っていれば、すぐに送り直す */
+function v214Unsent(r){ try{ const srv={}; (r.accounts||[]).forEach(s=>{ if(s&&s.code) srv[s.code]=+s._m||0; });
+  const n=ADB.accounts.filter(a=>a&&a.code&&(+a._m||0)>0&&(!(a.code in srv)||(+a._m||0)>srv[a.code])).length;
+  const d=(ADB.del||[]).filter(x=>x&&x.code&&(x.code in srv)&&(+x.t||0)>=srv[x.code]).length;
+  return n+d; }catch(e){ return 0; } }
+if(typeof v213AdmPull==="function"){ const __pull214=v213AdmPull; v213AdmPull=async function(){
+  try{ const x=await __pull214.apply(this,arguments);
+    if(x&&x.r){ if(Array.isArray(x.r.log)) V214.log=x.r.log; V214.pullAt=Date.now(); V214.pullErr=""; V214.unsent=v214Unsent(x.r); v214AdmLine();
+      if(V214.unsent&&!V214.inPush&&!V214.repushT) V214.repushT=setTimeout(()=>{ V214.repushT=0; syncAdminPush().catch(()=>{}); },1500); }
+    return x; }
+  catch(e){ V214.pullErr=String((typeof SYNC!=="undefined"&&SYNC.err)||(e&&e.message)||e||""); v214AdmLine(); throw e; } }; }
+if(typeof syncAdminPush==="function"){ const __push214=syncAdminPush; syncAdminPush=async function(){
+  let r; V214.inPush=1; if(V214.repushT){ clearTimeout(V214.repushT); V214.repushT=0; }
+  try{ r=await __push214.apply(this,arguments); }
+  catch(e){ V214.inPush=0; V214.pushErr=String((typeof SYNC!=="undefined"&&SYNC.err)||(e&&e.message)||e||""); v214AdmLine();
+    v214Toast("⚠ 台帳をサーバーへ送れませんでした："+V214.pushErr.slice(0,90)+"（この変更は、まだ他の端末には届いていません）"); throw e; }
+  V214.inPush=0;
+  if(r&&r.ok===false){ const m=String(r.msg||r.error||"サーバーが受け付けませんでした"); V214.pushErr=m; v214AdmLine();
+    v214Toast("⚠ 台帳をサーバーへ送れませんでした："+m.slice(0,90)); throw new Error(m); }
+  if(r&&r.ok){ V214.pushAt=Date.now(); V214.pushErr=""; V214.unsent=0; v214AdmLine(); if(r.changed) v214Toast("☁ サーバーの台帳に反映しました（他のPC・ブラウザ・スマホにも届きます）"); }
+  return r; }; }
+function v214Hm(t){ const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function v214Md(t){ if(!t) return "—"; const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()}`; }
+function v214LogText(c){
+  if(!c) return ""; const code=esc(c.code||"（コード不明）"), p=[];
+  if(c.add) p.push(`発行（期限 ${v214Md(c.exp)}）`);
+  if(c.del) p.push("削除");
+  if(c.st&&!c.add) p.push(c.st==="active"?"有効化":c.st==="disabled"?"無効化":esc(c.st));
+  if(c.exp&&!c.add) p.push(`期限 ${v214Md(c.exp0)}→${v214Md(c.exp)}`);
+  if(c.role!=null) p.push(c.role==="fwd"?"物流会社に変更":"荷主に変更");
+  if(c.co) p.push("会社名・担当者");
+  if(c.ai) p.push(c.ai==="all"?"全社版AIへ":"個社版AIへ");
+  if(c.web!=null) p.push(c.web?"Web検索 ON":"Web検索 OFF");
+  if(c.appr) p.push("承認者");
+  return `<b>${code}</b>：${p.join("・")||"変更"}`;
+}
+function v214AdmLine(){
+  try{ const card=document.getElementById("synccard"); if(!card||!v213Admin()) return;
+    let el=document.getElementById("v214adm"); if(!el){ el=document.createElement("div"); el.id="v214adm"; const out=document.getElementById("syncout"); if(out) out.before(el); else card.appendChild(el); }
+    let h="";
+    if(V214.pushErr) h+=`<div class="ng">⚠ 直前の変更をサーバーへ送れませんでした：${esc(V214.pushErr.slice(0,120))}。この変更は、まだ他の端末には届いていません。</div>`;
+    if(V214.pullErr) h+=`<div class="ng">⚠ サーバーの台帳を取り込めませんでした：${esc(V214.pullErr.slice(0,120))}。この画面の台帳が最新でない可能性があります。</div>`;
+    else if(V214.unsent&&!V214.pushErr) h+=`<div>☁ この画面にだけある変更（${V214.unsent}件）をサーバーへ送っています…</div>`;
+    else if(V214.pullAt&&!V214.pushErr) h+=`<div class="ok">✓ サーバーの台帳と同期しています（最終確認 ${v214Hm(V214.pullAt)}）。この画面を開いている間は2分ごとに取り込み、変更はすぐにサーバーへ送ります。</div>`;
+    else if(!V214.pushErr) h+=`<div>☁ サーバーの台帳を確認しています…</div>`;
+    const lg=(V214.log||[]).slice(-12).reverse();
+    if(lg.length) h+=`<details${V214.histOpen?" open":""}><summary>台帳の変更履歴（サーバーに記録・新しい順）</summary><ul>${lg.map(e=>`<li>${v214Hm(e.t)}　${esc(e.by||"")}<br>${(e.ch||[]).map(v214LogText).filter(Boolean).join("<br>")}</li>`).join("")}</ul></details>`;
+    el.innerHTML=h; const dt=el.querySelector("details"); if(dt) dt.ontoggle=()=>{ V214.histOpen=dt.open; }; }catch(e){}   /* 開いた履歴は、取り込み・描き直しの後も開いたまま */
+}
+function v214AdmBusy(){ const dw=document.getElementById("dw"); if(dw&&dw.dataset.open==="true") return true;
+  const a=document.activeElement, w=document.getElementById("well"); return !!(a&&w&&w.contains(a)&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
+function v214AdmTick(gap){
+  try{ if(!v213Admin()||typeof cur==="undefined"||cur!=="adm"||document.visibilityState!=="visible") return;
+    if(V214.pend&&!v214AdmBusy()){ V214.pend=0; if(typeof renderAdmin==="function") renderAdmin(); }
+    if(V213.admBusy||Date.now()-V213.admPullAt<gap) return; V213.admBusy=1;
+    v213AdmPull().then(x=>{ V213.admBusy=0; if(x&&x.ch){ if(v214AdmBusy()) V214.pend=1; else { if(typeof renderAdmin==="function") renderAdmin(); v214Toast("サーバーの台帳を取り込みました（他の端末での発行・延長・停止を反映）"); } } })
+      .catch(()=>{ V213.admBusy=0; V213.admPullAt=Date.now(); }); }catch(e){}
+}
+if(typeof renderAdmin==="function"){ const __ra214=renderAdmin; renderAdmin=function(){ const r=__ra214.apply(this,arguments); v214AdmLine(); return r; }; }
+
+/* ── 起動 ── */
+setInterval(()=>{ v214AdmTick(115000); },30000);
+setInterval(()=>{ v214VerCheck(false); },600000);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState!=="visible") return; v214VerCheck(false); v214AdmTick(30000); });
+setTimeout(()=>{ v214VerCheck(true); },2500);
+try{ if(typeof SES==="undefined"||!SES) v214Warm(); }catch(e){}
 
 </script>
