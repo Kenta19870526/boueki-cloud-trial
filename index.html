@@ -11089,7 +11089,7 @@ function dashBar(){
 function openDashGroups(){
   const cos=[...new Set(dashUnits().map(u=>u.co))], gs=dashDepts();
   openDW(`<h3>⚙ 部署・部門グループ</h3>
-    <p class="nn" style="margin-top:4px">会社（サプライヤー）をグループにまとめると、<b>部署単位・部門単位のダッシュボード集計</b>ができます（例：食品部＝みどり製茶＋みなと酒造）。グループはこのブラウザに保存されます。</p>
+    <p class="nn" style="margin-top:4px">会社（サプライヤー）をグループにまとめると、<b>部署単位・部門単位のダッシュボード集計</b>ができます（例：食品部＝みどり製茶＋みなと酒造）。${(typeof syncOn==="function"&&syncOn())?"グループはアカウントに保存され、同じアカウントのPC・スマホにも同期されます。":"グループはこのブラウザに保存されます。"}</p>
     <div id="dgList" style="margin-top:9px">${gs.length?gs.map(g2=>`
       <div class="c" style="padding:9px 11px;margin-bottom:7px">
         <div class="rw" style="justify-content:space-between"><b style="font-size:12px">${esc(g2.name)}</b>
@@ -13488,9 +13488,12 @@ function showLogin(){
       const go2=async()=>{
         const code=($("#lg-code").value||"").trim().toUpperCase();
         if(!code) return err("アクセスコードを入力してください。");
-        let a=findAcct(code);
-        if(!a&&typeof syncLookup==="function"){ try{ err("☁ サーバーの台帳を確認しています…"); a=await syncLookup(code); }catch(e){} }
-        if(!a) return err("このコードは登録されていません。入力内容をご確認ください。");
+        let a=findAcct(code), srvDown=false;
+        /* v21.3：サーバーの台帳を先に確認する（別の端末で延長・再有効化・停止した内容を、この端末の控えに反映してから判定する。
+           控えだけで判定すると、PCで延長したアカウントがスマホで「期限切れ」のままになる） */
+        if(typeof syncRefreshAcct==="function"){ try{ err("☁ サーバーの台帳を確認しています…"); const r=await syncRefreshAcct(code); if(r&&!r.unknown) a=r; if(r===null) srvDown=true; }catch(e){} }
+        else if(!a&&typeof syncLookup==="function"){ try{ err("☁ サーバーの台帳を確認しています…"); a=await syncLookup(code); }catch(e){} }
+        if(!a) return err(srvDown&&typeof syncOn==="function"&&syncOn()?"サーバーに接続できませんでした。通信状況を確認して、もう一度お試しください。":"このコードは登録されていません。入力内容をご確認ください。");
         if(a.st!=="active") return err("このアカウントは無効化されています。STANDAGEの担当までご連絡ください。");
         if(a.expires<NOW()) return err("このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。");
         const who=($("#lg-name").value||"").trim();
@@ -13834,7 +13837,7 @@ function mInviteNote(){
   if(!SES||SES.t!=="trial") return "";
   const n=(acct().members||[]).length;
   return `<p class="nn" style="margin-top:8px">招待したメンバーは<b>同じアクセスコード＋ご本人の氏名</b>でログインすると、その方の名前で投稿されます。
-    招待・停止は<b>STANDAGEのマスター管理画面にリアルタイムに反映</b>されます${n?`（現在 ${n}名）`:""}。製品版では招待メールが自動送信されます。</p>`;
+    招待したメンバーは<b>クラウドの台帳に保存</b>され、同じアカウントのPC・スマホとSTANDAGEの管理画面に反映されます${n?`（現在 ${n}名）`:""}。停止は管理画面から行います。製品版では招待メールが自動送信されます。</p>`;
 }
 function mInviteBind(){
   const b=$("#minvite"); if(!b) return;
@@ -13851,7 +13854,7 @@ function mInviteBind(){
         <button class="btn" id="mvGo">招待する</button>
         <button class="btn g" onclick="closeDW()">やめる</button></div>
       <p class="nn" style="margin-top:9px">招待後、この方は<b>アクセスコード「${esc(SES.code)}」＋ご本人の氏名</b>でログインできます。
-      投稿・ログインの記録はSTANDAGEのマスター管理アカウントに<b>リアルタイムで反映・管理</b>されます（トライアルはこの端末内、製品版はクラウドで全端末同期）。</p>`);
+      招待はクラウドの台帳に保存され、同じアカウントの<b>PC・スマホとSTANDAGEの管理画面</b>に反映されます（通信できないときは、次に接続したときに送ります）。</p>`);
     $("#mvGo").onclick=()=>{
       const name=($("#mvN").value||"").trim();
       if(!name){ toast("氏名を入力してください"); return; }
@@ -13859,8 +13862,9 @@ function mInviteBind(){
       a.members=a.members||[];
       if(a.members.some(m=>m.name===name)){ toast("同じ氏名のメンバーがすでにいます"); return; }
       a.members.push({name,dept:($("#mvD").value||"").trim(),mail:($("#mvM").value||"").trim(),
-        st:"active",added:NOW()});
+        st:"active",added:NOW(),_m:NOW()});
       asave();
+      if(typeof v213MembersPut==="function") v213MembersPut();   /* v21.3：台帳へ送る（他の端末・管理コンソールにも反映） */
       logU("member","メンバー招待:"+name);
       closeDW(); render();
       toast(`${name} さんを招待しました（コード ${SES.code}＋氏名でログイン）`);
@@ -18475,7 +18479,7 @@ async function syncBeat(){
 function syncKicked(by,reason){
   SYNC.kicked=1; clearInterval(SYNC.beatT);
   try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){}
-  const msg=reason==="expired"?"このアカウントは有効期限が切れました。":reason==="disabled"?"このアカウントは無効化されました。"
+  const msg=reason==="expired"?"このアカウントは有効期限が切れました。":reason==="disabled"?"このアカウントは無効化されました。":reason==="member"?"このメンバーは管理者によって停止されました。"
     :`別の端末（${esc((by&&by.name)||"PC／スマホ")}）で同じアカウントのログインがあったため、この端末はログアウトされました。<br><span style="font-size:11px;color:var(--ink-2)">同時にログインできるのは PC1台＋スマホ1台までです。この端末で続ける場合は、もう一度ログインしてください（相手の端末がログアウトされます）。</span>`;
   const v=document.createElement("div"); v.id="synckick";
   v.style.cssText="position:fixed;inset:0;z-index:200;background:rgba(20,26,34,.55);display:grid;place-items:center;padding:20px";
@@ -26213,5 +26217,260 @@ function ux211FwdFoot(){ try{ const ft=document.getElementById("ft"); if(!ft) re
 if(typeof fwdRender==="function"){ const __fr211u=fwdRender; fwdRender=function(){ const r=__fr211u.apply(this,arguments); try{ ux211After(document.getElementById("well")); ux211FwdFoot(); }catch(e){} return r; }; }
 if(typeof renderAdmin==="function"){ const __ra211u=renderAdmin; renderAdmin=function(){ const r=__ra211u.apply(this,arguments); try{ ux211Body(); }catch(e){} return r; }; }
 ux211Css(); try{ ux211Body(); }catch(e){}
+
+/* ═══════════ v21.3（2026-09-24）PC⇄スマホの同期の総点検で見つかった不具合の修正（トライアル版のみ） ═══════════
+   ① アカウント台帳：ログイン判定がこの端末の控え（初回起動時のシードや前回ログイン時の値）を優先し、サーバーの台帳を見ていなかった
+      → PCの管理コンソールで延長・再有効化・停止しても、スマホでは「期限切れ」「無効」のまま。ログインの前にサーバーの台帳を確認し、
+        利用中も10分ごと（と画面復帰時）に取り直す（期限・状態・役割・Web検索・AIモード・承認者・メンバー）
+   ② 管理コンソール：変更のたび（「利用状況・端末を取得」だけでも）その端末の台帳でサーバーの台帳を丸ごと置き換えていた
+      → 開いたとき・送る前にサーバーの台帳を取り込み、アカウントごとに新しい方を採る（_m＝最終変更時刻。GAS v2.7 もサーバー側で合流）。
+        削除は明示したものだけ（del）。古い端末の台帳で、発行済みのアカウントが消える・延長が戻ることが無くなる
+   ③ メンバー招待：招待した端末の中だけにあった → 台帳へ送り（members_put）、他の端末と管理コンソールへ。管理者の停止も全端末へ
+   ④ 成長レベル：利用回数を端末ごとの「最大値」で合算していた（スマホでの質問は、PCの回数を超えるまで数えられない）
+      → 移行時点の回数（端末ごとの最大）＋移行後に各端末で増えた回数の合計。サーバーの利用状況にも全端末の合計を送る
+   ⑤ 同時編集：結合していたのは やりとり／会議メモ／商談記録／タスク／AIの記憶／出荷案件／DMスレッドだけで、それ以外の項目
+      （価格表・強み・ヒアリングの回答・規制の調査…）は後から送った端末の内容で商品ごと上書きされていた
+      → 項目ごとに最終変更時刻（_fm）を付け、項目単位で新しい方を採る。結合する一覧でも、両方にある項目は「その一覧を後から変えた側」の内容を採る
+        （タスクの完了・出荷の進捗が戻らない）。定型セットも結合に追加。商品名を変えたら旧名に墓標（他の端末から旧名の商品が戻らない）
+   ⑥ 端末ごとに分かれていた設定（AIの利用プラン／AI物流マンのプラン／拠点・メンバーの編集）も同期の対象に */
+const V213={accAt:0,accBusy:0,admPullAt:0,admBusy:0,admBase:null,kid:{},fb:new WeakMap()};
+function v213Trial(){ return typeof SES!=="undefined"&&!!SES&&SES.t==="trial"; }
+function v213Admin(){ return typeof SES!=="undefined"&&!!SES&&SES.t==="admin"; }
+function v213SyncOn(){ try{ return typeof syncOn==="function"&&syncOn(); }catch(e){ return false; } }
+function v213SaveADB(){ try{ localStorage.setItem(AKEY,JSON.stringify(ADB)); }catch(e){} }   /* asave を通さない（同期の予約・管理者の送信を起こさない） */
+async function v213Kid(code){ if(V213.kid[code]) return V213.kid[code]; const r=await syncDerive(code); V213.kid[code]=r.kid; return r.kid; }
+
+/* ── メンバーの結合：名前ごとに、最終変更（_m）が新しい方。同じ時刻はサーバー側（B）を採る ── */
+function v213MemMerge(A,B){ const by={}, order=[];
+  (A||[]).forEach(m=>{ if(m&&m.name&&!by[m.name]){ by[m.name]=Object.assign({},m); order.push(m.name); } });
+  (B||[]).forEach(m=>{ if(!m||!m.name) return; const o=by[m.name]; if(!o){ by[m.name]=Object.assign({},m); order.push(m.name); return; }
+    if((+m._m||0)>=(+o._m||0)){ const n=Object.assign({},o); Object.keys(m).forEach(k=>{ if(m[k]!==""&&m[k]!=null) n[k]=m[k]; }); by[m.name]=n; } });
+  return order.map(n=>by[n]); }
+
+/* ══ ① アカウント台帳：サーバーを正とする ══ */
+function v213SrvApply(a,s){
+  if(!a||!s) return false; const before=JSON.stringify(a);
+  ["co","who","st"].forEach(k=>{ if(s[k]!=null&&s[k]!=="") a[k]=s[k]; });
+  ["expires","created"].forEach(k=>{ if(+s[k]>0) a[k]=+s[k]; });
+  if(s.role!=null) a.role=s.role||"";
+  if(s.approver!=null) a.approver=s.approver||"";
+  if(s.aiMode) a.aiMode=s.aiMode==="all"?"all":"solo";
+  if(s.web!=null) a.web=s.web!==false;
+  if(Array.isArray(s.members)) a.members=v213MemMerge(a.members||[],s.members);
+  return JSON.stringify(a)!==before;
+}
+/* サーバーの台帳でこの端末の控えを更新する。戻り値：更新後のアカウント／{unknown:1}（台帳に無い）／null（通信できない） */
+async function syncRefreshAcct(code){
+  if(!v213SyncOn()||!code||typeof ADB==="undefined"||!ADB) return null;
+  let kid; try{ kid=await v213Kid(code); }catch(e){ return null; }
+  let r; try{ r=await syncCall("lookup",{kid},{timeout:15000}); }catch(e){ return null; }
+  if(!r||!r.ok||!r.acct) return {unknown:1};
+  let a=findAcct(code);
+  if(!a){ a={code,co:"（会社名 未登録）",who:"—",st:"active",web:true,role:"",created:Date.now(),expires:Date.now(),usage:(typeof emptyU==="function")?emptyU():{},members:[]}; ADB.accounts.push(a); }
+  const ch=v213SrvApply(a,r.acct); V213.accAt=Date.now(); if(ch) v213SaveADB();
+  return a;
+}
+/* 利用中の取り直し（10分ごと・画面復帰時）：延長は残り日数へ、停止・期限切れ・メンバー停止はログアウトへ */
+async function v213AcctTick(force){
+  if(!v213Trial()||typeof SYNC==="undefined"||!SYNC.on||!SYNC.started||SYNC.kicked) return;
+  if(!force&&Date.now()-V213.accAt<600000) return; if(V213.accBusy) return; V213.accBusy=1;
+  try{ const a=await syncRefreshAcct(SES.code); if(!a||a.unknown) return;
+    if(a.st!=="active") return syncKicked(null,"disabled");
+    if(a.expires&&a.expires<Date.now()) return syncKicked(null,"expired");
+    const mem=(a.members||[]).find(m=>m&&m.name&&m.name===SES.who); if(mem&&mem.st!=="active") return syncKicked(null,"member");
+    try{ if(typeof injectBar==="function") injectBar(); }catch(e){} }
+  catch(e){} finally{ V213.accBusy=0; }
+}
+if(typeof syncBeat==="function"){ const __sb213=syncBeat; syncBeat=async function(){ const r=await __sb213.apply(this,arguments); try{ v213AcctTick(false); }catch(e){} return r; }; }
+/* ログイン時（サーバーの login 応答）：期限・状態に加えて メンバー・承認者・Web検索も控えへ。端末にだけあるメンバーは台帳へ送る */
+if(typeof syncCall==="function"){ const __sc213=syncCall; syncCall=async function(op,body,opt){ const r=await __sc213.apply(this,arguments);
+  try{ if(op==="login"&&r&&r.ok&&r.acct&&v213Trial()){ const a=findAcct(SES.code); if(a&&v213SrvApply(a,r.acct)) v213SaveADB(); V213.accAt=Date.now();
+      if(a&&(a.members||[]).length) setTimeout(()=>{ v213MembersPut(); },1500); } }catch(e){}
+  return r; }; }
+
+/* ══ ③ メンバー：台帳へ送る（kid で認証。サーバーが名前ごとに新しい方を採り、結果を返す） ══ */
+async function v213MembersPut(){
+  try{ if(!v213Trial()||typeof SYNC==="undefined"||!SYNC.on||!SYNC.kid) return false; const a=findAcct(SES.code); if(!a||!(a.members||[]).length) return false;
+    const r=await syncCall("members_put",{kid:SYNC.kid,members:(a.members||[]).map(m=>({name:m.name,dept:m.dept||"",mail:m.mail||"",st:m.st||"active",added:+m.added||0,_m:+m._m||0}))},{timeout:20000});
+    if(r&&r.ok&&Array.isArray(r.members)){ const mm=v213MemMerge(a.members,r.members); if(JSON.stringify(mm)!==JSON.stringify(a.members)){ a.members=mm; v213SaveADB(); } return true; }
+  }catch(e){} return false; }
+
+/* ══ ② 管理コンソール：アカウントごとの合流 ══ */
+function v213AdmSig(a){ const c={}; Object.keys(a).sort().forEach(k=>{ if(k==="usage"||k==="_kid"||k==="_devs"||k==="_m"||k==="members") return; c[k]=a[k]; }); return JSON.stringify(c); }
+function v213MemSig(m){ const c=Object.assign({},m); delete c._m; return JSON.stringify(c); }
+function v213AdmBaseline(){ const b={}; ((typeof ADB!=="undefined"&&ADB&&ADB.accounts)||[]).forEach(a=>{ if(!a||!a.code) return; const mem={}; (a.members||[]).forEach(x=>{ if(x&&x.name) mem[x.name]=v213MemSig(x); }); b[a.code]={s:v213AdmSig(a),mem}; }); V213.admBase=b; }
+/* 前回の状態と比べて、変わったアカウント・メンバーに変更時刻を付け、消えたアカウントを削除の記録（del）へ */
+function v213AdmStamp(){
+  if(typeof ADB==="undefined"||!ADB) return false; if(!V213.admBase){ v213AdmBaseline(); return false; }
+  const now=Date.now(), base=V213.admBase, seen=new Set(); let ch=false;
+  ADB.accounts.forEach(a=>{ if(!a||!a.code) return; seen.add(a.code); const b=base[a.code]; let c=!b||b.s!==v213AdmSig(a);
+    (a.members||[]).forEach(x=>{ if(!x||!x.name) return; if(!b||b.mem[x.name]!==v213MemSig(x)){ x._m=now; c=true; } });
+    if(c){ a._m=now; ch=true; } });
+  Object.keys(base).forEach(code=>{ if(!seen.has(code)){ ADB.del=(ADB.del||[]).filter(d=>d&&d.code!==code); ADB.del.push({code,t:now}); ch=true; } });
+  ADB.del=(ADB.del||[]).filter(d=>d&&now-(+d.t||0)<45*864e5);
+  v213AdmBaseline(); return ch;
+}
+function v213TakeSrv(a,s){ const before=JSON.stringify(a);
+  ["co","who","st","role","approver","aiMode"].forEach(k=>{ if(s[k]!==undefined&&s[k]!==null) a[k]=s[k]; });
+  ["expires","created"].forEach(k=>{ if(+s[k]>0) a[k]=+s[k]; });
+  a.web=s.web!==false; a._m=+s._m||0; a.members=v213MemMerge(a.members||[],s.members||[]);
+  return JSON.stringify(a)!==before; }
+/* サーバーの台帳を取り込む（v2.7：全項目）。同じ時刻・時刻なしはサーバー側を採る＝古い端末の控えが勝たない */
+async function v213AdmPull(){
+  if(!v213SyncOn()||!v213Admin()||typeof ADB==="undefined"||!ADB) return null;
+  const r=await syncCall("admin_get",{pw:SES.apw||""});
+  if(!r||!r.ok) throw new Error((r&&r.msg)||"管理者パスワードがサーバー設定と一致しません");
+  SYNC.pwDefault=r.pwDefault?1:0;
+  const full=(r.accounts||[]).some(x=>x&&x.code); let ch=false;
+  if(full){ const delAt={}; (ADB.del||[]).forEach(d=>{ if(d&&d.code) delAt[d.code]=+d.t||0; });
+    (r.accounts||[]).forEach(s=>{ if(!s||!s.code) return; let a=findAcct(s.code);
+      if(!a){ if(delAt[s.code]&&delAt[s.code]>=(+s._m||0)) return;
+        a={code:s.code,usage:(typeof emptyU==="function")?emptyU():{},members:[]}; ADB.accounts.push(a); v213TakeSrv(a,s); ch=true; return; }
+      const sm=+s._m||0, lm=+a._m||0;
+      if(sm>lm||(sm===0&&lm===0)){ if(v213TakeSrv(a,s)) ch=true; }
+      else { const mm=v213MemMerge(a.members||[],s.members||[]); if(JSON.stringify(mm)!==JSON.stringify(a.members||[])){ a.members=mm; ch=true; } } }); }
+  /* 他の端末で削除されたアカウント（サーバーの削除の記録）をこの端末からも外す。削除より後に変えたものは残す */
+  if(Array.isArray(r.del)&&r.del.length){ const byKid={}; for(const a of ADB.accounts){ if(!a||!a.code) continue; try{ byKid[await v213Kid(a.code)]=a; }catch(e){} }
+    r.del.forEach(d=>{ const a=d&&byKid[d.kid]; if(a&&(+d.t||0)>=(+a._m||0)){ ADB.accounts=ADB.accounts.filter(x=>x!==a); ch=true; } }); }
+  /* 利用状況（各端末から集まった回数）を台帳に反映 */
+  for(const a of ADB.accounts){ if(!a||!a.code) continue; let kid=""; try{ kid=await v213Kid(a.code); }catch(e){ continue; } const u=(r.usage||{})[kid]; a._kid=kid;
+    if(u){ a.usage=a.usage||emptyU(); ["logins","uploads","aiQ","webQ","fills"].forEach(k=>{ a.usage[k]=Math.max(a.usage[k]||0,u[k]||0); });
+      a.usage.lastActive=Math.max(a.usage.lastActive||0,u.lastActive||0); if(u.first&&(!a.usage.first||u.first<a.usage.first)) a.usage.first=u.first;
+      a.usage.screens=Object.assign({},a.usage.screens||{},u.screens||{}); a._devs=u.devs||[]; } }
+  v213SaveADB(); v213AdmBaseline(); V213.admPullAt=Date.now();
+  return {r,ch,full};
+}
+if(typeof syncAdminGet==="function"){ syncAdminGet=async function(){ const x=await v213AdmPull(); return x?x.r:null; }; }
+if(typeof syncAdminPush==="function"){ syncAdminPush=async function(){
+  if(!v213SyncOn()||!v213Admin()||typeof ADB==="undefined"||!ADB) return;
+  try{ await v213AdmPull(); }catch(e){ if(/パスワード/.test(String(e&&e.message||""))) throw e; }   /* 送る前に、他の端末で変わった分を取り込む */
+  v213AdmStamp();
+  const accounts=[]; for(const a of ADB.accounts){ if(!a||!a.code) continue; const kid=await v213Kid(a.code);
+    accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,web:a.web!==false,
+      members:(a.members||[]).map(m=>({name:m.name,dept:m.dept||"",mail:m.mail||"",st:m.st||"active",added:+m.added||0,_m:+m._m||0})),
+      approver:a.approver||"",aiMode:a.aiMode==="all"?"all":"solo",_m:+a._m||0}); }
+  const del=[]; for(const d of (ADB.del||[])){ if(d&&d.code) del.push({kid:await v213Kid(d.code),t:+d.t||0}); }
+  const r=await syncCall("admin_set",{pw:SES.apw||"",accounts,del,merge:1});
+  if(r&&r.ok){ SYNC.last.push=Date.now(); SYNC.pwDefault=r.pwDefault?1:0; }
+  return r; }; }
+/* 管理者が台帳を変えたら：送る前に変更時刻を付ける（送信の予約は logic_sync.js の asave ラッパー） */
+if(typeof asave==="function"){ const __as213=asave; asave=function(){ try{ if(v213Admin()) v213AdmStamp(); }catch(e){} return __as213.apply(this,arguments); }; }
+/* 管理コンソールを開いたら（5分に1回まで）サーバーの台帳を取り込み、変わっていれば描き直す */
+function v213AdmAuto(){
+  try{ if(!V213.admBase) v213AdmBaseline();
+    if(!v213SyncOn()||!v213Admin()||V213.admBusy||Date.now()-V213.admPullAt<300000) return; V213.admBusy=1;
+    v213AdmPull().then(x=>{ V213.admBusy=0; if(x&&x.ch&&typeof cur!=="undefined"&&cur==="adm"&&typeof renderAdmin==="function"){ renderAdmin(); if(typeof toast==="function") toast("サーバーの台帳を取り込みました（他の端末での発行・延長・停止を反映）"); } })
+      .catch(()=>{ V213.admBusy=0; V213.admPullAt=Date.now(); }); }catch(e){} }
+if(typeof renderAdmin==="function"){ const __ra213=renderAdmin; renderAdmin=function(){ const r=__ra213.apply(this,arguments); v213AdmAuto(); return r; }; }
+
+/* ══ ④ 成長レベル：端末ごとの回数を「移行時点の最大値＋移行後の増分の合計」で数える ══ */
+const V213_C=["logins","uploads","aiQ","webQ","fills"];
+function v213GrowEnsure(){
+  const k=(typeof v17GrowKey==="function")?v17GrowKey():""; if(!k) return null;
+  const o=v17GrowGet(), me=v17DevId(); let b=o.dev[me];
+  if(!b||b.v!==2){ const u=(typeof acct==="function"&&acct().usage)||{}, old=b||{}; const base={screens:{}};
+    V213_C.forEach(c=>{ base[c]=Math.max(+u[c]||0,+old[c]||0); });
+    const sc=Object.assign({},old.screens||{}); Object.entries(u.screens||{}).forEach(([s,n])=>{ sc[s]=Math.max(+sc[s]||0,+n||0); }); base.screens=sc;
+    b={v:2,at:Date.now(),base,inc:{logins:0,uploads:0,aiQ:0,webQ:0,fills:0,screens:{}},events:((u.events||[]).length?u.events:(old.events||[])).slice(0,80)};
+    o.dev[me]=b; try{ localStorage.setItem(k,JSON.stringify(o)); }catch(e){} }
+  return {k,o,b,me};
+}
+if(typeof v17GrowMine==="function"){ v17GrowMine=function(){ const x=v213GrowEnsure(); if(!x) return; const u=(typeof acct==="function"&&acct().usage)||{};
+  x.b.at=Date.now(); x.b.events=(u.events||[]).slice(0,80); try{ localStorage.setItem(x.k,JSON.stringify(x.o)); }catch(e){} }; }
+if(typeof logU==="function"){ const __lu213=logU; logU=function(type,detail){
+  try{ if(v213Trial()) v213GrowEnsure(); }catch(e){}   /* 移行はこの回の記録より前の回数で */
+  const r=__lu213.apply(this,arguments);
+  try{ if(v213Trial()){ const x=v213GrowEnsure(); if(x){ const M={login:"logins",upload:"uploads",ai:"aiQ",web:"webQ",fill:"fills"};
+      if(type==="screen"){ if(detail) x.b.inc.screens[detail]=(+x.b.inc.screens[detail]||0)+1; } else if(M[type]) x.b.inc[M[type]]=(+x.b.inc[M[type]]||0)+1;
+      x.b.at=Date.now(); try{ localStorage.setItem(x.k,JSON.stringify(x.o)); }catch(e){} } } }catch(e){}
+  return r; }; }
+if(typeof growUsage==="function"){ growUsage=function(){
+  const raw=(typeof acct==="function"&&acct().usage)||{logins:0,uploads:0,aiQ:0,webQ:0,fills:0,screens:{},events:[]};
+  if(!v213Trial()) return raw; let x=null; try{ x=v213GrowEnsure(); }catch(e){} if(!x) return raw;
+  const tot={screens:{},events:[],lastActive:raw.lastActive||0,first:raw.first||0,other:0}, bmax={}, smax={}, ev=[], seen=new Set();
+  const sigE=e=>Array.isArray(e)?e.slice(0,3).join("|"):String(e);
+  V213_C.forEach(c=>{ tot[c]=0; bmax[c]=0; });
+  Object.entries(x.o.dev||{}).forEach(([d,v])=>{ if(!v) return; if(d!==x.me) tot.other++;
+    const two=v.v===2, base=two?(v.base||{}):v, inc=two?(v.inc||{}):null;
+    V213_C.forEach(c=>{ bmax[c]=Math.max(bmax[c],+base[c]||0); if(inc) tot[c]+=(+inc[c]||0); });
+    Object.entries(base.screens||{}).forEach(([s,n])=>{ smax[s]=Math.max(+smax[s]||0,+n||0); });
+    if(inc) Object.entries(inc.screens||{}).forEach(([s,n])=>{ tot.screens[s]=(+tot.screens[s]||0)+(+n||0); });
+    (Array.isArray(v.events)?v.events:[]).forEach(e=>{ const k=sigE(e); if(!seen.has(k)){ seen.add(k); ev.push(e); } }); });
+  (raw.events||[]).forEach(e=>{ const k=sigE(e); if(!seen.has(k)){ seen.add(k); ev.push(e); } });
+  V213_C.forEach(c=>{ tot[c]+=bmax[c]; }); Object.entries(smax).forEach(([s,n])=>{ tot.screens[s]=(+tot.screens[s]||0)+n; });
+  tot.events=ev.sort((a,b)=>(+(Array.isArray(b)?b[0]:0)||0)-(+(Array.isArray(a)?a[0]:0)||0)).slice(0,80);
+  return tot; }; }
+/* サーバーの利用状況（管理コンソールの回数）にも全端末の合計を送る */
+if(typeof syncUsage==="function"){ syncUsage=function(){ const a=(typeof acct==="function")?acct():null, u=(a&&a.usage)||{}; let t=u; try{ t=growUsage()||u; }catch(e){}
+  return {logins:t.logins||0,uploads:t.uploads||0,aiQ:t.aiQ||0,webQ:t.webQ||0,fills:t.fills||0,lastActive:Math.max(+u.lastActive||0,+t.lastActive||0),first:u.first||0,
+    screens:t.screens||{},who:(v213Trial()&&SES.who)||"",dev:syncDev().name}; }; }
+
+/* ══ ⑤ 同時編集：項目ごとの最終変更時刻（_fm）で合流 ══ */
+const V213_META=new Set(["_fm","at"]);
+/* 独自の結合がある一覧：両方にある項目は、その一覧を後から変えた側の内容を採る（キー＝各一覧の同一判定） */
+const V213_UNI={memos:x=>x&&x.id, presets:x=>x&&x.id, fbx:x=>x&&[x.d,x.b,x.c].join("|"), xtasks:x=>x&&[x.n,x.e].join("|"), shipCases:x=>x&&x.ship&&x.ship.no};
+const V213_OWN=new Set(["msgs","dmThreads","aiMem"]);   /* 既読・状態・フィードバックを項目ごとに結合済み（ここでは触らない） */
+function v213H(v){ let s; try{ s=JSON.stringify(v); }catch(e){ s="?"; } if(s===undefined) s="u"; return s.length+":"+fnv1a(s); }
+function v213FmBase(t){ if(!t||typeof t!=="object") return; const h={}; Object.keys(t).forEach(f=>{ if(!V213_META.has(f)) h[f]=v213H(t[f]); }); V213.fb.set(t,{sig:(typeof v17TenSig==="function")?v17TenSig(t):"",h}); }
+function v213FmBaseAll(){ try{ ((typeof TENS!=="undefined"&&TENS)||[]).forEach(t=>v213FmBase(t)); if(typeof TEN!=="undefined"&&TEN&&!V213.fb.get(TEN)) v213FmBase(TEN); }catch(e){} }
+function v213FmStamp(){
+  const now=Date.now(); const list=((typeof TENS!=="undefined"&&TENS)||[]).slice(); try{ if(typeof TEN!=="undefined"&&TEN&&!list.includes(TEN)) list.push(TEN); }catch(e){}
+  list.forEach(t=>{ if(!t||!(t.src==="upload"||t.src==="sample2")) return; const b=V213.fb.get(t); if(!b){ v213FmBase(t); return; }
+    const fm=(t._fm&&typeof t._fm==="object")?t._fm:(t._fm={}); const keys=new Set(Object.keys(t).concat(Object.keys(b.h)));
+    keys.forEach(f=>{ if(V213_META.has(f)) return; const cur=(f in t)?v213H(t[f]):undefined; if(cur!==b.h[f]) fm[f]=now; });
+    const sig=(typeof v17TenSig==="function")?v17TenSig(t):"";
+    if(b.sig&&sig&&b.sig!==sig){ try{ v17TombAdd("ten",b.sig); v17TombDrop("ten",sig); }catch(e){} }   /* 商品名の変更：旧名に墓標（名前を戻したときは外す） */
+    v213FmBase(t); });
+}
+function v213UnionPresets(dt,st){ const A=dt.presets||[], B=st.presets||[]; if(!B.length) return false; const ids=new Set(A.map(p=>p&&p.id)); const add=B.filter(p=>p&&p.id&&!ids.has(p.id)); if(!add.length) return false; dt.presets=A.concat(add); return true; }
+function v213FmMerge(dt,st){
+  if(!dt||!st||dt===st) return false; const A=dt._fm||{}, B=st._fm||{}; let ch=false;
+  Object.keys(B).forEach(f=>{ if(V213_META.has(f)) return; const tb=+B[f]||0, ta=+A[f]||0; if(tb<=ta) return;
+    const key=V213_UNI[f];
+    if(V213_OWN.has(f)){ /* 独自の結合に任せる */ }
+    else if(key&&Array.isArray(dt[f])&&Array.isArray(st[f])){ const by={}; st[f].forEach(x=>{ const k=key(x); if(k) by[k]=x; });
+      dt[f]=dt[f].map(x=>{ const k=key(x); return (k&&by[k])?JSON.parse(JSON.stringify(by[k])):x; }); }
+    else if(f in st){ dt[f]=JSON.parse(JSON.stringify(st[f])); }
+    else { delete dt[f]; }
+    (dt._fm=(dt._fm&&typeof dt._fm==="object")?dt._fm:{})[f]=tb; ch=true; });
+  return ch;
+}
+if(typeof v16UnionInto==="function"){ const __un213=v16UnionInto; v16UnionInto=function(DST,SRC){ let c=__un213.apply(this,arguments);
+  try{ (SRC||[]).forEach(st=>{ if(!st) return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt||dt===st) return;
+      if(v213UnionPresets(dt,st)) c=true; if(v213FmMerge(dt,st)) c=true; }); }catch(e){}
+  return c; }; }
+if(typeof saveTen==="function"){ const __st213=saveTen; saveTen=function(){ try{ if(v213Trial()) v213FmStamp(); }catch(e){} return __st213.apply(this,arguments); }; }
+if(typeof loadTen==="function"){ const __lt213=loadTen; loadTen=function(){ const r=__lt213.apply(this,arguments); try{ v213FmBaseAll(); }catch(e){} return r; }; }
+
+/* ══ ⑥ 端末ごとに分かれていた設定も同期（取り込んだら画面の状態へ） ══ */
+try{ ["bc20_plan_v1","bc20_fwdplan_v1","bc20_net_v1"].forEach(k=>{ if(Array.isArray(SYNC_KEYS)&&!SYNC_KEYS.includes(k)) SYNC_KEYS.push(k); }); }catch(e){}
+if(typeof syncApply==="function"){ const __ap213=syncApply; syncApply=function(snap){ const r=__ap213.apply(this,arguments);
+  try{ const p=localStorage.getItem("bc20_plan_v1"); if(p&&typeof PLANS!=="undefined"&&PLANS[p]) USERPLAN=p; }catch(e){}
+  try{ const f=localStorage.getItem("bc20_fwdplan_v1"); if(f&&typeof FWDPLANS!=="undefined"&&FWDPLANS[f]) FWDPLAN=f; }catch(e){}
+  try{ if(typeof NET!=="undefined") NET=null; }catch(e){}
+  return r; }; }
+
+/* ══ ⑦ 出荷案件（v21.1 の保存の不具合）：画面を描くたびに「この端末のメモリ上の案件一覧（SHIPS）」で保存データを置き換えていたため、
+      同期で届いた他の端末の案件が消えていた。SHIPS は商品を切り替えても作り直されず、別の商品の案件が混ざることもあった
+      → 保存は「メモリ上の案件＋保存済みでメモリに無い案件」（案件は削除されず「終了」になるだけなので足し合わせで良い）。
+        商品の切替・追加・削除・同期の取り込みで SHIPS を作り直す（切替の前に今の商品へ書き戻す）。成長レベルは保存済みの案件も数える ══ */
+if(typeof shp211Ser==="function"){ const __ser213=shp211Ser; shp211Ser=function(){ const s=__ser213.apply(this,arguments);
+  try{ if(s&&typeof TEN!=="undefined"&&TEN){ const have=new Set(s.man.map(c=>c&&c.ship&&c.ship.no)); (Array.isArray(TEN.shipCases)?TEN.shipCases:[]).forEach(c=>{ if(c&&c.ship&&!have.has(c.ship.no)){ s.man.push(c); have.add(c.ship.no); } }); } }catch(e){}
+  return s; }; }
+function v213ShipFlush(){ try{ if(typeof shp211Ser!=="function"||typeof SHIPS==="undefined"||!SHIPS||typeof TEN==="undefined"||!TEN||SHIPS._pid!==PID) return; if(typeof L211!=="undefined") clearTimeout(L211.shipT);
+    const s=shp211Ser(); if(s){ TEN.shipCases=s.man; TEN.shipSeed=s.seed; } }catch(e){} }
+function v213ShipReset(){ try{ SHIPS=null; SHIPA=0; if(typeof L211!=="undefined"){ clearTimeout(L211.shipT); L211.shipSig=""; } }catch(e){} }
+if(typeof switchTen==="function"){ const __sw213=switchTen; switchTen=function(){ v213ShipFlush(); v213ShipReset(); return __sw213.apply(this,arguments); }; }
+if(typeof pushTen==="function"){ const __pt213=pushTen; pushTen=function(){ v213ShipFlush(); v213ShipReset(); return __pt213.apply(this,arguments); }; }
+if(typeof resetTen==="function"){ const __rt213=resetTen; resetTen=function(){ const r=__rt213.apply(this,arguments); v213ShipReset(); return r; }; }
+if(typeof loadTen==="function"){ const __lt213s=loadTen; loadTen=function(){ const r=__lt213s.apply(this,arguments); v213ShipReset(); return r; }; }
+if(typeof aiLevelFor==="function"){ const __alf213=aiLevelFor; aiLevelFor=function(d){
+  try{ const curD=(typeof D!=="undefined"&&D)||null; if((!d||d===curD)&&curD&&curD.ship&&typeof shipEnsure==="function"&&typeof TEN!=="undefined"&&TEN&&TEN.src!=="sample"){
+      if(!SHIPS||SHIPS._pid!==PID) shipEnsure(); else if(typeof shp211Rehydrate==="function") shp211Rehydrate(); } }catch(e){}
+  return __alf213.apply(this,arguments); }; }
+
+/* ── 読み込み時点で開いているセッション（F5で復元）にも適用 ── */
+try{ if(v213Trial()){ v213FmBaseAll(); v213GrowEnsure(); } }catch(e){}
+try{ if(v213Admin()){ v213AdmBaseline(); setTimeout(v213AdmAuto,300); } }catch(e){}
 
 </script>
