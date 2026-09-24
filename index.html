@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="d860a474fd80";
+const BC20_BUILD="e75dad71178a";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -6938,7 +6938,7 @@ function sendMsg(){
   const who=(typeof SES!=="undefined"&&SES&&SES.who)?SES.who:"貴社担当";   /* ログイン時の担当者名（SES.who） */
   const tstr=TODAYS+" "+new Date().toTimeString().slice(0,5);
   const askAI=msgNewScope==="AIに質問";
-  msgStore().push({who,org:D.co,t:tstr,scope:askAI?"共有":msgNewScope,
+  msgStore().push({id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:Date.now(),who,org:D.co,t:tstr,scope:askAI?"共有":msgNewScope,
     body:(v?mdU(esc(v)):"（ファイルを添付しました）"),read:1,
     mention:askAI?["AI商社マン"]:[],
     file:attF?{n:attF.name,kb:Math.max(1,Math.round(attF.size/1024))}:undefined});
@@ -6959,7 +6959,7 @@ function sendMsg(){
     body:"<i>"+(attF?"ファイルを解析しています…":"回答を考えています…")+"</i>",_tmp:1});
   fin();
   const put=(a,c)=>{ const st=msgStore(), i=st.findIndex(m=>m._tmp);
-    const msg={who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
+    const msg={id:"m"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),at:Date.now(),who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,
       body:a+(c?`<div style="margin-top:7px;font-size:10px;color:var(--ink-3)">${c}</div>`:"")};
     if(i>=0) st[i]=msg; else st.push(msg); fin(); };
   const fmt=s=>typeof ppFormat==="function"?ppFormat(s):esc(s).replace(/\n/g,"<br>");
@@ -10694,11 +10694,12 @@ function render(){
     ops:vOps,msg:vMsg,db:vDB,gap:vGap,deck:(typeof vDeck==="function"?vDeck:vUp),
     legal:(typeof vLegal==="function"?vLegal:vUp),
     today:(typeof vToday==="function"?vToday:vDash),
-    srcs:(typeof vSrcs==="function"?vSrcs:vUp),memo:(typeof vMemo==="function"?vMemo:vUp),cty:(typeof vCty==="function"?vCty:vUp)})[cur](p);
+    srcs:(typeof vSrcs==="function"?vSrcs:vUp),memo:(typeof vMemo==="function"?vMemo:vUp),cty:(typeof vCty==="function"?vCty:vUp),team:(typeof vTeam==="function"?vTeam:vUp)})[cur](p);
   if(cur==="deck"&&typeof deckBind==="function") deckBind();
   if(cur==="legal"&&typeof legalBind==="function") legalBind();
   if(cur==="srcs"&&typeof srcsBind==="function") srcsBind();
   if(cur==="cty"&&typeof ctyBind==="function") ctyBind();
+  if(cur==="team"&&typeof teamBind==="function") teamBind();
   if(cur==="up") wireUp();
   if(cur==="task"&&taskTab==="task"){tRows();["tHide","tSt"].forEach(id=>$("#"+id).addEventListener("change",tRows));}
   if(cur==="task"&&taskTab==="apr") document.querySelectorAll("[data-apr]").forEach(b=>
@@ -13504,7 +13505,8 @@ function showLogin(){
         if(a.expires<NOW()) return err("このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。");
         const who=($("#lg-name").value||"").trim();
         const mem=(a.members||[]).find(m=>m.name&&m.name===who);
-        if(mem&&mem.st!=="active") return err("このメンバーは停止されています。管理者にご確認ください。");   /* セッション確立前に判定（F5での素通りを防ぐ） */
+        if(mem&&(mem.del===1||mem.del===true)) return err("このメンバーは削除されています。管理者にご確認ください。");
+        if(mem&&mem.st!=="active"&&mem.st!=="invited") return err("このメンバーは停止されています。管理者にご確認ください。");   /* v21.5：招待中は入れる（初回ログインで参加中へ） */   /* セッション確立前に判定（F5での素通りを防ぐ） */
         SES={t:"trial",code:a.code,who,role:a.role||""};
         try{sessionStorage.setItem(SKEY,JSON.stringify(SES));}catch(e){}
         logU("login",SES.who?`ログイン（${SES.who}${mem?"・招待メンバー":""}）`:"ログイン");
@@ -18485,7 +18487,7 @@ async function syncBeat(){
 function syncKicked(by,reason){
   SYNC.kicked=1; clearInterval(SYNC.beatT);
   try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){}
-  const msg=reason==="expired"?"このアカウントは有効期限が切れました。":reason==="disabled"?"このアカウントは無効化されました。":reason==="member"?"このメンバーは管理者によって停止されました。"
+  const msg=reason==="expired"?"このアカウントは有効期限が切れました。":reason==="disabled"?"このアカウントは無効化されました。":reason==="member"?"このメンバーは管理者によって停止または削除されました。"
     :`別の端末（${esc((by&&by.name)||"PC／スマホ")}）で同じアカウントのログインがあったため、この端末はログアウトされました。<br><span style="font-size:11px;color:var(--ink-2)">同時にログインできるのは PC1台＋スマホ1台までです。この端末で続ける場合は、もう一度ログインしてください（相手の端末がログアウトされます）。</span>`;
   const v=document.createElement("div"); v.id="synckick";
   v.style.cssText="position:fixed;inset:0;z-index:200;background:rgba(20,26,34,.55);display:grid;place-items:center;padding:20px";
@@ -26295,9 +26297,13 @@ if(typeof syncCall==="function"){ const __sc213=syncCall; syncCall=async functio
   return r; }; }
 
 /* ══ ③ メンバー：台帳へ送る（kid で認証。サーバーが名前ごとに新しい方を採り、結果を返す） ══ */
+/* v21.5：送る項目をそろえる（役割・担当・参加日・最終ログイン・招待者・削除。未指定の役割・担当は空＝サーバー側の値を残す） */
+function v213MemWire(m){ const o={name:m.name,dept:m.dept||"",mail:m.mail||"",st:m.st||"active",role:(m.role==="admin"||m.role==="member")?m.role:"",
+  assign:Array.isArray(m.assign)?m.assign.slice(0,80):[],added:+m.added||0,joined:+m.joined||0,last:+m.last||0,by:m.by||"",_m:+m._m||0};
+  if(m.del===1||m.del===true) o.del=1; else if(m.del===0||m.del===false) o.del=0; return o; }
 async function v213MembersPut(){
   try{ if(!v213Trial()||typeof SYNC==="undefined"||!SYNC.on||!SYNC.kid) return false; const a=findAcct(SES.code); if(!a||!(a.members||[]).length) return false;
-    const r=await syncCall("members_put",{kid:SYNC.kid,members:(a.members||[]).map(m=>({name:m.name,dept:m.dept||"",mail:m.mail||"",st:m.st||"active",added:+m.added||0,_m:+m._m||0}))},{timeout:20000});
+    const r=await syncCall("members_put",{kid:SYNC.kid,members:(a.members||[]).map(v213MemWire)},{timeout:20000});
     if(r&&r.ok&&Array.isArray(r.members)){ const mm=v213MemMerge(a.members,r.members); if(JSON.stringify(mm)!==JSON.stringify(a.members)){ a.members=mm; v213SaveADB(); } return true; }
   }catch(e){} return false; }
 
@@ -26353,7 +26359,7 @@ if(typeof syncAdminPush==="function"){ syncAdminPush=async function(){
   v213AdmStamp();
   const accounts=[]; for(const a of ADB.accounts){ if(!a||!a.code) continue; const kid=await v213Kid(a.code);
     accounts.push({kid,code:a.code,co:a.co,who:a.who,st:a.st,expires:a.expires,role:a.role||"",created:a.created,web:a.web!==false,
-      members:(a.members||[]).map(m=>({name:m.name,dept:m.dept||"",mail:m.mail||"",st:m.st||"active",added:+m.added||0,_m:+m._m||0})),
+      members:(a.members||[]).map(v213MemWire),
       approver:a.approver||"",aiMode:a.aiMode==="all"?"all":"solo",_m:+a._m||0}); }
   const del=[]; for(const d of (ADB.del||[])){ if(d&&d.code) del.push({kid:await v213Kid(d.code),t:+d.t||0}); }
   const r=await syncCall("admin_set",{pw:SES.apw||"",accounts,del,merge:1});
@@ -26491,7 +26497,7 @@ try{ if(v213Admin()){ v213AdmBaseline(); setTimeout(v213AdmAuto,300); } }catch(e
       → 公開中の版（version.json）と比べ、ログイン前なら自動で読み込み直し、ログイン中は「新しい版があります」を出す
    ④ 管理コンソール：開いている間は2分ごと（と画面に戻ったとき）にサーバーの台帳を取り込む。送れなかったときは必ず知らせて自動で送り直し、同期の状態と変更履歴を表示
    ⑤ 同じPCの Chrome と Edge：言語設定の並びが違うと端末指紋が変わり、別の端末と判定されて先の画面が締め出されることがあった → 言語を含まない機器の特徴（hw）も送る */
-const BC20_VER="21.4";
+const BC20_VER="21.5";
 const V214={verAt:0,verBusy:0,newer:"",srv:"",warm:0,pullAt:0,pullErr:"",pushAt:0,pushErr:"",log:[],pend:0};
 function v214Toast(m){ try{ if(typeof toast==="function") toast(m); }catch(e){} }
 (function(){ try{ const st=document.createElement("style"); st.textContent=`
@@ -26649,5 +26655,635 @@ setInterval(()=>{ v214VerCheck(false); },600000);
 document.addEventListener("visibilitychange",()=>{ if(document.visibilityState!=="visible") return; v214VerCheck(false); v214AdmTick(30000); });
 setTimeout(()=>{ v214VerCheck(true); },2500);
 try{ if(typeof SES==="undefined"||!SES) v214Warm(); }catch(e){}
+
+/* ═══════════ v21.5（2026-09-24）メンバー管理：招待・担当（アサイン）・削除（トライアル版のみ） ═══════════
+   貿易クラウドVer.1 の招待機能（API仕様書で確認）：会社（組織）単位でユーザーをメール＋役割で招待し、本人がリンクで承認する。
+   案件ごとに「お客様側のメンバー（セラー）」と「STANDAGE側（主担当・担当）」をメールで追加・除外する（名前・メールの一部で候補を出す）。
+   代表者・主担当は外せない。未完了のタスク・承認待ちを持つメンバーは外せない（担当を替えてから外す）。
+   2.0 での対応：会社＝アクセスコード（アカウント）、案件＝登録済みの商品（物流会社は荷主）。
+   ・役割：管理者（招待・担当・役割・停止・削除）／メンバー（見る・投稿する）。代表（アカウントの担当者）は外せない
+   ・状態：招待中（まだログインしていない）→ 参加中（初回ログイン）／停止中／削除（同じ名前ではログインできない）
+   ・担当：すべて／選んだ商品（物流会社は荷主）／なし。削除の前に、未完了のタスク・承認者を別のメンバーへ引き継げる
+   ・招待状：ログインページ・アクセスコード・ご本人の氏名をまとめた文面をコピー、またはメールソフトで送る（自動のメール送信はしない）
+   ・台帳（サーバー）に保存し、この会社のPC・スマホと管理画面へ。管理画面は台帳の変更を15秒ごとに確かめて、変わったらすぐ取り込む */
+var V215={regAt:0,regBusy:0,admProd:{},teamTab:"list",memPutT:null,admFilt:{code:"",st:"",q:""},seen:null};
+var TM_ALL="*", TM_NONE="-";
+function tmI18n(rows){ try{ if(typeof I18N==="undefined"||!I18N.dict) return; rows.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]&&!I18N.dict[l][r[0]]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){} }
+(function(){ try{ const st=document.createElement("style"); st.textContent=`
+.tm-top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.tm-me{font-size:13px;color:var(--ink-2)} .tm-me b{color:var(--ink)}
+.tm-cnt{display:flex;gap:6px;flex-wrap:wrap}
+.tm-tabs{display:flex;gap:4px;margin-top:12px;border-bottom:1px solid var(--line)}
+.tm-tabs button{border:0;background:none;padding:8px 12px;font:inherit;font-size:13px;color:var(--ink-2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tm-tabs button[aria-selected="true"]{color:var(--ink);font-weight:700;border-bottom-color:var(--or)}
+.tm-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.tm-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface)}
+.tm-card.stop,.tm-card.del{background:var(--surface-2)}
+.tm-av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:14px;background:var(--bl-soft);color:var(--bl);flex:none;align-self:start}
+.tm-av.inv{background:var(--or-soft);color:var(--or-deep)} .tm-av.stop{background:var(--sunk);color:var(--ink-3)} .tm-av.rep{background:var(--good-soft);color:var(--good)}
+.tm-nm{font-weight:700;font-size:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tm-sub{font-size:12px;color:var(--ink-3);margin-top:3px;overflow-wrap:anywhere}
+.tm-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;align-items:center}
+.tm-chip{font-size:11.5px;padding:2px 9px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink-2);display:inline-flex;gap:4px;align-items:center}
+.tm-chip.all{background:var(--bl-soft);border-color:transparent;color:var(--bl)}
+.tm-chip button{border:0;background:none;padding:0 0 0 2px;cursor:pointer;color:var(--ink-3);font:inherit;line-height:1}
+.tm-act{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.tm-act .btn{font-size:12px;padding:5px 10px}
+.tm-act .btn.warn{color:var(--crit);border-color:var(--crit)}
+.tm-prod{padding:11px 13px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface)}
+.tm-prod h4{margin:0;font-size:13.5px}
+.tm-form label.tm-opt{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r);margin-top:6px;cursor:pointer;font-size:13px;line-height:1.5}
+.tm-form label.tm-opt input{margin-top:3px}
+.tm-form .tm-picks{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;margin-top:6px;padding:6px 8px;border:1px dashed var(--line);border-radius:var(--r)}
+.tm-form .tm-picks label{display:flex;gap:7px;align-items:center;font-size:12.5px}
+.tm-inv{white-space:pre-wrap;font-size:12.5px;line-height:1.7;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);margin-top:8px;overflow-wrap:anywhere}
+.tm-badge{display:block;font-size:10.5px;color:var(--ink-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#admmem .tw td{vertical-align:top} #admmem .btn{font-size:11px;padding:3px 8px}
+@media (max-width:760px){.tm-card{grid-template-columns:auto minmax(0,1fr)}.tm-act{grid-column:1/-1;justify-content:flex-start}}`;
+  document.head.appendChild(st); }catch(e){} })();
+
+/* ── 基本 ── */
+function tmAcct(){ try{ return (typeof SES!=="undefined"&&SES&&SES.t==="trial")?findAcct(SES.code):null; }catch(e){ return null; } }
+function tmIsFwd(a){ return !!(a&&a.role==="fwd"); }
+function tmList(a){ return ((a&&a.members)||[]).filter(m=>m&&m.name&&m.del!==1&&m.del!==true); }
+function tmRep(a){ const w=String((a&&a.who)||"").replace(/様$/,"").trim(); return (w&&w!=="—"&&w!=="-")?w:""; }
+function tmRoleOf(m){ return (m&&m.role==="member")?"member":"admin"; }   /* 役割が未指定（v21.4 以前の招待）は管理者と同じ */
+function tmStOf(m){ return (m.del===1||m.del===true)?"del":m.st==="disabled"?"stop":m.st==="invited"?"inv":"act"; }
+function tmMe(){ const a=tmAcct(); const who=String((typeof SES!=="undefined"&&SES&&SES.who)||"").trim(); const m=who?tmList(a).find(x=>x.name===who):null;
+  if(!m) return {name:who,role:"owner",m:null,rep:!!(who&&who===tmRep(a))}; return {name:who,role:tmRoleOf(m),m}; }
+function tmCan(){ return tmMe().role!=="member"; }
+var TM_ROLE={admin:"管理者",member:"メンバー"}, TM_ST={act:["参加中","hi"],inv:["招待中","mid"],stop:["停止中","lo"],del:["削除済み","no"]};
+function tmNoun(a){ return tmIsFwd(a)?"荷主":"商品"; }
+function tmTargets(a){
+  if(tmIsFwd(a)){ const set=new Map(); try{ ((typeof FWDB!=="undefined"&&FWDB&&FWDB.reqs)||[]).forEach(r=>{ const c=String((r&&r.co)||"").trim(); if(c&&!set.has(c)) set.set(c,{id:c,label:c}); }); }catch(e){} return [...set.values()]; }
+  return ((typeof TENS!=="undefined"&&TENS)||[]).filter(t=>t&&(t.src==="upload"||t.src==="sample2")).map(t=>{ if(!t.uid&&typeof v185Stamp==="function") v185Stamp(t);
+    return {id:t.uid,label:String(t.item||t.file||"（未入力）").slice(0,40)+(t.co?"（"+String(t.co).slice(0,24)+"）":"")}; }).filter(x=>x.id); }
+function tmAllOf(m){ const as=(m&&m.assign)||[]; return !as.length||as.includes(TM_ALL); }
+function tmHas(m,id){ const as=(m&&m.assign)||[]; if(tmAllOf(m)) return true; return as.includes(id); }
+function tmAssignHtml(m,T,noun,rmBtn){
+  const as=(m.assign||[]); if(tmAllOf(m)) return `<span class="tm-chip all">すべての${noun}</span>`; if(as.includes(TM_NONE)) return `<span class="tm-chip">担当なし</span>`;
+  const hit=as.map(id=>T.find(t=>t.id===id)).filter(Boolean);
+  return hit.length?hit.map(t=>`<span class="tm-chip">${esc(t.label)}${rmBtn?`<button type="button" title="担当から外す" data-tmun="${esc(m.name)}" data-tmid="${esc(t.id)}">×</button>`:""}</span>`).join(""):`<span class="tm-chip">${as.length}件（この端末に無い${noun}）</span>`; }
+function tmDate(t){ if(!t) return "—"; const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function tmUrl(){ try{ if(/github\.io$/.test(location.hostname)) return location.origin+location.pathname; }catch(e){} return "https://kenta19870526.github.io/boueki-cloud-trial/"; }
+function tmSaveAcct(){ try{ if(typeof v213SaveADB==="function") v213SaveADB(); else asave(); }catch(e){} }
+function tmPut(){ clearTimeout(V215.memPutT); V215.memPutT=setTimeout(()=>{ try{ if(typeof v213MembersPut==="function") v213MembersPut().then(()=>{ V215.regAt=0; }); }catch(e){} },250); }
+function tmTouch(m){ m._m=Date.now(); }
+function tmLog(s){ try{ if(typeof logU==="function") logU("member",s); }catch(e){} }
+function tmAfter(msg){ tmSaveAcct(); tmPut(); if(msg) toast(msg); tmRepaint(); }
+function tmRepaint(){ try{ if(typeof FWDON!=="undefined"&&FWDON&&typeof fwdCur!=="undefined"&&fwdCur==="fteam"){ fwdRender(); return; } }catch(e){}
+  try{ if(typeof cur!=="undefined"&&(cur==="team"||cur==="msg")) render(); }catch(e){} }
+
+/* ── 招待状（コピー／メールソフトで送る） ── */
+function tmInviteText(a,m){
+  const T=tmTargets(a), noun=tmNoun(a); const as=tmAllOf(m)?`すべての${noun}`:(m.assign||[]).includes(TM_NONE)?"なし":(m.assign||[]).map(id=>(T.find(t=>t.id===id)||{}).label).filter(Boolean).join("、")||"—";
+  return `${a.co} の「貿易クラウド2.0（トライアル）」に招待されました。\n\n▼ ログインページ\n${tmUrl()}\n\n▼ ログインのしかた\n1. 「お客様ログイン」を選ぶ\n2. アクセスコード：${a.code}\n3. ご担当者名：${m.name}（このとおりに入力してください）\n\n役割：${TM_ROLE[tmRoleOf(m)]}\n担当する${noun}：${as}\n招待した人：${m.by||"—"}\n\n※アクセスコードは、社内の方だけで共有してください。`; }
+function tmInvitePanel(a,m){
+  const txt=tmInviteText(a,m), subj=`【貿易クラウド2.0】${a.co} から招待が届きました`;
+  const mail=m.mail?`mailto:${encodeURIComponent(m.mail)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(txt)}`:"";
+  return `<p class="lbl" style="margin-top:12px">招待状（${esc(m.name)} さんへ）</p><div class="tm-inv" id="tmInvTxt">${esc(txt)}</div>
+    <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap"><button class="btn" type="button" id="tmCopy">招待状をコピー</button>
+      ${mail?`<a class="btn g" href="${mail}" id="tmMail">✉ メールソフトで送る</a>`:`<span class="nn">メールアドレスを登録すると、メールソフトで送れます。</span>`}</div>
+    <p class="nn" style="margin-top:8px">自動でメールは送りません。コピーした招待状を、社内のチャットやメールで ${esc(m.name)} さんへお送りください。${esc(m.name)} さんが初めてログインすると「参加中」になります。</p>`; }
+function tmBindInvitePanel(a,m){ const c=document.getElementById("tmCopy"); if(c) c.onclick=()=>{ if(typeof copyTxt==="function") copyTxt(tmInviteText(a,m)); }; }
+
+/* ── 招待（お客様・物流会社の画面） ── */
+function tmPicksHtml(T,sel,noun){
+  if(!T.length) return `<p class="nn" style="margin-top:6px">まだ${noun}がありません（${noun==="商品"?"商品を登録":"見積依頼が届く"}と、ここで選べます）。</p>`;
+  return `<div class="tm-picks">${T.map(t=>`<label><input type="checkbox" data-tmpick value="${esc(t.id)}" ${sel.includes(t.id)?"checked":""}> ${esc(t.label)}</label>`).join("")}</div>`; }
+function tmAssignFormHtml(T,m,noun){
+  const mode=!m||tmAllOf(m)?"all":(m.assign||[]).includes(TM_NONE)?"none":"pick", sel=(m&&m.assign)||[];
+  return `<p class="lbl" style="margin-top:12px">担当する${noun}</p>
+    <label class="tm-opt"><input type="radio" name="tmAsg" value="all" ${mode==="all"?"checked":""}><span><b>すべての${noun}</b><br><span class="nn">あとから増えた${noun}も含みます</span></span></label>
+    <label class="tm-opt"><input type="radio" name="tmAsg" value="pick" ${mode==="pick"?"checked":""}><span><b>選んだ${noun}だけ</b></span></label>
+    <div id="tmPickWrap" ${mode==="pick"?"":"hidden"}>${tmPicksHtml(T,sel,noun)}</div>
+    <label class="tm-opt"><input type="radio" name="tmAsg" value="none" ${mode==="none"?"checked":""}><span><b>担当なし</b><br><span class="nn">やりとりの閲覧・投稿だけ</span></span></label>`; }
+function tmBindAssignForm(){ document.querySelectorAll('input[name="tmAsg"]').forEach(r=>r.addEventListener("change",()=>{ const w=document.getElementById("tmPickWrap"); if(w) w.hidden=r.value!=="pick"||!r.checked; })); }
+function tmReadAssign(){ const v=(document.querySelector('input[name="tmAsg"]:checked')||{}).value||"all"; if(v==="all") return [TM_ALL]; if(v==="none") return [TM_NONE];
+  const ids=[...document.querySelectorAll("[data-tmpick]:checked")].map(x=>x.value); return ids.length?ids:[TM_NONE]; }
+function tmRoleFormHtml(role){
+  return `<p class="lbl" style="margin-top:12px">役割</p>
+    <label class="tm-opt"><input type="radio" name="tmRole" value="member" ${role!=="admin"?"checked":""}><span><b>メンバー</b><br><span class="nn">見る・投稿する・担当の仕事をする</span></span></label>
+    <label class="tm-opt"><input type="radio" name="tmRole" value="admin" ${role==="admin"?"checked":""}><span><b>管理者</b><br><span class="nn">メンバーの招待・担当の割り当て・役割の変更・停止・削除もできる</span></span></label>`; }
+function tmInviteOpen(preName){
+  const a=tmAcct(); if(!a) return; if(!tmCan()){ toast("メンバーの招待は管理者が行います"); return; }
+  const T=tmTargets(a), noun=tmNoun(a);
+  openDW(`<div class="tm-form"><h3>👥 メンバーを招待</h3>
+    <p class="nn" style="margin-top:6px">${esc(a.co)} の別のご担当者を招待します。費用はかかりません。招待はこの会社のPC・スマホとSTANDAGEの管理画面にすぐ反映されます。</p>
+    <p class="lbl" style="margin-top:12px">氏名（必須・ログインのときに入力する名前）</p>
+    <input class="sel" id="tmN" placeholder="例：山田 花子" value="${esc(preName||"")}" autocomplete="off" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">メールアドレス（招待状をメールソフトで送るとき）</p>
+    <input class="sel" id="tmM" type="email" placeholder="例：hanako@example.co.jp" autocomplete="off" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">部署・役職</p>
+    <input class="sel" id="tmD" placeholder="例：海外事業部" autocomplete="off" style="width:100%;box-sizing:border-box">
+    ${tmRoleFormHtml("member")}${tmAssignFormHtml(T,null,noun)}
+    <div class="rw" style="margin-top:14px"><button class="btn" type="button" id="tmGo">招待する</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div>
+    <p class="nn" id="tmErr" style="color:var(--crit);margin-top:8px" hidden></p></div>`);
+  if(typeof dwChrome==="function") dwChrome(); tmBindAssignForm();
+  const n=document.getElementById("tmN"); if(n) setTimeout(()=>n.focus(),60);
+  document.getElementById("tmGo").onclick=()=>{
+    const err=t=>{ const e=document.getElementById("tmErr"); if(e){ e.hidden=false; e.textContent=t; } };
+    const name=(document.getElementById("tmN").value||"").trim(), mail=(document.getElementById("tmM").value||"").trim(), dept=(document.getElementById("tmD").value||"").trim();
+    if(!name) return err("氏名を入力してください。");
+    if(mail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return err("メールアドレスの形が正しくありません。");
+    if(name===tmRep(a)) return err("代表の方と同じ氏名です（代表の方は招待しなくてもログインできます）。");
+    const ex=(a.members||[]).find(m=>m.name===name);
+    if(ex&&tmStOf(ex)!=="del") return err(`「${name}」さんはすでに登録されています（${TM_ST[tmStOf(ex)][0]}）。`);
+    const role=(document.querySelector('input[name="tmRole"]:checked')||{}).value==="admin"?"admin":"member";
+    const now=Date.now(), m={name,mail,dept,role,assign:tmReadAssign(),st:"invited",added:now,by:tmMe().name||tmRep(a)||"（代表）",joined:0,del:0,_m:now};
+    if(ex) Object.assign(ex,m); else a.members=(a.members||[]).concat([m]);
+    tmSaveAcct(); tmPut(); tmLog("メンバー招待:"+name);
+    const box=document.querySelector("#pn .tm-form"); if(box) box.innerHTML=`<h3>✅ ${esc(name)} さんを招待しました</h3>
+      <p class="nn" style="margin-top:6px">状態は「招待中」です。${esc(name)} さんが初めてログインすると「参加中」になります。</p>${tmInvitePanel(a,m)}
+      <div class="rw" style="margin-top:12px"><button class="btn g" type="button" onclick="closeDW()">閉じる</button><button class="btn g" type="button" id="tmMore">続けて招待する</button></div>`;
+    tmBindInvitePanel(a,m); const more=document.getElementById("tmMore"); if(more) more.onclick=()=>tmInviteOpen();
+    toast(`${name} さんを招待しました`); tmRepaint(); };
+}
+function tmInviteShow(name){ const a=tmAcct(); if(!a) return; const m=(a.members||[]).find(x=>x.name===name); if(!m) return;
+  openDW(`<div class="tm-form"><h3>✉ 招待状</h3>${tmInvitePanel(a,m)}<div class="rw" style="margin-top:12px"><button class="btn g" type="button" onclick="closeDW()">閉じる</button></div></div>`); if(typeof dwChrome==="function") dwChrome(); tmBindInvitePanel(a,m); }
+
+/* ── 担当・役割・停止・削除 ── */
+function tmFind(name){ const a=tmAcct(); return a?(a.members||[]).find(m=>m.name===name):null; }
+function tmAssignOpen(name){
+  const a=tmAcct(), m=tmFind(name); if(!a||!m) return; if(!tmCan()){ toast("担当の割り当ては管理者が行います"); return; }
+  const T=tmTargets(a), noun=tmNoun(a);
+  openDW(`<div class="tm-form"><h3>担当する${noun}：${esc(name)} さん</h3>${tmAssignFormHtml(T,m,noun)}
+    <div class="rw" style="margin-top:14px"><button class="btn" type="button" id="tmAsgGo">保存</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome(); tmBindAssignForm();
+  document.getElementById("tmAsgGo").onclick=()=>{ m.assign=tmReadAssign(); tmTouch(m); closeDW(); tmLog("担当の変更:"+name); tmAfter(`${name} さんの担当を保存しました`); }; }
+function tmRoleOpen(name){
+  const a=tmAcct(), m=tmFind(name); if(!a||!m) return; if(!tmCan()){ toast("役割の変更は管理者が行います"); return; }
+  openDW(`<div class="tm-form"><h3>役割：${esc(name)} さん</h3>${tmRoleFormHtml(tmRoleOf(m))}
+    <div class="rw" style="margin-top:14px"><button class="btn" type="button" id="tmRoleGo">保存</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  document.getElementById("tmRoleGo").onclick=()=>{ const r=(document.querySelector('input[name="tmRole"]:checked')||{}).value==="admin"?"admin":"member";
+    const me=tmMe(); if(me.m&&me.m.name===name&&r==="member"&&!confirm("自分を「メンバー」にすると、このあと招待・担当・削除ができなくなります。よろしいですか？")) return;
+    m.role=r; tmTouch(m); closeDW(); tmLog("役割の変更:"+name+"→"+TM_ROLE[r]); tmAfter(`${name} さんを「${TM_ROLE[r]}」にしました`); }; }
+function tmStopToggle(name){
+  const m=tmFind(name); if(!m) return; if(!tmCan()){ toast("停止・再開は管理者が行います"); return; }
+  if(tmMe().m&&tmMe().m.name===name){ toast("自分自身は停止できません"); return; }
+  const stop=m.st!=="disabled"; if(stop&&!confirm(`${name} さんを停止します。停止中はログインできません（あとで再開できます）。`)) return;
+  m.st=stop?"disabled":(m.joined?"active":"invited"); tmTouch(m); tmLog((stop?"停止:":"再開:")+name); tmAfter(stop?`${name} さんを停止しました`:`${name} さんを再開しました`); }
+/* 未完了のタスク（担当が本人）と承認者：削除の前に引き継ぐ（Ver.1 の「外せるか」の確認と同じ考え方） */
+function tmOpenTasks(name){ const out=[]; ((typeof TENS!=="undefined"&&TENS)||[]).forEach(t=>{ ((t&&t.xtasks)||[]).forEach(k=>{ if(k&&k.who===name&&!/完了|中止/.test(String(k.st||""))) out.push({t,k}); }); }); return out; }
+function tmRemoveOpen(name){
+  const a=tmAcct(), m=tmFind(name); if(!a||!m) return; if(!tmCan()){ toast("メンバーの削除は管理者が行います"); return; }
+  if(tmMe().m&&tmMe().m.name===name){ toast("自分自身は削除できません"); return; }
+  const tasks=tmOpenTasks(name), appr=a.approver===name, others=tmList(a).filter(x=>x.name!==name&&tmStOf(x)!=="stop").map(x=>x.name), rep=tmRep(a);
+  const meN=tmMe().name; const opts=[meN&&meN!==name?meN:""].concat(rep?[rep]:[]).concat(others).filter((v,i,s)=>v&&v!==name&&s.indexOf(v)===i);   /* 自分（未登録の名前でも）・代表・ほかのメンバー */
+  openDW(`<div class="tm-form"><h3>${esc(name)} さんを削除</h3>
+    <p class="nn" style="margin-top:6px">削除すると、この名前ではログインできなくなります。これまでの投稿・記録は残ります。同じ名前で招待し直すこともできます。</p>
+    ${tasks.length||appr?`<div style="margin-top:10px;padding:10px 12px;border-radius:var(--r2);background:var(--warn-soft);font-size:12.5px;line-height:1.7">
+      <b>引き継ぎが必要です</b>：${tasks.length?`未完了のタスク <b>${tasks.length}件</b>（${esc(tasks.slice(0,3).map(x=>x.k.n).join("、"))}${tasks.length>3?" ほか":""}）`:""}${appr?`${tasks.length?"・":""}承認者`:""}
+      <div class="rw" style="margin-top:8px;gap:6px;align-items:center"><span>引き継ぐ人：</span><select class="sel" id="tmTo">${opts.map(o=>`<option>${esc(o)}</option>`).join("")}<option value="">（引き継がない）</option></select></div></div>`:""}
+    <div class="rw" style="margin-top:14px"><button class="btn warn" type="button" id="tmDelGo" style="background:var(--crit);border-color:var(--crit);color:#fff">削除する</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  document.getElementById("tmDelGo").onclick=()=>{ const to=(document.getElementById("tmTo")||{}).value||"";
+    if(to){ tasks.forEach(x=>{ x.k.who=to; }); if(appr) a.approver=to; if(tasks.length){ try{ saveTen(); }catch(e){} } }
+    m.del=1; m.st="disabled"; tmTouch(m); if(appr&&!to) a.approver="";
+    closeDW(); tmLog("メンバー削除:"+name+(to?"（引き継ぎ："+to+"）":"")); tmAfter(`${name} さんを削除しました${to&&(tasks.length||appr)?`（${to} さんへ引き継ぎ）`:""}`); }; }
+/* 商品（荷主）側から担当を付け外し */
+function tmToggleOn(name,id,on){ const a=tmAcct(), m=tmFind(name); if(!a||!m) return; if(!tmCan()){ toast("担当の割り当ては管理者が行います"); return; }
+  const T=tmTargets(a); let as=tmAllOf(m)?T.map(t=>t.id):(m.assign||[]).filter(x=>x!==TM_NONE);
+  if(on){ if(!as.includes(id)) as.push(id); } else as=as.filter(x=>x!==id);
+  m.assign=as.length?as:[TM_NONE]; tmTouch(m); tmAfter(on?`${name} さんを担当にしました`:`${name} さんを担当から外しました`); }
+/* 自分（ログイン名）を登録メンバーにする：未登録の名前でログインしている人が、自分を一覧に加える */
+function tmSelfAdd(){ const a=tmAcct(), me=tmMe(); if(!a||!me.name||me.m) return; const now=Date.now();
+  a.members=(a.members||[]).filter(x=>x.name!==me.name).concat([{name:me.name,mail:"",dept:"",role:"admin",assign:[TM_ALL],st:"active",added:now,joined:now,by:me.name,del:0,_m:now}]);
+  tmLog("メンバー登録（本人）:"+me.name); tmAfter(`${me.name} さんをメンバー（管理者）として登録しました`); }
+/* 初回ログイン：招待中 → 参加中（サーバー v2.9 も同じことをする。どちらが先でも同じ結果） */
+function tmSelfJoin(){ try{ const me=tmMe(); if(me.m&&me.m.st==="invited"){ me.m.st="active"; me.m.joined=me.m.joined||Date.now(); tmTouch(me.m); tmSaveAcct(); tmPut(); } }catch(e){} }
+
+/* ── 画面：メンバー・担当 ── */
+function teamPageHtml(fwd){
+  const a=tmAcct(); if(!a) return `<div class="c"><p class="nn">ログインすると使えます。</p></div>`;
+  const me=tmMe(), can=me.role!=="member", T=tmTargets(a), noun=tmNoun(a), L=tmList(a), rep=tmRep(a);
+  const cnt=k=>L.filter(m=>tmStOf(m)===k).length;
+  const hd=`<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">${fwd?"🚚 物流会社モード":"外とつながる"}</span><span class="nt">この版で新規</span></div>
+    <h1>メンバー・担当</h1><p class="cando"><b>この画面でできること：</b>同じ会社のメンバーを招待し、担当する${noun}を割り当てます（貿易クラウドVer.1 の「案件メンバー」と同じ考え方）。招待・担当・停止・削除は、この会社のPC・スマホとSTANDAGEの管理画面にすぐ反映されます。</p></div>
+    <div class="rw">${can?`<button class="btn" type="button" id="tmInv">＋ メンバーを招待</button>`:""}</div></div>`;
+  const top=`<div class="c"><div class="tm-top"><div class="tm-me">あなた：<b>${esc(me.name||"（名前なし）")}</b>（${me.role==="member"?"メンバー":me.m?"管理者":me.rep?"代表":"管理者と同じ操作ができます"}）
+      ${!me.m&&me.name&&!me.rep&&can?`<button class="btn g" type="button" id="tmSelf" style="margin-left:6px;font-size:12px;padding:4px 10px">自分をメンバーに登録</button>`:""}</div>
+    <div class="tm-cnt"><span class="p hi">参加中 ${cnt("act")}</span><span class="p mid">招待中 ${cnt("inv")}</span><span class="p lo">停止中 ${cnt("stop")}</span></div></div>
+    <div class="tm-tabs" role="tablist"><button type="button" role="tab" data-tmtab="list" aria-selected="${V215.teamTab!=="prod"}">メンバー一覧</button>
+      <button type="button" role="tab" data-tmtab="prod" aria-selected="${V215.teamTab==="prod"}">${noun}ごとの担当</button></div>
+    ${V215.teamTab==="prod"?tmProdHtml(a,T,L,can,noun):tmListHtml(a,T,L,can,noun,me,rep)}</div>`;
+  const note=`<div class="c"><h3>ログインと権限</h3><p class="nn" style="margin-top:6px">招待したメンバーは、<b>アクセスコード＋ご本人の氏名</b>でログインします（初めてログインすると「参加中」）。<b>管理者</b>は招待・担当・役割・停止・削除ができ、<b>メンバー</b>は見る・投稿する・担当の仕事をします。
+    停止・削除したメンバーは、その氏名ではログインできません。削除するときは、未完了のタスクと承認者を別のメンバーへ引き継げます（Ver.1 と同じく、引き継いでから外す流れ）。
+    代表（アカウント発行時の担当者）は外せません。</p></div>`;
+  return hd+top+note;
+}
+function tmListHtml(a,T,L,can,noun,me,rep){
+  const rows=[];
+  if(rep) rows.push(`<div class="tm-card"><div class="tm-av rep">${esc(rep.slice(0,1))}</div><div><div class="tm-nm">${esc(rep)}${me.name===rep?' <span class="p or">あなた</span>':""}<span class="p hi">代表</span></div>
+    <div class="tm-sub">アカウント発行時の担当者（外せません）</div><div class="tm-chips"><span class="tm-chip all">すべての${noun}</span></div></div><div></div></div>`);
+  const order={act:0,inv:1,stop:2}; L.slice().sort((x,y)=>(order[tmStOf(x)]-order[tmStOf(y)])||(+x.added||0)-(+y.added||0)).forEach(m=>{
+    const st=tmStOf(m), [stl,stc]=TM_ST[st], mine=me.name&&me.name===m.name;
+    rows.push(`<div class="tm-card ${st}"><div class="tm-av ${st==="inv"?"inv":st==="stop"?"stop":""}">${esc(m.name.slice(0,1))}</div>
+      <div><div class="tm-nm">${esc(m.name)}${mine?' <span class="p or">あなた</span>':""}<span class="p ${tmRoleOf(m)==="admin"?"on":"lo"}">${TM_ROLE[tmRoleOf(m)]}</span><span class="p ${stc}">${stl}</span></div>
+        <div class="tm-sub">${[m.dept,m.mail].filter(Boolean).map(esc).join("・")||"—"}　招待 ${tmDate(m.added)}${m.by?`（${esc(m.by)}）`:""}${m.joined?`・参加 ${tmDate(m.joined)}`:""}${m.last?`・最終ログイン ${tmDate(m.last)}`:""}</div>
+        <div class="tm-chips">${tmAssignHtml(m,T,noun,false)}</div></div>
+      <div class="tm-act">${can?`<button class="btn g" type="button" data-tmasg="${esc(m.name)}">担当</button><button class="btn g" type="button" data-tmrole="${esc(m.name)}">役割</button>
+        ${st==="inv"?`<button class="btn g" type="button" data-tminvshow="${esc(m.name)}">招待状</button>`:""}
+        ${mine?"":`<button class="btn g" type="button" data-tmstop="${esc(m.name)}">${st==="stop"?"再開":"停止"}</button><button class="btn g warn" type="button" data-tmdel="${esc(m.name)}">削除</button>`}`:""}</div></div>`); });
+  if(!L.length) rows.push(`<p class="nn" style="padding:10px 2px">まだメンバーがいません。${can?"右上の「＋ メンバーを招待」から招待できます。":""}</p>`);
+  return `<div class="tm-list">${rows.join("")}</div>`; }
+function tmProdHtml(a,T,L,can,noun){
+  if(!T.length) return `<p class="nn" style="margin-top:12px">まだ${noun}がありません。${noun==="商品"?"「商品情報を登録」で商品を登録すると":"荷主から見積依頼が届くと"}、ここで担当を割り当てられます。</p>`;
+  const act=L.filter(m=>tmStOf(m)!=="stop");
+  return `<div class="tm-list">${T.map(t=>{ const on=act.filter(m=>tmHas(m,t.id)), off=act.filter(m=>!tmHas(m,t.id));
+    return `<div class="tm-prod"><h4>${esc(t.label)}</h4><div class="tm-chips">${on.length?on.map(m=>`<span class="tm-chip${tmAllOf(m)?" all":""}" title="${tmAllOf(m)?"すべての"+noun+"の担当":""}">${esc(m.name)}${can?`<button type="button" title="担当から外す" data-tmun="${esc(m.name)}" data-tmid="${esc(t.id)}">×</button>`:""}</span>`).join(""):'<span class="nn">担当はまだいません</span>'}
+      ${can&&off.length?`<select class="sel" data-tmadd="${esc(t.id)}" style="font-size:12px;padding:3px 6px"><option value="">＋ 担当を追加</option>${off.map(m=>`<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("")}</select>`:""}</div></div>`; }).join("")}</div>`; }
+var vTeam=function(p){ return teamPageHtml(false); };
+var teamBind=function(){
+  const q=s=>document.querySelector(s);
+  if(q("#tmInv")) q("#tmInv").onclick=()=>tmInviteOpen();
+  if(q("#tmSelf")) q("#tmSelf").onclick=()=>tmSelfAdd();
+  document.querySelectorAll("[data-tmtab]").forEach(b=>b.onclick=()=>{ V215.teamTab=b.dataset.tmtab; tmRepaint(); });
+  document.querySelectorAll("[data-tmasg]").forEach(b=>b.onclick=()=>tmAssignOpen(b.dataset.tmasg));
+  document.querySelectorAll("[data-tmrole]").forEach(b=>b.onclick=()=>tmRoleOpen(b.dataset.tmrole));
+  document.querySelectorAll("[data-tmstop]").forEach(b=>b.onclick=()=>tmStopToggle(b.dataset.tmstop));
+  document.querySelectorAll("[data-tmdel]").forEach(b=>b.onclick=()=>tmRemoveOpen(b.dataset.tmdel));
+  document.querySelectorAll("[data-tminvshow]").forEach(b=>b.onclick=()=>tmInviteShow(b.dataset.tminvshow));
+  document.querySelectorAll("[data-tmun]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); tmToggleOn(b.dataset.tmun,b.dataset.tmid,false); });
+  document.querySelectorAll("[data-tmadd]").forEach(s=>s.onchange=()=>{ if(s.value) tmToggleOn(s.value,s.dataset.tmadd,true); });
+  tmSelfJoin();
+};
+/* 画面の登録（お客様：外とつながる「やりとり」の次） */
+(function(){ try{ if(typeof PAGES!=="undefined"&&!PAGES.some(p=>p.id==="team")){ const i=PAGES.findIndex(p=>p.id==="msg");
+  PAGES.splice(i>=0?i+1:PAGES.length,0,{id:"team",ly:"④",nm:"メンバー・担当",grp:"外とつながる",nw:1,free:1,ic:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3.1-5.4 6-5.4s5.4 2 6 5.4"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.4c2.6.1 4.6 1.9 5.2 4.8"/>'}); } }catch(e){} })();
+/* 物流会社の画面にも「メンバー・担当」 */
+if(typeof fwdNav==="function"){ const __fn215=fwdNav; fwdNav=function(){ const r=__fn215.apply(this,arguments); try{ const nav=document.getElementById("nav"); if(nav&&!nav.querySelector('[data-fp="fteam"]')){
+  nav.insertAdjacentHTML("beforeend",`<button class="nb" data-fp="fteam" ${fwdCur==="fteam"?'aria-current="page"':""}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3.1-5.4 6-5.4s5.4 2 6 5.4"/><circle cx="17" cy="9" r="2.6"/><path d="M15.6 14.4c2.6.1 4.6 1.9 5.2 4.8"/></svg><span>メンバー・担当</span><span class="lyn">👥</span></button>`);
+  nav.querySelector('[data-fp="fteam"]').addEventListener("click",()=>{ fwdCur="fteam"; fwdNav(); fwdRender(); }); } }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr215=fwdRender; fwdRender=function(){ if(typeof fwdCur==="undefined"||fwdCur!=="fteam") return __fr215.apply(this,arguments);
+  try{ fwdLoad(); }catch(e){} const g=document.getElementById("guide"); if(g) g.hidden=true; well.innerHTML=teamPageHtml(true); teamBind(); scrollTo({top:0}); }; }
+
+/* ── 「やりとり」のメンバー欄：役割・状態を反映し、招待は新しい画面へ ── */
+mMembersAll=function(){ const base=(typeof D!=="undefined"&&D&&D.members)?D.members.slice():[]; const a=tmAcct();
+  if(a) tmList(a).forEach(m=>{ const st=tmStOf(m); base.splice(1,0,[m.name,(m.dept||"メンバー")+"・"+TM_ROLE[tmRoleOf(m)]+(st==="inv"?"・招待中":st==="stop"?"・停止中":""),"貴社"]); });
+  return base; };
+mInviteHtml=function(){ if(!tmAcct()) return ""; return `<span class="rw" style="gap:5px">${tmCan()?`<button class="btn g" id="minvite" style="padding:4px 10px;font-size:11.5px">＋ 招待</button>`:""}<button class="btn g" id="mteam" style="padding:4px 10px;font-size:11.5px">管理</button></span>`; };
+mInviteNote=function(){ if(!tmAcct()) return ""; const n=tmList(tmAcct()).length;
+  return `<p class="nn" style="margin-top:8px">メンバーの招待・担当・削除は「メンバー・担当」画面で行います${n?`（現在 ${n}名）`:""}。招待したメンバーは<b>アクセスコード＋ご本人の氏名</b>でログインします。</p>`; };
+mInviteBind=function(){ const b=document.getElementById("minvite"); if(b) b.onclick=()=>tmInviteOpen(); const t=document.getElementById("mteam"); if(t) t.onclick=()=>go("team"); };
+
+/* ── 登録済みの商品カードに担当を表示・「自分の担当だけ」 ── */
+function tmMineOnly(){ try{ return localStorage.getItem("bc20_tm_mine")==="1"; }catch(e){ return false; } }
+function tmDecorateProducts(){
+  const box=document.getElementById("regprod"); const a=tmAcct(); if(!box||!a) return; const L=tmList(a).filter(m=>tmStOf(m)!=="stop"); const me=tmMe();
+  box.querySelectorAll("[data-tsw]").forEach(c=>{ const t=(typeof TENS!=="undefined"&&TENS)?TENS[+c.dataset.tsw]:null; if(!t||!t.uid||c.querySelector(".tm-badge")) return;
+    const who=L.filter(m=>!tmAllOf(m)&&tmHas(m,t.uid)).map(m=>m.name); const all=L.filter(m=>tmAllOf(m)).length;
+    if(who.length||all){ const s=document.createElement("span"); s.className="tm-badge"; s.textContent="担当："+(who.length?who.join("・"):"")+(all?(who.length?"＋":"")+`全体担当${all}名`:""); c.appendChild(s); }
+    if(tmMineOnly()&&me.m&&!tmHas(me.m,t.uid)) c.style.display="none"; });
+  const h=box.querySelector("h3"); if(h&&me.m&&!tmAllOf(me.m)&&!box.querySelector("#tmMine")){ const b=document.createElement("button"); b.type="button"; b.id="tmMine"; b.className="btn g"; b.style.cssText="font-size:11.5px;padding:3px 9px";
+    b.textContent=tmMineOnly()?"👤 自分の担当だけ（解除）":"👤 自分の担当だけ"; b.onclick=()=>{ try{ localStorage.setItem("bc20_tm_mine",tmMineOnly()?"0":"1"); }catch(e){} render(); }; h.after(b); } }
+if(typeof render==="function"){ const __r215=render; render=function(){ const r=__r215.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="up") tmDecorateProducts(); }catch(e){} return r; }; }
+
+/* ── 利用中：招待中→参加中、停止・削除は全端末でログアウト（v21.3 の取り直しに「招待中は入れる」「削除」を加える） ── */
+v213AcctTick=async function(force){
+  if(!v213Trial()||typeof SYNC==="undefined"||!SYNC.on||!SYNC.started||SYNC.kicked) return;
+  if(!force&&Date.now()-V213.accAt<600000) return; if(V213.accBusy) return; V213.accBusy=1;
+  try{ const a=await syncRefreshAcct(SES.code); if(!a||a.unknown) return;
+    if(a.st!=="active") return syncKicked(null,"disabled");
+    if(a.expires&&a.expires<Date.now()) return syncKicked(null,"expired");
+    const mem=(a.members||[]).find(m=>m&&m.name&&m.name===SES.who); if(mem&&(mem.del===1||mem.del===true||(mem.st!=="active"&&mem.st!=="invited"))) return syncKicked(null,"member");
+    try{ if(typeof injectBar==="function") injectBar(); }catch(e){} }
+  catch(e){} finally{ V213.accBusy=0; } };
+if(typeof enterApp==="function"){ const __ea215=enterApp; enterApp=function(){ const r=__ea215.apply(this,arguments); setTimeout(()=>{ try{ if(v213Trial()) tmSelfJoin(); }catch(e){} },2500); return r; }; }
+
+/* ── 台帳の変更をすばやく反映：画面を開いている間、15秒ごとに「台帳の最終更新時刻」だけを確かめ、変わったら取り込む ── */
+async function tmRegTick(){
+  try{ if(V215.regBusy||document.visibilityState!=="visible"||typeof SES==="undefined"||!SES||!v213SyncOn()) return;
+    const admin=SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm", team=SES.t==="trial"&&((typeof cur!=="undefined"&&cur==="team")||(typeof FWDON!=="undefined"&&FWDON&&typeof fwdCur!=="undefined"&&fwdCur==="fteam"));
+    if(!admin&&!team) return; V215.regBusy=1;
+    const r=await syncCall("reg_at",{},{timeout:15000}); const at=+(r&&r.at)||0; if(!at||at===V215.regAt) return; const first=!V215.regAt; V215.regAt=at; if(first&&!admin) return;
+    if(admin){ if(typeof V213!=="undefined") V213.admBusy=1; let x=null; try{ x=await v213AdmPull(); }finally{ if(typeof V213!=="undefined") V213.admBusy=0; }
+      const news=V215.seen?tmAdmNewMembers():(tmAdmNewMembers(),[]); if(x&&x.ch){ if(typeof v214AdmBusy==="function"&&v214AdmBusy()){ if(typeof V214!=="undefined") V214.pend=1; } else renderAdmin(); }
+      if(news.length) toast("新しいメンバー："+news.slice(0,3).join("、")+(news.length>3?` ほか${news.length-3}名`:"")); }
+    else { const before=JSON.stringify((tmAcct()||{}).members||[]); const a2=await syncRefreshAcct(SES.code); if(a2&&!a2.unknown&&JSON.stringify(a2.members||[])!==before){ tmRepaint(); toast("メンバーの変更を取り込みました（別の端末・管理画面での変更）"); } } }
+  catch(e){} finally{ V215.regBusy=0; } }
+/* 新しく現れたメンバー（この画面を開いてから）。一度知らせたメンバーは二度知らせない */
+function tmAdmNewMembers(){ const now=[]; (ADB.accounts||[]).forEach(a=>(a.members||[]).forEach(m=>{ if(m&&m.name&&m.del!==1) now.push(a.code+"|"+m.name); }));
+  if(!V215.seen){ V215.seen=new Set(now); return []; } const out=now.filter(k=>!V215.seen.has(k)); out.forEach(k=>V215.seen.add(k)); return out.map(k=>k.split("|")[1]+"（"+k.split("|")[0]+"）"); }
+setInterval(tmRegTick,15000);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") setTimeout(tmRegTick,500); });
+
+/* ══ 管理画面：全アカウントのメンバー ══ */
+function tmAdmRows(){ const out=[]; (ADB.accounts||[]).forEach(a=>{ (a.members||[]).forEach(m=>{ if(m&&m.name) out.push({a,m}); }); }); return out; }
+function tmAdmCardHtml(){
+  const R=tmAdmRows(), F=V215.admFilt, live=typeof syncOn==="function"&&syncOn();
+  const vis=R.filter(({a,m})=>(!F.code||a.code===F.code)&&(!F.st||tmStOf(m)===F.st)&&(!F.q||(a.code+" "+a.co+" "+m.name+" "+(m.mail||"")+" "+(m.dept||"")).toLowerCase().includes(F.q.toLowerCase())));
+  const cnt=k=>R.filter(({m})=>tmStOf(m)===k).length;
+  return `<div class="c" id="admmem" style="margin-bottom:11px">
+    <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
+      <div><h3>👥 メンバー管理（全アカウント） <span class="n" style="color:var(--ink-3);font-weight:400">${R.length-cnt("del")}名</span></h3>
+        <p class="nn">お客様・物流会社が招待したメンバーも、ここにすぐ出ます${live?"（台帳の変更を15秒ごとに確認）":""}。役割・担当・停止・削除は、そのアカウントのPC・スマホに反映されます。</p></div>
+      <button class="btn" type="button" id="tmaInv">＋ メンバーを招待</button></div>
+    <div class="rw" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+      <select class="sel" id="tmaCode" style="min-width:170px"><option value="">すべてのアカウント</option>${(ADB.accounts||[]).map(a=>`<option value="${esc(a.code)}" ${F.code===a.code?"selected":""}>${esc(a.code)}｜${esc(String(a.co).slice(0,18))}</option>`).join("")}</select>
+      <span class="acfilt">${[["","すべて"],["act","参加中"],["inv","招待中"],["stop","停止中"],["del","削除済み"]].map(([k,n])=>`<button class="q ${F.st===k?"on":""}" type="button" data-tmast="${k}">${n}${k?` ${cnt(k)}`:""}</button>`).join("")}</span>
+      <input class="sel" id="tmaQ" placeholder="🔍 氏名・メール・会社" value="${esc(F.q)}" style="min-width:160px"></div>
+    <div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr><th>アカウント</th><th>氏名・連絡先</th><th>役割</th><th>状態</th><th>担当</th><th>招待・参加</th><th>最終ログイン</th><th></th></tr></thead><tbody>
+    ${vis.length?vis.map(({a,m})=>{ const st=tmStOf(m), [stl,stc]=TM_ST[st], noun=tmIsFwd(a)?"荷主":"商品", P=(V215.admProd[a.code]||{}).list||[];
+      const asg=tmAllOf(m)?`すべての${noun}`:(m.assign||[]).includes(TM_NONE)?"なし":((m.assign||[]).map(id=>(P.find(t=>t.id===id)||{}).label).filter(Boolean).join("、")||`${(m.assign||[]).length}件の${noun}（「担当」で名前を表示）`);
+      return `<tr><td><span class="acode">${esc(a.code)}</span><br><span style="font-size:10.5px;color:var(--ink-3)">${esc(String(a.co).slice(0,22))}${tmIsFwd(a)?" 🚚":""}</span></td>
+        <td><b>${esc(m.name)}</b><br><span style="font-size:10.5px;color:var(--ink-3)">${[m.dept,m.mail].filter(Boolean).map(esc).join("・")||"—"}</span></td>
+        <td>${st==="del"?"—":`<span class="p ${tmRoleOf(m)==="admin"?"on":"lo"}">${TM_ROLE[tmRoleOf(m)]}</span>`}</td><td><span class="p ${stc}">${stl}</span></td>
+        <td style="font-size:11px;max-width:180px">${esc(asg)}</td>
+        <td class="n" style="font-size:10.5px;color:var(--ink-3)">${tmDate(m.added)}${m.by?`<br>${esc(m.by)}`:""}${m.joined?`<br>参加 ${tmDate(m.joined)}`:""}</td>
+        <td class="n" style="font-size:10.5px;color:var(--ink-3)">${m.last?tmDate(m.last):"—"}</td>
+        <td><div class="rw" style="gap:4px;flex-wrap:wrap">${st==="del"?`<button class="btn g" type="button" data-tmaund="${esc(a.code)}|${esc(m.name)}">元に戻す</button>`:`
+          <button class="btn g" type="button" data-tmaasg="${esc(a.code)}|${esc(m.name)}">担当</button><button class="btn g" type="button" data-tmarole="${esc(a.code)}|${esc(m.name)}">${tmRoleOf(m)==="admin"?"→メンバー":"→管理者"}</button>
+          <button class="btn g" type="button" data-tmastop="${esc(a.code)}|${esc(m.name)}">${st==="stop"?"再開":"停止"}</button><button class="btn g" type="button" data-tmadel="${esc(a.code)}|${esc(m.name)}" style="color:var(--crit);border-color:var(--crit)">削除</button>`}</div></td></tr>`; }).join("")
+      :`<tr><td colspan="8" style="text-align:center;color:var(--ink-3);padding:16px">${R.length?"条件に合うメンバーはいません":"まだメンバーはいません（お客様が招待するか、右上の「＋ メンバーを招待」から）"}</td></tr>`}
+    </tbody></table></div></div>`; }
+function tmAdmGet(key){ const [code,...rest]=String(key).split("|"); const name=rest.join("|"); const a=findAcct(code); const m=a&&(a.members||[]).find(x=>x.name===name); return {a,m,code,name}; }
+function tmAdmSave(msg){ try{ asave(); }catch(e){} if(msg) toast(msg); try{ renderAdmin(); }catch(e){} }
+/* 担当の選択肢：そのアカウントの暗号化データを、この管理画面の中でだけ復号して商品名を読む（サーバーには送らない）。物流会社は見積依頼の荷主名 */
+async function tmAdmTargets(a){
+  const c=V215.admProd[a.code]; if(c&&Date.now()-c.at<600000) return c.list;
+  let list=[]; const d=await syncDerive(a.code);
+  if(tmIsFwd(a)){ const r=await syncCall("pull",{kid:d.kid,ns:"fwd"},{timeout:30000}); let F={}; try{ F=JSON.parse((r&&r.blob)||"{}")||{}; }catch(e){}
+    const set=new Map(); (F.reqs||[]).forEach(q=>{ const co=String((q&&q.co)||"").trim(); if(co&&!set.has(co)) set.set(co,{id:co,label:co}); }); list=[...set.values()]; }
+  else { const r=await syncCall("pull",{kid:d.kid,ns:"acct"},{timeout:30000});
+    if(r&&r.blob){ const k0=SYNC.key; SYNC.key=d.key; let snap=null; try{ snap=await syncDec(r.blob); }finally{ SYNC.key=k0; }
+      let j=null; try{ j=JSON.parse((snap&&snap.items&&snap.items["bc20_ten_"+a.code])||"null"); }catch(e){}
+      const L=(j&&Array.isArray(j.list))?j.list:(j&&j.src?[j]:[]); list=L.filter(t=>t&&t.uid&&(t.src==="upload"||t.src==="sample2")).map(t=>({id:t.uid,label:String(t.item||t.file||"（未入力）").slice(0,40)+(t.co?"（"+String(t.co).slice(0,24)+"）":"")})); } }
+  V215.admProd[a.code]={at:Date.now(),list}; return list; }
+async function tmAdmAssign(key){
+  const {a,m,name}=tmAdmGet(key); if(!a||!m) return; const noun=tmIsFwd(a)?"荷主":"商品";
+  openDW(`<div class="tm-form"><h3>担当する${noun}：${esc(name)}（${esc(a.code)}）</h3><p class="nn" id="tmaLoad" style="margin-top:8px">${noun}の一覧を読み込んでいます…</p></div>`); if(typeof dwChrome==="function") dwChrome();
+  let T=[], note=""; try{ T=await tmAdmTargets(a); }catch(e){ note=`${noun}の一覧を読めませんでした（${esc(String((SYNC&&SYNC.err)||e.message||e).slice(0,60))}）。「すべて」「なし」は選べます。`; }
+  const box=document.querySelector("#pn .tm-form"); if(!box) return;
+  box.innerHTML=`<h3>担当する${noun}：${esc(name)}（${esc(a.code)}）</h3>${tmAssignFormHtml(T,m,noun)}
+    <p class="nn" style="margin-top:8px">${note||(tmIsFwd(a)?"荷主名は、その物流会社に届いた見積依頼から読んでいます。":"商品名は、お客様の暗号化データをこの管理画面の中でだけ復号して表示しています（サーバーには送りません）。")}</p>
+    <div class="rw" style="margin-top:12px"><button class="btn" type="button" id="tmaAsgGo">保存</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div>`;
+  tmBindAssignForm(); document.getElementById("tmaAsgGo").onclick=()=>{ m.assign=tmReadAssign(); closeDW(); tmAdmSave(`${name} さんの担当を保存しました（${a.code}）`); }; }
+function tmAdmInvite(){
+  const A=(ADB.accounts||[]).filter(a=>a.st==="active"&&a.expires>Date.now());
+  openDW(`<div class="tm-form"><h3>👥 メンバーを招待（管理者）</h3>
+    <p class="lbl" style="margin-top:10px">アカウント</p><select class="sel" id="tmaA" style="width:100%">${A.map(a=>`<option value="${esc(a.code)}" ${V215.admFilt.code===a.code?"selected":""}>${esc(a.code)}｜${esc(a.co)}</option>`).join("")}</select>
+    <p class="lbl" style="margin-top:9px">氏名（必須）</p><input class="sel" id="tmN" autocomplete="off" style="width:100%;box-sizing:border-box" placeholder="例：山田 花子">
+    <p class="lbl" style="margin-top:9px">メールアドレス</p><input class="sel" id="tmM" type="email" autocomplete="off" style="width:100%;box-sizing:border-box" placeholder="例：hanako@example.co.jp">
+    <p class="lbl" style="margin-top:9px">部署・役職</p><input class="sel" id="tmD" autocomplete="off" style="width:100%;box-sizing:border-box">
+    ${tmRoleFormHtml("member")}
+    <p class="nn" style="margin-top:8px">担当は「すべて」で登録します（あとから「担当」で変更できます）。招待状はお客様の「メンバー・担当」画面からも出せます。</p>
+    <div class="rw" style="margin-top:12px"><button class="btn" type="button" id="tmaGo">招待する</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div>
+    <p class="nn" id="tmErr" style="color:var(--crit);margin-top:8px" hidden></p></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  document.getElementById("tmaGo").onclick=()=>{ const err=t=>{ const e=document.getElementById("tmErr"); e.hidden=false; e.textContent=t; };
+    const a=findAcct((document.getElementById("tmaA")||{}).value||""); if(!a) return err("アカウントを選んでください。");
+    const name=(document.getElementById("tmN").value||"").trim(), mail=(document.getElementById("tmM").value||"").trim(), dept=(document.getElementById("tmD").value||"").trim();
+    if(!name) return err("氏名を入力してください。"); if(mail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return err("メールアドレスの形が正しくありません。");
+    const ex=(a.members||[]).find(m=>m.name===name); if(ex&&tmStOf(ex)!=="del") return err(`「${name}」さんはすでに登録されています。`);
+    const role=(document.querySelector('input[name="tmRole"]:checked')||{}).value==="admin"?"admin":"member", now=Date.now();
+    const m={name,mail,dept,role,assign:[TM_ALL],st:"invited",added:now,by:"STANDAGE（管理者）",joined:0,del:0};
+    if(ex) Object.assign(ex,m); else a.members=(a.members||[]).concat([m]);
+    const box=document.querySelector("#pn .tm-form"); if(box) box.innerHTML=`<h3>✅ ${esc(name)} さんを招待しました（${esc(a.code)}）</h3>${tmInvitePanel(a,m)}<div class="rw" style="margin-top:12px"><button class="btn g" type="button" onclick="closeDW()">閉じる</button></div>`;
+    tmBindInvitePanel(a,m); tmAdmSave(`${name} さんを招待しました（${a.code}）`); }; }
+function tmAdmBind(){
+  const q=s=>document.querySelector(s); const rer=()=>{ const el=q("#admmem"); if(el){ el.outerHTML=tmAdmCardHtml(); tmAdmBind(); } };
+  if(q("#tmaInv")) q("#tmaInv").onclick=tmAdmInvite;
+  if(q("#tmaCode")) q("#tmaCode").onchange=e=>{ V215.admFilt.code=e.target.value; rer(); };
+  if(q("#tmaQ")) q("#tmaQ").oninput=e=>{ V215.admFilt.q=e.target.value; clearTimeout(V215.admQT); V215.admQT=setTimeout(()=>{ rer(); const i=q("#tmaQ"); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } },300); };
+  document.querySelectorAll("[data-tmast]").forEach(b=>b.onclick=()=>{ V215.admFilt.st=b.dataset.tmast; rer(); });
+  document.querySelectorAll("[data-tmaasg]").forEach(b=>b.onclick=()=>tmAdmAssign(b.dataset.tmaasg));
+  document.querySelectorAll("[data-tmarole]").forEach(b=>b.onclick=()=>{ const {m,name}=tmAdmGet(b.dataset.tmarole); if(!m) return; m.role=tmRoleOf(m)==="admin"?"member":"admin"; tmAdmSave(`${name} さんを「${TM_ROLE[m.role]}」にしました`); });
+  document.querySelectorAll("[data-tmastop]").forEach(b=>b.onclick=()=>{ const {m,name}=tmAdmGet(b.dataset.tmastop); if(!m) return; const stop=m.st!=="disabled";
+    if(stop&&!confirm(`${name} さんを停止します。停止中は、どの端末からもログインできません。`)) return; m.st=stop?"disabled":(m.joined?"active":"invited"); tmAdmSave(stop?`${name} さんを停止しました`:`${name} さんを再開しました`); });
+  document.querySelectorAll("[data-tmadel]").forEach(b=>b.onclick=()=>{ const {m,name,code}=tmAdmGet(b.dataset.tmadel); if(!m) return;
+    if(!confirm(`${name} さん（${code}）を削除します。削除すると、その名前ではログインできなくなります（投稿・記録は残ります。担当していたタスクはお客様の画面で引き継げます）。`)) return;
+    m.del=1; m.st="disabled"; tmAdmSave(`${name} さんを削除しました`); });
+  document.querySelectorAll("[data-tmaund]").forEach(b=>b.onclick=()=>{ const {m,name}=tmAdmGet(b.dataset.tmaund); if(!m) return; m.del=0; m.st=m.joined?"active":"invited"; tmAdmSave(`${name} さんを元に戻しました`); });
+}
+if(typeof renderAdmin==="function"){ const __ra215=renderAdmin; renderAdmin=function(){ const r=__ra215.apply(this,arguments);
+  try{ const acc=document.getElementById("accounts"); if(acc&&!document.getElementById("admmem")){ acc.insertAdjacentHTML("afterend",tmAdmCardHtml()); tmAdmBind(); } }catch(e){} return r; }; }
+
+tmI18n([
+ ["メンバー・担当","Members & assignments","成员与负责","Miembros y asignaciones"],["メンバー一覧","Member list","成员列表","Lista de miembros"],
+ ["＋ メンバーを招待","+ Invite a member","＋ 邀请成员","+ Invitar a un miembro"],["👥 メンバーを招待","👥 Invite a member","👥 邀请成员","👥 Invitar a un miembro"],
+ ["招待する","Invite","邀请","Invitar"],["やめる","Cancel","取消","Cancelar"],["保存","Save","保存","Guardar"],["閉じる","Close","关闭","Cerrar"],
+ ["担当","Assign","负责","Asignar"],["役割","Role","角色","Rol"],["停止","Suspend","停用","Suspender"],["再開","Resume","恢复","Reanudar"],["削除","Delete","删除","Eliminar"],
+ ["招待状","Invitation","邀请函","Invitación"],["招待状をコピー","Copy the invitation","复制邀请函","Copiar la invitación"],["✉ メールソフトで送る","✉ Send with your mail app","✉ 用邮件软件发送","✉ Enviar con su app de correo"],
+ ["管理者","Admin","管理员","Administrador"],["メンバー","Member","成员","Miembro"],["代表","Representative","代表","Representante"],["あなた","You","您","Usted"],
+ ["参加中","Active","已加入","Activo"],["招待中","Invited","邀请中","Invitado"],["停止中","Suspended","已停用","Suspendido"],["削除済み","Deleted","已删除","Eliminado"],
+ ["すべての商品","All products","全部商品","Todos los productos"],["すべての荷主","All shippers","全部货主","Todos los cargadores"],["担当なし","No assignment","无负责","Sin asignación"],
+ ["商品ごとの担当","Assignments by product","按商品的负责人","Asignaciones por producto"],["荷主ごとの担当","Assignments by shipper","按货主的负责人","Asignaciones por cargador"],
+ ["＋ 担当を追加","+ Add assignee","＋ 添加负责人","+ Añadir responsable"],["担当はまだいません","No assignee yet","尚无负责人","Aún sin responsable"],
+ ["自分をメンバーに登録","Register myself as a member","将自己登记为成员","Registrarme como miembro"],["ログインと権限","Sign-in and permissions","登录与权限","Inicio de sesión y permisos"],
+ ["👥 メンバー管理（全アカウント）","👥 Member management (all accounts)","👥 成员管理（全部账户）","👥 Gestión de miembros (todas las cuentas)"],
+ ["すべてのアカウント","All accounts","全部账户","Todas las cuentas"],["元に戻す","Restore","恢复","Restaurar"],["→メンバー","→ Member","→成员","→ Miembro"],["→管理者","→ Admin","→管理员","→ Administrador"],
+ ["👤 自分の担当だけ","👤 Only my assignments","👤 只看我负责的","👤 Solo mis asignaciones"],["管理","Manage","管理","Gestionar"],["＋ 招待","+ Invite","＋ 邀请","+ Invitar"]
+]);
+
+/* ═══════════ v21.5（2026-09-24）やりとり：スレッド・ピン留め・スレッドのタイトル（Slack と同じ使い方）（トライアル版・デモ版） ═══════════
+   ・どの投稿にも「返信」でスレッドを作れる。返信はスレッドの中に並び、一覧には元の投稿と「返信 N件・最新の返信・未読」だけを出す
+   ・スレッドにタイトル（ふだんは最初の一文。✎で付け替え）。「＋ 新しいスレッド」ならタイトルから始められる。「完了」にもできる
+   ・📌 ピン留め：一覧の上の「ピン留め」に並ぶ（この会社のメンバー全員に共通）
+   ・「スレッド一覧」に切り替えると、タイトル・最新の投稿・返信数・未読の一覧。絞り込み（ピン留め・未読・自分が参加・完了）と検索
+   ・同期：返信はふつうの投稿と同じく結合、タイトル・ピン・完了は項目ごとに新しい方（title_m 等）を採る（別の端末で同じスレッドの別の項目を変えても両方残る）
+   ・既読：返信は、そのスレッドを開いたときに既読（開くまでは未読の数を出し、通知にも出る） */
+var V215T={view:"tl",filt:"all",open:""};
+(function(){ try{ const st=document.createElement("style"); st.textContent=`
+#thbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between;margin:0 0 9px}
+.th-seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.th-seg button{border:0;background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;padding:5px 13px;cursor:pointer}
+.th-seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface);font-weight:700}
+.th-pins{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;border:1px solid var(--or);border-radius:var(--r2);background:var(--or-soft);font-size:12px}
+.th-pins b{color:var(--or-deep)}
+.th-pin{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.th-ttl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:-2px 0 8px;padding-bottom:7px;border-bottom:1px dashed var(--line-2)}
+.th-ttl b{font-size:13.5px;cursor:pointer} .th-ttl .auto{color:var(--ink-2);font-weight:600}
+.th-ttl button{border:0;background:none;cursor:pointer;color:var(--ink-3);font:inherit;font-size:12px;padding:0 2px}
+.th-ft{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:9px;padding-top:8px;border-top:1px dashed var(--line-2);font-size:12px;color:var(--ink-2)}
+.th-ft .th-cnt{cursor:pointer;color:var(--bl);font-weight:700}
+.th-ft .btn{font-size:11.5px;padding:3px 10px}
+.th-un{display:inline-block;min-width:18px;padding:0 6px;border-radius:999px;background:var(--crit);color:#fff;font-size:10.5px;font-weight:700;text-align:center;line-height:18px}
+.th-rowlist{display:flex;flex-direction:column;gap:7px}
+.th-filt{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+.th-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;width:100%;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:10px 12px;font:inherit;color:var(--ink);cursor:pointer}
+.th-row:hover{border-color:var(--or)} .th-row.done{background:var(--surface-2)}
+.th-row .th-t{font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.th-row .th-s{font-size:12px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.th-row .th-m{font-size:11.5px;color:var(--ink-3);text-align:right;white-space:nowrap}
+.th-dw .th-card{border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;background:var(--surface);margin-top:8px}
+.th-dw .th-card.root{background:var(--surface-2)}
+.th-dw .th-who{font-size:12px} .th-dw .th-who span{color:var(--ink-3);font-size:11px}
+.th-dw .th-body{font-size:13px;line-height:1.75;margin-top:4px;overflow-wrap:anywhere}
+.th-dw textarea{display:block;width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:var(--r);padding:9px 10px;font:inherit;font-size:13px;min-height:84px;resize:vertical;background:var(--surface);color:var(--ink)}
+@media (max-width:760px){.th-row{grid-template-columns:18px minmax(0,1fr)}.th-row .th-m{grid-column:2;text-align:left}}`;
+  document.head.appendChild(st); }catch(e){} })();
+
+/* ── 目印・保存先 ── */
+function thSig(m){ return [m.who,m.t,String(m.body||"").slice(0,80)].join("|"); }   /* v16 の結合と同じ目印 */
+function thKey(m){ return m&&m.id?String(m.id):"s:"+(typeof fnv1a==="function"?fnv1a(thSig(m||{})):thSig(m||{}).slice(0,40)); }
+function thNewId(){ return "m"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function thMsgs(){ try{ return (typeof msgStore==="function")?msgStore():((typeof D!=="undefined"&&D&&D.msgs)||[]); }catch(e){ return []; } }
+function thTen(){ return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))?TEN:((typeof D!=="undefined"&&D)?D:null); }
+function thMetaStore(){ const t=thTen(); if(!t) return {}; if(!t.thMeta||typeof t.thMeta!=="object") t.thMeta={}; return t.thMeta; }
+function thMeta(k){ return thMetaStore()[k]||{}; }
+function thMe(){ try{ return (typeof v16Me==="function")?v16Me():((SES&&SES.who)||"貴社担当"); }catch(e){ return "貴社担当"; } }
+function thPersist(){ try{ if(typeof lwPersist==="function") lwPersist(); else if(typeof saveTen==="function") saveTen(); }catch(e){} }
+/* 項目ごとに変更時刻（title_m・pin_m・pinAt_m・done_m）を持たせる：別の端末が同じスレッドの別の項目（ピンとタイトル等）を同時に変えても、両方残る */
+function thSetMeta(k,patch,noSave){ const S=thMetaStore(), e=Object.assign({},S[k]||{}), now=Date.now(); Object.keys(patch).forEach(f=>{ e[f]=patch[f]; e[f+"_m"]=now; }); e._m=now; e.by=thMe(); S[k]=e; if(!noSave) thPersist(); }
+var TH_F=["title","pin","pinAt","done"];
+function thMergeEntry(a,b){ if(!b) return {e:a,ch:false}; if(!a) return {e:JSON.parse(JSON.stringify(b)),ch:true}; const e=Object.assign({},a); let ch=false;
+  TH_F.forEach(f=>{ if(!(f in b)) return; const tb=+b[f+"_m"]||+b._m||0, ta=(f in a)?(+a[f+"_m"]||+a._m||0):-1; if(tb>ta){ e[f]=b[f]; e[f+"_m"]=tb; ch=true; } });
+  if((+b._m||0)>(+e._m||0)){ e._m=+b._m; e.by=b.by; ch=true; } return {e,ch}; }
+function thPlain(h){ return (typeof v16Plain==="function"?v16Plain(h):String(h||"").replace(/<[^>]+>/g," ")).replace(/\s+/g," ").trim(); }
+function thAuto(m){ const p=thPlain(m.body); return (p.split(/[。．!?！？]/)[0]||p||"（本文なし）").slice(0,40); }
+function thTitle(m){ const t=String(thMeta(thKey(m)).title||m.tt||"").trim(); return t||thAuto(m); }
+function thNamed(m){ return !!String(thMeta(thKey(m)).title||m.tt||"").trim(); }
+function thTime(m){ if(+m.at) return +m.at; const t=Date.parse(String(m.t||"").trim().replace(" ","T")); return isNaN(t)?0:t; }
+function thFmt(ms){ if(!ms) return ""; const d=new Date(ms); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function thUnread(list){ const me=thMe(); return (list||[]).filter(m=>m&&!m.ai&&!m._tmp&&m.who!==me&&!(m.readBy||[]).includes(me)).length; }
+/* スレッドの組み立て：root＝返信でない投稿、replies[root]＝その返信（元の投稿がこの端末に無い返信は、ふつうの投稿として出す） */
+function thModel(){ const all=thMsgs().filter(m=>m&&!m._tmp), roots=[], byKey={}, rep={};
+  all.forEach(m=>{ if(!m.re){ const k=thKey(m); if(!byKey[k]){ byKey[k]=m; roots.push(m); } } });
+  all.forEach(m=>{ if(m.re){ if(byKey[m.re]) (rep[m.re]=rep[m.re]||[]).push(m); else roots.push(m); } });
+  Object.values(rep).forEach(L=>L.sort((a,b)=>thTime(a)-thTime(b)));
+  return {roots,byKey,rep}; }
+function thLast(m,M){ const L=M.rep[thKey(m)]||[]; const last=L.length?L[L.length-1]:m; return {m:last,at:Math.max(thTime(m),...L.map(thTime))}; }
+function thScopeOk(m){ try{ if(typeof msgScope==="undefined"||msgScope==="all") return true; const ai=m.ai||(m.mention||[]).includes("AI商社マン");
+  return msgScope==="AIに質問"?ai:(m.scope===msgScope&&!ai); }catch(e){ return true; } }
+
+/* ── 一覧（タイムライン）の飾り：タイトル・返信数・ピン留め・返信は隠す ── */
+function thBar(){ const ml=document.getElementById("mlist"); if(!ml) return; let b=document.getElementById("thbar");
+  if(!b){ b=document.createElement("div"); b.id="thbar"; ml.parentNode.insertBefore(b,ml); }
+  b.innerHTML=`<div class="th-seg" role="group" aria-label="表示の切り替え"><button type="button" data-thv="tl" aria-pressed="${V215T.view!=="list"}">タイムライン</button><button type="button" data-thv="list" aria-pressed="${V215T.view==="list"}">スレッド一覧</button></div>
+    <button class="btn g" type="button" id="thNew" style="font-size:12px;padding:5px 11px">＋ 新しいスレッド</button>`;
+  b.querySelectorAll("[data-thv]").forEach(x=>x.onclick=()=>{ V215T.view=x.dataset.thv; if(typeof mRows==="function") mRows(); });
+  const n=document.getElementById("thNew"); if(n) n.onclick=thNewOpen; }
+function thPinsHtml(M){ const P=M.roots.filter(m=>thMeta(thKey(m)).pin).sort((a,b)=>(+thMeta(thKey(b)).pinAt||0)-(+thMeta(thKey(a)).pinAt||0));
+  if(!P.length) return ""; return `<div class="th-pins" id="thpins"><b>📌 ピン留め</b>${P.map(m=>`<button type="button" class="th-pin" data-thopen="${esc(thKey(m))}" title="${esc(thTitle(m))}">${esc(thTitle(m))}</button>`).join("")}</div>`; }
+function thDecorate(){
+  const ml=document.getElementById("mlist"); if(!ml) return; thBar();
+  const M=thModel(); if(V215T.view==="list"){ ml.innerHTML=thListHtml(M); thBindOpen(ml); return; }
+  const dm=(typeof D!=="undefined"&&D&&D.msgs)||[], q=(typeof msgQ!=="undefined"&&msgQ)||"";
+  ml.querySelectorAll("[data-mi]").forEach(card=>{ const m=dm[+card.dataset.mi]; if(!m) return;
+    if(m.re&&M.byKey[m.re]){ if(!q){ card.style.display="none"; return; }   /* 検索中は、当たった返信も出す（スレッドへの行き先つき） */
+      if(!card.querySelector(".th-ttl")) card.insertAdjacentHTML("afterbegin",`<div class="th-ttl"><span class="p lo">返信</span><button type="button" data-thopen="${esc(m.re)}">スレッド「${esc(thTitle(M.byKey[m.re]))}」を開く →</button></div>`); return; }
+    if(m.re) return;
+    const k=thKey(m), meta=thMeta(k), L=M.rep[k]||[], un=thUnread(L), last=L.length?L[L.length-1]:null;
+    if(!card.querySelector(".th-ttl")) card.insertAdjacentHTML("afterbegin",`<div class="th-ttl">${meta.pin?"<span title='ピン留め'>📌</span>":""}<b data-thopen="${esc(k)}" class="${thNamed(m)?"":"auto"}">${esc(thTitle(m))}</b>
+      <button type="button" data-thren="${esc(k)}" title="タイトルを付ける・変える">✎</button>${meta.done?'<span class="p hi">完了</span>':""}</div>`);
+    if(!card.querySelector(".th-ft")) card.insertAdjacentHTML("beforeend",`<div class="th-ft">${L.length?`<span class="th-cnt" data-thopen="${esc(k)}">💬 返信 ${L.length}件</span>${un?`<span class="th-un" title="未読の返信">${un}</span>`:""}<span>最新 ${esc(thFmt(thTime(last)))} ${esc(last.who||"")}</span>`:`<span style="color:var(--ink-3)">返信はまだありません</span>`}
+      <span style="flex:1"></span><button class="btn g" type="button" data-thopen="${esc(k)}">↩ 返信する</button><button class="btn g" type="button" data-thpin="${esc(k)}">${meta.pin?"📌 外す":"📌 ピン留め"}</button></div>`); });
+  const old=document.getElementById("thpins"); if(old) old.remove(); const ph=thPinsHtml(M); if(ph) ml.insertAdjacentHTML("afterbegin",ph);
+  thBindOpen(ml); }
+function thBindOpen(root){
+  root.querySelectorAll("[data-thopen]").forEach(x=>x.onclick=e=>{ e.stopPropagation(); thOpen(x.dataset.thopen); });
+  root.querySelectorAll("[data-thpin]").forEach(x=>x.onclick=e=>{ e.stopPropagation(); thPinToggle(x.dataset.thpin); });
+  root.querySelectorAll("[data-thren]").forEach(x=>x.onclick=e=>{ e.stopPropagation(); thRename(x.dataset.thren); });
+  root.querySelectorAll("[data-thf]").forEach(x=>x.onclick=()=>{ V215T.filt=x.dataset.thf; if(typeof mRows==="function") mRows(); }); }
+
+/* ── スレッド一覧 ── */
+function thListHtml(M){
+  const me=thMe(), q=String((typeof msgQ!=="undefined"&&msgQ)||"").trim().toLowerCase();
+  let R=M.roots.filter(m=>!m.re&&thScopeOk(m)).map(m=>{ const k=thKey(m), L=M.rep[k]||[], meta=thMeta(k), last=thLast(m,M);
+    return {m,k,L,meta,last,un:thUnread(L)+(thUnread([m])),mine:m.who===me||L.some(x=>x.who===me)}; });
+  if(q) R=R.filter(x=>(thTitle(x.m)+" "+[x.m].concat(x.L).map(y=>thPlain(y.body)+" "+(y.who||"")).join(" ")).toLowerCase().includes(q));
+  const cnt={all:R.length,pin:R.filter(x=>x.meta.pin).length,un:R.filter(x=>x.un).length,mine:R.filter(x=>x.mine).length,done:R.filter(x=>x.meta.done).length};
+  const F=V215T.filt; R=R.filter(x=>F==="pin"?x.meta.pin:F==="un"?x.un:F==="mine"?x.mine:F==="done"?x.meta.done:true);
+  R.sort((a,b)=>((b.meta.pin?1:0)-(a.meta.pin?1:0))||((+b.meta.pinAt||0)-(+a.meta.pinAt||0))*(a.meta.pin&&b.meta.pin?1:0)||(b.last.at-a.last.at));
+  return `<div class="th-filt">${[["all","すべて"],["pin","📌 ピン留め"],["un","未読あり"],["mine","自分が参加"],["done","完了"]].map(([k,n])=>`<button class="q ${F===k?"on":""}" type="button" data-thf="${k}">${n} ${cnt[k]}</button>`).join("")}</div>
+    <div class="th-rowlist">${R.length?R.map(x=>`<button type="button" class="th-row${x.meta.done?" done":""}" data-thopen="${esc(x.k)}">
+      <span>${x.meta.pin?"📌":"💬"}</span><span style="min-width:0"><div class="th-t">${esc(thTitle(x.m))}${x.meta.done?' <span class="p hi">完了</span>':""}</div>
+        <div class="th-s">${esc(x.last.m.who||"")}：${esc(thPlain(x.last.m.body).slice(0,70))}</div></span>
+      <span class="th-m">返信 ${x.L.length}件${x.un?` <span class="th-un">${x.un}</span>`:""}<br>${esc(thFmt(x.last.at))}　<span class="p ${x.m.scope==="社内のみ"?"lo":"on"}">${esc(x.m.scope||"共有")}</span></span></button>`).join("")
+      :`<p style="text-align:center;color:var(--ink-3);padding:22px;font-size:12.5px">${M.roots.length?"条件に合うスレッドはありません":"まだスレッドがありません。「＋ 新しいスレッド」から始められます。"}</p>`}</div>`; }
+
+/* ── ピン留め・タイトル・完了 ── */
+function thPinToggle(k){ const on=!thMeta(k).pin; thSetMeta(k,{pin:on?1:0,pinAt:on?Date.now():0}); toast(on?"📌 ピン留めしました（メンバー全員の一覧の上に出ます）":"ピン留めを外しました"); thRefresh(k); }
+function thRename(k){ thOpen(k); setTimeout(()=>{ const t=document.getElementById("thT"); if(t){ t.focus(); t.select(); } },120); }   /* スレッドを開いてタイトル欄へ（空で保存すると最初の一文に戻る） */
+function thRefresh(k){ try{ if(typeof cur!=="undefined"&&cur==="msg"&&typeof mRows==="function") mRows(); }catch(e){} try{ const dw=document.getElementById("dw"); if(k&&V215T.open===k&&dw&&dw.dataset.open==="true") thOpen(k,true); }catch(e){} }
+
+/* ── スレッドを開く（右のパネル） ── */
+function thCard(m,root){ const body=(typeof T==="function")?T(m.body):m.body;
+  return `<div class="th-card${root?" root":""}"><div class="th-who"><b>${esc(m.who||"")}</b> <span>${esc(m.org||"")}　${esc(m.t||thFmt(thTime(m)))}</span></div><div class="th-body">${body}</div>
+    ${m.file?`<div class="nn" style="margin-top:5px">📎 ${esc(m.file.n)}（${m.file.kb} KB）</div>`:""}</div>`; }
+function thOpen(k,keepText){
+  const M=thModel(), root=M.byKey[k]; if(!root){ toast("このスレッドは見つかりませんでした（同期の途中の可能性があります）"); return; }
+  V215T.open=k; const L=M.rep[k]||[], meta=thMeta(k), me=thMe(); let ch=0;
+  L.concat([root]).forEach(m=>{ if(!Array.isArray(m.readBy)) m.readBy=(m.who&&!m.ai)?[m.who]:[]; if(!m.ai&&m.who!==me&&!m.readBy.includes(me)){ m.readBy.push(me); m.read=Math.max(m.read|0,m.readBy.length); ch++; } });
+  if(ch){ thPersist(); try{ if(typeof notifBadge==="function") notifBadge(); }catch(e){} }
+  const draft=keepText?((document.getElementById("thText")||{}).value||""):"";
+  openDW(`<div class="th-dw"><div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center"><span class="p on">スレッド</span><span class="p ${root.scope==="社内のみ"?"lo":"on"}">${esc(root.scope||"共有")}</span>${meta.done?'<span class="p hi">完了</span>':""}</div>
+    <p class="lbl" style="margin-top:10px">タイトル</p>
+    <div class="rw" style="gap:6px"><input class="sel" id="thT" maxlength="60" value="${esc(thNamed(root)?thTitle(root):"")}" placeholder="${esc(thAuto(root))}" style="flex:1;min-width:0"><button class="btn g" type="button" id="thTs">保存</button></div>
+    <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn g" type="button" id="thPinB">${meta.pin?"📌 ピン留めを外す":"📌 ピン留めする"}</button><button class="btn g" type="button" id="thDoneB">${meta.done?"↺ 進行中に戻す":"✓ 完了にする"}</button></div>
+    ${thCard(root,true)}
+    <p class="lbl" style="margin-top:12px">返信 ${L.length}件</p><div id="thReps">${L.length?L.map(m=>thCard(m,false)).join(""):'<p class="nn">まだ返信はありません。</p>'}</div>
+    <p class="lbl" style="margin-top:12px">返信する（「${esc(root.scope||"共有")}」で投稿されます）</p>
+    <textarea id="thText" placeholder="スレッドに返信…（Ctrl+Enterで送信）">${esc(draft)}</textarea>
+    <div class="rw" style="justify-content:flex-end;margin-top:8px"><button class="btn" type="button" id="thSend">返信する</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  const q=s=>document.getElementById(s);
+  q("thTs").onclick=()=>{ thSetMeta(k,{title:(q("thT").value||"").trim().slice(0,60)}); toast("タイトルを保存しました"); thRefresh(k); };
+  q("thT").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); q("thTs").click(); } };
+  q("thPinB").onclick=()=>thPinToggle(k);
+  q("thDoneB").onclick=()=>{ const on=!thMeta(k).done; thSetMeta(k,{done:on?1:0}); toast(on?"完了にしました":"進行中に戻しました"); thRefresh(k); };
+  q("thSend").onclick=()=>thReply(k);
+  q("thText").onkeydown=e=>{ if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); thReply(k); } };
+  const reps=q("thReps"); if(reps&&L.length) reps.lastElementChild.scrollIntoView({block:"nearest"});
+  if(!keepText) setTimeout(()=>{ const t=q("thText"); if(t) t.focus(); },80);
+  try{ if(typeof cur!=="undefined"&&cur==="msg"&&typeof mRows==="function") mRows(); }catch(e){} }
+function thNow(){ const d=new Date(); const y=d.getFullYear(), mo=String(d.getMonth()+1).padStart(2,"0"), da=String(d.getDate()).padStart(2,"0");
+  return ((typeof TODAYS!=="undefined"&&TODAYS)||`${y}-${mo}-${da}`)+" "+d.toTimeString().slice(0,5); }
+function thReply(k){ const ta=document.getElementById("thText"); const v=((ta&&ta.value)||"").trim(); if(!v){ toast("返信を入力してください"); return; }
+  const M=thModel(), root=M.byKey[k]; if(!root) return; const who=thMe();
+  thMsgs().push({id:thNewId(),at:Date.now(),re:k,who,org:(typeof D!=="undefined"&&D&&D.co)||"",t:thNow(),scope:root.scope||"共有",body:(typeof mdU==="function"?mdU(esc(v)):esc(v)),read:1,readBy:[who],mention:[]});
+  if(thMeta(k).done) thSetMeta(k,{done:0});   /* 完了のスレッドに返信したら、進行中に戻す */
+  thPersist(); if(ta) ta.value=""; try{ if(typeof logU==="function") logU("screen","スレッドに返信"); }catch(e){}
+  thOpen(k); toast("返信しました"); }
+
+/* ── 新しいスレッド（タイトルから） ── */
+function thNewOpen(){
+  openDW(`<div class="th-dw"><h3>＋ 新しいスレッド</h3><p class="nn" style="margin-top:4px">話題ごとにスレッドを分けると、あとから探しやすくなります（例：「9月出荷分の見積」「ラベル表示の確認」）。</p>
+    <p class="lbl" style="margin-top:10px">タイトル（必須）</p><input class="sel" id="thNT" maxlength="60" placeholder="例：9月出荷分の見積について" style="width:100%;box-sizing:border-box">
+    <p class="lbl" style="margin-top:9px">最初のメッセージ</p><textarea id="thNB" placeholder="例：先方から数量の変更がありました。見積を出し直します。"></textarea>
+    <p class="lbl" style="margin-top:9px">見える範囲</p>
+    <div class="rw" style="gap:12px;font-size:13px"><label><input type="radio" name="thNS" value="共有" checked> 共有（STANDAGE・海外拠点にも見える）</label><label><input type="radio" name="thNS" value="社内のみ"> 社内のみ</label></div>
+    <div class="rw" style="margin-top:12px"><button class="btn" type="button" id="thNGo">スレッドを作る</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome(); setTimeout(()=>{ const t=document.getElementById("thNT"); if(t) t.focus(); },80);
+  document.getElementById("thNGo").onclick=()=>{ const title=(document.getElementById("thNT").value||"").trim().slice(0,60), body=(document.getElementById("thNB").value||"").trim();
+    if(!title){ toast("タイトルを入力してください"); return; } const scope=(document.querySelector('input[name="thNS"]:checked')||{}).value==="社内のみ"?"社内のみ":"共有";
+    const who=thMe(), id=thNewId();
+    thMsgs().push({id,at:Date.now(),tt:title,who,org:(typeof D!=="undefined"&&D&&D.co)||"",t:thNow(),scope,body:(typeof mdU==="function"?mdU(esc(body||title)):esc(body||title)),read:1,readBy:[who],mention:[]});
+    thSetMeta(id,{title});
+    try{ if(typeof logU==="function") logU("screen","スレッド作成："+title); }catch(e){}
+    toast("スレッドを作りました"); thOpen(id); }; }
+
+/* ── 既読：返信は、そのスレッドを開いたときだけ既読にする（元の投稿がこの端末に無い返信は、ふつうの投稿として既読） ── */
+if(typeof v16MarkRead==="function"){ v16MarkRead=function(){ const me=v16Me(); let ch=0; const all=v16MsgAll(); const roots=new Set(all.filter(m=>m&&!m.re).map(thKey));
+  all.forEach(m=>{ if(!m||m._tmp) return; if(m.re&&roots.has(m.re)&&V215T.open!==m.re) return;
+    if(!Array.isArray(m.readBy)){ m.readBy=(m.who&&!m.ai)?[m.who]:[]; ch++; }
+    if(!m.ai&&m.who!==me&&!m.readBy.includes(me)){ m.readBy.push(me); ch++; }
+    const n=Math.max(m.read|0,m.readBy.length); if(n!==(m.read|0)){ m.read=n; ch++; } });
+  if(ch){ try{ if(typeof lwPersist==="function") lwPersist(); }catch(e){} try{ notifBadge(); }catch(e){} }
+  return ch; }; }
+if(typeof closeDW==="function"){ const __cd215=closeDW; closeDW=function(){ V215T.open=""; return __cd215.apply(this,arguments); }; }
+if(typeof mRows==="function"){ const __mr215=mRows; mRows=function(){ const r=__mr215.apply(this,arguments); try{ thDecorate(); }catch(e){ try{ console.warn("thDecorate",e); }catch(x){} } return r; }; }
+
+/* ── 同期：タイトル・ピン・完了はスレッドごとに新しい方（まとめて上書きしない） ── */
+try{ if(typeof V213_OWN!=="undefined"&&V213_OWN&&V213_OWN.add) V213_OWN.add("thMeta"); }catch(e){}
+if(typeof v16UnionInto==="function"){ const __un215=v16UnionInto; v16UnionInto=function(DST,SRC){ let c=__un215.apply(this,arguments);
+  try{ (SRC||[]).forEach(st=>{ if(!st||!st.thMeta||typeof st.thMeta!=="object") return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt||dt===st) return;
+    const A=(dt.thMeta&&typeof dt.thMeta==="object")?dt.thMeta:(dt.thMeta={});
+    Object.keys(st.thMeta).forEach(k=>{ const r=thMergeEntry(A[k],st.thMeta[k]); if(r.ch){ A[k]=r.e; c=true; } }); }); }catch(e){}
+  return c; }; }
+
+/* 表示言語の辞書（英・中・西）。メンバー管理の層が無いデモ版でも動くよう、ここで直接登録する */
+function thI18n(rows){ try{ if(typeof I18N==="undefined"||!I18N.dict) return; rows.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]&&!I18N.dict[l][r[0]]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){} }
+thI18n([
+ ["タイムライン","Timeline","时间线","Cronología"],["スレッド一覧","Threads","话题列表","Hilos"],["＋ 新しいスレッド","+ New thread","＋ 新话题","+ Nuevo hilo"],
+ ["📌 ピン留め","📌 Pin","📌 置顶","📌 Fijar"],["📌 外す","📌 Unpin","📌 取消置顶","📌 Desfijar"],["↩ 返信する","↩ Reply","↩ 回复","↩ Responder"],["返信する","Reply","回复","Responder"],
+ ["返信はまだありません","No replies yet","还没有回复","Aún no hay respuestas"],["スレッド","Thread","话题","Hilo"],["タイトル","Title","标题","Título"],
+ ["📌 ピン留めする","📌 Pin this thread","📌 置顶此话题","📌 Fijar este hilo"],["📌 ピン留めを外す","📌 Unpin","📌 取消置顶","📌 Desfijar"],["✓ 完了にする","✓ Mark as done","✓ 标记为完成","✓ Marcar como hecho"],
+ ["↺ 進行中に戻す","↺ Reopen","↺ 重新打开","↺ Reabrir"],["完了","Done","已完成","Hecho"],["未読あり","Unread","有未读","No leídos"],["自分が参加","I'm in","我参与的","Participo"],
+ ["スレッドを作る","Create thread","创建话题","Crear hilo"],["タイトル（必須）","Title (required)","标题（必填）","Título (obligatorio)"],["最初のメッセージ","First message","第一条消息","Primer mensaje"],
+ ["見える範囲","Visibility","可见范围","Visibilidad"],["返信","Reply","回复","Respuesta"],["すべて","All","全部","Todo"]
+]);
 
 </script>
