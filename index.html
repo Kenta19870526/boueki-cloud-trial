@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="f36f6f368d2e";
+const BC20_BUILD="5d1bdbbfb15e";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -18578,6 +18578,7 @@ if(typeof enterApp==="function"){ const __enterAppSync=enterApp;
   enterApp=function(){
     if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&syncOn()&&!SYNC.started){
       const lg=document.querySelector("#lg-go"); if(lg){ lg.disabled=true; lg.textContent="☁ 同期しています…"; }
+      SYNC.boot=1;
       syncStart().then(r=>{
         if(!r.ok){ try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){} SES=null;
           if(typeof showLogin==="function") showLogin();
@@ -18586,8 +18587,8 @@ if(typeof enterApp==="function"){ const __enterAppSync=enterApp;
         __enterAppSync();
       }).catch(err=>{
         /* 接続できないときは端末内保存で続行（正直に表示） */
-        __enterAppSync(); toast("☁ 同期サーバーに接続できないため、この端末の保存だけで続行します（"+String(SYNC.err||err.message||"").slice(0,50)+"）");
-      });
+        __enterAppSync(); toast("☁ 同期サーバーに接続できないため、この端末の保存だけで続行します（"+String(SYNC.err||err.message||"").slice(0,50)+"）。つながり次第、自動で同期します");
+      }).then(()=>{ SYNC.boot=0; },()=>{ SYNC.boot=0; });
       return;
     }
     __enterAppSync();
@@ -18610,8 +18611,9 @@ setTimeout(()=>{ try{ syncLoginLine(); }catch(e){} },300);
 /* F5（再読込）でセッションが復元された場合：authBoot() はこのファイルより前に実行済みで、上の enterApp ラッパーを通らない。
    ここで遅れて同期を開始し、サーバー側が新しければ画面に反映する（蹴られていれば自動ログアウト） */
 try{ if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&!SYNC.started&&syncOn()){
+  SYNC.boot=1;
   syncStart().then(r=>{ if(r&&r.ok===false){ syncKicked(null,r.reason==="unknown"?"":r.reason); return; }
-    if(r&&r.ok&&!r.skip){ syncReloadState(); } }).catch(()=>{}); } }catch(e){}
+    if(r&&r.ok&&!r.skip){ syncReloadState(); } }).catch(()=>{}).then(()=>{ SYNC.boot=0; }); } }catch(e){}
 
 /* ═══════════ v15.20：管理者AIアシスタント／トライアル管理のインタラクティブ化／AI物流マンの参照範囲拡張 ═══════════
    ・管理コンソール：KPIタイル（クリックで該当セクションへ）・14日間の利用推移・アカウント絞り込み・
@@ -26497,7 +26499,7 @@ try{ if(v213Admin()){ v213AdmBaseline(); setTimeout(v213AdmAuto,300); } }catch(e
       → 公開中の版（version.json）と比べ、ログイン前なら自動で読み込み直し、ログイン中は「新しい版があります」を出す
    ④ 管理コンソール：開いている間は2分ごと（と画面に戻ったとき）にサーバーの台帳を取り込む。送れなかったときは必ず知らせて自動で送り直し、同期の状態と変更履歴を表示
    ⑤ 同じPCの Chrome と Edge：言語設定の並びが違うと端末指紋が変わり、別の端末と判定されて先の画面が締め出されることがあった → 言語を含まない機器の特徴（hw）も送る */
-const BC20_VER="21.6";
+const BC20_VER="21.7";
 const V214={verAt:0,verBusy:0,newer:"",srv:"",warm:0,pullAt:0,pullErr:"",pushAt:0,pushErr:"",log:[],pend:0};
 function v214Toast(m){ try{ if(typeof toast==="function") toast(m); }catch(e){} }
 (function(){ try{ const st=document.createElement("style"); st.textContent=`
@@ -27530,5 +27532,85 @@ tmI18n([
  ["参加している商品のみ","Only products I'm in","只看我参与的商品","Solo productos en los que participo"],["参加","In","参与","Participo"],
  ["招待状をまとめてコピー","Copy all invitations","批量复制邀请函","Copiar todas las invitaciones"],["＋ 追加","+ Add","＋ 添加","+ Añadir"]
 ]);
+
+/* ═══════════ v21.7（2026-09-25）再読み込み・通信の乱れがあっても、必ず同期を始める（トライアル版） ═══════════
+   報告：Edge でスレッドに返信した内容が、Chrome では何回再読み込みしても出てこない（その後、別のメッセージを入力したら一部だけ反映された）。
+   調べて分かったこと：
+   ① 再読み込み（F5）でログイン状態を復元するとき、画面は読み込みの前半（logic_auth.js の authBoot）で描かれ、同期の開始（サーバーへのログイン）は1回だけ試す作りだった。
+      それが失敗すると、やり直しも描き直しもせず、読み込み前半の描画のまま止まっていた
+      ＝左メニューに「会議メモ・議事録」「販売先国の選定」「メンバー・担当」が無い／やりとりにスレッド表示が無い／他の端末の変更を一切取り込まない（自分が保存したときだけ送る）
+   ② 失敗の原因：Apps Script の転送が乱れて POST が GET として届き（doGet が実行され、状態確認の答えが返る）、送った処理が実行されないことがある。
+      2026-09-25 01:05〜01:08 の実行履歴で doPost 約45件に対し doGet 5件。v21.4 からこれを失敗として扱っていたため、1回目で当たると同期が始まらなかった
+   ③ Edge の返信は Edge の端末には保存されたが、サーバーには届いていなかった（サーバーの記録で確認）。Edge も同じ状態（同期が始まらない画面）になっていたとみられる
+   直したこと：
+   ・転送の乱れ（状態確認の答え）はサーバーで処理が実行されていないので、自動でやり直す（最大3回。外部へ送る処理＝メール・LINE 等はやり直さない）
+   ・同期が始まっていない間は自動で再接続を続ける（5秒→15秒→30秒→以後60秒ごと。画面に戻ったとき・通信が戻ったときはすぐ）。
+     つながったら他の端末の変更を取り込んで描き直し、この端末だけにある投稿・変更は結合してサーバーへ送る
+   ・再読み込みで復元した画面は、読み込みがすべて終わった時点で描き直す（同期の成否に関わらず、スレッド表示・全メニューが出る）
+   ・同期がつながっていない間は、画面上部に「同期サーバーにつながっていません（自動で再接続します）」と「今すぐ再接続」を出す */
+var V217={busy:0,fail:0,next:Date.now()+4000,err:"",at:0};
+var V217_NORETRY={mail_send:1,lw_send:1,lw_test:1,digest_test:1,digest_run:1,pool_run:1,pool_setup:1,digest_setup:1,admin_kick:1};
+(function(){ try{ const st=document.createElement("style"); st.textContent=`
+#v217bar{position:fixed;left:0;right:0;margin:0 auto;width:fit-content;top:calc(62px + env(safe-area-inset-top));z-index:139;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;
+  max-width:min(640px,calc(100vw - 24px));box-sizing:border-box;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--warn,#c47f00);border-radius:10px;box-shadow:var(--pop);padding:7px 10px;font-size:12.5px;line-height:1.55}
+#v217bar .btn{font-size:12px;padding:4px 11px}
+#v217bar[hidden]{display:none}`;
+  document.head.appendChild(st); }catch(e){} })();
+
+/* ① 転送の乱れ（状態確認の答えが返った＝処理はサーバーで実行されていない）は、自動でやり直す */
+if(typeof syncCall==="function"){ const __sc217=syncCall; syncCall=async function(op,body,opt){
+  let last=null;
+  for(let i=0;i<3;i++){
+    try{ return await __sc217.call(this,op,body,opt); }
+    catch(e){ last=e; const mis=/別の処理のもの/.test(String((e&&e.message)||e||""));
+      if(!mis||V217_NORETRY[op]||i===2) throw e;
+      await new Promise(r=>setTimeout(r,600+i*900)); }
+  }
+  throw last; }; }
+
+/* ② 同期が始まっていない間は、自動で再接続を続ける */
+function v217Want(){ try{ return typeof SES!=="undefined"&&!!SES&&SES.t==="trial"&&typeof syncOn==="function"&&syncOn()&&typeof SYNC!=="undefined"&&!SYNC.started&&!SYNC.kicked; }catch(e){ return false; } }
+function v217Bar(){ try{
+  let b=document.getElementById("v217bar"); const show=v217Want()&&!SYNC.boot;   /* 最初の同期の開始が終わっても始まっていない＝つながっていない */
+  if(!show){ if(b) b.hidden=true; return; }
+  if(!b){ b=document.createElement("div"); b.id="v217bar"; b.setAttribute("role","status"); document.body.appendChild(b); }
+  const wait=Math.max(0,Math.round((V217.next-Date.now())/1000));
+  b.hidden=false;
+  b.innerHTML=V217.busy?`<span>☁ 同期サーバーに接続しています…</span>`
+    :`<span>☁ 同期サーバーにつながっていません。この端末の変更は保存済みで、つながり次第送ります（${wait?`${wait}秒後に`:"まもなく"}自動で再接続）</span><button class="btn g" type="button" id="v217go">今すぐ再接続</button>`;
+  b.title=V217.err?("直近の理由："+V217.err):"";
+  const g=document.getElementById("v217go"); if(g) g.onclick=()=>{ V217.next=0; v217Start(true); };
+}catch(e){} }
+async function v217Start(manual){
+  if(!v217Want()||V217.busy||SYNC.boot) return;
+  V217.busy=1; V217.at=Date.now(); v217Bar();
+  let r=null, err=null; try{ r=await syncStart(); }catch(e){ err=e; }
+  V217.busy=0;
+  if(r&&r.ok&&!r.skip&&SYNC.started){
+    const had=V217.fail; V217.fail=0; V217.err=""; v217Bar();
+    try{ syncReloadState(); }catch(e){}
+    try{ if(SYNC.dirty) syncSchedule("acct"); }catch(e){}
+    if(had||manual) try{ toast("☁ 同期サーバーにつながりました（他の端末の変更を取り込み、この端末の変更も送ります）"); }catch(e){}
+    return; }
+  if(r&&r.ok===false&&/^(expired|disabled|member)$/.test(String(r.reason||""))){ try{ syncKicked(null,r.reason); }catch(e){} return; }
+  V217.fail++; V217.err=String((err&&err.message)||(r&&(r.msg||r.reason))||SYNC.err||"").slice(0,80);
+  const waits=[5,15,30,60]; V217.next=Date.now()+waits[Math.min(V217.fail-1,waits.length-1)]*1000; v217Bar();
+  if(manual) try{ toast("☁ まだつながりません（"+(V217.err||"通信の失敗")+"）。自動で再接続を続けます"); }catch(e){}
+}
+setInterval(()=>{ try{ if(!v217Want()){ v217Bar(); return; } v217Bar();
+  const due=document.visibilityState==="visible"?V217.next:Math.max(V217.next,V217.at+60000);   /* 画面が隠れている間は60秒に1回まで */
+  if(V217.busy||SYNC.boot||Date.now()<due) return; v217Start(false); }catch(e){} },1000);
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&v217Want()&&!V217.busy) V217.next=Math.min(V217.next,Date.now()+500); });
+window.addEventListener("online",()=>{ if(v217Want()) V217.next=Date.now()+500; });
+
+/* ④ 物流会社モードでは、描き直しで荷主用のメニューに入れ替わらないようにする（同期の取り込み後の描き直し syncReloadState が buildNav を呼び、
+      再読み込みした物流会社の画面の左メニューが荷主用になっていた。v21.7 の試験で発見） */
+if(typeof buildNav==="function"){ const __bn217=buildNav; buildNav=function(){ try{ if(typeof FWDON!=="undefined"&&FWDON&&typeof fwdNav==="function"){ fwdNav(); return; } }catch(e){} return __bn217.apply(this,arguments); }; }
+
+/* ③ 再読み込みで復元した画面：読み込みがすべて終わった時点で描き直す（読み込み前半の描画には、後半で加わる画面・スレッド表示が無い） */
+setTimeout(()=>{ try{ if(typeof SES==="undefined"||!SES||document.getElementById("lgv")) return;
+    if(typeof FWDON!=="undefined"&&FWDON){ if(typeof fwdNav==="function") fwdNav(); if(typeof fwdRender==="function") fwdRender(); return; }
+    if(typeof buildNav==="function") buildNav(); if(typeof render==="function") render(); }
+  catch(e){ try{ console.warn("v21.7 描き直し",e); }catch(x){} } },0);
 
 </script>
