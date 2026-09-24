@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="e75dad71178a";
+const BC20_BUILD="f36f6f368d2e";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -26497,7 +26497,7 @@ try{ if(v213Admin()){ v213AdmBaseline(); setTimeout(v213AdmAuto,300); } }catch(e
       → 公開中の版（version.json）と比べ、ログイン前なら自動で読み込み直し、ログイン中は「新しい版があります」を出す
    ④ 管理コンソール：開いている間は2分ごと（と画面に戻ったとき）にサーバーの台帳を取り込む。送れなかったときは必ず知らせて自動で送り直し、同期の状態と変更履歴を表示
    ⑤ 同じPCの Chrome と Edge：言語設定の並びが違うと端末指紋が変わり、別の端末と判定されて先の画面が締め出されることがあった → 言語を含まない機器の特徴（hw）も送る */
-const BC20_VER="21.5";
+const BC20_VER="21.6";
 const V214={verAt:0,verBusy:0,newer:"",srv:"",warm:0,pullAt:0,pullErr:"",pushAt:0,pushErr:"",log:[],pend:0};
 function v214Toast(m){ try{ if(typeof toast==="function") toast(m); }catch(e){} }
 (function(){ try{ const st=document.createElement("style"); st.textContent=`
@@ -27284,6 +27284,251 @@ thI18n([
  ["↺ 進行中に戻す","↺ Reopen","↺ 重新打开","↺ Reabrir"],["完了","Done","已完成","Hecho"],["未読あり","Unread","有未读","No leídos"],["自分が参加","I'm in","我参与的","Participo"],
  ["スレッドを作る","Create thread","创建话题","Crear hilo"],["タイトル（必須）","Title (required)","标题（必填）","Título (obligatorio)"],["最初のメッセージ","First message","第一条消息","Primer mensaje"],
  ["見える範囲","Visibility","可见范围","Visibilidad"],["返信","Reply","回复","Respuesta"],["すべて","All","全部","Todo"]
+]);
+
+/* ═══════════ v21.6（2026-09-24）メンバー管理を貿易クラウドVer.1 の画面に寄せる（トライアル版のみ） ═══════════
+   Ver.1 の実画面で確認したこと（見るだけ・操作はしていない）：
+   ・案件の「詳細」サイドバーのメンバー欄：役割ごと（営業担当者／担当者(CS)／担当者(FS)／セラー）に顔・名前・会社。2人目以降は字下げ（「>」で開く）
+   ・「＋ 追加」→「担当者を追加」「セラーを追加」→ 検索欄1つ（メール、名前もしくは会社名）で候補を選び「設定する」
+   ・各メンバーの「⋮」→「メイン担当者に変更」「メンバーから外す」（赤）
+   ・会社への招待（管理ポータル「ユーザー招待」）：メールアドレスを最大20件まとめて貼り付け（カンマ・スペース・改行で区切り）
+   ・ユーザー一覧：名前・メール・部署・役職で検索、最終ログイン日時。プロジェクト一覧：「参加」の印と「参加しているプロジェクトのみ」
+   2.0 での対応：「やりとり」のメンバー欄を同じ並び・同じ操作に／まとめて招待（最大20人）／商品ごとのメイン担当（TEN.lead）／一覧の検索／商品カードの「参加」 */
+(function(){ try{ const st=document.createElement("style"); st.textContent=`
+.tm-seg2{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:10px}
+.tm-seg2 button{border:0;background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;padding:5px 14px;cursor:pointer}
+.tm-seg2 button[aria-selected="true"]{background:var(--ink);color:var(--surface);font-weight:700}
+.tm-pm{display:flex;flex-direction:column;margin-top:8px}
+.tm-pmr{display:grid;grid-template-columns:74px 30px minmax(0,1fr) 26px;gap:8px;align-items:center;padding:6px 0;position:relative}
+.tm-pmr+.tm-pmr{border-top:1px dashed var(--line-2)}
+.tm-pml{font-size:11px;color:var(--ink-3);text-align:right;line-height:1.3}
+.tm-av.sm{width:28px;height:28px;font-size:12px}
+.tm-av.std{background:var(--sunk);color:var(--ink-2)} .tm-av.ai{background:var(--or);color:#fff}
+.tm-pmn{min-width:0;display:flex;flex-direction:column;line-height:1.35}
+.tm-pmt{display:flex;flex-wrap:wrap;align-items:center;gap:2px 5px;min-width:0}
+.tm-pmt b{font-size:13px;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .tm-pmt .p{font-size:10.5px;padding:0 6px;line-height:1.6}
+.tm-pmn small{font-size:11px;color:var(--ink-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.tm-pmr .tm-av{align-self:center} .tm-pmr.sub .tm-pmt b{font-weight:600}
+.tm-kb{border:0;background:none;cursor:pointer;color:var(--ink-3);font-size:16px;line-height:1;padding:4px;border-radius:6px}
+.tm-kb:hover,.tm-kb:focus-visible{background:var(--sunk);color:var(--ink)}
+.tm-dd{position:relative}
+.tm-addb{font-size:12px;padding:5px 12px}
+.tm-ddm{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--pop);padding:4px;display:flex;flex-direction:column}
+.tm-ddm button{border:0;background:none;text-align:left;font:inherit;font-size:13px;padding:8px 10px;border-radius:7px;cursor:pointer;color:var(--ink)}
+.tm-ddm button:hover,.tm-ddm button:focus-visible{background:var(--surface-2)} .tm-ddm button.warn{color:var(--crit)}
+.tm-morebtn{border:0;background:none;color:var(--bl);font:inherit;font-size:12px;cursor:pointer;padding:4px 0 2px 112px;text-align:left}
+.tm-srch{margin-top:10px} .tm-srch input{width:100%;box-sizing:border-box}
+.tm-sug{display:flex;flex-direction:column;gap:5px;margin-top:10px;max-height:320px;overflow-y:auto}
+.tm-sgi{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:8px 10px;font:inherit;text-align:left;cursor:pointer;color:var(--ink)}
+.tm-sgi.on{border-color:var(--or);background:var(--or-soft)} .tm-sgi small{display:block;font-size:11px;color:var(--ink-3)}
+.tm-bulkl{display:flex;flex-direction:column;gap:4px;margin-top:8px;font-size:12.5px}
+.tm-join{display:inline-block;font-size:10.5px;font-weight:700;color:#fff;background:var(--ink-2);border-radius:4px;padding:1px 5px;margin-right:4px;vertical-align:1px}
+@media (max-width:760px){.tm-pmr{grid-template-columns:62px 28px minmax(0,1fr) 26px}.tm-morebtn{padding-left:98px}}`;
+  document.head.appendChild(st); }catch(e){} })();
+
+/* ── 共通：いまの商品・メイン担当 ── */
+function tmCurTen(){ try{ return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))?TEN:null; }catch(e){ return null; } }
+function tmTenByUid(uid){ return ((typeof TENS!=="undefined"&&TENS)||[]).find(t=>t&&t.uid===uid)||null; }
+function tmLeadName(t){ const a=tmAcct(); if(!t||!a) return ""; const L=tmList(a).filter(m=>tmStOf(m)!=="stop"&&tmHas(m,t.uid)); if(t.lead&&L.some(m=>m.name===t.lead)) return t.lead; return ""; }
+function tmSetLead(name,uid){ const a=tmAcct(), t=uid?tmTenByUid(uid):tmCurTen(), isRep=!!name&&name===tmRep(a), m=isRep?null:tmFind(name); if(!a||!t||(!m&&!isRep)) return; if(!tmCan()){ toast("メイン担当の変更は管理者が行います"); return; }
+  if(!t.uid&&typeof v185Stamp==="function") v185Stamp(t);
+  if(m&&!tmHas(m,t.uid)){ m.assign=(m.assign||[]).filter(x=>x!==TM_NONE&&x!==TM_ALL).concat([t.uid]); tmTouch(m); tmSaveAcct(); tmPut(); }
+  t.lead=isRep?"":name; try{ saveTen(); }catch(e){} tmLog("メイン担当:"+name); toast(`${name} さんを「${String(t.item||"この商品").slice(0,24)}」のメイン担当にしました`); tmRepaint(); }
+function tmPmRemove(name,uid){ const t=uid?tmTenByUid(uid):tmCurTen(); if(!t) return; if(t.lead===name){ t.lead=""; try{ saveTen(); }catch(e){} } tmToggleOn(name,t.uid,false); }
+
+/* ── まとめて招待（Ver.1 のユーザー招待と同じく最大20人）：1行に1人「氏名 メール」／メールだけでも可（@ の前を氏名に） ── */
+function tmParseBulk(txt){ const out=[], seen=new Set(), re=/[^\s<>,;、，；:：()（）「」]+@[^\s<>,;、，；:：()（）「」]+\.[^\s<>,;、，；:：()（）「」]+/g, sep=/[\s<>()（）,，、:：「」"'“”]+/g;
+  const push=(name,mail)=>{ name=String(name||"").replace(sep," ").trim().slice(0,40); mail=String(mail||"").trim().slice(0,120); if(!name&&mail) name=mail.split("@")[0]; if(!name||seen.has(name)) return; seen.add(name); out.push({name,mail}); };
+  String(txt||"").split(/\r?\n|;|；/).map(s=>s.trim()).filter(Boolean).forEach(line=>{ const ms=[...line.matchAll(re)];
+    if(!ms.length){ (/[,，、]/.test(line)?line.split(/[,，、]/):[line]).forEach(x=>push(x,"")); return; }   /* 氏名だけ（カンマ区切りで複数も可） */
+    if(ms.length===1){ const m=ms[0]; push(line.slice(0,m.index)+" "+line.slice(m.index+m[0].length),m[0]); return; }   /* 「氏名 メール」「メール 氏名」「<メール>」 */
+    const last=ms[ms.length-1], head=line.slice(0,ms[0].index).replace(sep,""), tail=line.slice(last.index+last[0].length).replace(sep,"");
+    if(!head&&tail) ms.forEach((m,i)=>push(line.slice(m.index+m[0].length,i+1<ms.length?ms[i+1].index:line.length),m[0]));   /* メール 氏名, メール 氏名 */
+    else { let prev=0; ms.forEach(m=>{ push(line.slice(prev,m.index),m[0]); prev=m.index+m[0].length; }); } });   /* 氏名 メール, 氏名 メール／メールだけを並べた行 */
+  return out; }
+tmInviteOpen=function(preName,mode,opts){
+  const a=tmAcct(); if(!a) return; if(!tmCan()){ toast("メンバーの招待は管理者が行います"); return; }
+  opts=opts||{}; const T=tmTargets(a), noun=tmNoun(a), bulk=mode==="bulk", pre=String(preName||"");
+  const preMail=/@/.test(pre)?pre:"", preNm=/@/.test(pre)?"":pre, pm=opts.uid?{assign:[opts.uid]}:null;
+  openDW(`<div class="tm-form"><h3>👥 メンバーを招待</h3>
+    <div class="tm-seg2" role="tablist" aria-label="招待のしかた"><button type="button" role="tab" data-tmmode="one" aria-selected="${!bulk}">1人ずつ</button><button type="button" role="tab" data-tmmode="bulk" aria-selected="${bulk}">まとめて（最大20人）</button></div>
+    <p class="nn" style="margin-top:8px">${esc(a.co)} の別のご担当者を招待します。費用はかかりません。招待はこの会社のPC・スマホとSTANDAGEの管理画面にすぐ反映されます。</p>
+    ${bulk?`<p class="lbl" style="margin-top:12px">招待する方（1行に1人：氏名とメールアドレス）</p>
+      <textarea class="sel" id="tmBulk" rows="6" style="width:100%;box-sizing:border-box;min-height:130px;font:inherit;font-size:13px" placeholder="例：&#10;山田 花子 hanako@example.co.jp&#10;佐藤 一郎 &lt;ichiro@example.co.jp&gt;&#10;jiro@example.co.jp"></textarea>
+      <p class="nn" id="tmBulkCnt" style="margin-top:4px">Ver.1 の「ユーザー招待」と同じく、コピー＆ペーストでまとめて招待できます（改行・セミコロンで区切り）。メールアドレスだけの行は、@ の前がログイン用の氏名になります。</p>`
+    :`<p class="lbl" style="margin-top:12px">氏名（必須・ログインのときに入力する名前）</p>
+      <input class="sel" id="tmN" placeholder="例：山田 花子" value="${esc(preNm)}" autocomplete="off" style="width:100%;box-sizing:border-box">
+      <p class="lbl" style="margin-top:9px">メールアドレス（招待状をメールソフトで送るとき）</p>
+      <input class="sel" id="tmM" type="email" placeholder="例：hanako@example.co.jp" value="${esc(preMail)}" autocomplete="off" style="width:100%;box-sizing:border-box">
+      <p class="lbl" style="margin-top:9px">部署・役職</p>
+      <input class="sel" id="tmD" placeholder="例：海外事業部 課長" autocomplete="off" style="width:100%;box-sizing:border-box">`}
+    ${tmRoleFormHtml("member")}${tmAssignFormHtml(T,pm,noun)}
+    <div class="rw" style="margin-top:14px"><button class="btn" type="button" id="tmGo">招待する</button><button class="btn g" type="button" onclick="closeDW()">やめる</button></div>
+    <p class="nn" id="tmErr" style="color:var(--crit);margin-top:8px" hidden></p></div>`);
+  if(typeof dwChrome==="function") dwChrome(); tmBindAssignForm();
+  document.querySelectorAll("[data-tmmode]").forEach(b=>b.onclick=()=>{ const cur0=(document.getElementById("tmN")||{}).value||""; tmInviteOpen(b.dataset.tmmode==="bulk"?"":cur0,b.dataset.tmmode,opts); });
+  const first=document.getElementById(bulk?"tmBulk":"tmN"); if(first) setTimeout(()=>first.focus(),60);
+  const err=t=>{ const e=document.getElementById("tmErr"); if(e){ e.hidden=false; e.textContent=t; } };
+  const by=tmMe().name||tmRep(a)||"（代表）", role=()=>(document.querySelector('input[name="tmRole"]:checked')||{}).value==="admin"?"admin":"member";
+  if(bulk){ const ta=document.getElementById("tmBulk"), cnt=document.getElementById("tmBulkCnt");
+    ta.oninput=()=>{ const P=tmParseBulk(ta.value); if(!P.length){ cnt.textContent="1行に1人ずつ入力してください。"; return; }
+      const ex=P.filter(p=>{ const m=(a.members||[]).find(x=>x.name===p.name); return (m&&tmStOf(m)!=="del")||p.name===tmRep(a); }).length;
+      cnt.textContent=`${Math.min(P.length,20)}人を読み取りました（新しく招待 ${Math.max(0,Math.min(P.length,20)-ex)}人${ex?`・登録済み・代表の ${ex}人は飛ばします`:""}${P.length>20?"・21人目以降は次の回に":""}）。`; }; }
+  document.getElementById("tmGo").onclick=()=>{
+    const now=Date.now(), assign=tmReadAssign(), rl=role();
+    if(!bulk){ const name=(document.getElementById("tmN").value||"").trim(), mail=(document.getElementById("tmM").value||"").trim(), dept=(document.getElementById("tmD").value||"").trim();
+      if(!name) return err("氏名を入力してください。"); if(mail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return err("メールアドレスの形が正しくありません。");
+      if(name===tmRep(a)) return err("代表の方と同じ氏名です（代表の方は招待しなくてもログインできます）。");
+      const ex=(a.members||[]).find(m=>m.name===name); if(ex&&tmStOf(ex)!=="del") return err(`「${name}」さんはすでに登録されています（${TM_ST[tmStOf(ex)][0]}）。`);
+      const m={name,mail,dept,role:rl,assign,st:"invited",added:now,by,joined:0,del:0,_m:now}; if(ex) Object.assign(ex,m); else a.members=(a.members||[]).concat([m]);
+      tmSaveAcct(); tmPut(); tmLog("メンバー招待:"+name);
+      const box=document.querySelector("#pn .tm-form"); if(box) box.innerHTML=`<h3>✅ ${esc(name)} さんを招待しました</h3>
+        <p class="nn" style="margin-top:6px">状態は「招待中」です。${esc(name)} さんが初めてログインすると「参加中」になります。</p>${tmInvitePanel(a,m)}
+        <div class="rw" style="margin-top:12px"><button class="btn g" type="button" onclick="closeDW()">閉じる</button><button class="btn g" type="button" id="tmMore">続けて招待する</button></div>`;
+      tmBindInvitePanel(a,m); const more=document.getElementById("tmMore"); if(more) more.onclick=()=>tmInviteOpen("","one",opts);
+      toast(`${name} さんを招待しました`); tmRepaint(); return; }
+    const P=tmParseBulk(document.getElementById("tmBulk").value).slice(0,20); if(!P.length) return err("招待する方を1行に1人ずつ入力してください。");
+    const bad=P.filter(p=>p.mail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.mail)); if(bad.length) return err("メールアドレスの形が正しくない行があります："+bad.map(p=>p.mail).join("、"));
+    const made=[], skip=[];
+    P.forEach(p=>{ if(p.name===tmRep(a)){ skip.push(p.name+"（代表）"); return; } const ex=(a.members||[]).find(m=>m.name===p.name);
+      if(ex&&tmStOf(ex)!=="del"){ skip.push(p.name+"（"+TM_ST[tmStOf(ex)][0]+"）"); return; }
+      const m={name:p.name,mail:p.mail,dept:"",role:rl,assign:assign.slice(),st:"invited",added:now,by,joined:0,del:0,_m:now}; if(ex) Object.assign(ex,m); else a.members=(a.members||[]).concat([m]); made.push(m); });
+    if(!made.length) return err("招待できる方がいませんでした（"+skip.join("、")+"）。");
+    tmSaveAcct(); tmPut(); tmLog("メンバー招待（まとめて）:"+made.length+"人");
+    const all=made.map(m=>tmInviteText(a,m)).join("\n\n――――――――\n\n");
+    const box=document.querySelector("#pn .tm-form"); if(box) box.innerHTML=`<h3>✅ ${made.length}人を招待しました</h3>
+      <p class="nn" style="margin-top:6px">状態は「招待中」です。それぞれ初めてログインすると「参加中」になります。${skip.length?`<br>飛ばした方：${esc(skip.join("、"))}`:""}</p>
+      <div class="tm-bulkl">${made.map(m=>`<div>・<b>${esc(m.name)}</b> ${m.mail?`<a href="mailto:${encodeURIComponent(m.mail)}?subject=${encodeURIComponent("【貿易クラウド2.0】"+a.co+" から招待が届きました")}&body=${encodeURIComponent(tmInviteText(a,m))}">✉ ${esc(m.mail)} へ送る</a>`:'<span class="nn">（メール未登録）</span>'}</div>`).join("")}</div>
+      <div class="rw" style="margin-top:10px;gap:6px;flex-wrap:wrap"><button class="btn" type="button" id="tmCopyAll">招待状をまとめてコピー</button><button class="btn g" type="button" onclick="closeDW()">閉じる</button></div>
+      <p class="nn" style="margin-top:8px">自動でメールは送りません。コピーした招待状を、社内のチャットやメールでお送りください。</p>`;
+    const ca=document.getElementById("tmCopyAll"); if(ca) ca.onclick=()=>{ if(typeof copyTxt==="function") copyTxt(all); };
+    toast(`${made.length}人を招待しました`); tmRepaint(); };
+};
+
+/* ── 「やりとり」のメンバー欄（Ver.1 の案件サイドバーと同じ並び：担当者(CS) → セラー（メイン担当・メンバー）→ AI） ── */
+function tmPmRow(role,name,sub,opt){ opt=opt||{}; const me=tmMe();
+  return `<div class="tm-pmr${opt.sub?" sub":""}"><span class="tm-pml">${esc(role||"")}</span><span class="tm-av sm ${opt.cls||""}">${esc(String(name).slice(0,1))}</span>
+    <span class="tm-pmn"><span class="tm-pmt"><b>${esc(name)}</b>${me.name&&me.name===name?'<span class="p or">あなた</span>':""}${opt.main?'<span class="p hi">メイン</span>':""}</span><small>${esc(sub||"")}</small></span>
+    ${opt.kb&&tmCan()?`<button type="button" class="tm-kb" data-pmkb="${esc(name)}"${opt.rep?' data-pmrep="1"':""} aria-haspopup="menu" aria-label="${esc(name)} さんの操作">⋮</button>`:"<span></span>"}</div>`; }
+function tmPmCardHtml(){
+  const a=tmAcct(), t=tmCurTen(), can=tmCan(), rep=tmRep(a); const base=(typeof D!=="undefined"&&D&&D.members)||[];
+  const head=`<div class="rw" style="justify-content:space-between;align-items:center;gap:8px"><h3 style="margin:0">メンバー</h3>${can&&t?`<div class="tm-dd"><button class="btn g tm-addb" type="button" id="tmPmAdd" aria-haspopup="menu">＋ 追加</button>
+    <div class="tm-ddm" id="tmPmMenu" role="menu" hidden><button type="button" role="menuitem" data-pmact="add">この商品にメンバーを追加</button><button type="button" role="menuitem" data-pmact="inv">新しいメンバーを招待</button><button type="button" role="menuitem" data-pmact="bulk">まとめて招待（最大20人）</button></div></div>`:""}</div>`;
+  if(!t) return head+`<p class="nn" style="margin-top:6px">商品を選ぶと、その商品に参加しているメンバーが出ます。</p>`;
+  if(!t.uid&&typeof v185Stamp==="function") v185Stamp(t);
+  const L=tmList(a).filter(m=>tmStOf(m)!=="stop"&&tmHas(m,t.uid)), lead=tmLeadName(t), main=lead||rep;
+  const sub=m=>[m.dept,tmAllOf(m)?"全商品の担当":"",tmStOf(m)==="inv"?"招待中":""].filter(Boolean).join("・")||TM_ROLE[tmRoleOf(m)];
+  let h=head+`<p class="nn" style="margin-top:4px">「${esc(String(t.item||"この商品").slice(0,30))}」に参加しているメンバーです。</p><div class="tm-pm">`;
+  base.filter(r=>r&&r[2]==="STANDAGE").forEach((r,i)=>{ h+=tmPmRow(i?"":"担当者(CS)",r[0],r[1],{cls:"std"}); });
+  const others=L.filter(m=>m.name!==main);
+  const avc=m=>tmStOf(m)==="inv"?"inv":"";
+  if(main){ const lm=L.find(m=>m.name===main); h+=tmPmRow("セラー",main,lm?sub(lm):"アカウントの代表（外せません）",{main:true,kb:!!lm,cls:lm?avc(lm):"rep"}); }
+  if(lead&&rep&&lead!==rep) h+=tmPmRow("",rep,"アカウントの代表（外せません）",{sub:true,kb:true,rep:true,cls:"rep"});
+  const shown=others.slice(0,4), more=others.slice(4);
+  h+=shown.map((m,i)=>tmPmRow(!main&&i===0?"セラー":"",m.name,sub(m),{kb:true,sub:true,cls:avc(m)})).join("");
+  if(more.length) h+=`<div class="tm-more" id="tmPmMoreBox" hidden>${more.map(m=>tmPmRow("",m.name,sub(m),{kb:true,sub:true,cls:avc(m)})).join("")}</div><button type="button" class="tm-morebtn" id="tmPmMore">他 ${more.length}名を表示 ▾</button>`;
+  if(!main&&!others.length) h+=`<p class="nn" style="padding:6px 0 2px 82px">まだ参加しているメンバーがいません。${can?"「＋ 追加」から追加できます。":""}</p>`;
+  base.filter(r=>r&&r[2]==="AI").forEach(r=>{ h+=tmPmRow("AI",r[0],r[1],{cls:"ai"}); });
+  return h+`</div><div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap"><button class="btn g" type="button" id="tmPmTeam" style="font-size:12px">メンバー・担当を開く →</button></div>
+    <p class="nn" style="margin-top:6px">招待したメンバーは<b>アクセスコード＋ご本人の氏名</b>でログインします。</p>`; }
+function tmKbClose(){ document.querySelectorAll(".tm-kbm").forEach(x=>x.remove()); }
+function tmKbOpen(btn,items){ tmKbClose(); const row=btn.closest(".tm-pmr")||btn.parentNode; const m=document.createElement("div"); m.className="tm-ddm tm-kbm"; m.setAttribute("role","menu");
+  m.innerHTML=items.map((it,i)=>`<button type="button" role="menuitem" data-kbi="${i}" class="${it.warn?"warn":""}">${esc(it.t)}</button>`).join(""); row.appendChild(m);
+  m.querySelectorAll("[data-kbi]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); tmKbClose(); items[+b.dataset.kbi].go(); }); const f=m.querySelector("button"); if(f) f.focus(); m.addEventListener("keydown",e=>{ if(e.key==="Escape"){ e.stopPropagation(); tmKbClose(); try{ btn.focus(); }catch(x){} } });
+  setTimeout(()=>document.addEventListener("click",tmKbClose,{once:true}),0); }
+function tmPmBind(card){
+  const t=tmCurTen(); const q=s=>card.querySelector(s);
+  const add=q("#tmPmAdd"), menu=q("#tmPmMenu");
+  if(add&&menu){ menu.addEventListener("keydown",e=>{ if(e.key==="Escape"){ e.stopPropagation(); menu.hidden=true; add.focus(); } }); add.onclick=e=>{ e.stopPropagation(); menu.hidden=!menu.hidden; if(!menu.hidden){ const f=menu.querySelector("button"); if(f) f.focus(); setTimeout(()=>document.addEventListener("click",()=>{ menu.hidden=true; },{once:true}),0); } };
+    menu.querySelectorAll("[data-pmact]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); menu.hidden=true; const k=b.dataset.pmact;
+      if(k==="add") tmPmAddOpen(); else tmInviteOpen("",k==="bulk"?"bulk":"one",{uid:t&&t.uid}); }); }
+  const more=q("#tmPmMore"); if(more) more.onclick=()=>{ const bx=q("#tmPmMoreBox"); if(bx){ bx.hidden=!bx.hidden; more.textContent=bx.hidden?more.textContent.replace("たたむ ▴","表示 ▾"):more.textContent.replace("表示 ▾","たたむ ▴"); } };
+  const tb=q("#tmPmTeam"); if(tb) tb.onclick=()=>go("team");
+  card.querySelectorAll("[data-pmkb]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const name=b.dataset.pmkb, isRep=b.dataset.pmrep==="1", isLead=t&&tmLeadName(t)===name; const items=[];
+    if(!isLead) items.push({t:"メイン担当者に変更",go:()=>tmSetLead(name,t&&t.uid)});
+    if(!isRep) items.push({t:"メンバーから外す",warn:true,go:()=>{ if(confirm(`${name} さんを「${String((t&&t.item)||"この商品").slice(0,24)}」のメンバーから外します（会社のメンバーからは外しません）。`)) tmPmRemove(name,t&&t.uid); }});
+    if(items.length) tmKbOpen(b,items); }); }
+/* 「＋ 追加」→ この商品にメンバーを追加：検索欄1つ（メール・名前・部署）で候補を選び「設定する」（Ver.1 と同じ） */
+function tmPmAddOpen(){
+  const a=tmAcct(), t=tmCurTen(); if(!a||!t) return; if(!tmCan()){ toast("メンバーの追加は管理者が行います"); return; }
+  if(!t.uid&&typeof v185Stamp==="function") v185Stamp(t);
+  openDW(`<div class="tm-form"><h3>メンバーを追加する</h3><p class="nn" style="margin-top:4px">「${esc(String(t.item||"この商品").slice(0,30))}」に参加するメンバーを選んで「設定する」を押してください。</p>
+    <div class="tm-srch"><input class="sel" id="tmPmQ" placeholder="メール、名前もしくは部署" autocomplete="off" aria-label="メール、名前もしくは部署で探す"></div>
+    <div class="tm-sug" id="tmPmList" role="listbox" aria-label="候補"></div>
+    <div class="rw" style="justify-content:space-between;margin-top:14px"><button class="btn g" type="button" onclick="closeDW()">キャンセル</button><button class="btn" type="button" id="tmPmGo" disabled>設定する</button></div></div>`);
+  if(typeof dwChrome==="function") dwChrome();
+  let sel=""; const qi=document.getElementById("tmPmQ"), list=document.getElementById("tmPmList"), go2=document.getElementById("tmPmGo");
+  const paint=()=>{ const q=(qi.value||"").trim(), ql=q.toLowerCase(); const C=tmList(a).filter(m=>tmStOf(m)!=="stop"&&!tmHas(m,t.uid));
+    const hit=C.filter(m=>!ql||(m.name+" "+(m.mail||"")+" "+(m.dept||"")).toLowerCase().includes(ql)); if(sel&&!hit.some(m=>m.name===sel)) sel="";
+    list.innerHTML=(hit.length?hit.map(m=>`<button type="button" role="option" aria-selected="${sel===m.name}" class="tm-sgi${sel===m.name?" on":""}" data-sg="${esc(m.name)}"><span class="tm-av sm ${tmStOf(m)==="inv"?"inv":""}">${esc(m.name.slice(0,1))}</span>
+        <span><b>${esc(m.name)}</b><small>${esc([m.dept,m.mail].filter(Boolean).join("・")||TM_ROLE[tmRoleOf(m)])}</small></span>${tmStOf(m)==="inv"?'<span class="p mid">招待中</span>':""}</button>`).join("")
+      :`<p class="nn">${C.length?"条件に合うメンバーがいません。":"追加できるメンバーはいません（会社のメンバー全員が、この商品に参加しています）。"}</p>`)
+      +`<button class="btn g" type="button" id="tmPmNew" style="margin-top:4px;align-self:flex-start">＋ ${q?`「${esc(q.slice(0,30))}」を`:""}新しく招待する</button>`;
+    go2.disabled=!sel;
+    list.querySelectorAll("[data-sg]").forEach(b=>b.onclick=()=>{ sel=b.dataset.sg; paint(); });
+    const nw=document.getElementById("tmPmNew"); if(nw) nw.onclick=()=>tmInviteOpen(q,"one",{uid:t.uid}); };
+  qi.oninput=paint; paint(); setTimeout(()=>qi.focus(),60);
+  go2.onclick=()=>{ if(!sel) return; const n=sel; closeDW(); tmToggleOn(n,t.uid,true); };
+}
+mInviteHtml=function(){ if(!tmAcct()) return ""; return `<span id="tmPmMark"></span>`; };
+mInviteNote=function(){ return ""; };
+mInviteBind=function(){ const mk=document.getElementById("tmPmMark"); const card=mk&&mk.closest(".c"); if(!card||!tmAcct()) return; card.id="tmPmCard"; card.innerHTML=tmPmCardHtml(); tmPmBind(card); };
+/* やりとりの画面では、メンバー欄だけを描き直す（画面全体を描き直すと、入力中のメッセージが消える） */
+function tmPmRepaint(){ const card=document.getElementById("tmPmCard"); if(!card) return false; tmKbClose(); card.innerHTML=tmPmCardHtml(); tmPmBind(card); return true; }
+var __tmRepaint216=tmRepaint;
+tmRepaint=function(){ try{ if(typeof cur!=="undefined"&&cur==="msg"&&!(typeof FWDON!=="undefined"&&FWDON)&&tmPmRepaint()) return; }catch(e){} return __tmRepaint216.apply(this,arguments); };
+/* やりとりの画面を開いている間も、別の端末・管理画面でのメンバーの変更を15秒ごとに取り込む（v21.5 の見張りは「メンバー・担当」画面だけだった） */
+setInterval(async()=>{
+  try{ if(typeof V215==="undefined"||V215.regBusy||typeof cur==="undefined"||cur!=="msg"||document.visibilityState!=="visible"||typeof SES==="undefined"||!SES||SES.t!=="trial"||typeof v213SyncOn!=="function"||!v213SyncOn()||!document.getElementById("tmPmCard")) return; }catch(e){ return; }
+  V215.regBusy=1;
+  try{ const r=await syncCall("reg_at",{},{timeout:15000}); const at=+(r&&r.at)||0; if(!at||at===V215.regAt) return; const first=!V215.regAt; V215.regAt=at; if(first) return;
+    const before=JSON.stringify((tmAcct()||{}).members||[]); const a2=await syncRefreshAcct(SES.code);
+    if(a2&&!a2.unknown&&JSON.stringify(a2.members||[])!==before){ tmPmRepaint(); toast("メンバーの変更を取り込みました（別の端末・管理画面での変更）"); } }
+  catch(e){} finally{ V215.regBusy=0; } },15000);
+
+/* ── メンバー・担当：一覧に検索（名前・メール・部署）／商品ごとの担当にメイン担当 ── */
+var __tmList215=tmListHtml;
+tmListHtml=function(a,T,L,can,noun,me,rep){ let h=__tmList215.apply(this,arguments);
+  const byName={}; (L||[]).forEach(m=>{ byName[m.name]=(m.name+" "+(m.mail||"")+" "+(m.dept||"")).toLowerCase(); });
+  h=h.replace(/<div class="tm-card([^"]*)"><div class="tm-av([^"]*)">([^<]*)<\/div>\s*<div><div class="tm-nm">([^<]*)/g,(all,c1,c2,ini,nm)=>{ const n=String(nm).trim(); const key=byName[n]||(n.toLowerCase()); return `<div class="tm-card${c1}" data-q="${esc(key)}"><div class="tm-av${c2}">${ini}</div>\n      <div><div class="tm-nm">${nm}`; });
+  return `<div class="tm-srch"><input class="sel" id="tmQ" placeholder="🔍 名前・メール・部署で検索" autocomplete="off" aria-label="メンバーを検索"></div>`+h; };
+tmProdHtml=function(a,T,L,can,noun){
+  if(!T.length) return `<p class="nn" style="margin-top:12px">まだ${noun}がありません。${noun==="商品"?"「商品情報を登録」で商品を登録すると":"荷主から見積依頼が届くと"}、ここで担当を割り当てられます。</p>`;
+  const act=L.filter(m=>tmStOf(m)!=="stop"), fwd=tmIsFwd(a);
+  return `<div class="tm-list">${T.map(t=>{ const ten=fwd?null:tmTenByUid(t.id), lead=ten?tmLeadName(ten):""; const on=act.filter(m=>tmHas(m,t.id)).sort((x,y)=>(y.name===lead)-(x.name===lead)), off=act.filter(m=>!tmHas(m,t.id));
+    return `<div class="tm-prod"><h4>${esc(t.label)}</h4><div class="tm-chips">${on.length?on.map(m=>`<span class="tm-chip${tmAllOf(m)?" all":""}" title="${tmAllOf(m)?"すべての"+noun+"の担当":""}">${m.name===lead?"★ ":""}${esc(m.name)}${m.name===lead?"（メイン）":""}${can&&!fwd&&m.name!==lead?`<button type="button" title="メイン担当者に変更" data-tmlead="${esc(m.name)}" data-tmid="${esc(t.id)}">★</button>`:""}${can?`<button type="button" title="担当から外す" data-tmun="${esc(m.name)}" data-tmid="${esc(t.id)}">×</button>`:""}</span>`).join(""):'<span class="nn">担当はまだいません</span>'}
+      ${can&&off.length?`<select class="sel" data-tmadd="${esc(t.id)}" style="font-size:12px;padding:3px 6px"><option value="">＋ 担当を追加</option>${off.map(m=>`<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("")}</select>`:""}</div></div>`; }).join("")}</div>`; };
+var __tb216=teamBind;
+teamBind=function(){ __tb216.apply(this,arguments);
+  const qi=document.getElementById("tmQ"); if(qi) qi.oninput=()=>{ const q=(qi.value||"").trim().toLowerCase(); document.querySelectorAll(".tm-card[data-q]").forEach(c=>{ c.style.display=!q||c.dataset.q.includes(q)?"":"none"; }); };
+  document.querySelectorAll("[data-tmlead]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); tmSetLead(b.dataset.tmlead,b.dataset.tmid); });
+  document.querySelectorAll("[data-tmun]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const t=tmTenByUid(b.dataset.tmid); if(t&&t.lead===b.dataset.tmun){ t.lead=""; try{ saveTen(); }catch(x){} } tmToggleOn(b.dataset.tmun,b.dataset.tmid,false); });
+};
+
+/* ── 登録済みの商品カード：自分が参加している商品に「参加」（Ver.1 のプロジェクト一覧と同じ）・「参加している商品のみ」 ── */
+tmDecorateProducts=function(){
+  const box=document.getElementById("regprod"); const a=tmAcct(); if(!box||!a) return; const L=tmList(a).filter(m=>tmStOf(m)!=="stop"); const me=tmMe();
+  const mine=tmMineOnly()&&me.m&&!tmAllOf(me.m), TS=(typeof TENS!=="undefined"&&TENS)||[];
+  box.querySelectorAll("[data-tsw]").forEach(c=>{ const t=TS[+c.dataset.tsw]; if(!t) return;
+    if(c.classList.contains("q")){ if(mine) c.style.display=TS.some(x=>x&&x.co===t.co&&x.uid&&tmHas(me.m,x.uid))?"":"none"; return; }   /* 「他の会社」のチップ：その会社の商品に1つでも参加していれば出す */
+    if(!t.uid||c.querySelector(".tm-badge")) return;
+    const lead=tmLeadName(t); const who=L.filter(m=>!tmAllOf(m)&&tmHas(m,t.uid)).map(m=>m.name===lead?m.name+"（メイン）":m.name); const all=L.filter(m=>tmAllOf(m)).length;
+    if(me.m&&tmHas(me.m,t.uid)){ const b0=c.querySelector("b"); if(b0&&!b0.querySelector(".tm-join")) b0.insertAdjacentHTML("afterbegin",'<span class="tm-join">参加</span>'); }
+    if(who.length||all){ const s=document.createElement("span"); s.className="tm-badge"; s.textContent="担当："+(who.length?who.join("・"):"")+(all?(who.length?"＋":"")+`全体担当${all}名`:""); c.appendChild(s); }
+    if(mine&&!tmHas(me.m,t.uid)) c.style.display="none"; });
+  box.querySelectorAll(".rw").forEach(rw=>{ const q=[...rw.querySelectorAll("button.q[data-tsw]")]; if(q.length) rw.style.display=q.every(x=>x.style.display==="none")?"none":""; });
+  const h=box.querySelector("h3"); if(h&&me.m&&!tmAllOf(me.m)&&!box.querySelector("#tmMine")){ const b=document.createElement("label"); b.id="tmMine"; b.style.cssText="font-size:12px;display:inline-flex;gap:5px;align-items:center;cursor:pointer;color:var(--ink-2)";
+    b.innerHTML=`<input type="checkbox" ${tmMineOnly()?"checked":""}> 参加している商品のみ`; b.querySelector("input").onchange=()=>{ try{ localStorage.setItem("bc20_tm_mine",tmMineOnly()?"0":"1"); }catch(e){} render(); }; h.after(b); } };
+
+tmI18n([
+ ["1人ずつ","One at a time","逐个邀请","Uno a uno"],["まとめて（最大20人）","In bulk (up to 20)","批量（最多20人）","En bloque (hasta 20)"],
+ ["この商品にメンバーを追加","Add a member to this product","为此商品添加成员","Añadir un miembro a este producto"],["新しいメンバーを招待","Invite a new member","邀请新成员","Invitar a un nuevo miembro"],
+ ["まとめて招待（最大20人）","Bulk invite (up to 20)","批量邀请（最多20人）","Invitación masiva (hasta 20)"],["メンバーを追加する","Add a member","添加成员","Añadir un miembro"],
+ ["設定する","Set","设置","Establecer"],["キャンセル","Cancel","取消","Cancelar"],["メイン担当者に変更","Make main contact","改为主要负责人","Hacer contacto principal"],
+ ["メンバーから外す","Remove from members","从成员中移除","Quitar de los miembros"],["メイン","Main","主要","Principal"],["セラー","Seller","卖方","Vendedor"],
+ ["担当者(CS)","Contact (CS)","负责人(CS)","Responsable (CS)"],["メンバー・担当を開く →","Open members & assignments →","打开成员与负责 →","Abrir miembros y asignaciones →"],
+ ["参加している商品のみ","Only products I'm in","只看我参与的商品","Solo productos en los que participo"],["参加","In","参与","Participo"],
+ ["招待状をまとめてコピー","Copy all invitations","批量复制邀请函","Copiar todas las invitaciones"],["＋ 追加","+ Add","＋ 添加","+ Añadir"]
 ]);
 
 </script>
