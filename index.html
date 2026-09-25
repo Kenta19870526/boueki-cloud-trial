@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="dd379ef6b33b";
+const BC20_BUILD="e715ed1fcb29";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -26499,7 +26499,7 @@ try{ if(v213Admin()){ v213AdmBaseline(); setTimeout(v213AdmAuto,300); } }catch(e
       → 公開中の版（version.json）と比べ、ログイン前なら自動で読み込み直し、ログイン中は「新しい版があります」を出す
    ④ 管理コンソール：開いている間は2分ごと（と画面に戻ったとき）にサーバーの台帳を取り込む。送れなかったときは必ず知らせて自動で送り直し、同期の状態と変更履歴を表示
    ⑤ 同じPCの Chrome と Edge：言語設定の並びが違うと端末指紋が変わり、別の端末と判定されて先の画面が締め出されることがあった → 言語を含まない機器の特徴（hw）も送る */
-const BC20_VER="21.8";
+const BC20_VER="21.9";
 const V214={verAt:0,verBusy:0,newer:"",srv:"",warm:0,pullAt:0,pullErr:"",pushAt:0,pushErr:"",log:[],pend:0};
 function v214Toast(m){ try{ if(typeof toast==="function") toast(m); }catch(e){} }
 (function(){ try{ const st=document.createElement("style"); st.textContent=`
@@ -27887,7 +27887,7 @@ function dk3SlideHtml(S,deck,scale){
 const DK3_L={
  en:{usesEb:"Versatile Uses",spotEb:"Spotlight",marketsSub:"Estimated duties and documents typically required",marketsC:"Market",dutyAsk:"Confirmed on request",fullIngr:"Full ingredients",deck:"Global Sales Presentation",conf:"Confidential",page:"Page",
   about:"Company Profile",aboutEb:"Who We Are",hist:"Our History",histEb:"Milestones",mission:"Our Mission",missionEb:"Philosophy",
-  stats:"Proven Track Record",statsEb:"Key Figures",product:"Flagship Product",lineup:"Product Lineup",lineupEb:"Our Range",
+  stats:"Proven Track Record",statsEb:"Key Figures",product:"Product",lineup:"Product Lineup",lineupEb:"Our Range",
   ingr:"Ingredients & Composition",ingrEb:"What's Inside",mat:"Materials & Specifications",spec:"Specifications",usage:"How to Use",usageEb:"Simple Steps",
   quality:"Quality & Certifications",qualityEb:"Trust & Evidence",endorse:"Professional Endorsement",diff:"Why Buyers Choose Us",diffEb:"Differentiation",
   typical:"Typical products",ours:"Ours",targets:"Target Customers & Channels",targetsEb:"Market Fit",need:"Need",benefit:"Benefit",channels:"Channels",
@@ -27903,7 +27903,7 @@ const DK3_L={
   prices:"Wholesale prices",exTax:"",keyIngr:"Key ingredient",free:"Free from",allergen:"Allergens",supported:"Supported by STANDAGE",n1x:"Request product data",n1xd:"Tell us your market and channel; we send specifications and a quotation.",unitsPer:"units / carton"},
  zhCN:{usesEb:"多种用途",spotEb:"焦点",marketsSub:"关税估算与通常所需文件",marketsC:"市场",dutyAsk:"可应要求确认",fullIngr:"全成分",deck:"全球销售提案",conf:"机密",page:"",
   about:"公司简介",aboutEb:"关于我们",hist:"发展历程",histEb:"里程碑",mission:"企业使命",missionEb:"经营理念",
-  stats:"业绩实证",statsEb:"关键数据",product:"主打产品",lineup:"产品系列",lineupEb:"产品阵容",
+  stats:"业绩实证",statsEb:"关键数据",product:"产品",lineup:"产品系列",lineupEb:"产品阵容",
   ingr:"成分与配方",ingrEb:"产品成分",mat:"材质与规格",spec:"产品规格",usage:"使用方法",usageEb:"简单步骤",
   quality:"品质与认证",qualityEb:"信赖与依据",endorse:"专家推荐",diff:"买家选择我们的理由",diffEb:"差异化优势",
   typical:"一般产品",ours:"本产品",targets:"目标客户与渠道",targetsEb:"市场定位",need:"需求",benefit:"价值",channels:"渠道",
@@ -27919,7 +27919,7 @@ const DK3_L={
   prices:"批发价格",exTax:"",keyIngr:"核心成分",free:"不含",allergen:"过敏原",supported:"STANDAGE 提供支持",n1x:"索取产品资料",n1xd:"请告诉我们您的市场和渠道，我们将提供规格书和报价。",unitsPer:"件/箱"},
  zhTW:{usesEb:"多種用途",spotEb:"焦點",marketsSub:"關稅估算與通常所需文件",marketsC:"市場",dutyAsk:"可應要求確認",fullIngr:"全成分",deck:"全球銷售簡報",conf:"機密",page:"",
   about:"公司簡介",aboutEb:"關於我們",hist:"發展沿革",histEb:"里程碑",mission:"企業使命",missionEb:"經營理念",
-  stats:"實績證明",statsEb:"關鍵數據",product:"主打產品",lineup:"產品系列",lineupEb:"產品陣容",
+  stats:"實績證明",statsEb:"關鍵數據",product:"產品",lineup:"產品系列",lineupEb:"產品陣容",
   ingr:"成分與配方",ingrEb:"產品成分",mat:"材質與規格",spec:"產品規格",usage:"使用方法",usageEb:"簡單步驟",
   quality:"品質與認證",qualityEb:"信賴與依據",endorse:"專家推薦",diff:"買家選擇我們的理由",diffEb:"差異化優勢",
   typical:"一般產品",ours:"本產品",targets:"目標客群與通路",targetsEb:"市場定位",need:"需求",benefit:"價值",channels:"通路",
@@ -27935,7 +27935,7 @@ const DK3_L={
   prices:"批發價格",exTax:"",keyIngr:"核心成分",free:"不含",allergen:"過敏原",supported:"STANDAGE 提供支援",n1x:"索取產品資料",n1xd:"請告訴我們您的市場與通路，我們將提供規格書與報價。",unitsPer:"件/箱"},
  es:{usesEb:"Usos Versátiles",spotEb:"En Foco",marketsSub:"Aranceles estimados y documentos normalmente requeridos",marketsC:"Mercado",dutyAsk:"Se confirma bajo solicitud",fullIngr:"Ingredientes completos",deck:"Presentación Comercial Global",conf:"Confidencial",page:"Pág.",
   about:"Perfil de la Empresa",aboutEb:"Quiénes Somos",hist:"Nuestra Historia",histEb:"Hitos",mission:"Nuestra Misión",missionEb:"Filosofía",
-  stats:"Trayectoria Comprobada",statsEb:"Cifras Clave",product:"Producto Estrella",lineup:"Línea de Productos",lineupEb:"Nuestra Gama",
+  stats:"Trayectoria Comprobada",statsEb:"Cifras Clave",product:"Producto",lineup:"Línea de Productos",lineupEb:"Nuestra Gama",
   ingr:"Ingredientes y Composición",ingrEb:"Composición",mat:"Materiales y Especificaciones",spec:"Especificaciones",usage:"Modo de Uso",usageEb:"Pasos Sencillos",
   quality:"Calidad y Certificaciones",qualityEb:"Confianza y Evidencia",endorse:"Aval Profesional",diff:"Por Qué Nos Eligen",diffEb:"Diferenciación",
   typical:"Productos típicos",ours:"Nuestro producto",targets:"Clientes Objetivo y Canales",targetsEb:"Encaje de Mercado",need:"Necesidad",benefit:"Beneficio",channels:"Canales",
@@ -27951,7 +27951,7 @@ const DK3_L={
   prices:"Precios mayoristas",exTax:"",keyIngr:"Ingrediente clave",free:"Libre de",allergen:"Alérgenos",supported:"Con el apoyo de STANDAGE",n1x:"Solicite información del producto",n1xd:"Cuéntenos su mercado y canal; le enviaremos especificaciones y una cotización.",unitsPer:"uds. / caja"},
  ko:{usesEb:"다양한 용도",spotEb:"스포트라이트",marketsSub:"관세 추정 및 일반적으로 필요한 서류",marketsC:"시장",dutyAsk:"요청 시 확인",fullIngr:"전성분",deck:"글로벌 세일즈 프레젠테이션",conf:"대외비",page:"",
   about:"회사 소개",aboutEb:"회사 개요",hist:"연혁",histEb:"주요 이정표",mission:"미션",missionEb:"경영 철학",
-  stats:"검증된 실적",statsEb:"핵심 수치",product:"대표 제품",lineup:"제품 라인업",lineupEb:"제품 구성",
+  stats:"검증된 실적",statsEb:"핵심 수치",product:"제품",lineup:"제품 라인업",lineupEb:"제품 구성",
   ingr:"성분 및 배합",ingrEb:"주요 성분",mat:"소재 및 사양",spec:"제품 사양",usage:"사용 방법",usageEb:"간단한 단계",
   quality:"품질 및 인증",qualityEb:"신뢰와 근거",endorse:"전문가 추천",diff:"바이어가 선택하는 이유",diffEb:"차별화 포인트",
   typical:"일반 제품",ours:"당사 제품",targets:"타깃 고객 및 채널",targetsEb:"시장 적합성",need:"니즈",benefit:"가치",channels:"채널",
@@ -28019,7 +28019,7 @@ function dk3Fonts(style,lang){ const cjk=/^(zhCN|zhTW|ko|ja)$/.test(lang);
 /* ── 共通部品（見出し・フッター・背景・カード・アイコン円） ── */
 function dk3Kit(deck){
   const P=deck.pal, st=deck.style, lang=deck.lang, F=deck.font, M=deck.M; const dark=st==="bold";
-  const K={P,st,lang,F,M,dark,deck,pg:0,shown:{price:0,comp:0,dim:0}};
+  const K={P,st,lang,F,M,dark,deck,pg:1,shown:{price:0,comp:0,dim:0}};
   K.T=(x,y,w,h,paras,o)=>dk3T(x,y,w,h,paras,o);
   K.fit=(el,min)=>{ if(el) dk3Fit(el,lang,deck,min); return el; };
   K.auto=(el,maxH)=>{ if(el) dk3Auto(el,lang,deck,maxH); return el; };
@@ -28085,8 +28085,14 @@ function dk3Kit(deck){
 function dk3ColW(cols,rows,W,first){ const len=v=>[...String(v||"")].reduce((a,c)=>a+(c.codePointAt(0)>0x2E7F?1.8:1),0);
   const w=cols.map((c,i)=>Math.max(4,Math.min(22,Math.max(len(c)*0.8,...rows.map(r=>len(r[i]))))*(i===0?(first||1.1):1))); const t=w.reduce((a,b)=>a+b,0); return w.map(v=>W*v/t); }
 function dk3CatIcon(){ const s=String((typeof TEN!=="undefined"&&TEN&&(TEN.cat+" "+TEN.item))||""); const ck=(typeof TEN!=="undefined"&&TEN&&TEN.catKey)||"";
-  const R=[[/茶|tea|抹茶|matcha/i,"leaf"],[/酒|sake|wine|ワイン|ビール|beer/i,"wine"],[/コーヒー|coffee/i,"coffee"],[/サプリ|supplement|ビタミン|健康食品/i,"pill"],[/化粧|cosme|美容|スキン|シャンプー|skin/i,"sparkles"],[/衣料|アパレル|ウェア|wear|shirt|靴下|sock/i,"shirt"],[/菓子|sweet|confection/i,"cookie"],[/食品|food|調味|sauce/i,"utensils"],[/部品|parts|機械|machine|工具|tool/i,"cog"],[/医療|medical/i,"stethoscope"]];
-  for(const [re,ic] of R){ if(re.test(s)) return ic; } return {food:"utensils",cosme:"sparkles",parts:"cog",liquor:"wine",apparel:"shirt",medical:"stethoscope",daily:"house"}[ck]||"package"; }
+  const R=[[/茶|tea|抹茶|matcha/i,"leaf"],[/酒|sake|wine|ワイン|ビール|beer/i,"wine"],[/コーヒー|coffee/i,"coffee"],[/サプリ|supplement|ビタミン|健康食品/i,"pill"],[/化粧|cosme|美容|スキン|シャンプー|skin/i,"sparkles"],[/衣料|アパレル|ウェア|wear|shirt|靴下|sock/i,"shirt"],[/菓子|sweet|confection/i,"cookie"],[/食品|food|調味|sauce/i,"utensils"],[/部品|parts|機械|machine|工具|tool/i,"cog"],[/医療機器|medical device/i,"stethoscope"]];
+  for(const [re,ic] of R){ if(re.test(s)) return ic; } return {food:"utensils",cosme:"sparkles",parts:"cog",liquor:"wine",apparel:"shirt",medical:"package",daily:"house"}[ck]||"package"; }
+function dk3ProdIcon(t){ const x=String((t&&[t.item,t.itemEn,t.cat,t.compTitle].join(" "))||"");
+  const R=[[/錠|タブレット|tablet|カプセル|capsule|サプリ|supplement|ビタミン|vitamin|顆粒|粉末剤/i,"pill"],[/クリーム|cream|バーム|balm|ジェル|gel|美容液|serum|ローション|lotion|乳液|軟膏|ointment/i,"droplets"],
+    [/シャンプー|shampoo|ソープ|soap|洗顔|wash|クレンジング|cleans|ボディ|body/i,"droplet"],[/茶|tea|抹茶|matcha/i,"leaf"],[/酒|sake|wine|ワイン|ビール|beer/i,"wine"],[/コーヒー|coffee/i,"coffee"],
+    [/衣料|アパレル|ウェア|wear|shirt|靴下|sock|肌着/i,"shirt"],[/菓子|sweet|confection/i,"cookie"],[/食品|food|調味|sauce/i,"utensils"],[/部品|parts|機械|machine|工具|tool/i,"cog"],
+    [/化粧|cosme|美容|スキン|skin/i,"sparkles"],[/機器|device|体温計|血圧計|医療器/i,"stethoscope"]];
+  for(const [re,ic] of R){ if(re.test(x)&&dk3IconOk(ic)) return ic; } return "package"; }
 /* ═══ スライドの型 ═══ */
 const DK3_SL={};
 /* 1) 表紙 */
@@ -28333,7 +28339,7 @@ DK3_SL.specsPair=(K,a,b,si)=>{ const {P,st,M}=K; const L=k=>dk3Lb(K.lang,k); con
     dk3Add(S,dk3R(X,yy,W,32,{fill:st==="bold"?P.card:P.tint2,r:8})); dk3Add(S,dk3Ic(X+10,yy+8,16,"package",st==="bold"?P.acT:P.ac)); const t=dk3Add(S,K.T(X+32,yy+7,W-44,18,[{t:sp.sub||"",sz:12,b:1,c:fg0}],{one:1})); K.fit(t,0.7); yy+=40;
     if(sp.hdr){ const h1=dk3Add(S,K.T(X+28,yy,118,16,[{t:sp.hdr[0]||"",sz:9,b:1,c:P.mut,caps:1}],{one:1})); if(h1) K.fit(h1,0.7); const h2=dk3Add(S,K.T(X+150,yy,W-158,16,[{t:sp.hdr[1]||"",sz:9,b:1,c:P.mut,caps:1}],{one:1})); if(h2) K.fit(h2,0.7); yy+=20; }
     const rows=sp.rows||[]; const rh=Math.min(44,(488-yy)/Math.max(rows.length,1)); K.shown.comp+=rows.length;
-    rows.forEach((r,i)=>{ const ry=yy+i*rh; if(i%2===0) dk3Add(S,dk3R(X,ry,W,rh,{fill:st==="bold"?P.card:P.tint,r:4}));
+    rows.forEach((r,i)=>{ const ry=yy+i*rh; if(i%2===0) dk3Add(S,dk3R(X,ry,W,rh,{fill:st==="bold"?P.card:P.tint,r:4})); else if(st!=="bold") dk3Add(S,dk3R(X,ry,W,rh,{fill:"FFFFFF",r:4}));
       dk3Add(S,dk3Ic(X+8,ry+(rh-14)/2,14,dk3RowIc(r[0]+" "+r[1]),st==="bold"?P.acT:P.ac));
       const k=dk3Add(S,K.T(X+28,ry+3,118,rh-6,[{t:r[0],sz:10.5,b:1,c:st==="bold"?P.acT:P.acD,lh:1.15}],{va:"m"})); K.fit(k,0.7);
       const v=dk3Add(S,K.T(X+150,ry+3,W-158,rh-6,[{t:r[1],sz:11,c:fg0,lh:1.2}],{va:"m"})); K.fit(v,0.66); }); });
@@ -28343,7 +28349,7 @@ DK3_SL.specs1=(K,sp,si)=>{ const {P,st,M,deck}=K; const L=k=>dk3Lb(K.lang,k); if
   const ph=K.pick(sp.idx>0?[sp.ph]:[M.photos.prod[1],M.photos.prod[0]],2); if(ph) K.use(ph); const tw=ph?560:848;
   if(sp.hdr){ dk3Add(S,dk3R(56,y,tw,24,{fill:st==="bold"?P.ac2:P.acD,r:5})); const hc=dk3OnColor(st==="bold"?P.ac2:P.acD,"14213D"); const h1=dk3Add(S,K.T(70,y+5,180,14,[{t:sp.hdr[0]||"",sz:9.5,b:1,c:hc}],{one:1})); if(h1) K.fit(h1,0.7); const h2=dk3Add(S,K.T(260,y+5,tw-214,14,[{t:sp.hdr[1]||"",sz:9.5,b:1,c:hc}],{one:1})); if(h2) K.fit(h2,0.7); y+=28; }
   const rows=sp.rows; const rh=Math.min(44,(488-y)/rows.length); K.shown.comp+=rows.length;
-  rows.forEach((r,i)=>{ const yy=y+i*rh; if(i%2===0) dk3Add(S,dk3R(56,yy,tw,rh,{fill:st==="bold"?P.card:P.tint,r:4})); const ico=!ph;
+  rows.forEach((r,i)=>{ const yy=y+i*rh; if(i%2===0) dk3Add(S,dk3R(56,yy,tw,rh,{fill:st==="bold"?P.card:P.tint,r:4})); else if(st!=="bold") dk3Add(S,dk3R(56,yy,tw,rh,{fill:"FFFFFF",r:4})); const ico=!ph;
     if(ico) dk3Add(S,dk3Ic(66,yy+(rh-15)/2,15,dk3RowIc(r[0]+" "+r[1]),st==="bold"?P.acT:P.ac));
     const k=dk3Add(S,K.T(ico?90:70,yy+3,ico?164:180,rh-6,[{t:r[0],sz:11,b:1,c:st==="bold"?P.acT:P.acD}],{va:"m"})); K.fit(k,0.72);
     const v=dk3Add(S,K.T(260,yy+3,tw-214,rh-6,[{t:r[1],sz:11.5,c:st==="bold"?"FFFFFF":P.ink,lh:1.2}],{va:"m"})); K.fit(v,0.66); });
@@ -28440,7 +28446,12 @@ DK3_SL.markets=(K)=>{ const {P,st,M}=K; const L=k=>dk3Lb(K.lang,k); const mk=M.m
 
 /* 18) 価格・MOQ・取引条件（価格表はそのまま＝数字を変えない） */
 /* 価格：商品が複数なら、段階カードに収まる商品は2〜3商品を1枚に（商品ごとの帯）、そうでなければ商品ごとに1枚 */
-DK3_SL.pricing=(K)=>{ const M=K.M; const pr=M.pricing; const gs=(pr&&pr.groups)||[];
+DK3_SL.pricing=(K)=>{ const M=K.M; const pr=M.pricing; const gs=(pr&&pr.groups)||[]; const cg=gs.filter(g=>g.cmp), og=gs.filter(g=>!g.cmp);
+  const out=cg.map(g=>DK3_SL.pricing1(K,Object.assign({},pr,{tables:[g.table],terms:g.terms,note:g.note,product:null,sub:g.sub}))).filter(Boolean);
+  if(!og.length) return out.length?out:null; if(!cg.length) return DK3_SL.pricingStd(K,pr);
+  const rest=DK3_SL.pricingStd(K,Object.assign({},pr,{groups:og,tables:[og[0].table],terms:og[0].terms,note:og[0].note,product:og[0].name}));
+  return out.concat(Array.isArray(rest)?rest:(rest?[rest]:[])); };
+DK3_SL.pricingStd=(K,pr)=>{ const M=K.M; const gs=(pr&&pr.groups)||[];
   if(gs.length<=1) return DK3_SL.pricing1(K,pr);
   /* 取引条件（リードタイム・建値・支払）と注記が全商品で同じときだけ、1か所にまとめて出す */
   const tk=g=>JSON.stringify((g.terms||[]).filter(t=>t.key!=="moq").map(t=>[t.k,t.v]))+"|"+(g.note||""); const sameT=gs.every(g=>tk(g)===tk(gs[0]));
@@ -28501,21 +28512,21 @@ DK3_SL.pricing1=(K,pr)=>{ const {P,st,M}=K; const L=k=>dk3Lb(K.lang,k); if(!pr||
       tb.cols.forEach((c,i)=>{ const t=dk3Add(S,K.T(x+8,y+4,cw[i]-16,hh-8,[{t:c,sz:10.5,b:1,c:dk3OnColor(st==="bold"?P.ac2:P.acD,"14213D"),al:i===0?"l":"ctr",lh:1.1}],{va:"m",one:!/\s/.test(String(c||"").trim())})); K.fit(t,0.55); x+=cw[i]; });
       rows.forEach((r,ri)=>{ const yy=y+hh+ri*rh; if(yy+rh>bottom+2) return;
         if(r&&r.group){ dk3Add(S,dk3R(X,yy+3,W,rh-6,{fill:st==="bold"?P.bg2:P.tint2,r:4})); const gt=dk3Add(S,K.T(X+12,yy+4,W-24,rh-8,[{t:r.group,sz:12,b:1,c:st==="bold"?P.acT:P.acD}],{va:"m"})); K.fit(gt,0.7); return; }
-        K.shown.price++; if(ri%2===1) dk3Add(S,dk3R(X,yy,W,rh,{fill:st==="bold"?P.card:P.tint})); x=X;
-        r.forEach((v,i)=>{ const isP=hs.has(i); const t=dk3Add(S,K.T(x+8,yy+2,cw[i]-16,rh-4,[{t:String(v==null?"":v),sz:isP?(rh>40?14:12.5):(rh>40?12:11),b:isP||i===0?1:0,c:isP?P.acT:fg0,al:i===0?"l":"ctr",lh:1.1}],{va:"m"})); K.fit(t,0.6); x+=cw[i]; });
+        K.shown.price+=(r.__w!=null?r.__w:1); if(ri%2===1) dk3Add(S,dk3R(X,yy,W,rh,{fill:st==="bold"?P.card:P.tint})); else if(st!=="bold") dk3Add(S,dk3R(X,yy,W,rh,{fill:"FFFFFF"})); x=X;
+        r.forEach((v,i)=>{ const isP=hs.has(i)||(!!r.__hi&&i>0); const t=dk3Add(S,K.T(x+8,yy+2,cw[i]-16,rh-4,[{t:String(v==null?"":v),sz:isP?(rh>40?14:12.5):(rh>40?12:11),b:isP||i===0?1:0,c:isP?P.acT:fg0,al:i===0?"l":"ctr",lh:1.1}],{va:"m"})); K.fit(t,0.6); x+=cw[i]; });
         dk3Add(S,dk3L(X,yy+rh,X+W,yy+rh,{c:P.line,w:0.5})); });
       y+=hh+rows.length*rh+10; } }
   if(pr.note){ const t=dk3Add(S,K.T(X,Math.min(y,488-noteH),W,20,[{t:pr.note,sz:10.5,c:P.mut,lh:1.2}])); K.fit(t,0.75); y+=22; }
   if(terms.length&&side){ const n=terms.length, gap=10, x=X+W+18, w=848-W-18, h=Math.min(78,(488-y0-(n-1)*gap)/n);
     terms.forEach((t,i)=>{ const ty=y0+i*(h+gap); const hiM=t.key==="moq"; K.card(S,x,ty,w,h,{fill:hiM?(st==="bold"?P.ac2:P.acD):undefined,line:hiM?false:undefined});
       const fg=hiM?dk3OnColor(st==="bold"?P.ac2:P.acD,"14213D"):fg0; dk3Add(S,dk3Ic(x+12,ty+12,18,t.ic,hiM?fg:(st==="bold"?P.acT:P.ac)));
-      dk3Add(S,K.T(x+36,ty+13,w-44,14,[{t:t.k,sz:9,b:1,c:hiM?fg:P.mut,caps:1,spc:0.8}])); const v=dk3Add(S,K.T(x+12,ty+32,w-24,h-36,[{t:t.v,sz:12,b:1,c:fg,lh:1.12}])); K.fit(v,0.62); }); }
+      dk3Add(S,K.T(x+36,ty+13,w-44,14,[{t:t.k,sz:9,b:1,c:hiM?fg:P.mut,caps:1,spc:0.8}])); const v=dk3Add(S,K.T(x+12,ty+32,w-24,h-42,[{t:t.v,sz:12,b:1,c:fg,lh:1.12}])); K.fit(v,0.62); }); }
   else if(terms.length){ const ty=488-termsH; const n=terms.length, gap=12, w=(848-(n-1)*gap)/n;
     terms.forEach((t,i)=>{ const x=X+i*(w+gap); const hiM=t.key==="moq"; K.card(S,x,ty,w,termsH,{fill:hiM?(st==="bold"?P.ac2:P.acD):undefined,line:hiM?false:undefined});
       const fg=hiM?dk3OnColor(st==="bold"?P.ac2:P.acD,"14213D"):fg0;
       dk3Add(S,dk3Ic(x+14,ty+14,20,t.ic,hiM?fg:(st==="bold"?P.acT:P.ac)));
       dk3Add(S,K.T(x+40,ty+16,w-50,16,[{t:t.k,sz:9.5,b:1,c:hiM?fg:P.mut,caps:1,spc:0.8}]));
-      const v=dk3Add(S,K.T(x+14,ty+40,w-28,termsH-46,[{t:t.v,sz:13.5,b:1,c:fg,lh:1.15}])); K.fit(v,0.62); }); }
+      const v=dk3Add(S,K.T(x+14,ty+40,w-28,termsH-52,[{t:t.v,sz:13.5,b:1,c:fg,lh:1.15}])); K.fit(v,0.62); }); }
   /* MOQ が「→ 価格表の列」のときは、その列が表として見えているか（段階カードでは列が隠れる） */
   if((pr.terms||[]).some(t=>t.key==="moq"&&/^→/.test(t.v))&&tier){ const mc=(tb.cols||[]).findIndex(x=>/moq|最小|minimum|pedido|起订|訂購|주문/i.test(x)); if(mc>0&&mc!==hi[0]) K.shown.moqRef=false; }
   K.foot(S); return S; };
@@ -28538,30 +28549,33 @@ DK3_SL.pack1=(K,pk,pi)=>{ const {P,st,M}=K; const L=k=>dk3Lb(K.lang,k); if(!pk||
     if(M.co.logoOnBox!==false&&K.deck.media.logo&&st!=="bold"){ const m=K.deck.media.logo; const lw=Math.min(60,24*(m.w/m.h||3)); dk3Add(S,dk3I(ox+Dp*0.9+(W-lw)/2+4,oy+Dp*0.45+H/2-8,lw,24,"logo",{fit:"contain",a:0.9})); }
     if(c){ const t=dk3Add(S,K.T(bx,by+226,bw,22,[{t:L("carton")+": "+c,sz:11.5,b:1,c:fg0,al:"ctr"}])); K.fit(t,0.7); } }
   const facts=(pk.facts||[]).slice(0,5); if(facts.length){ let fy=by+258; facts.forEach(f=>{ if(fy>472) return; dk3Add(S,dk3Ic(bx+6,fy+1,16,f.ic,st==="bold"?P.acT:P.ac)); const t=dk3Add(S,K.T(bx+28,fy,bw-28,32,[{r:[{t:f.k+": ",sz:10.5,b:1,c:P.mut},{t:f.v,sz:10.5,b:1,c:fg0}],lh:1.2}])); K.auto(t,34); fy+=t.h+7; }); }
-  const rows=(pk.rows||[]).slice(0,7); const tx=356, tw=548; if(!pk.noCount) K.shown.dim+=rows.length;
-  if(rows.length===1||(rows.length<=2&&pk.cols.length>=5)){ /* 1〜2品番：縦の仕様表（見出し｜値） */
+  const rows=(pk.rows||[]).slice(0,7); const tx=356, tw=548; if(!pk.noCount) K.shown.dim+=rows.reduce((a,r)=>a+(r.__w!=null?r.__w:1),0);
+  if(!pk.cmp&&(rows.length===1||(rows.length<=2&&pk.cols.length>=5))){ /* 1〜2品番：縦の仕様表（見出し｜値） */
     const n=pk.cols.length; const rh=Math.max(30,Math.min(46,(488-y)/n)); const vw=rows.length===1?tw-190:(tw-190)/rows.length;
-    pk.cols.forEach((c2,i)=>{ const yy=y+i*rh; if(i%2===0) dk3Add(S,dk3R(tx,yy,tw,rh,{fill:st==="bold"?P.card:P.tint,r:4}));
+    pk.cols.forEach((c2,i)=>{ const yy=y+i*rh; if(i%2===0) dk3Add(S,dk3R(tx,yy,tw,rh,{fill:st==="bold"?P.card:P.tint,r:4})); else if(st!=="bold") dk3Add(S,dk3R(tx,yy,tw,rh,{fill:"FFFFFF",r:4}));
       const k=dk3Add(S,K.T(tx+14,yy+3,176,rh-6,[{t:c2,sz:11,b:1,c:st==="bold"?P.acT:P.acD}],{va:"m"})); K.fit(k,0.7);
       rows.forEach((r,j)=>{ const v=dk3Add(S,K.T(tx+190+j*vw,yy+3,vw-12,rh-6,[{t:String(r[i]==null?"":r[i]),sz:12,b:i===0?1:0,c:fg0,lh:1.15}],{va:"m"})); K.fit(v,0.62); }); }); }
   else if(rows.length){ const cw=dk3ColW(pk.cols,rows,tw,1.15);
-    const hh=38, rh=Math.max(30,Math.min(46,(488-y-hh)/rows.length)); let x=tx; dk3Add(S,dk3R(tx,y,tw,hh,{fill:st==="bold"?P.ac2:P.acD,r:6}));
+    const hh=38; let x=tx; dk3Add(S,dk3R(tx,y,tw,hh,{fill:st==="bold"?P.ac2:P.acD,r:6}));
     pk.cols.forEach((c2,i)=>{ const t=dk3Add(S,K.T(x+6,y+3,cw[i]-12,hh-6,[{t:c2,sz:10,b:1,c:dk3OnColor(st==="bold"?P.ac2:P.acD,"14213D"),al:"ctr",lh:1.05}],{va:"m"})); K.fit(t,0.62); x+=cw[i]; });
-    rows.forEach((r,ri)=>{ const yy=y+hh+ri*rh; if(ri%2===1) dk3Add(S,dk3R(tx,yy,tw,rh,{fill:st==="bold"?P.card:P.tint})); x=tx;
-      r.forEach((v,i)=>{ const t=dk3Add(S,K.T(x+6,yy+2,cw[i]-12,rh-4,[{t:String(v==null?"":v),sz:10.5,b:i===0?1:0,c:fg0,al:"ctr",lh:1.1}],{va:"m"})); K.fit(t,0.6); x+=cw[i]; });
-      dk3Add(S,dk3L(tx,yy+rh,tx+tw,yy+rh,{c:P.line,w:0.5})); }); }
+    /* 行の高さは中身の文字量に合わせる（入り切らない時だけ全体を詰める） */
+    const need=rows.map(r=>Math.max(30,...r.map((v,i)=>K.th(K.T(0,0,cw[i]-12,400,[{t:String(v==null?"":v),sz:10.5,b:i===0?1:0,lh:1.1}]))+10)));
+    const avail=488-y-hh, base=Math.min(46,avail/Math.max(1,rows.length)); let rhs=need.map(h=>Math.max(h,base)); const tot=rhs.reduce((a,b)=>a+b,0); if(tot>avail) rhs=rhs.map(h=>Math.max(24,h*avail/tot));
+    let yy=y+hh; rows.forEach((r,ri)=>{ const rh=rhs[ri]; if(ri%2===1) dk3Add(S,dk3R(tx,yy,tw,rh,{fill:st==="bold"?P.card:P.tint})); else if(st!=="bold") dk3Add(S,dk3R(tx,yy,tw,rh,{fill:"FFFFFF"})); x=tx;
+      r.forEach((v,i)=>{ const t=dk3Add(S,K.T(x+6,yy+2,cw[i]-12,rh-4,[{t:String(v==null?"":v),sz:10.5,b:i===0?1:0,c:fg0,al:i===0&&pk.cmp?"l":"ctr",lh:1.1}],{va:"m"})); K.fit(t,0.6); x+=cw[i]; });
+      dk3Add(S,dk3L(tx,yy+rh,tx+tw,yy+rh,{c:P.line,w:0.5})); yy+=rh; }); }
   K.foot(S); return S; };
 
 /* 20) 協業の流れ＋次の一歩 */
 DK3_SL.flow=(K)=>{ const {P,st,M}=K; const L=k=>dk3Lb(K.lang,k); const S=dk3Slide("flow"); K.bg(S,2);
   let y=K.head(S,{eb:L("flowEb"),t:M.flow.title||L("flow"),sub:M.flow.sub});
-  const fc=dk3S(M.contact.company); const nodes=[{ic:"factory",r:L("maker"),n:M.co.name,d:M.flow.makerD||""}].concat(fc?[{ic:"handshake",r:L("facil"),n:fc,d:/standage/i.test(fc)?L("facilD"):""}]:[],[{ic:"store",r:L("buyer"),n:"",d:M.flow.buyerD||""}]);
+  const fc0=dk3S(M.contact.company); const fc=/(co\.|ltd|inc\b|corp|llc|gmbh|limited|company|group|holdings|trading|株式会社|有限会社|合同会社|商事|物産|\bpte\b|s\.a\.|b\.v\.|standage)/i.test(fc0)?fc0:""; const nodes=[{ic:"factory",r:L("maker"),n:M.co.name,d:M.flow.makerD||""}].concat(fc?[{ic:"handshake",r:L("facil"),n:fc,d:/standage/i.test(fc)?L("facilD"):""}]:[],[{ic:"store",r:L("buyer"),n:"",d:M.flow.buyerD||""}]);
   const NN=nodes.length, nw=NN===3?250:360, gap=(848-nw*NN)/(NN-1), ny=y+4, nh=112;
   nodes.forEach((n,i)=>{ const x=56+i*(nw+gap); const hi=i===NN-1; K.card(S,x,ny,nw,nh,{fill:hi?(st==="bold"?P.ac2:P.acD):undefined,line:hi?false:undefined,hi:st==="bold"&&i===1&&NN===3});
     const fg=hi?dk3OnColor(st==="bold"?P.ac2:P.acD,"14213D"):(st==="bold"?"FFFFFF":P.ink);
     if(hi){ dk3Add(S,dk3O(x+16,ny+16,38,38,{fill:"FFFFFF",a:0.18})); dk3Add(S,dk3Ic(x+25,ny+25,20,n.ic,fg)); } else K.disc(S,x+16,ny+16,38,n.ic);
-    dk3Add(S,K.T(x+64,ny+16,nw-76,16,[{t:n.r,sz:9.5,b:1,c:hi?fg:P.mut,caps:1,spc:1}]));
-    const t=dk3Add(S,K.T(x+64,ny+32,nw-76,24,[{t:n.n||n.r,sz:14,b:1,c:fg}])); K.fit(t,0.66);
+    if(n.n){ dk3Add(S,K.T(x+64,ny+16,nw-76,16,[{t:n.r,sz:9.5,b:1,c:hi?fg:P.mut,caps:1,spc:1}])); const t=dk3Add(S,K.T(x+64,ny+32,nw-76,24,[{t:n.n,sz:14,b:1,c:fg}])); K.fit(t,0.66); }
+    else { const t=dk3Add(S,K.T(x+64,ny+22,nw-76,24,[{t:n.r,sz:14,b:1,c:fg}],{one:1})); K.fit(t,0.66); }
     if(n.d){ const d=dk3Add(S,K.T(x+16,ny+62,nw-32,nh-68,[{t:n.d,sz:10,c:hi?fg:P.sub,lh:1.25}])); K.fit(d,0.7); }
     if(i<NN-1) dk3Add(S,dk3L(x+nw+6,ny+nh/2,x+nw+gap-6,ny+nh/2,{c:st==="bold"?P.acT:P.ac,w:1.6,arr:1})); });
   let yy=ny+nh+26; dk3Add(S,K.T(56,yy,848,24,[{t:L("next"),sz:17,b:1,f:K.F.h,c:P.ttl}])); yy+=34;
@@ -28603,10 +28617,10 @@ DK3_SL.productNoPh=(K,p,idx)=>{ const {P,st,M}=K; const L=k=>dk3Lb(K.lang,k); co
   feats.forEach((f,i)=>{ const x=56+(i%cols)*(w+gap), yy=y+Math.floor(i/cols)*(h+gap); K.card(S,x,yy,w,h,{top:st==="clinical"?(i%2?P.ac:P.ac2):null});
     K.disc(S,x+16,yy+(h-40)/2,40,f.ic); const t=dk3Add(S,K.T(x+68,yy+12,w-84,h-24,[{t:f.t,sz:13.5,b:1,c:fg0,lh:1.2},{t:f.d||"",sz:11,c:P.sub,lh:1.3,sb:4}],{va:"m"})); K.fit(t,0.66); });
 
-  { const px=680, pw=224, pc=st==="bold"?P.card:P.acD, fg=dk3OnColor(pc,"14213D"); dk3Add(S,dk3R(px,40,pw,448,{fill:pc,r:14,ln:st==="bold"?{c:P.cardL,w:1}:null}));
-    dk3Add(S,dk3O(px+pw/2-54,110,108,108,{fill:"FFFFFF",a:0.12})); dk3Add(S,dk3Ic(px+pw/2-30,134,60,dk3CatIcon(),st==="bold"?P.acT:"FFFFFF"));
-    const nt=dk3Add(S,K.T(px+18,250,pw-36,90,[{t:p.name,sz:20,f:K.F.h,b:K.F.hb,c:fg,al:"ctr",lh:1.15}])); K.fit(nt,0.6);
-    const ch2=(p.chips||[]).slice(0,4); ch2.forEach((c,i)=>{ const t=dk3Add(S,K.T(px+18,356+i*28,pw-36,22,[{t:c,sz:11.5,b:1,c:fg,al:"ctr"}],{one:1})); K.fit(t,0.7); if(i<ch2.length-1) dk3Add(S,dk3L(px+pw/2-30,356+i*28+24,px+pw/2+30,356+i*28+24,{c:fg,w:0.6,a:0.4})); }); }
+  { const px=680, pw=224, pc=st==="bold"?P.card:P.acD, fg=dk3OnColor(pc,"14213D"); dk3Add(S,dk3R(px,76,pw,412,{fill:pc,r:14,ln:st==="bold"?{c:P.cardL,w:1}:null}));
+    dk3Add(S,dk3O(px+pw/2-54,132,108,108,{fill:"FFFFFF",a:0.12})); dk3Add(S,dk3Ic(px+pw/2-30,156,60,p.ic||dk3CatIcon(),st==="bold"?P.acT:"FFFFFF"));
+    const nt=dk3Add(S,K.T(px+18,264,pw-36,90,[{t:p.name,sz:20,f:K.F.h,b:K.F.hb,c:fg,al:"ctr",lh:1.15}])); K.fit(nt,0.6);
+    const ch2=(p.chips||[]).slice(0,4); ch2.forEach((c,i)=>{ const t=dk3Add(S,K.T(px+18,366+i*28,pw-36,22,[{t:c,sz:11.5,b:1,c:fg,al:"ctr"}],{one:1})); K.fit(t,0.7); if(i<ch2.length-1) dk3Add(S,dk3L(px+pw/2-30,366+i*28+24,px+pw/2+30,366+i*28+24,{c:fg,w:0.6,a:0.4})); }); }
   K.foot(S); return S; };
 /* 6b) スポットライト：数字（大きな数字＋比較の棒）または出来事（写真＋丸い認定マーク） */
 DK3_SL.spotlight=(K)=>{ const {P,st,M,deck}=K; const L=k=>dk3Lb(K.lang,k); const sp=M.spotlight; if(!sp) return null; const S=dk3Slide("spotlight"); K.bg(S,1); const fg0=st==="bold"?"FFFFFF":P.ink; const hot=st==="bold"?P.acT:P.ac2T;
@@ -28654,11 +28668,36 @@ function dk3Kana(s){ return /[ぁ-ゖァ-ヺ]/.test(String(s||"")); }
 /* 言語別の「日本語の残り」：中国語は仮名と日本特有の字・語、韓国語は漢字も */
 function dk3JPfor(lang,s){ s=String(s||""); if(/^zh/.test(lang)) return dk3Kana(s)||/[々〆ヶ〒]|株式会社|有限会社|について|および|ならびに/.test(s); if(lang==="ja") return false; return dk3JP(s); }
 function dk3CoNorm(s){ return String(s||"").replace(/株式会社|有限会社|合同会社|（株）|\(株\)|co\.?,?\s*ltd\.?|inc\.?|corp(oration)?\.?|[\s・,，.。]/gi,"").toLowerCase(); }
-/* 同じ会社の商品（今の商品を先頭に・最大6）。会社名が空なら今の商品だけ */
-function dk3Prods(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return []; const co=dk3CoNorm(T.co); const out=[T]; if(!co) return out;
-  try{ (TENS||[]).forEach(t=>{ if(t&&t!==T&&t.src!=="sample"&&dk3S(t.item)&&dk3CoNorm(t.co)===co&&(!T.uid||t.uid!==T.uid)) out.push(t); }); }catch(e){}
-  return out.slice(0,6); }
-function dk3Meta(T){ T=T||(typeof TEN!=="undefined"?TEN:null); return (T&&T.deckMeta)||{}; }
+/* 資料に含める商品：表示中の商品（主役・必ず含む）＋「資料に含める商品」でチェックした同じ会社の商品（TEN.deck3sel＝商品の識別子の一覧・最大 DK3_MAXP 点）。
+   何も選んでいなければ表示中の商品だけ。会社名が空なら候補は無い */
+const DK3_MAXP=10;
+function dk3PKey(t){ return (t&&t.uid)?String(t.uid):("k:"+dk3S(t&&t.item)+"|"+dk3S(t&&t.sku)); }
+function dk3Cands(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return []; const co=dk3CoNorm(T.co); if(!co) return []; const out=[]; const seen=new Set([dk3PKey(T)]);
+  try{ (TENS||[]).forEach(t=>{ if(!t||t===T||t.src==="sample"||!dk3S(t.item)||dk3CoNorm(t.co)!==co) return; const k=dk3PKey(t); if(seen.has(k)) return; seen.add(k); out.push(t); }); }catch(e){}
+  return out; }
+function dk3Sel(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return []; const sel=Array.isArray(T.deck3sel)?T.deck3sel.map(String):[]; if(!sel.length) return [];
+  return dk3Cands(T).filter(t=>sel.indexOf(dk3PKey(t))>=0).slice(0,DK3_MAXP-1); }
+function dk3Prods(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return [];
+  try{ if(typeof DK3G!=="undefined"&&DK3G.run&&DK3G.snap&&DK3G.snapKey===dk3PKey(T)) return DK3G.snap.slice(); }catch(e){}
+  return [T].concat(dk3Sel(T)); }
+/* 識別子の無い商品（デモ版など）に識別子を付け、商品名＋品番で覚えていた選択を識別子に置き換える */
+function dk3EnsureUids(T){ if(!T) return false; let ch=false; const mk=()=>"u"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  const cs=dk3Cands(T); if(!T.uid){ T.uid=mk(); ch=true; }
+  const old=Array.isArray(T.deck3sel)?T.deck3sel.map(String):[]; const map={};
+  cs.forEach(t=>{ const k0="k:"+dk3S(t.item)+"|"+dk3S(t.sku); if(!t.uid){ t.uid=mk(); ch=true; } map[k0]=String(t.uid); });
+  if(old.length){ const valid=new Set(cs.map(t=>String(t.uid))); const nx=[...new Set(old.map(k=>map[k]||k).filter(k=>valid.has(k)))]; if(JSON.stringify(nx)!==JSON.stringify(old)){ T.deck3sel=nx; ch=true; } }
+  return ch; }
+/* MOQ（最小発注数量）の見つけ方：MOQ の欄、価格表の列、または「項目｜内容」の表の行（どの画面・チェックでも同じ判定） */
+const DK3_MOQRE=/moq|最小|最低|ミニマム|minimum|ロット|\blot\b|\blote\b|pedido|起订|訂購|批量|주문|로트|최소/i;
+function dk3HasMoq(t){ if(!t) return false; if(dk3S(t.moq)&&!dk3NA(t.moq,"moq")) return true; const cols=(t.priceCols||[]).map(String); if(cols.some(c=>DK3_MOQRE.test(c))) return true;
+  const rows=(t.priceRows||[]).filter(r=>Array.isArray(r)&&r.some(c=>dk3S(c))); const n=Math.max(cols.length,...rows.map(r=>r.length),0);
+  return n<=2&&rows.some(r=>DK3_MOQRE.test(String(r[0]||""))&&dk3S(r[1])); }
+const DK3_COKEYS=["web","est","ceo","addr","biz","mission","philo","story","ceoMsg","hist","records","awards","customers","voices","person","role","mail","tel","personCo","facts","story3"];
+function dk3Empty(v){ return v==null||v===""||(Array.isArray(v)&&!v.length)||(typeof v==="object"&&!Array.isArray(v)&&!Object.keys(v).length)||(typeof v==="string"&&!v.trim()); }
+function dk3Meta(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return {}; const own=T.deckMeta||{}; let cs=[]; try{ cs=dk3Cands(T); }catch(e){} if(!cs.length) return own;
+  const out=Object.assign({},own); DK3_COKEYS.forEach(k=>{ if(!dk3Empty(out[k])) return; const t=cs.find(x=>x.deckMeta&&!dk3Empty(x.deckMeta[k])); if(t) out[k]=t.deckMeta[k]; }); return out; }
+function dk3CoEn(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return ""; if(dk3S(T.coEn)) return dk3S(T.coEn); let cs=[]; try{ cs=dk3Cands(T); }catch(e){} const t=cs.find(x=>dk3S(x.coEn)); return t?dk3S(t.coEn):""; }
+function dk3Logo(T){ T=T||(typeof TEN!=="undefined"?TEN:null); if(!T) return null; const own=(T.assets||{}).logo; if(own&&own.b64) return own; let cs=[]; try{ cs=dk3Cands(T); }catch(e){} const t=cs.find(x=>x.assets&&x.assets.logo&&x.assets.logo.b64); return t?t.assets.logo:null; }
 /* 公式サイトから集めた沿革・理念など（会社リサーチとは別の保存先。旧版の保存場所も読む） */
 function dk3Story(T){ const DM=dk3Meta(T); if(DM.story3) return DM.story3; const F=DM.facts||{};
   return {history:F.history||[],mission:F.mission,philo:F.philo,story:F.story,ceoMsg:F.ceoMsg,awards:F.awards||[],records:F.records||[],plants:F.plants||[],srcs:F.srcs||[]}; }
@@ -28666,20 +28705,37 @@ function dk3Story(T){ const DM=dk3Meta(T); if(DM.story3) return DM.story3; const
 function dk3EstOf(T){ const DM=dk3Meta(T), F=DM.facts||{}; let s=String(DM.est||F.est||""); try{ if(typeof rsEra==="function") s=rsEra(s); }catch(e){} s=dk3NumNorm(s);
   const m=s.match(/(1[89]\d\d|20\d\d)(?:\s*[年\/.\-]\s*(\d{1,2}))?/); return m?{y:+m[1],m:m[2]&&+m[2]<=12?+m[2]:0}:{y:0,m:0}; }
 /* 訳さない登録データ（英文社名・メール・電話・URL・担当者の会社名・英文商品名・HSコード）。リンクになる値は形を確かめる */
+function dk3GenericName(v,T){ v=dk3S(v); if(!v) return false; const n=x=>String(x||"").normalize("NFKC").toLowerCase().replace(/co\.?,?\s*ltd\.?|inc\.?|corp(oration)?\.?|株式会社|有限会社|合同会社|[\s・,，.。()（）\-_]/g,"");
+  const nv=n(v); if(/^(the)?(product|products|item|items|goods|merchandise|商品|製品|新商品|サンプル|sample|test|テスト)s?\d*$/.test(nv)) return true;
+  const co=[T&&T.coEn,T&&T.co].map(n).filter(Boolean); return co.some(c=>nv===c||nv===c+"product"||nv===c+"products"||nv===c+"item"||nv===c+"商品"||nv===c+"製品"); }
+/* 電話：海外からかけられる形（+81）に。0120・0570 などの国内専用番号は載せない */
+function dk3Tel(v){ const raw=(dk3NumNorm(String(v||"")).match(/\+?\d[\d\s()\-]{6,}\d/)||[])[0]||""; const t=raw.trim(); if(!t) return {tel:"",dom:""};
+  if(/^\+/.test(t)) return {tel:t,dom:""}; const d=t.replace(/[^\d]/g,"");
+  if(/^0(120|570|800|180|077|088|990|0037)/.test(d)) return {tel:"",dom:t};
+  if(/^0\d{8,10}$/.test(d)) return {tel:"+81 "+t.replace(/^\(?0/,"").replace(/^\)\s*/,""),dom:""}; return {tel:t,dom:""}; }
 function dk3Fixed(T){ T=T||TEN; const DM=dk3Meta(T), F=DM.facts||{};
   const mail=(String(DM.mail||F.mail||"").match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)||[])[0]||"";
   const web=(()=>{ const v=dk3S(DM.web||F.web); if(!v) return ""; try{ const u=new URL(/^https?:\/\//i.test(v)?v:"https://"+v); return /^https?:$/.test(u.protocol)&&/\./.test(u.hostname)?u.href.replace(/\/$/,""):""; }catch(e){ return ""; } })();
-  const tel=(dk3NumNorm(String(DM.tel||F.tel||"")).match(/\+?\d[\d\s()\-]{6,}\d/)||[])[0]||"";
-  const en=v=>{ v=dk3S(v); return v&&!dk3JP(v)?v:""; };
-  return {nameEn:en(T.coEn),coJa:dk3S(T.co),web,mail,tel:tel.trim(),personEn:en(DM.person),personCo:en(DM.personCo),
-    prods:dk3Prods(T).map(t=>({en:en(t.itemEn),ja:dk3S(t.item),hs:t.hsGuess?"":dk3S(t.hs),origin:dk3S(t.origin)}))}; }
+  const TL=dk3Tel(DM.tel||F.tel);
+  const en=v=>{ v=dk3S(v); return v&&!dk3JP(v)?v:""; }; const ps=dk3Prods(T);
+  const ens=ps.map(t=>{ const e=en(t.itemEn); return e&&!dk3GenericName(e,T)?e:""; }); const dup=e=>e&&ens.filter(x=>x&&x.toLowerCase()===e.toLowerCase()).length>1;
+  return {nameEn:en(dk3CoEn(T)),coJa:dk3S(T.co),web,mail,tel:TL.tel,telDom:TL.dom,personEn:en(DM.person),personCo:en(DM.personCo),
+    prods:ps.map((t,i)=>({en:dup(ens[i])?"":ens[i],enBad:!!(en(t.itemEn)&&(!ens[i]||dup(ens[i]))),enRaw:en(t.itemEn),ja:dk3S(t.item),hs:t.hsGuess?"":dk3S(t.hs),origin:dk3S(t.origin)}))}; }
 const DK3_INTERNAL=/^(原価|原単価|仕入|仕入値|仕入れ値|仕入価格|仕入れ価格|掛率|掛け率|粗利|粗利率|粗利益|利益|利益率|マージン|社内|社内用|社内メモ|社内備考|内部用|内部メモ|cost|cost\s*price|unit\s*cost|margin|profit|gross\s*profit)\s*([（(][^）)]*[）)])?$/i;
-/* 表：見出しより長い行も切らない・社内向けの列は外す・記入例の行は外す */
-function dk3Tbl(cols,rows,max){ rows=(rows||[]).filter(r=>Array.isArray(r)&&r.some(c=>dk3S(c))); const total=rows.length; rows=rows.slice(0,max||60).map(r=>r.map(dk3S));
+/* 見出し（列名・項目名）の整え方：記入欄の説明「（〜など）」「※…」を外し、仲介会社の名前を外す */
+function dk3Lab(s){ s=dk3S(s); if(!s) return s; return s.replace(/※.*$/,"").replace(/[（(][^（）()]*(など|等|例|e\.g\.|etc)[^（）()]*[）)]/gi,"").replace(/^\s*STANDAGE\s*/i,"").replace(/\s*STANDAGE\s*/gi," ").replace(/[;；、,，:：]\s*$/,"").trim()||s; }
+const DK3_INT_ROW=/掛率|掛け率|卸率|原価|原単価|仕入|粗利|利益率|マージン|比率|ratio|margin|profit|cost\s*price/i;
+/* 表：見出しより長い行も切らない・社内向けの列は外す・記入例の行は外す（kind="price" は社内向けの行も外す） */
+function dk3Tbl(cols,rows,max,kind){ rows=(rows||[]).filter(r=>Array.isArray(r)&&r.some(c=>dk3S(c))).map(r=>r.map(c=>dk3S(c).normalize("NFKC"))); const total=rows.length; rows=rows.slice(0,max||60);
+  cols=(cols||[]).map(c=>dk3Lab(dk3S(c).normalize("NFKC")));
+  const two=Math.max((cols||[]).length,...rows.map(r=>r.length),0)<=2; let intRows=[];
+  if(two){ rows=rows.map(r=>{ const a=r.slice(); a[0]=dk3Lab(a[0]); const lu=(a[0].match(/[（(]\s*(kg|g|mg|cm|mm|m|ml|l)\s*[）)]/i)||[])[1], vu=(String(a[1]||"").match(/\d\s*(kg|g|mg|cm|mm|m|ml|l)\b/i)||[])[1];
+      if(lu&&vu&&lu.toLowerCase()!==vu.toLowerCase()) a[0]=a[0].replace(/\s*[（(]\s*(kg|g|mg|cm|mm|m|ml|l)\s*[）)]/i,""); return a; });
+    if(kind==="price"){ const b=rows.length; intRows=rows.filter(r=>DK3_INT_ROW.test(r[0])).map(r=>r[0]); rows=rows.filter(r=>!DK3_INT_ROW.test(r[0])); } }
   const n=Math.max((cols||[]).length,...rows.map(r=>r.length),0); cols=Array.from({length:n},(_,i)=>dk3S((cols||[])[i]||""));
   let samples=0; try{ if(typeof v186IsSampleRow==="function"){ const ni=cols.findIndex(c=>/商品名|品名|name/i.test(c)); if(ni>=0){ const b=rows.length; rows=rows.filter(r=>!v186IsSampleRow(r,ni)); samples=b-rows.length; } } }catch(e){}
   const keep=cols.map((c,i)=>!DK3_INTERNAL.test(c)&&(!!c||rows.some(r=>r[i]))); const dropped=cols.filter((c,i)=>DK3_INTERNAL.test(c));
-  return {cols:cols.filter((c,i)=>keep[i]),rows:rows.map(r=>Array.from({length:n},(_,i)=>r[i]||"").filter((c,i)=>keep[i])),total,dropped,samples,cut:Math.max(0,total-samples-(max||60))}; }
+  return {cols:cols.filter((c,i)=>keep[i]),rows:rows.map(r=>Array.from({length:n},(_,i)=>r[i]||"").filter((c,i)=>keep[i])),total,dropped:dropped.concat(intRows),samples,cut:Math.max(0,total-samples-(max||60))}; }
 function dk3TblTxt(t,num){ if(!t||!t.rows.length) return ""; return (t.cols.some(Boolean)?t.cols.join(" | ")+"\n":"")+t.rows.map((r,i)=>(num?"#"+(i+1)+" ":"")+r.join(" | ")).join("\n"); }
 
 /* ── ① 根拠（コーパス）。trust：A＝利用者の登録、B＝取り込んだ資料の原文、C＝公式サイト（出典URL）、D＝AIの書き起こし（参考・数字は数えない） ── */
@@ -28687,7 +28743,7 @@ function dk3Corpus(T){ T=T||TEN;
   const B=[]; const add=(id,label,txt,trust)=>{ txt=String(txt||"").trim(); if(txt) B.push({id,label,txt,trust:trust||"A"}); };
   const DM=dk3Meta(T), F=DM.facts||{}, S3=dk3Story(T); const R=T.deckRich||{};
   const tg=((T.aiMem&&T.aiMem.taught)||[]).slice(-30).map(x=>dk3S(x.txt)).filter(Boolean); if(tg.length) add("U1","利用者がAIに教えた事実（最優先）",tg.map(x=>"・"+x).join("\n"),"A");
-  const reg=[["会社名",T.co],["英文社名",T.coEn],["所在地",DM.addr],["設立",DM.est],["代表者",DM.ceo],["事業内容",DM.biz],["公式サイト",DM.web],["ミッション・理念",DM.mission],
+  const reg=[["会社名",T.co],["英文社名",dk3CoEn(T)],["所在地",DM.addr],["設立",DM.est],["代表者",DM.ceo],["事業内容",DM.biz],["公式サイト",DM.web],["ミッション・理念",DM.mission],
     ["経営理念・価値観",DM.philo],["代表メッセージ",DM.ceoMsg],["創業の経緯",DM.story],["担当者",DM.person]].filter(r=>dk3S(r[1]));
   add("C1","会社情報（登録）",reg.map(r=>r[0]+"："+dk3S(r[1])).join("\n"),"A");
   if(dk3S(DM.hist)) add("C2","沿革（登録）",DM.hist,"A");
@@ -28699,7 +28755,7 @@ function dk3Corpus(T){ T=T||TEN;
       ["MOQ",t.moq],["リードタイム",t.lead],["入数",t.ctn],["取引条件",t.term],["支払条件",t.pay],["仕出港",t.pol]].filter(r=>dk3S(r[1]));
     L.push(kv.map(r=>r[0]+"："+dk3S(r[1])).join("\n"));
     const st=(t.strengths||[]).filter(s=>s&&dk3S(s[0])&&!dk3Sick(s[0])); if(st.length) L.push("■強み\n"+st.map(s=>"・"+dk3S(s[0])+(dk3S(s[1])?"："+dk3S(s[1]):"")).join("\n"));
-    const pt=dk3Tbl(t.priceCols,t.priceRows,30); if(pt.rows.length) L.push("■価格表（資料には表から自動で載せる。文章には書かない）\n"+dk3TblTxt(pt));
+    const pt=dk3Tbl(t.priceCols,t.priceRows,30,"price"); if(pt.rows.length) L.push("■価格表（資料には表から自動で載せる。文章には書かない）\n"+dk3TblTxt(pt));
     const ct=dk3Tbl(t.compCols,t.compRows,60); if(ct.rows.length) L.push("■"+(dk3S(t.compTitle)||"成分・規格")+"（行番号 #n で指定する）\n"+dk3TblTxt(ct,true));
     const dt=dk3Tbl(t.dimCols,t.dimRows,30); if(dt.rows.length) L.push("■寸法・梱包\n"+dk3TblTxt(dt));
     const r2=t.deckRich||{}; const rr=[["キャッチ",r2.catch],["ブランド紹介",r2.brandStory],["特長",(r2.features||[]).map(f=>f.join("：")).join("／")],["ラインアップ",(r2.lineup||[]).map(l=>[l.name,l.size,l.desc].filter(Boolean).join(" ")).join("／")],["仕様",(r2.specs||[]).map(s=>s.join("：")).join("／")]].filter(r=>dk3S(r[1]));
@@ -28827,6 +28883,10 @@ function dk3PlanPrompt(lang,C,nProd){ const LN=DK3_LNAME[lang]||"English";
 - 字数は各項目の目安を守る（英語の文字数。中国語・韓国語はその半分程度）。
 - "ic" は次のアイコン名から最も合うもの：${dk3IconList()}
 - 商品は ${nProd} 件（P1〜P${nProd}）。products は ref を P1〜P${nProd} で必ず付ける（商品名は登録名を使うので書かなくてよい）。
+- 日本の制度の区分は正式な表現で：第1類/第2類/第3類医薬品＝Japan Class 1/2/3 OTC drug（third-class などと書かない）、医薬部外品＝quasi-drug (Japan)、指定医薬部外品＝designated quasi-drug (Japan)、機能性表示食品＝Foods with Function Claims (Japan)、特定保健用食品＝FOSHU (Japan)。各言語でも同じ区分として訳す。
+- 順位・No.1・受賞は、根拠にある条件（どこの・何の部門・いつ）を同じ文に書く（例：No. 1 in the Amazon.co.jp pharmaceuticals ranking）。資料全体で2回まで。数字の欄 v には "No. 1" のように書く（"1 rank" としない）。
+- 「flagship」「主力」「代表商品」は根拠に書かれている時だけ。
+- ${nProd===1?"この資料は P1 だけの営業資料。表紙・見出し・実績・差別化・顧客像は P1 を主役にし、根拠にほかの商品が出てきても資料では触れない。":"この資料は P1〜P"+nProd+" をまとめた、会社とラインアップの営業資料。表紙・会社の見出しは会社とラインアップを主役にし、各商品の特長はそれぞれの products に書く（別の商品の特長を混ぜない）。"}
 ■JSONの形（キーは変えない。件数はすべて上限）
 {"hero":{"eyebrow":"会社・事業を一言（≤48字）","headline":"表紙の主見出し（≤60字）","sub":"補足（≤110字）","brand":"主力ブランド名（根拠にあれば）","badges":[{"ic":"","t":"信頼の根拠を一言（≤36字：創業年・所在地・特許・受賞など）","src":""}]（≤3）},
  "about":{"title":"会社概要の見出し（≤40字）","lead":"会社を一文で（≤120字）","biz":"事業内容（≤60字）","src":""},
@@ -28866,7 +28926,7 @@ function dk3Sanitize(j){ j=j||{}; const A=(v,n)=>(Array.isArray(v)?v:[]).filter(
   const sp=j.spotlight||{}; o.spotlight=(dk3S(sp.title)&&(dk3S(sp.v)||dk3S(sp.seal)||(sp.points||[]).length))?{kind:/event/i.test(String(sp.kind||""))?"event":"number",eb:dk3Clip(sp.eb,30),title:dk3Clip(sp.title,60),v:dk3S(sp.v).slice(0,10),u:dk3Clip(sp.u,12),claim:dk3Clip(sp.claim,110),
     compare:A(sp.compare,3).map(c=>({l:dk3Clip(c.l,24),v:+c.v,hi:!!c.hi})).filter(c=>c.l&&isFinite(c.v)),points:A(sp.points,3).map(x=>({ic:dk3IcN(x.ic,"badge-check"),t:dk3Clip(x.t,46),d:dk3Clip(x.d,120),src:dk3S(x.src)})).filter(x=>x.t),seal:dk3Clip(sp.seal,32),src:dk3S(sp.src)}:null;
   const tc=j.tech||{}; o.tech={kind:/layer/i.test(String(tc.kind||""))?"layers":(/point/i.test(String(tc.kind||""))?"points":"steps"),eb:dk3Clip(tc.eb,30),title:dk3Clip(tc.title,60),sub:dk3Clip(tc.sub,90),steps:A(tc.steps,5).map(s=>({ic:dk3IcN(s.ic,"settings"),t:dk3Clip(s.t,46),d:dk3Clip(s.d,130),src:dk3S(s.src)})).filter(s=>s.t)};
-  o.products=A(j.products,6).map(p=>({ref:dk3S(p.ref).toUpperCase(),tag:dk3Clip(p.tag,84),desc:dk3Clip(p.desc,190),feats:A(p.feats,6).map(f=>({ic:dk3IcN(f.ic,"circle-check"),t:dk3Clip(f.t,40),d:dk3Clip(f.d,96),src:dk3S(f.src)})).filter(f=>f.t),chips:A(p.chips,4).map(c=>dk3Clip(c,26)).filter(Boolean)})).filter(p=>/^P\d+$/.test(p.ref));
+  o.products=A(j.products,DK3_MAXP).map(p=>({ref:dk3S(p.ref).toUpperCase(),tag:dk3Clip(p.tag,84),desc:dk3Clip(p.desc,190),feats:A(p.feats,6).map(f=>({ic:dk3IcN(f.ic,"circle-check"),t:dk3Clip(f.t,40),d:dk3Clip(f.d,96),src:dk3S(f.src)})).filter(f=>f.t),chips:A(p.chips,4).map(c=>dk3Clip(c,26)).filter(Boolean)})).filter(p=>/^P\d+$/.test(p.ref));
   const ig=j.ingr||null; const rowsOf=v=>A(v,60).map(x=>parseInt(x,10)).filter(x=>x>0&&x<=60);
   o.ingr=ig?{title:dk3Clip(ig.title,50),sub:dk3Clip(ig.sub,90),note:dk3Clip(ig.note,160),hero:ig.hero&&parseInt(ig.hero.row,10)>0?{row:parseInt(ig.hero.row,10),d:dk3Clip(ig.hero.d,160),src:dk3S(ig.hero.src)}:null,
     groups:A(ig.groups,3).map(g=>({name:dk3Clip(g.name,36),ic:dk3IcN(g.ic,"leaf"),rows:rowsOf(g.rows)})).filter(g=>g.name&&g.rows.length),free:A(ig.free,5).map(x=>dk3Clip(x,30)).filter(Boolean)}:null;
@@ -28905,13 +28965,21 @@ function dk3Compact(p){ const f=a=>(a||[]).filter(Boolean); p.hero.badges=f(p.he
   if(p.spotlight) p.spotlight.points=f(p.spotlight.points); p.tech.steps=f(p.tech.steps); p.products=f(p.products); p.products.forEach(x=>{ x.feats=f(x.feats); x.chips=f(x.chips); });
   if(p.ingr){ p.ingr.groups=f(p.ingr.groups); p.ingr.free=f(p.ingr.free); } p.quality.items=f(p.quality.items); if(p.diff) p.diff.rows=f(p.diff.rows); if(p.targets) p.targets.items=f(p.targets.items); p.usage.steps=f(p.usage.steps); return p; }
 /* 機械の照合：数字（値・桁・単位）・最上級・効能表現 */
-function dk3Ground(p,C,lang,T){ const dropped=[]; const food=/^(food|cosme|medical|liquor)$/.test(String((T||TEN).catKey||""))||/サプリ|健康食品|化粧|食品|医薬|美容/.test(String((T||TEN).cat||""));
+/* 文章に出てくる都道府県（日本語・英語） */
+function dk3Places(t){ t=String(t||""); const out=new Set(); try{ (typeof DK3_PREF!=="undefined"?DK3_PREF:[]).forEach(p=>{ if(t.indexOf(p[0])>=0||new RegExp("\\b"+p[1]+"\\b").test(t)) out.add(p[1]); }); }catch(e){} return out; }
+function dk3Ground(p,C,lang,T){ const dropped=[]; const food=dk3Prods(T||TEN).some(t=>/^(food|cosme|medical|liquor)$/.test(String(t.catKey||""))||/サプリ|健康食品|化粧|食品|医薬|美容|飲料|酒|茶/.test(String(t.cat||"")+" "+String(t.item||"")));
   const names=dk3Prods(T).map(t=>[t.itemEn,t.item]).flat().map(dk3S).filter(Boolean); const CR=dk3CompRe();
+  const bp={}; C.blocks.forEach(b=>{ bp[b.id]=dk3Places(b.txt); }); const coP=new Set(); C.blocks.filter(b=>/^(C|U)/.test(b.id)).forEach(b=>bp[b.id].forEach(x=>coP.add(x)));
+  const pIds=C.blocks.filter(b=>/^P\d+$/.test(b.id)).map(b=>b.id); const common=pIds.length?[...bp[pIds[0]]].filter(x=>pIds.every(id=>bp[id].has(x))):[]; common.forEach(x=>coP.add(x));
+  let supN=0;
   dk3Leaves(p).forEach(c=>{ let why="";
     const bad=dk3NumsIn(c.txt,lang).filter(n=>!dk3NumOk(n,C.N)); const badId=[...dk3Ids(c.txt)].filter(x=>!C.N.ids.has(x));
     if(bad.length||badId.length) why="根拠に無い数字："+bad.map(b=>b.raw).concat(badId).join("・");
     else if(!dk3SupOk(c.txt,C.N)) why="根拠に無い最上級・唯一の表現";
     else if(food){ let t=c.txt; names.forEach(n=>{ t=t.split(n).join(" "); }); if(CR.test(t)&&!DK3_DISCL.test(t)) why="医薬品的な効能表現（輸出先の規制上、載せない）"; }
+    if(!why){ const pl=[...dk3Places(c.txt)]; if(pl.length){ const pm=c.path.match(/^products\.(\d+)\./); const ok=pm?(bp["P"+(+pm[1]+1)]||new Set()):(/^(hero|about|contact|flow)\./.test(c.path)?coP:null);
+      if(ok){ const bad=pl.filter(x=>!ok.has(x)); if(bad.length) why="根拠に無い産地・所在地："+bad.join("・"); } } }
+    if(!why&&DK3_SUPF.some(f=>f[0].test(c.txt))){ supN++; if(supN>2) why="同じ最上級・順位の表現は資料全体で2回まで"; }
     if(why){ dropped.push({path:c.path,txt:c.txt,why}); dk3Drop(p,c.path); } });
   dk3Compact(p); return dropped; }
 /* AIの照合：全項目を「根拠ブロックの原文の引用」つきで判定。引用が根拠に無ければ不支持 */
@@ -28975,7 +29043,7 @@ async function dk3Plan(lang,say,force,T){ T=T||TEN;
   say&&say("読む",`根拠 ${C.blocks.length}件（約${Math.round(C.text.length/100)/10}千字）をAI商社マンが読み込み、${DK3_LNAME[lang]||lang} で文章を書いています…（上位モデル・1〜3分）`);
   const r=await llmAsk(dk3PlanPrompt(lang,C,dk3Prods(T).length),9000,{noWeb:1,timeout:240000,task:"heavy",sys:`You are a meticulous B2B export copywriter. Output JSON only. All JSON values must be written in ${DK3_LNAME[lang]||"English"} regardless of any other language instruction. Never invent facts.`});
   const j=(typeof xParseJson==="function")?xParseJson(r.txt):JSON.parse(String(r.txt).replace(/```json|```/g,"").match(/\{[\s\S]*\}/)[0]);
-  const p=dk3Sanitize(j); const dropped=dk3Ground(p,C,lang,T);
+  const p=dk3Sanitize(j); const nP=dk3Prods(T).length; p.products=(p.products||[]).filter(x=>x&&+String(x.ref).slice(1)<=nP); const dropped=dk3Ground(p,C,lang,T);
   say&&say("確かめる","書いた文章の全項目を、根拠の原文と1項目ずつ照合しています（数字・年・受賞・成分・実績・販路）…");
   p.__comp=dk3Tbl(T.compCols,T.compRows,60).rows.map(r=>[r[0],r.slice(1).filter(Boolean).join(" ")].filter(Boolean).join(" "));
   const v=await dk3Verify(p,C,lang); delete p.__comp; v.dropped.forEach(d=>dropped.push(d));
@@ -28983,15 +29051,22 @@ async function dk3Plan(lang,say,force,T){ T=T||TEN;
   return {plan:p,dropped,C,model:r.model,verified:v.ok}; }
 
 /* ── 登録データの訳（表・条件・会社情報）。社名・人名・連絡先・英文商品名は訳さない ── */
+function dk3NA(v,k){ v=dk3S(v); if(!v) return false; if(/^(取得済み?[（(]資料参照[)）]|資料参照|別紙参照|資料のとおり|資料の通り|see (the )?(attached )?(documents?|materials?))$/i.test(v)) return true;
+  if(/(回答|答え).{0,8}(難し|できな|不可|困難)|わからない|分からない|不明です|コンセプト|検討中です|difficult to answer|unclear|not sure/i.test(v)) return true;
+  return /^(shelf|moq|lead|ctn|origin)$/.test(k||"")&&[...v].length>80; }
 function dk3DataSrc(T){ T=T||TEN;
   const prods=dk3Prods(T); const DM=dk3Meta(T), F=DM.facts||{};
   const mk=(()=>{ try{ const ck=T.catKey||(typeof catKeyOf==="function"?catKeyOf(T.cat):"other"); const regs=(typeof regsFor==="function")?regsFor(ck,T.targets||[]):{};
-    return Object.keys(regs||{}).slice(0,7).map(c=>({c,duty:T.hsGuess?"要確認":dk3S(regs[c].duty),docs:(regs[c].docs||[]).map(dk3S).filter(Boolean).slice(0,6)})); }catch(e){ return []; } })();
+    const txt=prods.map(t=>[t.item,t.itemEn,t.cat,t.compTitle].join(" ")).join(" "); const notDevice=ck==="medical"&&/医薬品|医薬部外品|OTC|錠|カプセル|ビタミン|クリーム|化粧品|サプリ|バーム|ローション|美容/i.test(txt)&&!/機器|器具|装置|device|体温計|血圧計/i.test(txt);
+    const DEV=/ISO\s?13485|滅菌|医療機器|510\s?\(?k\)?|MDR|Steriliz/i;
+    return Object.keys(regs||{}).slice(0,7).map(c=>{ let docs=(regs[c].docs||[]).map(dk3S).filter(Boolean); if(notDevice){ docs=docs.filter(x=>!DEV.test(x)); docs.push("輸出先での製品登録（医薬品・医薬部外品・化粧品などの区分を確認）"); }
+      return {c,duty:T.hsGuess?"要確認":dk3S(regs[c].duty),docs:docs.slice(0,7)}; }); }catch(e){ return []; } })();
   const FX=dk3Fixed(T);
   return {co:{name:FX.nameEn?"":dk3S(T.co),person:FX.personEn?"":dk3S(DM.person),addr:dk3S(F.addrEn)||dk3S(DM.addr)||dk3S(F.addr),city:dk3S(T.origin),est:dk3S(DM.est||F.est),ceo:dk3S(DM.ceo||F.ceo),biz:dk3S(DM.biz||F.biz),emp:dk3S(F.employees),cap:dk3S(F.capital),role:dk3S(DM.role)},
-    prods:prods.map(t=>{ const pt=dk3Tbl(t.priceCols,t.priceRows,400), dt=dk3Tbl(t.dimCols,t.dimRows,400), ct=dk3Tbl(t.compCols,t.compRows,400);
-      return {item:(dk3S(t.itemEn)&&!dk3JP(t.itemEn))?"":dk3S(t.item),cat:dk3S(t.cat),moq:dk3S(t.moq),lead:dk3S(t.lead),term:dk3S(t.term),pay:dk3S(t.pay),pol:dk3S(t.pol),ctn:dk3S(t.ctn),shelf:dk3S(t.shelf),store:dk3S(t.store),cert:dk3S(t.cert),origin:dk3S(t.origin),
-        price:{cols:pt.cols,rows:pt.rows},dim:{cols:dt.cols,rows:dt.rows},comp:{cols:ct.cols,rows:ct.rows},tblInfo:[["価格表",pt],["寸法表",dt],["成分表",ct]].filter(x=>x[1].dropped.length||x[1].samples||x[1].cut).map(x=>({t:x[0],cols:x[1].dropped,samples:x[1].samples,cut:x[1].cut})),compTitle:dk3S(t.compTitle),priceNote:dk3S((t.deckRich||{}).priceNote||(t===T?DM.priceNote:""))}; }),
+    prods:prods.map((t,i)=>{ const pt=dk3Tbl(t.priceCols,t.priceRows,400,"price"), dt=dk3Tbl(t.dimCols,t.dimRows,400), ct=dk3Tbl(t.compCols,t.compRows,400);
+      const na=[]; const V=(k,lab)=>{ const v=dk3S(t[k]); if(v&&dk3NA(v,k)){ na.push(lab); return ""; } return v; };
+      return {item:(FX.prods[i]&&FX.prods[i].en)?"":dk3S(t.item),cat:dk3S(t.cat),moq:V("moq","MOQ"),lead:V("lead","リードタイム"),term:V("term","取引条件"),pay:V("pay","支払条件"),pol:V("pol","仕出港"),ctn:V("ctn","入数"),shelf:V("shelf","賞味期限・使用期限"),store:V("store","保存方法"),cert:V("cert","認証"),origin:V("origin","産地"),na,
+        price:{cols:pt.cols,rows:pt.rows},dim:{cols:dt.cols,rows:dt.rows},comp:{cols:ct.cols,rows:ct.rows},tblInfo:[["価格表",pt],["寸法表",dt],["成分表",ct]].filter(x=>x[1].dropped.length||x[1].samples||x[1].cut).map(x=>({t:x[0],cols:x[1].dropped,samples:x[1].samples,cut:x[1].cut})),compTitle:dk3S(t.compTitle),priceNote:(i===0?dk3S(DM.priceNote):"")}; }),
     markets:mk}; }
 /* 意味を決める語：原文にあれば訳にも対応する語が要る */
 const DK3_TERMS=[[/税抜|税別/,/excl|exclud|before tax|pre-?tax|不含税|未稅|未含税|별도|sin impuesto|sin iva|\+\s?tax|plus tax/i],[/税込/,/incl|includ|含税|含稅|포함|con impuesto|iva incluido/i],
@@ -29011,7 +29086,7 @@ async function dk3DataTr(lang,say,force,T){ T=T||TEN;
   say&&say("訳す",`価格表・寸法・成分・取引条件を ${DK3_LNAME[lang]||lang} にしています（数字・単位・意味は変えません）…`);
   const q=`次のJSONの値のうち日本語の部分だけを ${DK3_LNAME[lang]} に訳し、同じ構造のJSONで返してください。
 ルール：数字・単位・記号・通貨・品番・型番は一字も変えない（全角数字は半角に。万・千は ${lang==="es"?"10.000":"10,000"} のように数字に展開してよい）。表の列数と行数を変えない。空文字は空文字のまま。
-税抜/税込・常温/冷蔵/冷凍・以上/未満/以下・上代（小売）/卸（下代）の区別を必ず訳に残す。住所は英語式の表記。社名（co.name）・人名（co.person）はヘボン式ローマ字（社名は Co., Ltd. 等を付ける）。業界の正式な用語で訳す（成分はINCI名・一般名、Incoterms、FOB など）。日本語を残さない。
+税抜/税込・常温/冷蔵/冷凍・以上/未満/以下・上代（小売）/卸（下代）の区別を必ず訳に残す。住所は英語式の表記（例：7F, 4-3 Nihonbashi-Kodenmacho, Chuo-ku, Tokyo 103-0001, Japan）。第3類医薬品＝Japan Class 3 OTC drug、医薬部外品＝quasi-drug (Japan) のように日本の制度の区分は正式な英語で。社名（co.name）・人名（co.person）はヘボン式ローマ字（社名は Co., Ltd. 等を付ける）。業界の正式な用語で訳す（成分はINCI名・一般名、Incoterms、FOB など）。日本語を残さない。
 ${JSON.stringify(src)}`;
   let d=null; try{ const r=await llmAsk(q,9000,{noWeb:1,timeout:200000,task:"heavy",sys:`You are a professional trade translator. Return JSON only. Translate into ${DK3_LNAME[lang]} regardless of any other language instruction.`});
     d=(typeof xParseJson==="function")?xParseJson(r.txt):JSON.parse(String(r.txt).replace(/```json|```/g,"").match(/\{[\s\S]*\}/)[0]); }catch(e){ return {d:JSON.parse(JSON.stringify(src)),src,failed:1,fixed:[]}; }
@@ -29038,7 +29113,7 @@ if(typeof dkSetAssetFile==="function"){ const __dkSet3=dkSetAssetFile; dkSetAsse
   const T0=(typeof TEN!=="undefined")?TEN:null;
   (async()=>{ try{ const logo=kind==="logo"; const hi=await dk3FileHi(file,logo?1200:2000,logo&&/png|webp|gif|svg/i.test(file.type||file.name)); if(!hi) return;
       const id="h"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); if(!(await dk3HiPut(id,hi))) return;
-      for(let i=0;i<30;i++){ await new Promise(z=>setTimeout(z,200)); if(!T0||TEN!==T0) return; const A=T0.assets||null; const o=A?(logo?A.logo:(A.ph||[])[slot]):null;
+      for(let i=0;i<30;i++){ await new Promise(z=>setTimeout(z,200)); const Tn=(T0&&typeof TEN!=="undefined"&&TEN&&dk3PKey(TEN)===dk3PKey(T0))?TEN:null; if(!Tn) return; const A=Tn.assets||null; const o=A?(logo?A.logo:(A.ph||[])[slot]):null;
         if(o&&o.src==="upload"&&(logo||o.cap===file.name)&&!o.hid){ o.hid=id; o.hw=hi.w; o.hh=hi.h; if(logo&&hi.mime==="image/png") o.hpng=1; if(typeof saveTen==="function") saveTen(); if(typeof render==="function"&&typeof cur!=="undefined"&&cur==="deck") render(); break; } } }catch(e){} })();
   return r; }; }
 /* 納品品質の判定は、端末内に高解像度があればその寸法で判定する */
@@ -29048,7 +29123,7 @@ if(typeof dkPhGood==="function"){ dkPhGood=function(o){ if(!o||!o.b64||o.other) 
 
 /* コーポレートカラーはロゴの色を最優先（商品写真の色に引っぱられない）。ロゴが無彩色のときだけ従来どおり写真から */
 if(typeof dkBrandExtract==="function"){ const __be3=dkBrandExtract; dkBrandExtract=async function(force){ try{ if(typeof TEN==="undefined"||!TEN) return null; const cur=dkBrandGet();
-    if(cur&&cur.src==="manual"&&!force) return cur; const lg=(TEN.assets||{}).logo;
+    if(cur&&cur.src==="manual"&&!force) return cur; const lg=dk3Logo(TEN);
     if(lg&&lg.b64){ const cs=await dk3Colors2(lg); const c=cs[0]; if(c&&c.n>=10){ const hex=hslHex(c.h,Math.min(0.85,Math.max(0.2,c.s)),Math.min(0.56,Math.max(0.24,c.l)));
         TEN.deckBrand={c:hex,src:"auto",from:"logo",c2:cs[1]?hslHex(cs[1].h,Math.min(0.85,Math.max(0.35,cs[1].s)),Math.min(0.6,Math.max(0.35,cs[1].l))):""}; if(typeof saveTen==="function") saveTen(); return TEN.deckBrand; } } }catch(e){}
   return __be3.apply(this,arguments); }; }
@@ -29069,6 +29144,12 @@ function dk3Cutout(m){ return new Promise(res=>{ try{ const im=new Image(); im.o
       while(st.length){ const k=st.pop(); const x=k%W, y=(k-x)/W; push(x+1,y); push(x-1,y); push(x,y+1); push(x,y-1); }
       let cnt=0; for(let k=0;k<W*H;k++){ if(seen[k]){ p[k*4+3]=0; cnt++; } }
       if(cnt<W*H*0.08||cnt>W*H*0.92) return res(null);
+      { const lab=new Int32Array(W*H), sizes=[0], stk=[]; let nl=0, mx=0;
+        for(let k0=0;k0<W*H;k0++){ if(seen[k0]||lab[k0]) continue; nl++; let sz=0; lab[k0]=nl; stk.push(k0);
+          while(stk.length){ const k=stk.pop(); sz++; const x=k%W, y=(k-x)/W; const nb=[x>0?k-1:-1,x<W-1?k+1:-1,y>0?k-W:-1,y<H-1?k+W:-1];
+            for(const q of nb){ if(q>=0&&!seen[q]&&!lab[q]){ lab[q]=nl; stk.push(q); } } }
+          sizes.push(sz); if(sz>mx) mx=sz; }
+        for(let k=0;k<W*H;k++){ const l=lab[k]; if(l&&sizes[l]<mx*0.03){ p[k*4+3]=0; seen[k]=1; } } }
       /* 縁をなじませる（透明に接する画素は半透明に） */
       for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const k=y*W+x; if(seen[k]) continue; const n=seen[k-1]+seen[k+1]+seen[k-W]+seen[k+W]; if(n) p[k*4+3]=Math.round(255*(1-n*0.18)); }
       g.putImageData(d,0,0); res({b64:cv.toDataURL("image/png").split(",")[1],mime:"image/png",w:W,h:H,cut:1}); }catch(e){ res(null); } }; im.onerror=()=>res(null); im.src="data:"+(m.mime||"image/jpeg")+";base64,"+m.b64; }catch(e){ res(null); } }); }
@@ -29162,19 +29243,33 @@ function dk3PriceHi(cols,rows,scols){ const hd=i=>String((scols||[])[i]||"")+" "
   return cols.map((c,i)=>i).filter(i=>{ if(i===0&&cols.length>1) return false; const h=hd(i); const cur=rows.some(r=>/[$¥€£₩]|US\$|USD|JPY|EUR|RMB|円|元/.test(String(r[i]||"")));
     if(NP.test(h)&&!PH.test(h)) return false; return PH.test(h)||cur; }); }
 function dk3Carton(dt){ if(!dt||!dt.rows.length) return ""; const ci=dt.cols.findIndex(c=>/外装|外箱|carton|case|master|outer|ケース/i.test(c)); if(ci<0) return ""; return dk3S((dt.rows[0]||[])[ci]); }
+/* 商品ページのURLの末尾（/product/xxx の xxx）。商品ページでなければ空 */
+function dk3Slug(u){ try{ const U=new URL(u); const seg=U.pathname.split("/").filter(Boolean); if(seg.length<2) return ""; if(!seg.slice(0,-1).some(x=>/^(products?|items?|goods|shop|detail|lineup|p|catalog|collections?|brand)$/i.test(x))) return "";
+  return seg[seg.length-1].replace(/\.(html?|php|aspx?)$/i,"").toLowerCase().replace(/[^a-z0-9]/g,""); }catch(e){ return ""; } }
+/* 写真の説明文：ファイル名（serum_image.png など）は説明にならないので空に */
+function dk3CapClean(c){ c=dk3S(String(c||"").replace(/^(ラインアップ|イメージ素材):\s*/,"")); if(/\.(png|jpe?g|webp|gif|svg|bmp|avif|tiff?)$/i.test(c)||/^(img|image|dsc|dscn|photo|pic|screenshot|スクリーンショット)[\s_\-]?\d/i.test(c)) return ""; return c; }
+/* 公式サイト・Webから取り込んだ写真が、別の商品のものか（取り込み元の商品ページ・説明文の商品名で判定）。自分でアップロードした写真は信頼する */
+function dk3Foreign(o,pi,prods,T){ const t=prods[pi]; if(!o||!t||o.src==="upload") return false; const role=dk3Role(o); if(role==="building"||role==="people") return false;
+  const own=dk3Slug((t.deckRich||{}).srcUrl)||(pi===0?dk3Slug(dk3Meta(T).web):""); const fs=dk3Slug(o.from); if(fs&&own&&fs!==own) return true;
+  const nm=x=>String(x||"").normalize("NFKC").toLowerCase().replace(/[\s・]/g,""); const cn=nm(dk3CapClean(o.cap)); if(!cn) return false;
+  if([t.item,t.itemEn].map(nm).some(x=>x.length>=3&&cn.indexOf(x)>=0)) return false;
+  return dk3Cands(T).concat([T]).filter(x=>x!==t).some(x=>[x.item,x.itemEn].map(nm).some(n=>n.length>=4&&cn.indexOf(n)>=0)); }
 async function dk3Media(deck,T){ T=T||TEN; const prods=dk3Prods(T); const media={}; const P={all:[],byProd:[]};
   const put=async(key,o,extra)=>{ if(!o||!o.b64) return null; let m={b64:o.b64,mime:o.mime||"image/jpeg",w:o.w||0,h:o.h||0};
     if(o.hid){ const hi=await dk3HiGet(o.hid); if(hi&&hi.b64) m={b64:hi.b64,mime:hi.mime,w:hi.w,h:hi.h,hi:1}; }
     media[key]=Object.assign(m,extra||{}); return key; };
-  const A0=(T&&T.assets)||{}; const lg=A0.logo||prods.map(t=>t.assets&&t.assets.logo).find(Boolean); if(lg){ await put("logo",lg,{role:"logo"}); try{ const t2=await dk3LogoAlpha(media.logo); if(t2) media.logo=Object.assign(t2,{role:"logo",clear:1}); }catch(e){} }
+  const lg=dk3Logo(T); if(lg){ await put("logo",lg,{role:"logo"}); try{ const t2=await dk3LogoAlpha(media.logo); if(t2) media.logo=Object.assign(t2,{role:"logo",clear:1}); }catch(e){} }
   for(let pi=0;pi<prods.length;pi++){ const A=prods[pi].assets||{}; const arr=[];
-    for(let i=0;i<(A.ph||[]).length;i++){ const o=A.ph[i]; if(!o||!o.b64) continue; const role=dk3Role(o); const good=dkPhGood(o)||(role!=="product"&&!(o._dq&&(o._dq.jp||o._dq.low)));
-      const k=await put("p"+pi+":"+i,o,{role,good,other:!!o.other,cap:dk3S(String(o.cap||"").replace(/^(ラインアップ|イメージ素材):\s*/,""))}); if(k){ arr.push(k); P.all.push(k);
-        if(role==="product"||o.other){ try{ const c=await dk3Cutout(media[k]); if(c) media[k+"c"]=Object.assign(c,{role,good,cap:media[k].cap}); }catch(e){} } } }
+    for(let i=0;i<(A.ph||[]).length;i++){ const o=A.ph[i]; if(!o||!o.b64) continue;
+      /* 同じ会社の別商品として採った写真（ラインアップ）と、別の商品のページから取り込んだ写真は、この商品の写真として使わない */
+      if(o.other||dk3Foreign(o,pi,prods,T)){ P.foreign=(P.foreign||0)+1; continue; }
+      const role=dk3Role(o); const good=dkPhGood(o)||(role!=="product"&&!(o._dq&&(o._dq.jp||o._dq.low)));
+      const k=await put("p"+pi+":"+i,o,{role,good,enh:!!o.enh,cap:dk3CapClean(o.cap)}); if(k){ arr.push(k); P.all.push(k);
+        if(role==="product"&&!o.enh){ try{ const c=await dk3Cutout(media[k]); if(c) media[k+"c"]=Object.assign(c,{role,good,cap:media[k].cap}); }catch(e){} } } }
     P.byProd.push(arr); }
-  deck.media=media; return P; }
-function dk3PickPhotos(deck,P){ const md=deck.media; const G=k=>md[k]; const ok=k=>G(k)&&G(k).good!==false&&G(k).role!=="infographic";
-  const main=(P.byProd[0]||[]).filter(ok); const byRole=r=>P.all.filter(k=>ok(k)&&G(k).role===r);
+  deck.media=media; deck.foreignN=P.foreign||0; return P; }
+function dk3PickPhotos(deck,P){ const md=deck.media; const G=k=>md[k]; const ok=k=>G(k)&&G(k).good!==false&&G(k).role!=="infographic"; const q=a=>a.slice().sort((x,y)=>(G(x).enh?1:0)-(G(y).enh?1:0));
+  const main=q((P.byProd[0]||[]).filter(ok)); const byRole=r=>q(P.all.filter(k=>ok(k)&&G(k).role===r));
   const prod=main.filter(k=>G(k).role==="product"); const scene=byRole("scene"); const bld=byRole("building")[0]||null; const mat=byRole("material")[0]||null;
   const pps=byRole("people"); const capOf=k=>String((G(k)&&G(k).cap)||"").toLowerCase();
   /* 代表者・専門家の写真は、説明（キャプション）で確かめられた時だけ（別人の写真を代表者として出さない） */
@@ -29186,6 +29281,20 @@ function dk3PickPhotos(deck,P){ const md=deck.media; const G=k=>md[k]; const ok=
   const lineup=P.all.filter(k=>G(k)&&G(k).other).concat(P.byProd.slice(1).map(a=>(a||[]).filter(ok)[0]).filter(Boolean));
   return {hero,hero2:wide.find(k=>k!==hero)||null,prod:prod.length?prod:main.filter(k=>G(k).role!=="building"&&G(k).role!=="people"),scene:scene.filter(k=>k!==hero),building:bld,people:ppl,ceo,expert,material:mat,lineup,byProd:P.byProd.map(a=>(a||[]).filter(ok))}; }
 function dk3CtyName(lang,c){ try{ if(typeof ctyL==="function"&&lang!=="ja") return ctyL(lang,c); }catch(e){} return c; }
+function dk3LabKey(s){ return String(s||"").normalize("NFKC").toLowerCase().replace(/[（(][^）)]*[）)]/g,"").replace(/[\s・:：,，.。\-_\/／]/g,""); }
+/* 「項目｜内容」の2列の表か（見出しが項目/内容などか、1列目の多くが数字を含まない名前） */
+function dk3KV(t,st){ if(!t||!st||t.rows.length<2||Math.max(t.cols.length,...t.rows.map(r=>r.length))!==2) return null;
+  const gen=/^(項目|内容|区分|項|詳細|値|仕様|item|items|details?|field|label|value|values|specs?|)$/i; const hg=(st.cols||[]).every(c=>gen.test(dk3S(c)));
+  const nd=(st.rows||[]).filter(r=>!/\d/.test(String((r||[])[0]||""))).length/Math.max(1,(st.rows||[]).length); if(!(hg||nd>=0.7)) return null;
+  const seen={}; return t.rows.map((r,k)=>{ let key=dk3LabKey(((st.rows||[])[k]||[])[0]||r[0])||("_"+k); seen[key]=(seen[key]||0)+1; if(seen[key]>1) key+="#"+seen[key]; return {key,lab:r[0],val:r[1]}; }); }
+/* 項目×商品の比較表を作る（列は per 商品ずつ、行は rpp 行ずつに分ける）。行の __w＝値のあるセル数（載せた行数の数え上げ用）、__hi＝価格の行 */
+function dk3CmpPages(items,names,extra,per,rpp){ const keys=[], lab={}; items.forEach(x=>x.kv.forEach(e=>{ if(keys.indexOf(e.key)<0){ keys.push(e.key); lab[e.key]=e.lab; } }));
+  const full=keys.map(k=>({lab:lab[k],vals:items.map(x=>{ const e=x.kv.find(z=>z.key===k); return e&&dk3S(e.val)?e.val:""; }),cnt:1,hi:/price|価格|卸|単価|wholesale|retail|fob|exw|cif|precio|价格|價格|가격/i.test(lab[k])}));
+  (extra||[]).forEach(r=>full.push(Object.assign({cnt:0,hi:false},r)));
+  const pages=[]; for(let c0=0;c0<items.length;c0+=per){ const cs=items.slice(c0,c0+per).map((x,j)=>c0+j);
+    const rows=full.filter(r=>cs.some(j=>dk3S(r.vals[j]))).map(r=>{ const a=[r.lab].concat(cs.map(j=>dk3S(r.vals[j])||"—")); a.__w=r.cnt?cs.filter(j=>dk3S(r.vals[j])).length:0; a.__hi=r.hi; return a; });
+    for(let r0=0;r0<rows.length;r0+=rpp) pages.push({cols:[""].concat(cs.map(j=>names[j])),rows:rows.slice(r0,r0+rpp)}); }
+  return pages; }
 function dk3Chunk(a,n){ const out=[]; for(let i=0;i<a.length;i+=n) out.push(a.slice(i,i+n)); return out; }
 function dk3Model(lang,plan,data,ph,deck,src,T){ T=T||TEN;
   const L=k=>dk3Lb(lang,k); const p=plan||{}; const d=data||{co:{},prods:[],markets:[]}; const c=d.co||{}; const DM=dk3Meta(T); const F=DM.facts||{};
@@ -29195,7 +29304,7 @@ function dk3Model(lang,plan,data,ph,deck,src,T){ T=T||TEN;
   const name=FX.nameEn||dk3S(c.name)||FX.coJa; if(!FX.nameEn&&dk3S(c.name)&&lang!=="ja") M.roman.push("社名「"+FX.coJa+"」→「"+dk3S(c.name)+"」");
   M.co={name,city:pref?pref[1]:dk3S(c.city),pref,est:c.est,estY,years:yrs,web:FX.web};
   const pd=(d.prods||[])[0]||{}; const pdS=(s0.prods||[])[0]||{};
-  M.co.facts=[["calendar",L("est"),estY?(estY+(yrs>1?"  ("+yrs+" "+L("yrs")+")":"")):c.est],["map-pin",L("hq"),c.addr||(pref?pref[1]+", Japan":"")],["briefcase",L("biz"),(p.about&&p.about.biz)||c.biz],["user",L("rep"),c.ceo],["users",L("emp"),c.emp],["landmark",L("cap"),c.cap],["badge-check",L("cert"),pd.cert],["globe",L("web"),FX.web]]
+  M.co.facts=[["calendar",L("est"),estY?(estY+(yrs>1?"  ("+yrs+" "+L("yrs")+")":"")):c.est],["map-pin",L("hq"),c.addr||(pref?pref[1]+", Japan":"")],["briefcase",L("biz"),(p.about&&p.about.biz)||c.biz],["user",L("rep"),c.ceo],["users",L("emp"),c.emp],["landmark",L("cap"),c.cap],["globe",L("web"),FX.web]]
     .filter(r=>dk3S(r[2])).map(r=>({ic:r[0],k:r[1],v:dk3S(r[2])}));
   M.about={title:(p.about&&p.about.title)||"",lead:(p.about&&p.about.lead)||""};
   /* 表紙の信頼バッジ：AIが根拠つきで書いたもの。無ければ登録の事実だけ（創業年・所在地・産地が日本のときだけ Made in Japan） */
@@ -29209,10 +29318,9 @@ function dk3Model(lang,plan,data,ph,deck,src,T){ T=T||TEN;
   M.products=prods.map((t,i)=>{ const pp=((p.products||[]).filter(Boolean)).find(x=>x.ref==="P"+(i+1))||{}; const dd=(d.prods||[])[i]||{};
     if(!(FX.prods[i]&&FX.prods[i].en)&&dk3S(dd.item)&&lang!=="ja") M.roman.push("商品名「"+(FX.prods[i]||{}).ja+"」→「"+dk3S(dd.item)+"」");
     const own=(ph.byProd[i]||[]); const pk=i===0?(ph.prod[0]||own[0]):own.find(k=>deck.media[k].role==="product")||own[0];
-    return {idx:i,name:pnm(i),tag:pp.tag||"",desc:pp.desc||"",feats:pp.feats||[],chips:(pp.chips||[]).length?pp.chips:[dd.cat].filter(Boolean),ph:pk||null}; }).filter(x=>x.name).slice(0,6);
+    return {idx:i,name:pnm(i),ic:dk3ProdIcon(t),tag:pp.tag||"",desc:pp.desc||"",feats:pp.feats||[],chips:((pp.chips||[]).length?pp.chips:[dd.cat].filter(Boolean)).concat(dk3S(dd.cert)?[dk3S(dd.cert)]:[]).slice(0,4),ph:pk||null}; }).filter(x=>x.name).slice(0,DK3_MAXP);
   const nameOf=i=>{ const x=M.products.find(q=>q.idx===i); return x?x.name:pnm(i); };
-  M.lineup={items:ph.lineup.map(k=>({ph:k,name:(deck.media[k]&&deck.media[k].cap)||"",d:""})).filter(x=>x.name&&!(lang!=="ja"&&dk3JPfor(lang,x.name)))};
-  if(M.products.length>=3) M.lineup.items=M.products.filter(x=>x.ph).map(x=>({ph:x.ph,name:x.name,d:(x.chips||[]).slice(0,2).join(" · ")})).concat(M.lineup.items).slice(0,6);
+  const lp=M.products.filter(x=>x.ph); M.lineup={items:lp.length>=3?lp.map(x=>({ph:x.ph,name:x.name,d:(x.chips||[]).slice(0,2).join(" · ")})).slice(0,6):[]};
   /* 成分：AIは成分表の「行番号」で区分と主成分を選ぶ。表示するのは登録の行そのもの（訳のみ）＝量・単位をAIが書き換えない */
   const foodish=/^(food|cosme|liquor|medical)$/.test(T.catKey||"")||/サプリ|健康食品|化粧|食品|飲料|酒|茶/.test(String(T.cat||""));
   const ct=pd.comp||{cols:[],rows:[]}; const hU=(c=>{ const h=(c||[]).slice(1).filter(Boolean); if(h.length!==1) return ""; const m=h[0].match(/[（(]([^）)]{1,24})[）)]/); return m?m[1].trim():""; })(ct.cols);
@@ -29232,21 +29340,39 @@ function dk3Model(lang,plan,data,ph,deck,src,T){ T=T||TEN;
     if(i===0&&ingr&&covered.size>=t2.rows.length&&(!hasAmt||allChip)){ M.ingrCovers=t2.rows.length; M.specsP1=ent; return; } M.specsList.push(ent); });
   /* 価格・取引条件（登録の数字そのまま）。価格表は全行を載せる：8行を超える表は続きのページへ */
   const hasSample=/サンプル|試供|試作|sample/i.test(JSON.stringify([DM.sample,DM.terms,DM.records,DM.targetsTxt,T.term,T.pay,T.extraQA,(T.deckRich||{}).terms])); M.hasSample=hasSample;
-  const mkTerms=(q)=>{ const pt=q.price||{cols:[],rows:[]}; const moqCol=pt.cols.findIndex(x=>/moq|最小|minimum|pedido|起订|訂購|주문/i.test(x));
-    return [q.moq?{key:"moq",ic:"package",k:L("moq"),v:q.moq}:(moqCol>=0?{key:"moq",ic:"package",k:L("moq"),v:"→ "+pt.cols[moqCol]}:null),q.lead?{ic:"clock",k:L("lead"),v:q.lead}:null,(q.term||q.pol)?{ic:"ship",k:L("term"),v:[q.term,q.pol].filter(Boolean).join(" · ")}:null,q.pay?{ic:"wallet",k:L("pay"),v:q.pay}:null,hasSample?{ic:"gift",k:L("sample"),v:L("sampleV")}:null].filter(Boolean); };
-  const groups=[]; M.priceMiss=[]; M.moqMiss=[];
-  (d.prods||[]).forEach((q,i)=>{ if(!M.products.some(x=>x.idx===i)) return; const pt=q.price||{cols:[],rows:[]}; const terms=mkTerms(q);
+  const mkTerms=(q,i)=>{ const pt=q.price||{cols:[],rows:[]}; const sp=((s0.prods||[])[i||0]||{}).price||{cols:[],rows:[]};
+    const moqCol=(sp.cols||[]).findIndex(x=>DK3_MOQRE.test(String(x||""))); const two=Math.max((sp.cols||[]).length,...(sp.rows||[]).map(r=>r.length),0)<=2;
+    const moqRow=two?(sp.rows||[]).findIndex(r=>DK3_MOQRE.test(String((r||[])[0]||""))&&dk3S((r||[])[1])):-1;
+    return [q.moq?{key:"moq",ic:"package",k:L("moq"),v:q.moq}:(moqRow>=0&&pt.rows[moqRow]?{key:"moq",ic:"package",k:L("moq"),v:dk3S(pt.rows[moqRow][1])||dk3S(sp.rows[moqRow][1])}:(moqCol>=0?{key:"moq",ic:"package",k:L("moq"),v:"→ "+(pt.cols[moqCol]||sp.cols[moqCol])}:null)),q.lead?{ic:"clock",k:L("lead"),v:q.lead}:null,(q.term||q.pol)?{ic:"ship",k:L("term"),v:[q.term,q.pol].filter(Boolean).join(" · ")}:null,q.pay?{ic:"wallet",k:L("pay"),v:q.pay}:null,hasSample?{ic:"gift",k:L("sample"),v:L("sampleV")}:null].filter(Boolean); };
+  const groups=[]; M.priceMiss=[]; M.moqMiss=[]; const pl=[];
+  (d.prods||[]).forEach((q,i)=>{ if(!M.products.some(x=>x.idx===i)) return; const pt=q.price||{cols:[],rows:[]}; const terms=mkTerms(q,i);
     if(!pt.rows.length){ M.priceMiss.push({i,name:nameOf(i)}); return; } if(!terms.some(t=>t.key==="moq")) M.moqMiss.push({i,name:nameOf(i)});
+    pl.push({i,q,pt,terms,kv:dk3KV(pt,((s0.prods||[])[i]||{}).price)}); });
+  const kvP=pl.filter(x=>x.kv); const useCmp=kvP.length>=2;
+  if(useCmp){ const tk=x=>JSON.stringify((x.terms||[]).filter(t=>t.key!=="moq").map(t=>[t.k,t.v])); const sameT=kvP.every(x=>tk(x)===tk(kvP[0])); const note0=(pl.find(x=>x.i===0)||kvP[0]).q.priceNote||"";
+    const moqIn=x=>x.kv.some(e=>DK3_MOQRE.test(e.lab)); const extra=[];
+    if(kvP.some(x=>x.q.moq&&!moqIn(x))) extra.push({lab:L("moq"),vals:kvP.map(x=>x.q.moq||"")});
+    if(!sameT) [[L("lead"),x=>x.q.lead],[L("term"),x=>[x.q.term,x.q.pol].filter(Boolean).join(" · ")],[L("pay"),x=>x.q.pay]].forEach(([lb,f])=>{ const vals=kvP.map(x=>f(x)||""); if(vals.some(Boolean)) extra.push({lab:lb,vals}); });
+    kvP.forEach(x=>{ M.need.price+=x.kv.filter(e=>dk3S(e.val)).length; });
+    const pages=dk3CmpPages(kvP,kvP.map(x=>nameOf(x.i)),extra,4,9);
+    pages.forEach((pg,j)=>{ const last=j===pages.length-1; groups.push({cmp:1,idx:kvP[0].i,name:"",table:{cols:pg.cols,rows:pg.rows,hi:[],more:""},terms:last&&sameT?(kvP[0].terms||[]).filter(t=>t.key!=="moq"):[],note:last?note0:"",sub:pages.length>1?(j+1)+"/"+pages.length:""}); }); }
+  pl.filter(x=>!(useCmp&&x.kv)).forEach(x=>{ const i=x.i, q=x.q, pt=x.pt, terms=x.terms;
     M.need.price+=pt.rows.length; const sc=((s0.prods||[])[i]||{}).price||{cols:[]}; const hi=dk3PriceHi(pt.cols,pt.rows,sc.cols);
     const cols=pt.cols.length?pt.cols:(pt.rows[0]||[]).map(()=>""); const ch=dk3Chunk(pt.rows,8);
     ch.forEach((rows,k)=>groups.push({idx:i,name:nameOf(i)+(ch.length>1?"  ("+(k+1)+"/"+ch.length+")":""),table:{cols,rows,hi,more:""},terms,note:q.priceNote||""})); });
-  const terms=mkTerms(pd);
-  const g0=groups[0]; M.pricing={groups,tables:g0?[g0.table]:[],terms:g0?g0.terms:terms,note:g0?g0.note:(pd.priceNote||""),product:g0?g0.name:((M.products[0]&&M.products[0].name)||dk3S(pd.item))};
+  const terms=mkTerms(pd,0);
+  const g0=groups[0]; M.pricing={groups,tables:g0?[g0.table]:[],terms:g0?g0.terms:terms,note:g0?g0.note:(pd.priceNote||""),product:g0?(g0.name||null):((M.products[0]&&M.products[0].name)||dk3S(pd.item))};
   /* 梱包・物流：全商品の寸法表。列が同じなら1つの表にまとめ、7行ごとにページを分ける。商品ごとの入数・賞味期限・保存方法も載せる */
   const factsOf=(q,i)=>[q.ctn?{ic:"boxes",k:L("carton"),v:q.ctn}:null,q.shelf?{ic:"calendar-check",k:L("shelf"),v:q.shelf}:null,q.store?{ic:"thermometer",k:L("store"),v:q.store}:null,(FX.prods[i]||{}).hs?{ic:"scan-barcode",k:L("hs"),v:FX.prods[i].hs}:null,q.pol?{ic:"anchor",k:L("port"),v:q.pol}:null].filter(Boolean);
-  const dl=(d.prods||[]).map((q,i)=>({i,t:q.dim||{cols:[],rows:[]},f:factsOf(q,i)})).filter(x=>M.products.some(p2=>p2.idx===x.i)&&(x.t.rows.length||x.f.length));
-  dl.forEach(x=>{ M.need.dim+=x.t.rows.length; });
-  M.packs=[]; const same=dl.length>1&&dl.filter(x=>x.t.rows.length).length>1&&dl.filter(x=>x.t.rows.length).every(x=>JSON.stringify(x.t.cols)===JSON.stringify(dl.find(z=>z.t.rows.length).t.cols));
+  let dl=(d.prods||[]).map((q,i)=>({i,t:q.dim||{cols:[],rows:[]},f:factsOf(q,i)})).filter(x=>M.products.some(p2=>p2.idx===x.i)&&(x.t.rows.length||x.f.length));
+  M.packs=[]; const dkv=dl.map(x=>({x,kv:x.t.rows.length?dk3KV(x.t,((s0.prods||[])[x.i]||{}).dim):null})).filter(z=>z.kv); const kvSet=new Set();
+  if(dkv.length>=2){ const labs=[]; dkv.forEach(z=>z.x.f.forEach(f=>{ if(labs.indexOf(f.k)<0) labs.push(f.k); }));
+    const extra=labs.map(k=>({lab:k,vals:dkv.map(z=>{ const f=z.x.f.find(v=>v.k===k); return f?f.v:""; })}));
+    dkv.forEach(z=>{ kvSet.add(z.x.i); M.need.dim+=z.kv.filter(e=>dk3S(e.val)).length; });
+    const pages=dk3CmpPages(dkv.map(z=>({kv:z.kv})),dkv.map(z=>nameOf(z.x.i)),extra,4,6);
+    pages.forEach((pg,j)=>M.packs.push({cmp:1,cols:pg.cols,rows:pg.rows,carton:"",facts:[],sub:pages.length>1?(j+1)+"/"+pages.length:""})); }
+  dl=dl.filter(x=>!kvSet.has(x.i)); dl.forEach(x=>{ M.need.dim+=x.t.rows.length; });
+  const same=dl.length>1&&dl.filter(x=>x.t.rows.length).length>1&&dl.filter(x=>x.t.rows.length).every(x=>JSON.stringify(x.t.cols)===JSON.stringify(dl.find(z=>z.t.rows.length).t.cols));
   const fkey=f=>JSON.stringify(f.map(z=>[z.k,z.v])); const fdiff=dl.length>1&&dl.some(x=>fkey(x.f)!==fkey(dl[0].f)); const f0=(!fdiff&&dl[0])?dl[0].f:[];
   const withRows=dl.filter(x=>x.t.rows.length);
   if(same){ const rows=[].concat(...withRows.map(x=>x.t.rows)); const ch=dk3Chunk(rows,7);
@@ -29257,10 +29383,16 @@ function dk3Model(lang,plan,data,ph,deck,src,T){ T=T||TEN;
     M.packs.push({cols:[""].concat(dl.map(x=>nameOf(x.i))),rows:labs.map(k=>[k].concat(dl.map(x=>{ const z=x.f.find(q=>q.k===k); return z?z.v:"—"; }))),carton:"",facts:[],sub:"",noCount:1}); }
   else if(!withRows.length&&f0.length) M.packs.push({cols:[],rows:[],carton:"",facts:f0,sub:""});
   M.packs=M.packs.filter(pk=>pk.rows.length||pk.facts.length); M.pack=M.packs[0]||null;
+  /* 最終チェック用：英文名の差し替え・回答になっていない登録値・仮の住所・国内専用の電話・FOB と空港 */
+  M.enBad=FX.prods.map((x,i)=>x.enBad&&M.products.some(p2=>p2.idx===i)?{name:nameOf(i),raw:x.enRaw}:null).filter(Boolean);
+  M.na=((s0.prods||[]).map((x,i)=>(x.na||[]).length&&M.products.some(p2=>p2.idx===i)?{name:nameOf(i),f:x.na}:null)).filter(Boolean);
+  M.draftAddr=/[（(]\s*仮\s*[)）]|仮住所|[（(]\s*予定\s*[)）]|\((draft|tentative|tbd)\)/i.test(String(((s0.co||{}).addr)||"")+" "+String(c.addr||""));
+  M.telDom=FX.telDom||""; M.fobAir=(s0.prods||[]).some(x=>/FOB/i.test(String(x.term||""))&&/空港|airport|narita|haneda|kansai international|chubu centrair/i.test(String(x.pol||"")+" "+String(x.term||"")));
   M.markets={items:(d.markets||[]).map(m=>({c:dk3CtyName(lang,m.c),duty:m.duty,docs:m.docs}))};
   M.flow={makerD:(p.flow&&p.flow.makerD)||"",buyerD:(p.flow&&p.flow.buyerD)||""};
   const person=FX.personEn||dk3S(c.person); if(!FX.personEn&&dk3S(c.person)&&lang!=="ja") M.roman.push("担当者名「"+dk3S(DM.person)+"」→「"+dk3S(c.person)+"」");
-  M.contact={title:(p.contact&&p.contact.title)||"",sub:(p.contact&&p.contact.sub)||"",person,role:c.role,company:FX.personCo||"",mail:FX.mail,tel:FX.tel,web:FX.web,addr:c.addr,moq:pd.moq||""};
+  const web=(()=>{ if(M.products.length<2||!FX.web) return FX.web; try{ return dk3Slug(FX.web)?new URL(FX.web).origin:FX.web; }catch(e){ return FX.web; } })(); M.co.web=web; M.co.facts.forEach(f=>{ if(f.ic==="globe") f.v=web; });
+  M.contact={title:(p.contact&&p.contact.title)||"",sub:(p.contact&&p.contact.sub)||"",person,role:c.role,company:FX.personCo||"",mail:FX.mail,tel:FX.tel,web,addr:c.addr,moq:M.products.length===1?(pd.moq||""):""};
   M.photos=ph; return M; }
 
 /* ═══ ページ構成と組み立て ═══ */
@@ -29268,7 +29400,7 @@ function dk3Order(M){ const S=["cover","about","history","mission","stats","prob
   S.push("lineup","ingr","specs","usage","quality","endorse","diff","targets","markets","pricing","pack","flow","contact"); return S; }
 async function dk3Assemble(lang,opts,say){ opts=opts||{}; say=say||(()=>{}); const T=opts.T||TEN;
   const style=opts.style||dk3StyleOf(); const deck={lang,style,slides:[],media:{},L:DK3_L[lang]||DK3_L.en};
-  let second=null; try{ const lg=(T.assets||{}).logo; if(lg&&lg.b64){ const cs=await dk3Colors2(lg); second=cs[1]||null; } }catch(e){}
+  let second=null; try{ const lg=dk3Logo(T); if(lg&&lg.b64){ const cs=await dk3Colors2(lg); second=cs[1]||null; } }catch(e){}
   deck.pal=dk3Pal(style,second); deck.font=dk3Fonts(style,lang);
   const P=await dk3Media(deck,T); if(TEN!==T) throw new Error("生成中に商品が切り替わったため中止しました"); const ph=dk3PickPhotos(deck,P);
   const M=dk3Model(lang,opts.plan,opts.data,ph,deck,opts.src,T); deck.M=M;
@@ -29282,8 +29414,8 @@ async function dk3Assemble(lang,opts,say){ opts=opts||{}; say=say||(()=>{}); con
   const need={}; deck.slides.forEach(S=>S.els.forEach(e=>{ if(e.k==="icon") need[e.n+"|"+e.c]=e; }));
   await Promise.all(Object.keys(need).map(async key=>{ const e=need[key]; const png=await dk3IconPng(e.n,e.c,160); if(png) deck.media["ic:"+key]=png; }));
   deck.title=(M.co.name||"")+" — "+dk3Lb(lang,"deck"); deck.author=M.co.name;
-  deck.fileBase=String((M.products[0]&&M.products[0].name)||M.co.name||"product").replace(/[\\\/:*?"<>|]/g,"").slice(0,40);
-  deck.tenUid=T.uid||""; return deck; }
+  deck.fileBase=String((M.products.length>1?M.co.name:(M.products[0]&&M.products[0].name))||M.co.name||"product").replace(/[\\\/:*?"<>|]/g,"").slice(0,60).replace(/[\s,.]+$/,"");
+  deck.prodKeys=dk3Prods(T).map(dk3PKey); deck.tenUid=T.uid||""; return deck; }
 
 /* ═══ 納品レベルの最終チェック（出来上がった資料そのものを検査） ═══ */
 function dk3Check(deck,ctx){ ctx=ctx||{}; const crit=[], warn=[], ok=[]; const S=deck.slides; const kinds=S.map(s=>s.kind); const has=k=>kinds.indexOf(k)>=0; const M=deck.M;
@@ -29309,7 +29441,7 @@ function dk3Check(deck,ctx){ ctx=ctx||{}; const crit=[], warn=[], ok=[]; const S
   if(!has("history")&&!has("mission")) crit.push({k:"story",t:"会社の歴史・想い（沿革または理念）のページがありません"}); else ok.push("会社の歴史・想い："+[has("history")?"沿革":"",has("mission")?"理念":""].filter(Boolean).join("・"));
   if(!has("ingr")&&!has("specs")) crit.push({k:"spec",t:"成分・仕様のページがありません（成分表・規格の登録が必要）"}); else ok.push("成分・仕様：あり");
   const sh=deck.shown||{}; const pr=M.pricing; if(!(pr.tables||[]).length) crit.push({k:"price",t:"価格表がありません（価格帯・単価の登録が必要）"}); else ok.push("価格表："+M.need.price+"行（登録の数字のまま）");
-  if(!(pr.terms||[]).some(t=>t.key==="moq")) crit.push({k:"moq",t:"MOQ（最小発注数量）がありません"}); else ok.push("MOQ：あり");
+  if((pr.tables||[]).length&&!(M.moqMiss||[]).length) ok.push("MOQ：あり（価格を載せる全商品）");
   (M.priceMiss||[]).forEach(x=>{ if(x.i===0&&(pr.tables||[]).length) crit.push({k:"price1",t:"主役の商品「"+x.name+"」の価格表が未登録です（ほかの商品の価格だけが載っています）"}); else if(x.i!==0) warn.push({k:"price2",t:"「"+x.name+"」の価格表が未登録のため、価格を載せていません"}); });
   (M.moqMiss||[]).forEach(x=>crit.push({k:"moq2",t:"「"+x.name+"」は価格を載せていますがMOQ（最小発注数量）が未登録です"}));
   if(sh.moqRef===false) crit.push({k:"moq3",t:"MOQ が価格表の列にしか無いのに、その列が資料に表示されていません"});
@@ -29330,6 +29462,12 @@ function dk3Check(deck,ctx){ ctx=ctx||{}; const crit=[], warn=[], ok=[]; const S
   if(!window.__dk3AllowPlaceholder&&(/example\.(com|org|net|jp)|@test\.|0000-0000|-0000\b|000-0000/i.test(ph0)||/^(taro yamada|hanako yamada|山田 ?太郎|山田 ?花子|your company)$/i.test(String(cc.person||"").trim()))) crit.push({k:"placeholder",t:"連絡先が記入例のまま（仮の名前・example.com・0000 の電話番号）です。「AI商社マンと埋める」で実際の担当者・メール・電話を入れてください"});
   if(!cc.mail&&!cc.tel) crit.push({k:"nocontact",t:"連絡先（メールまたは電話）がありません（メールは name@会社.com の形で登録してください）"});
   (M.roman||[]).forEach(r=>warn.push({k:"roman",t:"英文表記が未登録のため訳した名前："+r+"。正式な英文表記があれば登録してください"}));
+  (M.enBad||[]).forEach(x=>warn.push({k:"enbad",t:"「"+x.name+"」の英文商品名「"+x.raw+"」は汎用の名前か、ほかの商品と同じ名前のため使っていません（日本語名から訳しました）。商品ごとの正式な英語名を登録してください"}));
+  (M.na||[]).forEach(x=>warn.push({k:"na",t:"「"+x.name+"」の "+x.f.join("・")+" は、登録内容が回答になっていないため載せていません。登録を確認してください"}));
+  if(M.draftAddr) crit.push({k:"draftaddr",t:"所在地が（仮）のままです。確定した住所を登録してください（バイヤー向けの資料に仮の住所は載せません）"});
+  if(M.telDom) warn.push({k:"teldom",t:"電話番号「"+M.telDom+"」は海外からかけられない番号のため載せていません。+81 から始まる番号（固定電話など）を登録すると載ります"});
+  if(M.fobAir) warn.push({k:"fobair",t:"取引条件が FOB で、積出地に空港が含まれています。FOB は海上輸送の条件です（航空便は FCA などが一般的）。登録を確認してください"});
+  if(deck.foreignN) warn.push({k:"foreign",t:"別の商品のページから取り込んだ写真・ラインアップ用の写真 "+deck.foreignN+"枚は、この資料では使っていません"});
   const useCnt={}; S.forEach(s=>s.els.forEach(e=>{ if(e.k==="img"&&e.m!=="logo"){ const k=String(e.m).replace(/c$/,""); useCnt[k]=(useCnt[k]||0)+1; } })); const rep3=Object.keys(useCnt).filter(k=>useCnt[k]>2);
   if(rep3.length) warn.push({k:"reuse",t:"同じ写真を3回以上使っています（"+rep3.length+"枚）。写真を追加すると見映えが上がります"});
   ((ctx.C&&ctx.C.blocks)||[]).filter(b=>b.trust==="D"&&!(b.nums2&&b.nums2.length)).forEach(b=>warn.push({k:"pdfnum",t:"「"+String(b.label).replace(/^取り込んだ資料：/,"").replace(/（AIによる書き起こし）$/,"")+"」は数字の二重確認が無いため、その資料だけにある数字は使っていません（PDFを取り込み直すと使えます）"}));
@@ -29337,7 +29475,7 @@ function dk3Check(deck,ctx){ ctx=ctx||{}; const crit=[], warn=[], ok=[]; const S
   dr.slice(0,12).forEach(d=>warn.push({k:"drop",t:"外した文言："+String(d.txt).slice(0,70)+"（"+d.why+"）"}));
   (ctx.fixed||[]).slice(0,6).forEach(f=>warn.push({k:"fixed",t:"訳で"+(f.why||"数字")+"が変わったため原文のまま載せた値："+String(f.a).slice(0,40)}));
   if(deck.err&&deck.err.length) warn.push({k:"err",t:"一部のページを作れませんでした："+deck.err.join(" / ").slice(0,160)});
-  const score=Math.max(0,100-crit.length*18-warn.filter(w=>!/^(drop|dropn|fixed|roman|pdfnum)$/.test(w.k)).length*5);
+  const score=Math.max(0,100-crit.length*18-warn.filter(w=>!/^(drop|dropn|fixed|roman|pdfnum|enbad|na|teldom|foreign)$/.test(w.k)).length*5);
   return {crit,warn,ok,score,pass:!crit.length}; }
 
 /* ═══════════ v21.8 営業資料 v3 — 画面（納品レベルチェック・生成・プレビュー・ダウンロード） ═══════════
@@ -29359,6 +29497,13 @@ function dk3I18n(rows){ try{ if(typeof I18N==="undefined"||!I18N.dict) return; r
 .dk3-sty .sw{height:46px;border-radius:6px;margin-bottom:6px;position:relative;overflow:hidden}
 .dk3-langs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px} @media(max-width:820px){.dk3-langs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .dk3-langs button{min-height:64px}
+.warn-soft{background:var(--warn-soft);border:1px solid var(--warn);color:var(--ink)}
+.dk3-sel{display:flex;flex-direction:column;gap:6px;margin-top:10px;max-height:460px;overflow-y:auto;padding:2px}
+.dk3-selr{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:4px 10px;align-items:center;border:1px solid var(--line);border-radius:var(--r2);padding:9px 12px;background:var(--surface);cursor:pointer}
+.dk3-selr:hover{border-color:var(--or)} .dk3-selr.on{border-color:var(--or);background:var(--or-soft)} .dk3-selr.main{border-color:var(--bl);background:var(--bl-soft);cursor:default}
+.dk3-selr input{width:18px;height:18px;margin:0;accent-color:var(--or)} .dk3-selr .nm{min-width:0} .dk3-selr .nm b{display:block;font-size:var(--fs-md,15px);line-height:1.35;overflow-wrap:anywhere}
+.dk3-selr .nm small{display:block;color:var(--ink-3);font-size:var(--fs-xs,13px);overflow-wrap:anywhere} .dk3-selr .bd{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:820px){.dk3-selr{grid-template-columns:22px minmax(0,1fr)}.dk3-selr .bd{grid-column:2;justify-content:flex-start}}
 .dk3-steps{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .dk3-st{display:flex;gap:9px;align-items:flex-start;font-size:var(--fs-sm,14px);line-height:1.5} .dk3-st .mk{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);font-size:12px;font-weight:700}
 .dk3-st.ok .mk{background:var(--good-soft);color:var(--good)} .dk3-st.on .mk{background:var(--bl-soft);color:var(--bl)} .dk3-st.ng .mk{background:var(--crit-soft);color:var(--crit)} .dk3-st .d{color:var(--ink-3);font-size:var(--fs-xs,13px)}
@@ -29373,13 +29518,13 @@ function dk3I18n(rows){ try{ if(typeof I18N==="undefined"||!I18N.dict) return; r
 
 /* ── 生成前の納品レベルチェック（必須を増やした：会社の歴史と想い・写真3枚・価格表・MOQ・成分/仕様） ── */
 function dk3Gate(){ if(typeof TEN==="undefined"||!TEN) return [];
-  const T0=TEN, DM=T0.deckMeta||{}, F=DM.facts||{}, R=T0.deckRich||{}, A=T0.assets||{}, S3=dk3Story(T0), FX=dk3Fixed(T0); const en=v=>!!(dk3S(v)&&!dk3JP(v));
+  const T0=TEN, DM=dk3Meta(T0), F=DM.facts||{}, R=T0.deckRich||{}, A=Object.assign({},T0.assets||{},{logo:dk3Logo(T0)}), S3=dk3Story(T0), FX=dk3Fixed(T0); const en=v=>!!(dk3S(v)&&!dk3JP(v));
   const goodN=(A.ph||[]).filter(o=>o&&dkPhGood(o)).length; const histN=((S3.history||[]).length)+String(DM.hist||"").split(/\n/).filter(s=>/\d{4}/.test(s)).length;
   const priceOk=(T0.priceRows||[]).some(r=>(r||[]).some(c=>/[$¥€£₩]|US\$|USD|円|元/.test(String(c||""))||/^\s*[\d,.]+\s*$/.test(String(c||""))));
-  const moqOk=!!dk3S(T0.moq)||(T0.priceCols||[]).some(c=>/moq|最小|ロット/i.test(String(c)));
+  const moqOk=dk3HasMoq(T0);
   const strN=(T0.strengths||[]).filter(s=>s&&dk3S(s[0])&&!dk3Sick(s[0])).length;
   const G=[
-   ["co","会社","coEn",1,"英文社名",en(T0.coEn),"「商品情報を登録」または下の「AI商社マンと埋める」で英文社名を入力"],
+   ["co","会社","coEn",1,"英文社名",en(dk3CoEn(T0)),"「商品情報を登録」または下の「AI商社マンと埋める」で英文社名を入力"],
    ["co","会社","logo",1,"会社・ブランドロゴ",!!(A.logo&&A.logo.b64),"「ロゴ・写真」でロゴをアップロード（透過PNG推奨）"],
    ["co","会社","prof",1,"会社概要（設立・所在地・事業内容）",!!(dk3S(DM.est||F.est)&&dk3S(DM.addr||F.addr||T0.origin)&&dk3S(DM.biz||F.biz)),"「AI商社マンと埋める」→ 設立・所在地・事業内容（公式サイトから自動で集められます）"],
    ["co","会社","hist",1,"沿革（3件以上）または創業の経緯",histN>=3||!!dk3S(DM.story||S3.story||F.story),"「AI商社マンと埋める」→ 沿革（1行に「西暦：出来事」）。公式サイトの沿革ページから自動で集められます"],
@@ -29387,7 +29532,7 @@ function dk3Gate(){ if(typeof TEN==="undefined"||!TEN) return [];
    ["co","会社","ceo",0,"代表メッセージ",!!dk3S(DM.ceoMsg||S3.ceoMsg),"代表者の言葉があると「想い」のページが強くなります"],
    ["co","会社","rec",0,"実績（販売数・導入先・輸出実績など数字）",!!dk3S(DM.records)||(S3.records||[]).length>0,"数字の実績は「実績」のページになります"],
    ["co","会社","award",0,"受賞・特許・認証・メディア掲載",!!dk3S(DM.awards)||(S3.awards||[]).length>0||!!dk3S(T0.cert),"「品質・根拠」のページになります"],
-   ["pd","商品","itemEn",1,"英文商品名",en(T0.itemEn),"「商品情報を登録」で英文商品名を入力（AI提案あり）"],
+   ["pd","商品","itemEn",1,"英文商品名",en(T0.itemEn)&&!dk3GenericName(T0.itemEn,T0),dk3S(T0.itemEn)&&dk3GenericName(T0.itemEn,T0)?"英文商品名「"+dk3S(T0.itemEn)+"」は汎用の名前です。「商品情報を登録」でこの商品の正式な英語名を入力":"「商品情報を登録」で英文商品名を入力（AI提案あり）"],
    ["pd","商品","photo",1,"納品品質の写真（3枚以上）",goodN>=3,"「ロゴ・写真」で高解像度の写真を3枚以上（商品・使用シーン・社屋や工場など）。今 "+goodN+"枚"],
    ["pd","商品","str",1,"商品の強み（3件以上）",strN>=3,"「商品情報を登録」または「AI商社マンと埋める」で強みを追加"],
    ["pd","商品","spec",1,"成分・原材料・仕様（表）",(T0.compRows||[]).length>0,"成分表・規格表を取り込むか「AI商社マンと埋める」で入力"],
@@ -29396,12 +29541,33 @@ function dk3Gate(){ if(typeof TEN==="undefined"||!TEN) return [];
    ["pd","商品","role",0,"社屋・工場・人物・原料の写真",(A.ph||[]).some(o=>o&&/building|people|material|scene/.test(dk3Role(o))),"会社の写真があると「会社概要」「想い」のページが写真つきになります"],
    ["tr","取引条件","price",1,"価格表（単価・数量帯）",priceOk,"価格表を取り込むか「商品情報を登録」で数量帯と単価を入力"],
    ["tr","取引条件","moq",1,"MOQ（最小発注数量）",moqOk,"「商品情報を登録」でMOQを入力"],
+   ...(()=>{ const oth=dk3Sel(T0); if(!oth.length) return []; const bad=oth.filter(t=>{ const x=dk3SelInfo(t); return x.pr&&!x.moq; });
+     return [["tr","取引条件","moq2",1,"資料に含めるほかの商品のMOQ（"+oth.length+"点）",!bad.length,"MOQ未登録："+bad.map(t=>dk3S(t.item)).join("・")+"。その商品に切り替えてMOQを登録するか、「資料に含める商品」でチェックを外してください"]]; })(),
    ["tr","取引条件","term",1,"建値・仕出港（FOB 横浜など）",!!dk3S(T0.term||T0.pol),"「商品情報を登録」で取引条件を入力"],
    ["tr","取引条件","pack",0,"梱包（外箱寸法・入数・重量）",(T0.dimRows||[]).length>0||!!dk3S(T0.ctn),"梱包・物流のページになります"],
    ["ct","連絡先","contact",1,"担当者の連絡先（メール等）",!!(FX.mail||FX.tel),"「AI商社マンと埋める」で担当者名・メール（name@会社.com の形）・電話を入力"],
    ["ct","連絡先","web",0,"公式サイトURL",!!dk3S(DM.web||F.web),"公式サイトから沿革・理念・写真を自動で集められます"]];
   return G.map(g=>({grp:g[0],gn:g[1],k:g[2],req:g[3],n:g[4],ok:!!g[5],how:g[6]})); }
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^写真 (\d+)枚$/,en:"$1 photos",zh:"照片 $1 张",es:"$1 fotos"},
+  {re:/^選択中：(\d+)点（最大(\d+)点）$/,en:"Selected: $1 (max. $2)",zh:"已选：$1 件（最多 $2 件）",es:"Seleccionados: $1 (máx. $2)"},
+  {re:/^含めた商品（(\d+)点）：(.+)$/,en:"Products included ($1): $2",zh:"包含的商品（$1 件）：$2",es:"Productos incluidos ($1): $2"},
+  {re:/^資料に含めるほかの商品のMOQ（(\d+)点）$/,en:"MOQ of the other products included ($1)",zh:"资料中其他商品的最小起订量（$1 件）",es:"MOQ de los demás productos incluidos ($1)"},
+  {re:/^(.+) には、表示中の商品のほかに登録済みの商品が (\d+)点あります。.*$/,en:"$1 has $2 other registered products. You can create a deck for the current product only, or combine several products (the current product is always included as the main product; to make another product the main one, switch to it at the top).",zh:"$1 除当前商品外还有 $2 件已登记商品。可以只为当前商品制作资料，也可以把多个商品合在一起（当前商品一定包含并作为主角；如需以其他商品为主角，请在顶部切换到该商品）。",es:"$1 tiene $2 productos registrados más. Puede crear una presentación solo del producto actual o combinar varios (el producto actual siempre se incluye como principal; para que otro sea el principal, cámbielo arriba)."}
+].forEach(p=>I18N.pat.unshift(p)); }catch(e){}
 if(typeof deckMissReq==="function"){ deckMissReq=function(){ return dk3Gate().filter(c=>c.req&&!c.ok); }; }
+/* 資料に含める商品（同じ会社に複数の商品があるときだけ表示）：表示中の商品は主役として必ず含み、ほかはチェックで選ぶ */
+function dk3SelInfo(t){ const pr=(t.priceRows||[]).some(r=>(r||[]).some(c=>dk3S(c))); const moq=dk3HasMoq(t);
+  const ph=((t.assets||{}).ph||[]).filter(o=>o&&o.b64).length; const en=!!(dk3S(t.itemEn)&&!dk3JP(t.itemEn)); const gen=en&&dk3GenericName(t.itemEn,TEN); return {pr,moq,ph,en:en&&!gen,gen}; }
+function dk3SelHtml(){ if(typeof TEN==="undefined"||!TEN) return ""; const T=TEN; const c=dk3Cands(T); if(!c.length) return ""; if(dk3EnsureUids(T)&&typeof saveTen==="function") saveTen(); const run=!!DK3G.run;
+  const sel=new Set(dk3Sel(T).map(dk3PKey)); const n=1+sel.size;
+  const bd=t=>{ const x=dk3SelInfo(t); return [x.pr?'<span class="p hi">価格表</span>':'<span class="p mid">価格表なし</span>',x.moq?'<span class="p hi">MOQ</span>':(x.pr?'<span class="p no">MOQなし</span>':""),'<span class="p '+(x.ph?"lo":"mid")+'">写真 '+x.ph+'枚</span>',x.en?"":(x.gen?'<span class="p mid">英文名が汎用</span>':'<span class="p mid">英文名なし</span>')].join(""); };
+  const row=(t,main)=>{ const k=dk3PKey(t), on=main||sel.has(k); return `<label class="dk3-selr${main?" main":on?" on":""}"><input type="checkbox" ${main?"checked disabled":`data-dk3sel="${esc(k)}"${on?" checked":""}${run?" disabled":""}`}><span class="nm"><b>${esc(dk3S(t.item))}</b>${dk3S(t.itemEn)&&!dk3JP(t.itemEn)?`<small>${esc(dk3S(t.itemEn))}</small>`:""}</span><span class="bd">${main?'<span class="p on">主役（表示中の商品）</span>':""}${bd(t)}</span></label>`; };
+  return `<div class="c" id="dk3selc"><h3>📦 資料に含める商品</h3>
+    <p class="nn" style="margin-top:4px">${esc(dk3S(T.co))} には、表示中の商品のほかに登録済みの商品が ${c.length}点あります。表示中の商品だけの資料も、複数の商品をまとめた資料も作れます（表示中の商品は必ず含まれ、資料の主役になります。別の商品を主役にするときは、上部でその商品に切り替えてください）。</p>
+    <div class="rw" style="margin-top:8px"><button class="btn g" type="button" id="dk3selall"${run?" disabled":""}>すべて選ぶ</button><button class="btn g" type="button" id="dk3selnone"${run?" disabled":""}>表示中の商品だけ</button>${run?'<span class="nn">資料を作っている間は選び直せません</span>':""}<span class="nn" id="dk3selcnt">選択中：<b>${n}</b>点（最大${DK3_MAXP}点）</span></div>
+    <div class="dk3-sel">${row(T,true)}${c.map(t=>row(t,false)).join("")}</div>
+    <p class="nn" style="margin-top:6px">「MOQなし」の商品を含めると、生成がロックされます（価格を載せる商品は MOQ が必要です）。「価格表なし」の商品は価格を載せずに紹介します。</p></div>`; }
 function dk3GateHtml(){ const G=dk3Gate(); const miss=G.filter(c=>c.req&&!c.ok); const okN=G.filter(c=>c.ok).length; const reqN=G.filter(c=>c.req).length, reqOk=G.filter(c=>c.req&&c.ok).length;
   const grp=[...new Set(G.map(c=>c.gn))];
   return `<div class="c" style="border-color:${miss.length?"var(--warn)":"var(--good)"}"><div class="rw" style="justify-content:space-between;align-items:center;gap:10px">
@@ -29432,7 +29598,8 @@ async function dk3Generate(lang,force){
   if(DK3G.deck) dk3FreeUrls(DK3G.deck); DK3G.lang=lang; DK3G.run=1; DK3G.deck=null; DK3G.check=null; DK3G.err=""; DK3G.cur=0;
   DK3G.steps=[{k:"mat",t:"素材を確認する（ロゴの色・写真の役割）",st:"wait"},{k:"story",t:"会社の歴史と想いを確認する",st:"wait"},{k:"write",t:"根拠を読み込んで文章を書く（"+((DECK_L[lang]||{}).name||lang)+"）",st:"wait"},
     {k:"check1",t:"文章を根拠と1項目ずつ照合する（数字・年・受賞・成分・実績）",st:"wait"},{k:"tr",t:"価格表・寸法・成分・取引条件を訳す（数字は変えない）",st:"wait"},{k:"build",t:"スライドを組み立てる（写真・アイコン・図・グラフ）",st:"wait"},{k:"final",t:"出来上がった資料を納品レベルで最終チェックする",st:"wait"}];
-  if(typeof render==="function") render(); const tenRef=TEN; DK3G.ten=tenRef; const T=tenRef; const alive=()=>{ if(TEN!==tenRef) throw new Error("生成中に表示中の商品が切り替わったため中止しました（元の商品に戻して、もう一度作ってください）"); };
+  const tenRef=TEN; DK3G.ten=tenRef; const T=tenRef; DK3G.snapKey=dk3PKey(tenRef); DK3G.snap=[tenRef].concat(dk3Sel(tenRef)); if(typeof render==="function") render();
+  const alive=()=>{ if(TEN!==tenRef&&!(TEN&&dk3PKey(TEN)===DK3G.snapKey)) throw new Error("生成中に表示中の商品が切り替わったため中止しました（元の商品に戻して、もう一度作ってください）"); };
   const say=(k,d)=>{ const m={"読む":"write","確かめる":"check1","訳す":"tr"}[k]||k; DK3G.steps.forEach(s=>{ if(s.st==="on"&&s.k!==m) s.st="ok"; }); dk3SetStep(m,"on",d); };
   try{
     dk3SetStep("mat","on","ロゴからコーポレートカラーを取り出し、写真を「商品・情景・社屋・人物・原料」に分けています");
@@ -29455,10 +29622,10 @@ async function dk3Generate(lang,force){
     dk3SetStep("build","ok",deck.slides.length+"枚・写真 "+Object.keys(deck.media).filter(k=>/^p\d/.test(k)&&!/c$/.test(k)).length+"枚・アイコン "+Object.keys(deck.media).filter(k=>/^ic:/.test(k)).length+"種・見せ方「"+{elegant:"上品",clinical:"根拠重視",bold:"力強い"}[deck.style]+"」");
     dk3SetStep("final","on"); const ck=dk3Check(deck,{dropped,fixed:tr.fixed,offline,verified,C:corp}); DK3G.deck=deck; DK3G.check=ck; DK3G.ten=T;
     dk3SetStep("final",ck.pass?"ok":"ng",ck.pass?"納品レベル（"+ck.score+"点）":"重大な問題 "+ck.crit.length+"件（下に表示）");
-    T.deck3=T.deck3||{}; T.deck3.last={lang,at:new Date().toISOString(),n:deck.slides.length,score:ck.score,pass:ck.pass,style:deck.style}; if(typeof saveTen==="function") saveTen();
+    const Tc=(TEN&&dk3PKey(TEN)===DK3G.snapKey)?TEN:T; DK3G.ten=Tc; Tc.deck3=Tc.deck3||{}; Tc.deck3.last={lang,at:new Date().toISOString(),n:deck.slides.length,score:ck.score,pass:ck.pass,style:deck.style}; if(typeof saveTen==="function") saveTen();
     if(typeof logU==="function") logU("ai","営業資料生成:"+lang);
   }catch(e){ DK3G.err="生成に失敗しました："+String(e.message||e).slice(0,120); DK3G.steps.forEach(s=>{ if(s.st==="on") s.st="ng"; }); console.warn("dk3",e); }
-  finally{ DK3G.run=0; DK3G.at=Date.now(); if(typeof render==="function"&&typeof cur!=="undefined"&&cur==="deck") render(); else dk3Paint(); } }
+  finally{ DK3G.run=0; DK3G.snap=null; DK3G.at=Date.now(); if(typeof render==="function"&&typeof cur!=="undefined"&&cur==="deck") render(); else dk3Paint(); } }
 /* 未接続・デモ用：登録データから文章の骨組みを作る（外国語にはならない＝最終チェックで止まる） */
 function dk3IcGuess(s){ s=String(s||""); const R=[[/特許|patent/i,"award"],[/受賞|賞|award|金賞|gold/i,"trophy"],[/有機|オーガニック|organic|無農薬/i,"leaf"],[/国産|日本製|made in japan|国内/i,"flag"],[/安全|安心|無添加|低刺激|アレルギー|safe/i,"shield-check"],[/研究|開発|科学|research|lab/i,"microscope"],[/工場|製造|生産|factory/i,"factory"],[/品質|検査|quality|HACCP|ISO|GMP/i,"badge-check"],[/環境|エコ|サステナ|リサイクル|eco/i,"recycle"],[/保湿|水|moist/i,"droplets"],[/温|熱|warm|heat/i,"flame"],[/冷|cold/i,"snowflake"],[/軽量|軽い|light/i,"feather"],[/時間|期間|長持ち|日持ち|shelf/i,"clock"],[/価格|コスト|price/i,"tags"],[/輸出|海外|世界|global|export/i,"globe"],[/医師|医療|病院|doctor/i,"stethoscope"],[/成分|配合|ビタミン|vitamin/i,"flask-conical"],[/香り|香|scent/i,"flower-2"],[/味|おいしい|美味|taste/i,"utensils"]];
   for(const [re,ic] of R){ if(re.test(s)) return ic; } return "circle-check"; }
@@ -29506,24 +29673,28 @@ function dk3Pdf(){ const deck=DK3G.deck; if(!deck) return; if(!(DK3G.check||{}).
   const w=window.open("","_blank"); if(!w){ toast("ポップアップがブロックされました。許可してからもう一度お試しください"); return; }
   const html=deck.slides.map(S=>`<div class="pg">${dk3SlideHtml(S,deck,1)}</div>`).join("");
   w.document.open(); w.document.write(`<!doctype html><html lang="${(DK3_LANGF[deck.lang]||{}).lang||"en"}"><head><meta charset="utf-8"><title>${dk3X(deck.title||"Sales Deck")}</title><style>@page{size:960px 540px;margin:0}html,body{margin:0;padding:0;background:#555}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
-  .pg{width:960px;height:540px;overflow:hidden;page-break-after:always;break-after:page;margin:0 auto 12px}@media print{body{background:#fff}.pg{margin:0}.tip{display:none}}.tip{color:#fff;font:14px/1.6 'Segoe UI',sans-serif;text-align:center;padding:10px}</style></head><body><div class="tip">印刷ダイアログで「送信先：PDFに保存」を選び、「背景のグラフィック」をオンにして保存してください。</div>${html}<script>window.onload=function(){setTimeout(function(){window.print();},600)}<\/script></body></html>`); w.document.close(); }
+  .pg{width:960px;height:540px;overflow:hidden;position:relative;page-break-after:always;break-after:page;margin:0 auto 12px}.pg:last-of-type{page-break-after:auto;break-after:auto}
+  @media print{html,body{background:#fff;width:960px;overflow:hidden}.pg{margin:0}.tip{display:none}}.tip{color:#fff;font:14px/1.6 'Segoe UI',sans-serif;text-align:center;padding:10px}</style></head><body><div class="tip">印刷ダイアログで「送信先：PDFに保存」を選び、「背景のグラフィック」をオンにして保存してください。</div>${html}<script>window.onload=function(){setTimeout(function(){window.print();},600)}<\/script></body></html>`); w.document.close(); }
 
 /* ── 画面：外国語 営業資料 ── */
 if(typeof vDeck==="function"){ vDeck=function(p){
   const has=typeof TEN!=="undefined"&&TEN; const online=typeof ppReady==="function"&&ppReady(); const miss=has?deckMissReq():[]; const locked=has&&miss.length>0;
   const extra=`<button class="btn g" onclick="go('item')">元データを確認する</button>`+(typeof openHealth==="function"?`<button class="btn g" onclick="openHealth()">🧹 データを点検</button>`:"");
-  if(DK3G.deck&&DK3G.ten&&DK3G.ten!==TEN&&!DK3G.run){ dk3FreeUrls(DK3G.deck); DK3G.deck=null; DK3G.check=null; DK3G.steps=[]; DK3G.err=""; }
+  if(DK3G.deck&&DK3G.ten&&(!TEN||dk3PKey(DK3G.ten)!==dk3PKey(TEN))&&!DK3G.run){ dk3FreeUrls(DK3G.deck); DK3G.deck=null; DK3G.check=null; DK3G.steps=[]; DK3G.err=""; }
   const G=DK3G; const last=has&&TEN.deck3&&TEN.deck3.last;
   const langs=Object.keys(DECK_L).map(k=>`<button class="smp" type="button" data-dk3lang="${k}" ${locked||G.run?"disabled":""} style="${locked?"opacity:.5":""}" data-noi18n="1"><b>${DECK_L[k].flag} ${esc(DECK_L[k].name)}</b><br><span class="nn">${locked?"🔒":"PPTX・PDF"}</span></button>`).join("");
   const ck=G.check; const deck=G.deck;
   const res=deck?`<div class="c" id="dk3res1"><div class="rw" style="justify-content:space-between;align-items:center;gap:10px"><h3 style="margin:0">${ck.pass?"✅":"⚠"} 出来上がった資料（${esc((DECK_L[deck.lang]||{}).name||deck.lang)}・${deck.slides.length}枚）</h3><span class="p ${ck.pass?"hi":"no"}">${ck.pass?"納品レベル "+ck.score+"点":"重大な問題 "+ck.crit.length+"件"}</span></div>
+     <p class="nn" style="margin-top:6px">含めた商品（${deck.M.products.length}点）：${deck.M.products.map(x=>esc(x.name)).join("／")}</p>
+     <div id="dk3stale" class="warn-soft" style="display:${deck.prodKeys&&JSON.stringify(deck.prodKeys)!==JSON.stringify(dk3Prods(TEN).map(dk3PKey))?"block":"none"};margin-top:8px;padding:8px 10px;border-radius:var(--r2)">📦 資料に含める商品が変わりました。「↻ もう一度作る」を押すと、今の選択で作り直します。</div>
      <p class="nn" style="margin-top:6px">サムネイルをクリックすると大きく確認できます（← → で移動）。PowerPoint で開くと文字・図形はすべて編集できます。</p>
      <div class="dk3-ck">${ck.crit.map(c=>`<div class="cr">✗ ${esc(c.t)}</div>`).join("")}${ck.warn.map(c=>`<div class="wn">⚠ ${esc(c.t)}</div>`).join("")}${ck.ok.map(c=>`<div class="okk">✓ ${esc(c)}</div>`).join("")}</div>
      <div class="dk3-dl">${ck.pass?`<button class="btn" type="button" id="dk3dl">⬇ PowerPoint（PPTX）をダウンロード</button><button class="btn g" type="button" id="dk3pdf">🖨 PDFで保存</button>`:`<button class="btn g" type="button" id="dk3dldraft">⬇ 下書き（DRAFT透かし入り・社内確認用）を保存</button><span class="nn">上の ✗ を直して「もう一度作る」と納品版を出せます</span>`}
-       <button class="btn g" type="button" id="dk3again">↻ もう一度作る</button></div>
+       <button class="btn g" type="button" id="dk3again"${locked||G.run?" disabled":""}>↻ もう一度作る</button>${locked?'<span class="nn">🔒 納品レベルの必須があと '+miss.length+'項目（上の「納品レベルチェック」）を満たすと作り直せます</span>':""}</div>
      <div id="dk3pv" class="dk3-pvh" data-noi18n="1"></div></div>`:"";
   return ph(p,"登録した会社・商品・資料をAI商社マンが読み込み、海外バイヤー向けの営業資料（英語・中国語・スペイン語・韓国語）を作ります。会社の歴史と想い・写真・図解・コーポレートカラー・価格・MOQ・成分まで、根拠を確かめて1枚ずつ組み立てます。",extra)+
     (typeof healthBanner==="function"?healthBanner():"")+
+    (has?dk3SelHtml():"")+
     (has?dk3GateHtml():"")+
     (has&&typeof deckAssetCard==="function"?deckAssetCard():"")+
     (has?`<div class="c"><h3>🎨 見せ方（デザイン）</h3><p class="nn" style="margin-top:4px">色はロゴから取り出したコーポレートカラーを使います（ロゴ・写真の欄で変更できます）。</p>${dk3StyleHtml()}</div>`:"")+
@@ -29536,6 +29707,13 @@ if(typeof vDeck==="function"){ vDeck=function(p){
 if(typeof deckBind==="function"){ const __dkb3=deckBind; deckBind=function(){ try{ __dkb3.apply(this,arguments); }catch(e){}
   document.querySelectorAll("[data-dk3lang]").forEach(b=>b.onclick=()=>dk3Generate(b.dataset.dk3lang));
   document.querySelectorAll("[data-dk3sty]").forEach(b=>b.onclick=()=>{ if(!TEN) return; TEN.deckStyle=b.dataset.dk3sty; if(typeof saveTen==="function") saveTen(); if(DK3G.deck){ dk3FreeUrls(DK3G.deck); DK3G.deck=null; DK3G.check=null; } render(); toast("見せ方を変更しました（次に作る資料から反映）"); });
+  const selSet=(keys,focusKey)=>{ if(!TEN||DK3G.run) return; TEN.deck3sel=keys; if(typeof saveTen==="function") saveTen(); const se=document.scrollingElement||document.documentElement; const y=se.scrollTop; const bx=document.querySelector(".dk3-sel"); const by=bx?bx.scrollTop:0;
+    render(); se.scrollTop=y; const bx2=document.querySelector(".dk3-sel"); if(bx2) bx2.scrollTop=by; if(focusKey){ const el=[...document.querySelectorAll("[data-dk3sel]")].find(e=>e.dataset.dk3sel===focusKey)||document.getElementById(focusKey); if(el) try{ el.focus({preventScroll:true}); }catch(e){} } };
+  document.querySelectorAll("[data-dk3sel]").forEach(cb=>cb.onchange=()=>{ const k=cb.dataset.dk3sel; const cur=dk3Sel(TEN).map(dk3PKey);
+    if(cb.checked){ if(cur.length>=DK3_MAXP-1){ cb.checked=false; toast("資料に含められるのは最大"+DK3_MAXP+"点です（表示中の商品を含む）"); return; } cur.push(k); } else { const i=cur.indexOf(k); if(i>=0) cur.splice(i,1); }
+    selSet(cur,k); });
+  const sa=document.getElementById("dk3selall"); if(sa) sa.onclick=()=>{ const c=dk3Cands(TEN).map(dk3PKey); if(c.length>DK3_MAXP-1) toast("最大"+DK3_MAXP+"点のため、先頭から"+(DK3_MAXP-1)+"点を選びました"); selSet(c.slice(0,DK3_MAXP-1),"dk3selall"); };
+  const sn=document.getElementById("dk3selnone"); if(sn) sn.onclick=()=>selSet([],"dk3selnone");
   const w=document.getElementById("dk3wiz"); if(w) w.onclick=()=>deckWizard();
   const r=document.getElementById("dk3res"); if(r) r.onclick=async()=>{ const DM=TEN.deckMeta||{}; const site=dk3S(DM.web||(DM.facts||{}).web); const st=document.getElementById("dk3resst");
     if(!site){ toast("先に「ロゴ・写真」の欄で公式サイトのURLを入れてください"); return; } r.disabled=true;
@@ -29544,7 +29722,7 @@ if(typeof deckBind==="function"){ const __dkb3=deckBind; deckBind=function(){ tr
   const dl=document.getElementById("dk3dl"); if(dl) dl.onclick=()=>dk3Download(false);
   const dd=document.getElementById("dk3dldraft"); if(dd) dd.onclick=()=>dk3Download(true);
   const pf=document.getElementById("dk3pdf"); if(pf) pf.onclick=()=>dk3Pdf();
-  const ag=document.getElementById("dk3again"); if(ag) ag.onclick=()=>{ const l=DK3G.deck&&DK3G.deck.lang; if(DK3G.deck) dk3FreeUrls(DK3G.deck); DK3G.deck=null; DK3G.check=null; if(l) dk3Generate(l,true); };
+  const ag=document.getElementById("dk3again"); if(ag) ag.onclick=()=>{ const l=DK3G.deck&&DK3G.deck.lang; if(DK3G.run) return; const miss=deckMissReq(); if(miss.length){ toast("作り直す前に、納品レベルの必須を満たしてください："+miss.map(c=>c.n).join("・")); return; } if(DK3G.deck) dk3FreeUrls(DK3G.deck); DK3G.deck=null; DK3G.check=null; if(l) dk3Generate(l,true); };
   const mount=()=>{ const pv=document.getElementById("dk3pv"); if(pv&&DK3G.deck&&!pv.shadowRoot) dk3MountPreview(pv); };
   if(DK3G.deck){ mount(); setTimeout(mount,60); setTimeout(mount,400); } }; }
 
@@ -29602,6 +29780,11 @@ dk3I18n([
  ["スライドを組み立てる（写真・アイコン・図・グラフ）","Build slides (photos, icons, diagrams, charts)","组装幻灯片（照片・图标・图解・图表）","Montar diapositivas (fotos, iconos, gráficos)"],
  ["出来上がった資料を納品レベルで最終チェックする","Final delivery-level check of the finished deck","对成品做交付级别终检","Control final del resultado"]]);
 dk3I18n([
+ ["📦 資料に含める商品","📦 Products to include","📦 资料中包含的商品","📦 Productos a incluir"],["英文名が汎用","Generic English name","英文名过于笼统","Nombre en inglés genérico"],["価格表","Price list","价格表","Lista de precios"],["MOQ","MOQ","MOQ","MOQ"],
+ ["資料を作っている間は選び直せません","You can't change the selection while the deck is being created","制作资料期间无法重新选择","No puede cambiar la selección mientras se crea la presentación"],
+ ["「MOQなし」の商品を含めると、生成がロックされます（価格を載せる商品は MOQ が必要です）。「価格表なし」の商品は価格を載せずに紹介します。","Including a product marked \"No MOQ\" locks generation (products shown with prices need an MOQ). Products marked \"No price list\" are introduced without prices.","包含标记为“无最小起订量”的商品时将无法生成（显示价格的商品需要最小起订量）。“无价格表”的商品将不显示价格。","Si incluye un producto marcado «Sin MOQ», la generación se bloquea (los productos con precio necesitan un MOQ). Los productos «Sin lista de precios» se presentan sin precios."],
+ ["📦 資料に含める商品が変わりました。「↻ もう一度作る」を押すと、今の選択で作り直します。","📦 The products to include have changed. Press \"↻ Create again\" to rebuild with the current selection.","📦 资料中包含的商品已更改。点击“↻ 重新制作”即可按当前选择重新生成。","📦 Los productos a incluir cambiaron. Pulse «↻ Crear de nuevo» para rehacerla con la selección actual."],["すべて選ぶ","Select all","全选","Seleccionar todo"],["表示中の商品だけ","Only the current product","仅当前商品","Solo el producto actual"],
+ ["主役（表示中の商品）","Main (current product)","主角（当前商品）","Principal (producto actual)"],["価格表なし","No price list","无价格表","Sin lista de precios"],["MOQなし","No MOQ","无最小起订量","Sin MOQ"],["英文名なし","No English name","无英文名","Sin nombre en inglés"],
  ["英文社名","Company name in English","英文公司名","Nombre de la empresa en inglés"],["会社・ブランドロゴ","Company / brand logo","公司・品牌标志","Logotipo de empresa / marca"],
  ["会社概要（設立・所在地・事業内容）","Company profile (founded, location, business)","公司概况（成立・所在地・业务）","Perfil (fundación, ubicación, actividad)"],
  ["沿革（3件以上）または創業の経緯","History (3+ milestones) or founding story","沿革（3项以上）或创业经过","Historia (3+ hitos) u origen"],
