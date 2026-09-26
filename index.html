@@ -1007,7 +1007,7 @@ body.locked .pg-ft{display:none}
         <span class="bdg n" id="belln">3</span></button>
       <button class="ib hm" aria-label="ヘルプ">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 2.4M12 17h.01"/></svg></button>
-      <div class="usr hm"><span><b>kenta omori</b><span>STANDAGE Inc.</span></span></div>
+      <div class="usr hm" id="usrchip"><span><b></b><span></span></span></div>
     </div>
     <div id="guide" hidden></div>
     <div class="stage"><div class="well" id="well"></div></div>
@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="e715ed1fcb29";
+const BC20_BUILD="409c67cb8bb1";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -29800,5 +29800,46 @@ dk3I18n([
  ["担当者の連絡先（メール等）","Contact person (email etc.)","联系人（邮箱等）","Contacto (correo, etc.)"],
  ["「AI商社マンと埋める」で担当者名・メール（name@会社.com の形）・電話を入力","Use \"Fill in with the AI trading assistant\" to enter the contact name, email (name@company.com) and phone","请通过「与AI商社顾问一起补全」填写联系人姓名、邮箱（name@公司.com 格式）和电话","Use «Completar con el asistente IA» para indicar nombre, correo (nombre@empresa.com) y teléfono"],
  ["照合が完了しませんでした（AIの応答が不正・通信の問題）","Verification could not be completed (invalid AI response or connection problem)","核对未能完成（AI 回复无效或通信问题）","No se pudo completar la verificación (respuesta de IA no válida o problema de conexión)"],["公式サイトURL","Official website URL","官网网址","URL del sitio web oficial"]]);
+
+/* ═══════════ v21.10（2026-09-25）上部バー右端の「利用者の表示」 ═══════════
+   不具合：画面の骨組み（head.html）に「kenta omori／STANDAGE Inc.」を固定で書いていたため、どのお客様・管理者の画面にも同じ名前が出ていた。
+   対応：ログインした人を表示する。
+     お客様・物流会社 … ログインした方の名前／会社名（名前を入れずにログインした時は、会社名／アクセスコード）
+     管理者 … 管理者／STANDAGE Inc.
+     デモ版（ログインなし）… デモユーザー／貿易クラウド2.0
+     ログイン前 … 何も出さない
+   描き直しのたびに確かめ、変わった時だけ書き換える（翻訳の層が英・中・西に置き換えた文字を、毎回日本語に戻さないため） */
+function v2110UsrText(){
+  try{
+    if(typeof SES==="undefined") return ["デモユーザー","貿易クラウド2.0"];   /* デモ版：ログインの仕組みが無い */
+    if(!SES) return ["",""];
+    if(SES.t==="admin") return ["管理者","STANDAGE Inc."];
+    if(SES.t==="trial"){
+      const a=(typeof findAcct==="function")?findAcct(SES.code):null;
+      const who=String(SES.who||"").trim(), co=String((a&&a.co)||"").trim(), code=String(SES.code||"").trim();
+      if(who) return [who,co];
+      return co?[co,code]:[code,""];
+    }
+  }catch(e){}
+  return ["",""];
+}
+function v2110Usr(){
+  try{
+    const el=document.getElementById("usrchip"); if(!el) return;
+    const [n,s]=v2110UsrText(), key=n+"\u0001"+s; if(el.__v2110===key) return; el.__v2110=key;
+    const b=el.querySelector("b"), sub=el.querySelector("b+span"); if(!b||!sub) return;
+    b.textContent=n; sub.textContent=s;
+    /* 名前・会社名は長いと「…」で切れるので、マウスを載せると全部見えるように（固定の表示＝管理者・デモ版には付けない） */
+    const fixed=typeof SES==="undefined"||(SES&&SES.t==="admin");
+    if(!fixed&&n) el.title=s?n+"／"+s:n; else el.removeAttribute("title");
+  }catch(e){}
+}
+/* 英・中・西：デモ版の表示（「管理者」は既存の辞書にある） */
+try{ if(typeof I18N!=="undefined"&&I18N.dict){ [["デモユーザー","Demo user","演示用户","Usuario de demostración"]].forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(I18N.dict[l]&&!I18N.dict[l][r[0]]) I18N.dict[l][r[0]]=r[i+1]; }); }); } }catch(e){}
+{ const __r2110=render; render=function(){ const r=__r2110.apply(this,arguments); v2110Usr(); return r; }; }
+if(typeof renderAdmin==="function"){ const __ra2110=renderAdmin; renderAdmin=function(){ const r=__ra2110.apply(this,arguments); v2110Usr(); return r; }; }
+if(typeof fwdRender==="function"){ const __fr2110=fwdRender; fwdRender=function(){ const r=__fr2110.apply(this,arguments); v2110Usr(); return r; }; }
+if(typeof enterApp==="function"){ const __ea2110=enterApp; enterApp=function(){ const r=__ea2110.apply(this,arguments); v2110Usr(); return r; }; }
+v2110Usr(); setTimeout(v2110Usr,400);
 
 </script>
