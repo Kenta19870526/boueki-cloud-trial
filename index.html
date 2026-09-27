@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="409c67cb8bb1";
+const BC20_BUILD="d928e3537f4a";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -29841,5 +29841,253 @@ if(typeof renderAdmin==="function"){ const __ra2110=renderAdmin; renderAdmin=fun
 if(typeof fwdRender==="function"){ const __fr2110=fwdRender; fwdRender=function(){ const r=__fr2110.apply(this,arguments); v2110Usr(); return r; }; }
 if(typeof enterApp==="function"){ const __ea2110=enterApp; enterApp=function(){ const r=__ea2110.apply(this,arguments); v2110Usr(); return r; }; }
 v2110Usr(); setTimeout(v2110Usr,400);
+
+/* v21.11（2026-09-27）外国語 営業資料の「納品レベルチェック」：足りない項目を、その場で入力できるように
+   お客様の声：「英文商品名が足りないと出るが、押しても入力できない。『AI商社マンと埋める』を開いても英文商品名の欄が見つからない」
+   原因：チェック（dk3Gate＝v21.8 の基準。会社名＋Product のような汎用の英文名も「不足」）と、AI商社マンのフォーム
+   （deckWizard＝v1 の deckCheck で欄を出す。英字なら汎用でも「足りている」）の基準がずれていて、欄が出ていなかった。
+   対応：
+   ① チェックの足りない項目を押せるように（押すと、その項目を入力する欄へ移動して光らせ、入力できる状態にする）
+   ② AI商社マンのフォームの先頭に「生成に必要な残り」を、チェックと同じ基準で出す（英文商品名は AI の提案・資料の読み取りも）
+   ③ フォームを開いた時は、最初の足りない欄（項目から開いた時はその欄）へ自動で移動する
+   ④ 保存した後の知らせも、チェックと同じ基準で残りを出す */
+(function(){ try{ if(document.getElementById("wz11css")) return; const st=document.createElement("style"); st.id="wz11css"; st.textContent=`
+.dk3-gi[data-dk3fix]{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.dk3-gi[data-dk3fix]:hover,.dk3-gi[data-dk3fix]:focus-visible{border-color:var(--or);box-shadow:0 0 0 2px rgba(234,88,12,.18);outline:none}
+.dk3-gi .dk3-fixgo{display:block;margin-top:5px;font-size:var(--fs-xs,13px);font-weight:700;color:var(--or)}
+.wz11req{margin-top:10px;padding:10px 12px 12px;border:2px solid var(--warn);border-radius:var(--r2);background:var(--warn-soft)}
+.wz11h{font-weight:700;line-height:1.5}
+.wz11it{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
+.wz11it .lbl{margin-top:0}
+.wz11tools{gap:6px;margin-top:6px;flex-wrap:wrap}
+.wz11st{margin-top:4px;font-weight:700}
+.wz11need{border-color:var(--warn)!important}
+.wz11flash{animation:wz11flash 1.8s ease-out 1}
+@keyframes wz11flash{0%{box-shadow:0 0 0 0 rgba(234,88,12,.6)}25%{box-shadow:0 0 0 6px rgba(234,88,12,.35)}100%{box-shadow:0 0 0 0 rgba(234,88,12,0)}}
+@media (prefers-reduced-motion:reduce){.wz11flash{animation:none;box-shadow:0 0 0 3px rgba(234,88,12,.45)}}
+`; document.head.appendChild(st); }catch(e){} })();
+
+/* 納品レベルチェックの項目 → AI商社マンのフォームの欄（先頭のものへ移動し、全部を光らせる） */
+const WZ11_GO={coEn:["wzCoEn"],itemEn:["wzItemEn"],logo:["wz11LogoB"],photo:["wz11PhB"],role:["wz11PhB"],str:["wzStr"],spec:["wzSpec"],
+  price:["wz11Price"],moq:["wzMoq"],term:["wzTerm"],pack:["wz11Ctn"],prof:["wzEst","wzAddr","wzBiz"],hist:["wz3hist","wz3story"],
+  mission:["wzMission","wz3philo"],ceo:["wz3ceo"],rec:["wz3rec"],award:["wz3awd"],diff:["wz3diff"],cust:["wz3tgt","wz3cust"],
+  contact:["wzPerson","wzMail","wzTel"],web:["wzWeb"]};
+const WZ11_UP={logo:1,photo:1,role:1};
+
+/* チェックの説明文：英文名は「押すとこの場で入力できる」ことを書く（ほかは今までの説明のまま） */
+function wz11How(c){ const T=(typeof TEN!=="undefined"&&TEN)||{}; const ai=typeof ppReady==="function"&&ppReady();
+  if(c.k==="itemEn"){ const cur=dk3S(T.itemEn); const tail=ai?"（AI提案・資料の読み取りも）":"（資料の読み取りも）";
+    return cur&&!dk3JP(cur)&&dk3GenericName(cur,T)?"英文商品名「"+cur+"」は汎用の名前です。押すと、この場で正式な英語名を入力できます"+tail:"押すと、この場で英文商品名を入力できます"+tail; }
+  if(c.k==="coEn") return "押すと、この場で英文社名を入力できます（資料の読み取りも）";
+  return c.how; }
+function wz11Go(c){ return WZ11_UP[c.k]?"アップロードする ›":c.k==="moq2"?"商品の選び直しへ ›":"入力する ›"; }
+
+if(typeof dk3GateHtml==="function"){ dk3GateHtml=function(){ const G=dk3Gate(); const miss=G.filter(c=>c.req&&!c.ok); const okN=G.filter(c=>c.ok).length; const reqN=G.filter(c=>c.req).length, reqOk=G.filter(c=>c.req&&c.ok).length;
+  const grp=[...new Set(G.map(c=>c.gn))];
+  return `<div class="c" style="border-color:${miss.length?"var(--warn)":"var(--good)"}"><div class="rw" style="justify-content:space-between;align-items:center;gap:10px">
+    <h3 style="margin:0">${miss.length?"🔒":"✅"} 納品レベルチェック（生成前）</h3><span class="p ${miss.length?"or":"hi"}">必須 ${reqOk}/${reqN}・全体 ${okN}/${G.length}</span></div>
+    <p class="nn" style="margin-top:6px">${miss.length?`必須があと <b>${miss.length}項目</b> 足りないため、まだ生成できません。<b>会社の歴史と想い・写真3枚・価格表・MOQ・成分や仕様</b>は、海外バイヤーが最初に見る情報なので必須にしています。`:"必須はすべて揃っています。推奨の項目を足すほど、ページが増えて説得力が上がります。"}</p>
+    <div class="rw" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn" type="button" id="dk3wiz">🤖 AI商社マンと埋める${miss.length?`（必須 残り${miss.length}）`:""}</button>
+      ${typeof ppReady==="function"&&ppReady()?`<button class="btn g" type="button" id="dk3res">🔎 公式サイトから沿革・理念・実績を集める</button>`:""}</div>
+    <div id="dk3resst" class="nn" style="margin-top:6px"></div>
+    ${grp.map(g=>`<div class="dk3-grp">${esc(g)}</div><div class="dk3-gate">${G.filter(c=>c.gn===g).map(c=>`<div class="dk3-gi ${c.ok?"ok":c.req?"ng":"rec"}"${c.ok?"":` data-dk3fix="${esc(c.k)}" role="button" tabindex="0" title="押すと、この項目を入力する欄へ移動します"`}><span class="mk">${c.ok?"✓":c.req?"!":"＋"}</span><div><b>${esc(c.n)}${c.req?"":"（推奨）"}</b>${c.ok?"":`<span class="nn">${esc(wz11How(c))}</span><span class="dk3-fixgo">${wz11Go(c)}</span>`}</div></div>`).join("")}</div>`).join("")}</div>`; }; }
+
+/* 押した項目へ：資料に含める商品の MOQ はページの「資料に含める商品」へ、それ以外は AI商社マンのフォームの、その欄へ */
+function dk3FixGo(k){
+  if(k==="moq2"){ const s=document.getElementById("dk3selc"); if(s){ try{ s.scrollIntoView({block:"start",behavior:"smooth"}); }catch(e){} s.classList.remove("wz11flash"); void s.offsetWidth; s.classList.add("wz11flash"); } return; }
+  if(typeof deckWizard==="function") deckWizard({focus:k}); }
+if(typeof deckBind==="function"){ const __dkb11=deckBind; deckBind=function(){ const r=__dkb11.apply(this,arguments);
+  try{ document.querySelectorAll("[data-dk3fix]").forEach(el=>{ el.onclick=()=>dk3FixGo(el.dataset.dk3fix);
+    el.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); dk3FixGo(el.dataset.dk3fix); } }; }); }catch(e){}
+  return r; }; }
+
+/* ── AI商社マンのフォーム：先頭に「生成に必要な残り」（チェックと同じ基準） ── */
+function wz11ReqHtml(G,focusK){
+  const T=TEN; const miss=G.filter(c=>c.req&&!c.ok); const want=k=>miss.some(c=>c.k===k)||focusK===k; const it=[];
+  const box=(k,body)=>`<div class="wz11it" data-wz11k="${k}">${body}</div>`;
+  const inp=(id,label,ph,val)=>`<p class="lbl">${label}</p><input class="sel wz11need" id="${id}" value="${esc(val||"")}" placeholder="${esc(ph)}" style="width:100%;box-sizing:border-box">`;
+  const ta=(id,label,ph,val,h)=>`<p class="lbl">${label}</p><textarea class="sel wz11need" id="${id}" style="width:100%;min-height:${h||64}px;box-sizing:border-box;resize:vertical" placeholder="${esc(ph)}">${esc(val||"")}</textarea>`;
+  const ai=typeof ppReady==="function"&&ppReady();
+  const acc=typeof FACCEPT!=="undefined"?FACCEPT:".xlsx,.xlsm,.csv,.txt,.docx,.pptx,.pdf,.png,.jpg,.jpeg";
+  const tools=(k,aiLabel)=>`<div class="rw wz11tools">${aiLabel&&ai?`<button type="button" class="btn g" data-wz11ai="${k}">${aiLabel}</button>`:""}<label class="btn g" style="cursor:pointer">📎 資料から読み取る<input type="file" hidden data-wz11file="${k}" accept="${esc(acc)}"></label></div><div class="nn wz11st" data-wz11st="${k}"></div>`;
+  const mark=(req)=>req?"🔴 ":"";
+  const isReq=k=>G.some(c=>c.k===k&&c.req);
+  if(want("itemEn")){ const cur=dk3S(T.itemEn); const gen=!!(cur&&!dk3JP(cur)&&dk3GenericName(cur,T));
+    it.push(box("itemEn",`${inp("wzItemEn",mark(1)+"英文商品名（必須）","例：Organic Matcha Powder 100g",gen||dk3JP(cur)?"":cur)}${gen?`<p class="nn" style="margin-top:4px">今の英文商品名「${esc(cur)}」は汎用の名前です。この商品の種類が伝わる英語名にしてください。</p>`:""}${tools("itemEn","🤖 AIに英語の商品名を提案してもらう")}`)); }
+  if(want("coEn")) it.push(box("coEn",`${inp("wzCoEn",mark(1)+"英文社名（必須）","例：MIDORI SEICHA Co., Ltd.",dk3JP(dk3S(T.coEn))?"":dk3S(T.coEn))}${tools("coEn","")}`));
+  if(want("str")) it.push(box("str",ta("wzStr",mark(1)+"商品の強み（必須・1行に1件「見出し｜補足」・合計3件以上）","例：\n10年連続シェアNo.1｜国内販売実績\n5つの無添加｜低刺激処方",(T.strengths||[]).map(s=>(s[0]||"")+(s[1]?"｜"+s[1]:"")).join("\n"))));
+  if(want("spec")) it.push(box("spec",ta("wzSpec",mark(1)+"成分・原材料・仕様（必須・1行に1項目「項目：内容」）","例：\n容量：210mL\n原材料：水・BG・グリセリン",(T.compRows||[]).map(r=>(r[0]||"")+"："+(r[1]||"")).join("\n"),56)));
+  if(want("price")) it.push(box("price",ta("wz11Price",mark(1)+"価格表（必須・1行に1段「数量｜単価」）","例：\n〜499個｜US$15.80\n500個〜｜US$14.50",(T.priceRows||[]).map(r=>(r||[]).map(c=>String(c==null?"":c)).join("｜")).join("\n"),56)));
+  if(want("moq")) it.push(box("moq",inp("wzMoq",mark(1)+"MOQ（最小発注数量・必須）","例：500個",T.moq)));
+  if(want("term")) it.push(box("term",inp("wzTerm",mark(1)+"建値・仕出港（必須）","例：FOB 横浜",T.term)));
+  if(want("pack")) it.push(box("pack",inp("wz11Ctn",mark(isReq("pack"))+"梱包（外箱の寸法・入数・重量）","例：40×30×25cm・24個入・8kg",T.ctn)));
+  if(want("logo")) it.push(box("logo",`<p class="lbl">${mark(1)}会社・ブランドロゴ（必須）</p><div class="rw wz11tools"><label class="btn g" id="wz11LogoB" tabindex="0" style="cursor:pointer">🏷 ロゴをアップロード<input type="file" hidden id="wz11LogoF" accept="image/*"></label></div><div class="nn wz11st" data-wz11st="logo"></div>`));
+  if(want("photo")||want("role")) it.push(box(want("photo")?"photo":"role",`<p class="lbl">${mark(want("photo"))}${want("photo")?"納品品質の写真（必須・3枚以上）":"社屋・工場・人物・原料の写真"}</p><div class="rw wz11tools"><label class="btn g" id="wz11PhB" tabindex="0" style="cursor:pointer">📷 写真をアップロード（複数OK）<input type="file" hidden id="wz11PhF" accept="image/*" multiple></label></div><p class="nn" style="margin-top:4px">高解像度（短辺420px以上）で、画像の中に日本語の説明文が無い写真が「納品品質」になります。</p><div class="nn wz11st" data-wz11st="photo"></div>`));
+  /* 欄がフォームの下にある必須（会社概要・沿革・理念・連絡先）は、そこへ移動するボタン */
+  const J={prof:"会社概要（設立・所在地・事業内容）",hist:"沿革（3件以上）または創業の経緯",mission:"理念・ミッション（会社の想い）",contact:"担当者の連絡先（メール等）"};
+  Object.keys(J).forEach(k=>{ if(want(k)) it.push(box(k,`<p class="lbl">${mark(isReq(k))}${J[k]}</p><div class="rw wz11tools"><button type="button" class="btn g" data-wz11go="${k}">↓ 下の欄で入力する</button></div>`)); });
+  if(!it.length) return "";
+  return `<div class="wz11req" id="wz11req"><div class="wz11h">${miss.length?"🔴 生成に必要な残り "+miss.length+"項目（ここで入力できます。保存すると「納品レベルチェック」にすぐ反映されます）":"この項目をここで入力できます（保存すると「納品レベルチェック」にすぐ反映されます）"}</div>${it.join("")}</div>`; }
+
+/* 欄へ移動して光らせ、入力できる状態にする */
+function wz11Focus(k){
+  const pn=document.getElementById("pn"); if(!pn) return;
+  const ids=WZ11_GO[k]||[]; const flds=ids.map(id=>document.getElementById(id)).filter(Boolean);
+  /* 会社概要・沿革・理念・連絡先は、下にある本来の欄へ。ほかは先頭の「残り」の欄へ */
+  const JUMP={prof:1,hist:1,mission:1,contact:1};
+  const el=(!JUMP[k]&&pn.querySelector(`[data-wz11k="${k}"]`))||(flds[0]&&(flds[0].closest(".g2")||flds[0]))||pn.querySelector(`[data-wz11k="${k}"]`);
+  if(!el) return;
+  try{ el.scrollIntoView({block:"center"}); }catch(e){}
+  (flds.length?flds:[el]).forEach(x=>{ x.classList.add("wz11need"); x.classList.remove("wz11flash"); void x.offsetWidth; x.classList.add("wz11flash"); });
+  /* 入力欄があればそこへ、アップロードのボタン（ロゴ・写真）ならボタンへ（Enter で選べる） */
+  const f=flds.find(x=>/^(INPUT|TEXTAREA)$/.test(x.tagName)&&x.type!=="file")||el.querySelector("input:not([type=file]),textarea")||flds.find(x=>x.tagName==="LABEL");
+  if(f) setTimeout(()=>{ try{ f.focus({preventScroll:true}); }catch(e){} },80); }
+
+/* 資料から英文名を読み取る（登録はせず、欄に入れるだけ。保存して反映） */
+async function wz11ReadFile(f){
+  const ext=typeof FEXT==="function"?FEXT(f.name):String(f.name).split(".").pop().toLowerCase();
+  const ai=typeof ppReady==="function"&&ppReady(); const x={};
+  const put=o=>{ if(o&&typeof o==="object") ["itemEn","coEn"].forEach(k=>{ if(!x[k]&&o[k]) x[k]=o[k]; }); };
+  /* 見出しの言い方の違い（「英文商品名」「English name」など。取り込みの読み取りが拾わない言い方も）で、隣の欄の値を拾う */
+  const LB={itemEn:/^(英文商品名|英語の?商品名|英文の商品名|英文名称?|英語名|英文品名|english\s*(product\s*)?name|product\s*name\s*[（(]?\s*(en|english)\s*[)）]?)$/i,
+    coEn:/^(英文社名|英語の?社名|英文の社名|英文会社名|company\s*name\s*[（(]?\s*(en|english)\s*[)）]?|english\s*company\s*name)$/i};
+  const fromGrid=grids=>{ (grids||[]).forEach(g=>(g||[]).forEach(r=>(r||[]).forEach((c,i)=>{ const lab=String(c==null?"":c).replace(/[:：\s]+$/,"").trim();
+    Object.keys(LB).forEach(k=>{ if(!x[k]&&LB[k].test(lab)){ const v=r.slice(i+1).find(v2=>String(v2==null?"":v2).trim()); if(v) x[k]=String(v).trim(); } }); }))); };
+  const fromText=t=>{ String(t||"").split(/\r?\n/).forEach(l=>{ const m=l.match(/^\s*([^:：\t,，|｜]{2,40}?)\s*[:：\t,，|｜]\s*(.{2,120})$/); if(m) Object.keys(LB).forEach(k=>{ if(!x[k]&&LB[k].test(m[1].trim())) x[k]=m[2].trim(); }); }); };
+  if(/^(xlsx|xlsm|csv|txt)$/.test(ext)){ put(await buildTenant(f));
+    if(!x.itemEn||!x.coEn){ try{ const sh=/^xls/.test(ext)?await readWorkbook(f):parseCSV(typeof zipTextDec==="function"?zipTextDec(new Uint8Array(await f.arrayBuffer())):await f.text()); fromGrid(sh.map(s=>s.grid)); }catch(e){} }
+    if((!x.itemEn||!x.coEn)&&/^(csv|txt)$/.test(ext)&&ai){ try{ put(await llmXtract({text:String(await f.text()).slice(0,15000),filename:f.name})); }catch(e){} } return x; }
+  if(ext==="docx"||ext==="pptx"){ const ex=ext==="docx"?await extractDocx(f):await extractPptx(f); put(tenantFromTextGrids(ex.text,ex.grids,f.name,ex.pages));
+    if(!x.itemEn||!x.coEn){ try{ fromGrid(ex.grids); fromText(ex.text); }catch(e){} }
+    if((!x.itemEn||!x.coEn)&&ai){ try{ put(await llmXtract({text:ex.text.slice(0,11000),filename:f.name})); }catch(e){} } return x; }
+  if(/^(pdf|png|jpg|jpeg)$/.test(ext)){ if(!(ai&&typeof llmCanFile==="function"&&llmCanFile(ext))) throw new Error("PDF・画像の読み取りにはAIエンジンの接続が必要です（Excel・Word・PowerPoint・CSVならこのまま読めます）");
+    put(await llmXtract({att:{mime:FMIME[ext],b64:await fileB64(f),name:f.name},filename:f.name})); return x; }
+  throw new Error("この形式には対応していません（Excel・Word・PowerPoint・CSV・PDF・画像）"); }
+
+/* AI に英語の商品名を提案してもらう（登録データだけを根拠に。汎用の名前・推測の付け足しは禁止） */
+async function wz11AiItemEn(){
+  const T=TEN; const strs=(T.strengths||[]).slice(0,3).map(s=>dk3S(s&&s[0])).filter(Boolean).join("／");
+  const spec=(T.compRows||[]).slice(0,5).map(r=>dk3S(r&&r[0])+"："+dk3S(r&&r[1])).filter(s=>s!=="：").join("／");
+  const r=await llmAsk(`日本の商品「${dk3S(T.item)}」（会社「${dk3S(T.co)}」・カテゴリ「${dk3S(T.cat)}」）の、海外のバイヤーに向けた正式な英語の商品名を1つ提案してください。JSONのみで返す：{"en":"英語の商品名","why":"根拠（日本語で1文）"}
+規則：
+・会社名＋Product／Item のような汎用の名前は禁止。商品の種類が伝わる名前にする（例：Organic Matcha Powder 100g）。
+・容量・数量・等級は、下の登録データにある時だけ入れる（推測で付け足さない）。ブランド名・固有名詞はローマ字のまま残す。
+・日本語の文字は使わない。
+登録データ：強み=${strs||"なし"}／成分・仕様=${spec||"なし"}／今の英文名=${dk3S(T.itemEn)||"なし"}`,300,{task:"deck"});
+  const j=JSON.parse(String(r&&r.txt!==undefined?r.txt:r).replace(/```json|```/g,"").match(/\{[\s\S]*\}/)[0]);
+  return {en:dk3S(j.en),why:dk3S(j.why)}; }
+
+if(typeof deckWizard==="function"){ const __wz11=deckWizard; deckWizard=async function(opt){
+  opt=opt&&typeof opt==="object"?opt:{};
+  /* v1 の「不足」の欄は出さない（基準が古い）。代わりに、チェックと同じ基準の欄を先頭に出す */
+  let r; const dc=typeof deckCheck==="function"?deckCheck:null;
+  if(dc) deckCheck=function(){ return dc.apply(this,arguments).map(c=>Object.assign({},c,{ok:true})); };
+  try{ r=__wz11.apply(this,arguments); } finally{ if(dc) deckCheck=dc; }
+  r=await r;
+  try{
+    const pn=document.getElementById("pn"); const sv=document.getElementById("wzSave"); if(!pn||!sv||document.getElementById("wz11req")) return r;
+    const G=dk3Gate(); const focusK=opt.focus||((G.find(c=>c.req&&!c.ok)||{}).k)||"";
+    const html=wz11ReqHtml(G,opt.focus||""); const intro=pn.querySelector("h3+p.nn");
+    if(html&&intro){ const d=document.createElement("div"); d.innerHTML=html; intro.parentNode.insertBefore(d.firstElementChild,intro.nextSibling); }
+    const st=k=>pn.querySelector(`[data-wz11st="${k}"]`); const say=(k,m)=>{ const e=st(k); if(e) e.innerHTML=m; };
+    /* 資料から読み取る */
+    pn.querySelectorAll("[data-wz11file]").forEach(inp=>inp.onchange=async e=>{ const f=e.target.files[0]; const k=inp.dataset.wz11file; e.target.value=""; if(!f) return;
+      say(k,'<span class="spin"></span> '+esc(f.name)+" を読み取っています…");
+      try{ const x=await wz11ReadFile(f); const v=dk3S(x[k]); const ok=v&&!dk3JP(v)&&!(k==="itemEn"&&dk3GenericName(v,TEN));
+        if(ok){ const fld=document.getElementById(k==="itemEn"?"wzItemEn":"wzCoEn"); if(fld){ fld.value=v; fld.classList.remove("wz11flash"); void fld.offsetWidth; fld.classList.add("wz11flash"); }
+          say(k,"✓ 「"+esc(f.name)+"」から読み取りました："+esc(v)+"（「保存して資料に反映」で確定します）"); }
+        else say(k,"「"+esc(f.name)+"」から"+(k==="itemEn"?"英文商品名":"英文社名")+"は見つかりませんでした。欄に直接入力してください。"); }
+      catch(err){ say(k,"⚠ "+esc(String(err&&err.message||err).slice(0,90))); } });
+    /* AI の提案 */
+    pn.querySelectorAll("[data-wz11ai]").forEach(b=>b.onclick=async()=>{ const k=b.dataset.wz11ai; b.disabled=true; say(k,'<span class="spin"></span> 登録データから英語の商品名を考えています…');
+      try{ const x=await wz11AiItemEn(); const ok=x.en&&!dk3JP(x.en)&&!dk3GenericName(x.en,TEN);
+        if(ok){ const fld=document.getElementById("wzItemEn"); if(fld){ fld.value=x.en; fld.classList.remove("wz11flash"); void fld.offsetWidth; fld.classList.add("wz11flash"); }
+          say(k,"✓ 案："+esc(x.en)+(x.why?"（"+esc(x.why)+"）":"")+"。確認して「保存して資料に反映」で確定します"); }
+        else say(k,"良い案を作れませんでした。欄に直接入力してください。"); }
+      catch(err){ say(k,"⚠ 提案を作れませんでした："+esc(String(err&&err.message||err).slice(0,60))); } b.disabled=false; });
+    /* ロゴ・写真のアップロード（その場で設定される。残りの必須を知らせる） */
+    const waitImg=(k,chk,label)=>{ let n=0; say(k,'<span class="spin"></span> '+label+"を読み込んでいます…"); const tm=setInterval(()=>{ n++;
+      if(chk()){ clearInterval(tm); const ph=dk3Gate().find(c=>c.k==="photo");
+        say(k,k==="logo"?"✅ ロゴを設定しました":ph&&!ph.ok?"✅ 写真を設定しました（納品品質の写真が3枚以上で必須を満たします）":"✅ 写真を設定しました（写真の必須を満たしました）"); }
+      else if(n>20){ clearInterval(tm); say(k,"⚠ 読み込みを確認できませんでした。ページの「ロゴ・写真」からもお試しください"); } },500); };
+    const lf=document.getElementById("wz11LogoF"); if(lf) lf.onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(!f) return;
+      const had=(dkAssets().logo&&dkAssets().logo.b64)||""; dkSetAssetFile("logo",f); waitImg("logo",()=>{ const o=dkAssets().logo; return !!(o&&o.b64&&o.b64!==had); },"ロゴ"); };
+    const pf=document.getElementById("wz11PhF"); if(pf) pf.onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; if(!fs.length) return;
+      const A2=dkEnsureAssets(); const n0=(A2.ph||[]).filter(o=>o&&o.b64).length; let put=0;
+      fs.slice(0,6).forEach(f=>{ const A3=dkEnsureAssets(); const slot=PH_IDX.find(i=>!A3.ph[i]); if(slot!==undefined){ dkSetAssetFile("ph",f,slot); put++; } });
+      if(!put){ say("photo","写真の枠がいっぱいです。ページの「ロゴ・写真」で入れ替えてください"); return; }
+      waitImg("photo",()=>((dkAssets().ph||[]).filter(o=>o&&o.b64).length>n0),"写真"); };
+    /* アップロードのボタン（label）は Enter／スペースでもファイルを選べる */
+    ["wz11LogoB","wz11PhB"].forEach(id=>{ const lb=document.getElementById(id); if(lb) lb.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); const fi=lb.querySelector("input[type=file]"); if(fi) fi.click(); } }; });
+    /* 下の欄へ移動 */
+    pn.querySelectorAll("[data-wz11go]").forEach(b=>b.onclick=()=>wz11Focus(b.dataset.wz11go));
+    /* 保存：v1 の保存（英文名・強み・成分・MOQ・建値は同じ id の欄を読む）の前に、価格表・梱包を入れる。後で、チェックと同じ基準で残りを知らせる */
+    sv.addEventListener("click",()=>{ try{ const v=id=>{ const e=document.getElementById(id); return e?String(e.value||"").trim():null; };
+      const pr=v("wz11Price"); if(pr){ const rows=pr.split(/\n/).map(s=>s.trim()).filter(Boolean).map(l=>{ const p=l.split(/[｜|]/); return p.length>1?[p[0].trim(),p.slice(1).join("｜").trim()]:["",p[0].trim()]; }).filter(x=>x[0]||x[1]).slice(0,12);
+        if(rows.length){ TEN.priceRows=rows; if(!(TEN.priceCols&&TEN.priceCols.length)) TEN.priceCols=["数量","単価"]; } }
+      const ct=v("wz11Ctn"); if(ct) TEN.ctn=ct; }catch(e){} },true);
+    sv.addEventListener("click",()=>{ setTimeout(()=>{ try{ const G2=dk3Gate(); const left=G2.filter(c=>c.req&&!c.ok);
+      /* 残りの名前は項目の切れ目で短くする（途中で切らない） */
+      const nm=[]; for(const c of left){ if(nm.length&&(nm.join("・")+"・"+c.n).length>40){ nm.push("ほか"); break; } nm.push(c.n); }
+      toast(left.length?"保存しました（必須 "+G2.filter(c=>c.req&&c.ok).length+"/"+G2.filter(c=>c.req).length+"）。必須はあと"+left.length+"件："+nm.join("・")
+        :"保存しました。納品レベルの必須がすべて揃い、生成できるようになりました 🎉"); }catch(e){} },0); });
+    if(focusK) setTimeout(()=>wz11Focus(focusK),60);
+  }catch(e){ try{ console.warn("wz11",e); }catch(e2){} }
+  return r; }; }
+
+/* 翻訳（英・中・西）。辞書に無い文は、画面の翻訳の仕組み（段落・パターン）で訳す */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+ ["押すと、この場で英文商品名を入力できます（AI提案・資料の読み取りも）","Click to enter the English product name here (AI suggestion and reading from documents available)","点击即可在此输入英文商品名（也可AI建议・从资料读取）","Haga clic para introducir aquí el nombre del producto en inglés (sugerencia de IA y lectura de documentos disponibles)"],
+ ["押すと、この場で英文商品名を入力できます（資料の読み取りも）","Click to enter the English product name here (reading from documents available)","点击即可在此输入英文商品名（也可从资料读取）","Haga clic para introducir aquí el nombre del producto en inglés (también desde documentos)"],
+ ["✅ ロゴを設定しました","✅ Logo set","✅ 已设置标志","✅ Logotipo configurado"],
+ ["✅ 写真を設定しました（納品品質の写真が3枚以上で必須を満たします）","✅ Photos set (3 or more delivery-quality photos meet the requirement)","✅ 已设置照片（交付级照片3张以上即满足必填）","✅ Fotos configuradas (3 o más fotos de calidad de entrega cumplen el requisito)"],
+ ["✅ 写真を設定しました（写真の必須を満たしました）","✅ Photos set (the photo requirement is met)","✅ 已设置照片（已满足照片必填）","✅ Fotos configuradas (se cumple el requisito de fotos)"],
+ ["写真の枠がいっぱいです。ページの「ロゴ・写真」で入れ替えてください","All photo slots are full. Replace photos in \"Logo & photos\" on the page","照片栏已满。请在页面的“标志・照片”中替换","Todos los espacios de fotos están llenos. Sustitúyalas en «Logo y fotos» de la página"],
+ ["⚠ 読み込みを確認できませんでした。ページの「ロゴ・写真」からもお試しください","⚠ Could not confirm the upload. Please also try \"Logo & photos\" on the page","⚠ 未能确认读取。也请尝试页面的“标志・照片”","⚠ No se pudo confirmar la carga. Pruebe también «Logo y fotos» de la página"],
+ ["登録データから英語の商品名を考えています…","Thinking of an English product name from the registered data…","正在根据登记数据构思英文商品名…","Pensando un nombre en inglés a partir de los datos registrados…"],
+ ["例：Organic Matcha Powder 100g","e.g. Organic Matcha Powder 100g","例：Organic Matcha Powder 100g","p. ej. Organic Matcha Powder 100g"],
+ ["例：MIDORI SEICHA Co., Ltd.","e.g. MIDORI SEICHA Co., Ltd.","例：MIDORI SEICHA Co., Ltd.","p. ej. MIDORI SEICHA Co., Ltd."],
+ ["例：500個","e.g. 500 pcs","例：500个","p. ej. 500 uds."],["例：FOB 横浜","e.g. FOB Yokohama","例：FOB 横滨","p. ej. FOB Yokohama"],
+ ["例：40×30×25cm・24個入・8kg","e.g. 40×30×25 cm, 24 pcs/carton, 8 kg","例：40×30×25cm・每箱24个・8kg","p. ej. 40×30×25 cm, 24 uds./caja, 8 kg"],
+ ["押すと、この場で英文社名を入力できます（資料の読み取りも）","Click to enter the English company name here (reading from documents available)","点击即可在此输入英文公司名（也可从资料读取）","Haga clic para introducir aquí el nombre de la empresa en inglés (también desde documentos)"],
+ ["入力する ›","Enter ›","去填写 ›","Introducir ›"],["アップロードする ›","Upload ›","去上传 ›","Subir ›"],["商品の選び直しへ ›","Change product selection ›","重新选择商品 ›","Cambiar selección ›"],
+ ["押すと、この項目を入力する欄へ移動します","Click to jump to the field for this item","点击跳转到该项目的输入栏","Haga clic para ir al campo de este elemento"],
+ ["🔴 英文商品名（必須）","🔴 English product name (required)","🔴 英文商品名（必填）","🔴 Nombre del producto en inglés (obligatorio)"],
+ ["🔴 英文社名（必須）","🔴 English company name (required)","🔴 英文公司名（必填）","🔴 Nombre de la empresa en inglés (obligatorio)"],
+ ["🤖 AIに英語の商品名を提案してもらう","🤖 Ask AI to suggest an English product name","🤖 请AI建议英文商品名","🤖 Pedir a la IA un nombre en inglés"],
+ ["📎 資料から読み取る","📎 Read from a document","📎 从资料读取","📎 Leer de un documento"],
+ ["🔴 商品の強み（必須・1行に1件「見出し｜補足」・合計3件以上）","🔴 Product strengths (required; one per line \"heading｜detail\"; 3 or more)","🔴 商品优势（必填・每行1条「标题｜补充」・共3条以上）","🔴 Puntos fuertes (obligatorio; uno por línea «título｜detalle»; 3 o más)"],
+ ["🔴 成分・原材料・仕様（必須・1行に1項目「項目：内容」）","🔴 Ingredients / materials / specifications (required; one per line \"item: content\")","🔴 成分・原料・规格（必填・每行1项「项目：内容」）","🔴 Ingredientes / materiales / especificaciones (obligatorio; uno por línea «elemento: contenido»)"],
+ ["🔴 価格表（必須・1行に1段「数量｜単価」）","🔴 Price table (required; one tier per line \"quantity｜unit price\")","🔴 价格表（必填・每行1档「数量｜单价」）","🔴 Tabla de precios (obligatorio; un tramo por línea «cantidad｜precio unitario»)"],
+ ["🔴 MOQ（最小発注数量・必須）","🔴 MOQ (minimum order quantity, required)","🔴 最小起订量（必填）","🔴 MOQ (cantidad mínima de pedido, obligatorio)"],
+ ["🔴 建値・仕出港（必須）","🔴 Incoterm / port of loading (required)","🔴 贸易术语・装运港（必填）","🔴 Incoterm / puerto de carga (obligatorio)"],
+ ["梱包（外箱の寸法・入数・重量）","Packing (carton size, units per carton, weight)","包装（外箱尺寸・入数・重量）","Embalaje (medidas de caja, unidades por caja, peso)"],
+ ["🔴 梱包（外箱の寸法・入数・重量）","🔴 Packing (carton size, units per carton, weight)","🔴 包装（外箱尺寸・入数・重量）","🔴 Embalaje (medidas de caja, unidades por caja, peso)"],
+ ["🔴 会社・ブランドロゴ（必須）","🔴 Company / brand logo (required)","🔴 公司・品牌标志（必填）","🔴 Logotipo de empresa / marca (obligatorio)"],
+ ["🏷 ロゴをアップロード","🏷 Upload logo","🏷 上传标志","🏷 Subir logotipo"],
+ ["🔴 納品品質の写真（必須・3枚以上）","🔴 Delivery-quality photos (required; 3 or more)","🔴 交付级照片（必填・3张以上）","🔴 Fotos de calidad de entrega (obligatorio; 3 o más)"],
+ ["社屋・工場・人物・原料の写真","Photos of offices, factory, people and raw materials","公司大楼・工厂・人物・原料的照片","Fotos de oficinas, fábrica, personas y materias primas"],
+ ["📷 写真をアップロード（複数OK）","📷 Upload photos (multiple OK)","📷 上传照片（可多张）","📷 Subir fotos (varias)"],
+ ["高解像度（短辺420px以上）で、画像の中に日本語の説明文が無い写真が「納品品質」になります。","High-resolution photos (short side 420 px or more) without Japanese text inside the image count as delivery quality.","高分辨率（短边420px以上）且图片中没有日文说明的照片为“交付级”。","Las fotos de alta resolución (lado corto de 420 px o más) sin texto en japonés dentro cuentan como calidad de entrega."],
+ ["🔴 会社概要（設立・所在地・事業内容）","🔴 Company profile (founded, address, business)","🔴 公司概况（成立・地址・业务）","🔴 Perfil de la empresa (fundación, dirección, actividad)"],
+ ["🔴 沿革（3件以上）または創業の経緯","🔴 History (3 or more) or founding story","🔴 沿革（3条以上）或创业经过","🔴 Historia (3 o más) o historia de fundación"],
+ ["🔴 理念・ミッション（会社の想い）","🔴 Philosophy / mission","🔴 理念・使命（公司的想法）","🔴 Filosofía / misión"],
+ ["🔴 担当者の連絡先（メール等）","🔴 Contact person (email etc.)","🔴 负责人联系方式（邮箱等）","🔴 Persona de contacto (correo, etc.)"],
+ ["↓ 下の欄で入力する","↓ Enter in the field below","↓ 在下方栏中填写","↓ Introducir en el campo de abajo"],
+ ["この項目をここで入力できます（保存すると「納品レベルチェック」にすぐ反映されます）","You can enter this item here (saving updates the delivery-level check immediately)","可在此输入该项目（保存后立即反映到“交付级别检查”）","Puede introducir este elemento aquí (al guardar se actualiza de inmediato el control de nivel de entrega)"],
+ ["良い案を作れませんでした。欄に直接入力してください。","Could not make a good suggestion. Please type it into the field.","未能给出合适的建议。请直接在栏中输入。","No se pudo hacer una buena sugerencia. Escríbalo en el campo."],
+ ["保存しました。納品レベルの必須がすべて揃い、生成できるようになりました 🎉","Saved. All required items are complete and you can now generate the deck 🎉","已保存。交付级别的必填项已全部齐全，可以生成了 🎉","Guardado. Todos los elementos obligatorios están completos y ya puede generar 🎉"]
+]); }catch(e){}
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^英文商品名「(.+)」は汎用の名前です。押すと、この場で正式な英語名を入力できます（AI提案・資料の読み取りも）$/,en:"The English product name \"$1\" is generic. Click to enter the proper English name here (AI suggestion and reading from documents available)",zh:"英文商品名“$1”是通用名称。点击即可在此输入正式的英文名（也可AI建议・从资料读取）",es:"El nombre en inglés «$1» es genérico. Haga clic para introducir aquí el nombre correcto (sugerencia de IA y lectura de documentos disponibles)"},
+  {re:/^英文商品名「(.+)」は汎用の名前です。押すと、この場で正式な英語名を入力できます（資料の読み取りも）$/,en:"The English product name \"$1\" is generic. Click to enter the proper English name here (reading from documents available)",zh:"英文商品名“$1”是通用名称。点击即可在此输入正式的英文名（也可从资料读取）",es:"El nombre en inglés «$1» es genérico. Haga clic para introducir aquí el nombre correcto (también desde documentos)"},
+  {re:/^✓ 「(.+)」から読み取りました：(.+)（「保存して資料に反映」で確定します）$/,en:"✓ Read from \"$1\": $2 (confirm with \"Save and apply to the deck\")",zh:"✓ 已从“$1”读取：$2（点击“保存并反映到资料”确认）",es:"✓ Leído de «$1»: $2 (confirme con «Guardar y aplicar»)"},
+  {re:/^「(.+)」から(英文商品名|英文社名)は見つかりませんでした。欄に直接入力してください。$/,en:"No $2 was found in \"$1\". Please type it into the field.",zh:"未在“$1”中找到$2。请直接在栏中输入。",es:"No se encontró $2 en «$1». Escríbalo en el campo."},
+  {re:/^(.+) を読み取っています…$/,en:"Reading $1…",zh:"正在读取 $1…",es:"Leyendo $1…"},
+  {re:/^✓ 案：(.+)。確認して「保存して資料に反映」で確定します$/,en:"✓ Suggestion: $1. Review it and confirm with \"Save and apply to the deck\"",zh:"✓ 建议：$1。确认后点击“保存并反映到资料”",es:"✓ Sugerencia: $1. Revísela y confirme con «Guardar y aplicar»"},
+  {re:/^今の英文商品名「(.+)」は汎用の名前です。この商品の種類が伝わる英語名にしてください。$/,en:"The current English product name \"$1\" is generic. Use an English name that tells what kind of product it is.",zh:"当前英文商品名“$1”是通用名称。请改为能体现商品种类的英文名。",es:"El nombre actual en inglés «$1» es genérico. Use un nombre en inglés que indique qué tipo de producto es."},
+  {re:/^🔴 生成に必要な残り (\d+)項目（ここで入力できます。保存すると「納品レベルチェック」にすぐ反映されます）$/,en:"🔴 $1 items left before you can generate (enter them here; saving updates the delivery-level check immediately)",zh:"🔴 生成前还差 $1 项（可在此输入。保存后立即反映到“交付级别检查”）",es:"🔴 Faltan $1 elementos para generar (introdúzcalos aquí; al guardar se actualiza de inmediato el control)"},
+  {re:/^保存しました（必須 (\d+)\/(\d+)）。必須はあと(\d+)件：(.+)$/,en:"Saved (required $1/$2). $3 required items left: $4",zh:"已保存（必填 $1/$2）。还差 $3 项必填：$4",es:"Guardado (obligatorios $1/$2). Faltan $3 obligatorios: $4"}
+].forEach(p=>I18N.pat.unshift(p)); }catch(e){}
 
 </script>
