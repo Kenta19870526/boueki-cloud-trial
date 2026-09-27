@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="d928e3537f4a";
+const BC20_BUILD="e47ea9b78864";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -30089,5 +30089,225 @@ try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
   {re:/^🔴 生成に必要な残り (\d+)項目（ここで入力できます。保存すると「納品レベルチェック」にすぐ反映されます）$/,en:"🔴 $1 items left before you can generate (enter them here; saving updates the delivery-level check immediately)",zh:"🔴 生成前还差 $1 项（可在此输入。保存后立即反映到“交付级别检查”）",es:"🔴 Faltan $1 elementos para generar (introdúzcalos aquí; al guardar se actualiza de inmediato el control)"},
   {re:/^保存しました（必須 (\d+)\/(\d+)）。必須はあと(\d+)件：(.+)$/,en:"Saved (required $1/$2). $3 required items left: $4",zh:"已保存（必填 $1/$2）。还差 $3 项必填：$4",es:"Guardado (obligatorios $1/$2). Faltan $3 obligatorios: $4"}
 ].forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ═══ v21.12（2026-09-27）外国語 営業資料：AI商社マンのフォームと「納品レベルチェック」の残りの文言を英・中・西に ═══
+   お客様の声：「フォームの残りの文言も英中西に訳してください」（v21.11 のあとも、AI商社マンのフォームの v1 からの文言が日本語のままだった）
+   ・AI商社マンのフォーム（営業資料を仕上げる）：題名・説明・欄の名前・記入例・ボタン・引き出しの幅の調整、
+     「全項目の案をAIが作成」「沿革・理念・実績を集める」の途中経過・結果（会社リサーチの表・証拠として読んだページ）・失敗の知らせ、保存後の知らせ
+   ・営業資料の画面：「納品レベルチェック」（件数・説明・各項目の案内・（推奨））・生成ロックの帯・見せ方・AIエンジンの行・データ点検の帯・画面の説明
+   ・v21.11 の訳の漏れ：「⚠ 」「✗ 」が付いた文（辞書にあっても訳されていなかった）・英文名が見つからない時の項目名・保存後の残りの項目名
+   仕組みは今までと同じ（辞書＝表示の文字の置き換え。数や名前が入る文は I18N.pat）。日本語の表示・動きは変えない。
+   生成した資料のページ名を指す所は、資料の見出し（DK3_L の en／zhCN／es）と同じ言い方にする */
+
+/* 辞書にあれば訳（無ければ null） */
+function i12D(s,d){ const k=String(s==null?"":s).trim(); return (d&&k&&d[k]!=null)?d[k]:null; }
+/* 項目名の並び（「・」区切り。名前の中にも「・」がある）を訳す：辞書にある一番長い名前から順に。
+   最後の「ほか」は more に、途中で切れた最後の名前（旧版の知らせは40字で切る）は候補の名前の頭と合えばその名前の訳に。訳せない名前はそのまま */
+function i12Names(s,d,cands){
+  const out=[]; let rest=String(s||""), more=false, n=0;
+  const tr=c=>{ if(d[c]!=null) return d[c]; if(/^資料に含めるほかの商品のMOQ（\d+点）$/.test(c)){ const t=i18nStr(c,d); if(t!=null&&t!==c) return t; } return null; };
+  while(rest&&n++<40){
+    if(rest==="ほか"){ more=true; break; }
+    let at=-1, t=null;
+    for(let i=rest.length;i>0;i--){ if(i<rest.length&&rest[i]!=="・") continue; const x=tr(rest.slice(0,i)); if(x!=null){ at=i; t=x; break; } }
+    if(at<0){ const c=(cands||[]).find(x=>x&&x.startsWith(rest)&&d[x]!=null); out.push(c?d[c]:rest); break; }
+    out.push(t); rest=rest.slice(at+1);
+  }
+  return {list:out,more}; }
+const I12_JOIN={en:(r)=>r.list.join(", ")+(r.more?", and more":""),zh:(r)=>r.list.join("、")+(r.more?"等":""),es:(r)=>r.list.join(", ")+(r.more?", entre otros":"")};
+function i12V1Names(){ try{ return typeof deckCheck==="function"?deckCheck().map(c=>c.n):[]; }catch(e){ return []; } }
+/* 「・」で区切った短い項目名（設立・代表者…）を訳す。「なし」は小文字の none など */
+const I12_NONE={en:"none",zh:"无",es:"ninguno"};
+function i12Simple(s,d,l){ return String(s).split("・").map(x=>x==="なし"?I12_NONE[l]:(i12D(x,d)||x)).join(l==="zh"?"、":", "); }
+/* 会社リサーチの証拠の一覧の下の診断（「／」区切り） */
+const I12_DIAG={en:{site:"Could not get the official website ($1)",rel:"Failed to get related pages (the relay may be busy)",web:"Web search failed: $1",sep:" / "},
+  zh:{site:"未能获取官网（$1）",rel:"相关页面获取失败（中转服务器可能繁忙）",web:"网络搜索失败：$1",sep:"／"},
+  es:{site:"No se pudo obtener el sitio web oficial ($1)",rel:"No se pudieron obtener las páginas relacionadas (puede que el servicio intermedio esté saturado)",web:"Falló la búsqueda web: $1",sep:" / "}};
+function i12Diag(s,d,l){ const L=I12_DIAG[l]; let ok=0;
+  const r=String(s).split("／").map(p=>{ let m;
+    if((m=p.match(/^公式サイトを取得できませんでした（([\s\S]*)）$/))){ ok++; return L.site.replace("$1",i12D(m[1],d)||m[1]); }
+    if(p==="関連ページの取得に失敗しました（中継の混雑の可能性）"){ ok++; return L.rel; }
+    if((m=p.match(/^Web検索に失敗：([\s\S]*)$/))){ ok++; return L.web.replace("$1",m[1]); }
+    return p; });
+  return ok?r.join(L.sep):null; }
+/* 見せ方の名前 */
+const I12_STY={上品:{en:"Elegant",zh:"雅致",es:"Elegante"},根拠重視:{en:"Evidence-led",zh:"重依据",es:"Basado en evidencia"},力強い:{en:"Bold",zh:"有力",es:"Audaz"}};
+
+try{ if(typeof dk3I18n==="function") dk3I18n([
+ /* ── AI商社マンのフォーム（v1 の欄） ── */
+ ["🤖 AI商社マンと営業資料を仕上げる","🤖 Finish your sales deck with the AI Trade Agent","🤖 与AI商社专员一起完善销售资料","🤖 Complete su presentación comercial con el Agente comercial IA"],
+ ["スタイリッシュで納品レベルの資料を作成するために、必要な情報を伺います。","To create a stylish, delivery-quality deck, we'll ask you for the information we need. ","为了制作时尚且达到交付级别的资料，我们需要向您了解一些信息。","Para crear una presentación elegante y con calidad de entrega, le pediremos la información necesaria. "],
+ ["分かるところだけでOK","Fill in only what you know","只填写您知道的部分即可","Complete solo lo que sepa"],
+ ["（あとで追記できます）。日本語で入力すると、生成時に各言語へ翻訳されます。"," (you can add more later). If you write in Japanese, it is translated into each language when the deck is generated.","（之后可以补充）。用日语填写的内容，会在生成时翻译成各语言。"," (puede añadir más después). Si escribe en japonés, se traduce a cada idioma al generar la presentación."],
+ ["🤖 公式サイト・Webも確認して、全項目の案をAIが作成","🤖 Let AI draft all fields (it also checks your official website and the web)","🤖 由AI参考官网和网络，为所有项目起草方案","🤖 Que la IA redacte todos los campos (también consulta su sitio web oficial y la web)"],
+ ["設立","Founded","成立时间","Fundación"],["代表者","Representative","代表人","Representante"],["ウェブサイト","Website","网站","Sitio web"],
+ ["所在地（英語推奨）","Address (English recommended)","所在地（建议用英文）","Dirección (se recomienda en inglés)"],
+ ["事業内容（1行）","Business description (one line)","业务内容（1行）","Actividad (una línea)"],
+ ["ミッション・ブランドコンセプト（表紙の次に大きく載ります）","Mission / brand concept (shown large right after the cover)","使命・品牌理念（在封面之后大幅展示）","Misión / concepto de marca (aparece en grande justo después de la portada)"],
+ ["使い方（1行に1ステップ・最大4行）","How to use (one step per line, up to 4 lines)","使用方法（每行1个步骤・最多4行）","Modo de uso (un paso por línea, hasta 4 líneas)"],
+ ["営業担当者名（英文推奨）","Sales contact name (English recommended)","销售负责人姓名（建议用英文）","Nombre del responsable de ventas (se recomienda en inglés)"],
+ ["メール","Email","邮箱","Correo electrónico"],["電話","Phone","电话","Teléfono"],
+ ["例：2015年4月","e.g. April 2015","例：2015年4月","p. ej. abril de 2015"],["例：山田 太郎","e.g. Taro Yamada","例：山田 太郎","p. ej. Taro Yamada"],
+ ["例：https://example.co.jp","e.g. https://example.co.jp","例：https://example.co.jp","p. ej. https://example.co.jp"],
+ ["例：5F Sakura Bldg., 1-2-3 Honmachi, Chuo-ku, Osaka, Japan","e.g. 5F Sakura Bldg., 1-2-3 Honmachi, Chuo-ku, Osaka, Japan","例：5F Sakura Bldg., 1-2-3 Honmachi, Chuo-ku, Osaka, Japan","p. ej. 5F Sakura Bldg., 1-2-3 Honmachi, Chuo-ku, Osaka, Japan"],
+ ["例：健康食品の製造・販売／OEM受託／海外卸","e.g. Manufacture and sale of health foods / OEM manufacturing / overseas wholesale","例：保健食品的生产与销售／OEM代工／海外批发","p. ej. Fabricación y venta de alimentos saludables / fabricación OEM / venta mayorista en el extranjero"],
+ ["例：日本の伝統製法を、世界の食卓へ","e.g. Bringing traditional Japanese craftsmanship to tables around the world","例：将日本传统工艺带到世界各地的餐桌","p. ej. Llevar los métodos tradicionales japoneses a las mesas de todo el mundo"],
+ ["例：\n適量を手に取る\n気になる部分になじませる\n1分ほどおく\nぬるま湯で洗い流す","e.g.\nTake an appropriate amount\nWork it into the areas of concern\nLeave on for about 1 minute\nRinse off with lukewarm water","例：\n取适量\n涂抹于需要护理的部位\n静置约1分钟\n用温水冲洗干净","p. ej.\nTome una cantidad adecuada\nAplíquela en las zonas deseadas\nDéjela actuar 1 minuto\nEnjuague con agua tibia"],
+ ["例：Taro Yamada","e.g. Taro Yamada","例：Taro Yamada","p. ej. Taro Yamada"],["例：sales@example.co.jp","e.g. sales@example.co.jp","例：sales@example.co.jp","p. ej. sales@example.co.jp"],
+ ["例：+81 3-1234-5678","e.g. +81 3-1234-5678","例：+81 3-1234-5678","p. ej. +81 3-1234-5678"],
+ ["保存して資料に反映","Save and apply to the deck","保存并反映到资料","Guardar y aplicar"],
+ /* v21.11 の欄の記入例（複数行） */
+ ["例：\n10年連続シェアNo.1｜国内販売実績\n5つの無添加｜低刺激処方","e.g.\nNo. 1 market share for 10 years in a row｜domestic sales record\nFree from 5 additives｜low-irritation formula","例：\n连续10年市场份额第一｜国内销售实绩\n5种无添加｜低刺激配方","p. ej.\nN.º 1 en cuota de mercado 10 años seguidos｜ventas en Japón\nSin 5 aditivos｜fórmula de baja irritación"],
+ ["例：\n容量：210mL\n原材料：水・BG・グリセリン","e.g.\nVolume: 210 mL\nIngredients: water, BG, glycerin","例：\n容量：210mL\n原料：水・BG・甘油","p. ej.\nVolumen: 210 mL\nIngredientes: agua, BG, glicerina"],
+ ["例：\n〜499個｜US$15.80\n500個〜｜US$14.50","e.g.\nUp to 499 pcs｜US$15.80\n500 pcs or more｜US$14.50","例：\n〜499个｜US$15.80\n500个〜｜US$14.50","p. ej.\nHasta 499 uds.｜US$15.80\n500 uds. o más｜US$14.50"],
+ /* 引き出しの幅 */
+ ["ドラッグで幅を調整","Drag to adjust the width","拖动以调整宽度","Arrastre para ajustar el ancho"],
+ ["パネルを拡大／標準幅に戻す（左端をドラッグでも調整できます）","Expand the panel / back to standard width (you can also drag the left edge)","放大面板／恢复标准宽度（也可拖动左边缘调整）","Ampliar el panel / volver al ancho estándar (también puede arrastrar el borde izquierdo)"],
+ ["⇤ 標準幅に戻す","⇤ Back to standard width","⇤ 恢复标准宽度","⇤ Volver al ancho estándar"],
+ /* ── 会社の歴史・想い・実績（v21.8 の欄） ── */
+ ["🏛 会社の歴史・想い・実績（営業資料の「沿革」「理念」「実績」「差別化」のページになります）","🏛 Company history, philosophy and track record (these become the deck's \"Our History\", \"Our Mission\", \"Proven Track Record\" and \"Why Buyers Choose Us\" pages)","🏛 公司的沿革・理念・业绩（将成为销售资料中“发展历程”“企业使命”“业绩实证”“买家选择我们的理由”页面）","🏛 Historia, filosofía y trayectoria de la empresa (serán las páginas «Nuestra Historia», «Nuestra Misión», «Trayectoria Comprobada» y «Por Qué Nos Eligen» de la presentación)"],
+ ["事実だけを書いてください（数字は正確に）。AIは、ここと取り込んだ資料・公式サイトに書かれていないことは資料に載せません。","Write facts only (with exact numbers). The AI puts nothing in the deck that isn't written here, in your imported documents or on your official website.","请只填写事实（数字须准确）。凡是此处、已导入的资料和官网上没有写的内容，AI都不会放进资料。","Escriba solo hechos (con cifras exactas). La IA no incluye en la presentación nada que no esté escrito aquí, en los documentos importados o en su sitio web oficial."],
+ ["🔎 公式サイトから沿革・理念・実績を集めて空欄を埋める","🔎 Collect history, philosophy and track record from the website to fill empty fields","🔎 从官网收集沿革・理念・业绩，填入空白栏","🔎 Recopilar historia, filosofía y trayectoria del sitio web para completar los campos vacíos"],
+ ["沿革（1行に「西暦：出来事」・3件以上）","History (one per line, \"year: event\"; 3 or more)","沿革（每行1条「公历年：事件」・3条以上）","Historia (una por línea, «año: hecho»; 3 o más)"],
+ ["経営理念・大切にしている価値観（1行に1つ「見出し：説明」）","Management philosophy / core values (one per line, \"heading: description\")","经营理念・重视的价值观（每行1条「标题：说明」）","Filosofía de gestión / valores (uno por línea, «título: descripción»)"],
+ ["創業の経緯・ブランドの由来","How the company started / origin of the brand","创业经过・品牌由来","Origen de la empresa / de la marca"],
+ ["代表メッセージ（代表者の言葉）","CEO message (in the representative's own words)","代表致辞（代表人的话）","Mensaje del director (en sus propias palabras)"],
+ ["実績（数字で・1行に1つ）","Track record (with numbers; one per line)","业绩（用数字・每行1条）","Trayectoria (con cifras; una por línea)"],
+ ["受賞・特許・認証・メディア掲載（1行に1つ）","Awards, patents, certifications, media coverage (one per line)","获奖・专利・认证・媒体报道（每行1条）","Premios, patentes, certificaciones, apariciones en medios (uno por línea)"],
+ ["競合との違い（1行に「比較項目：一般的な製品｜自社」）","Differences from competitors (one per line, \"point: typical products｜yours\")","与竞品的差异（每行1条「比较项目：一般产品｜本公司」）","Diferencias con la competencia (una por línea, «aspecto: productos típicos｜el suyo»)"],
+ ["想定する顧客・用途・販路（1行に1つ「顧客像：ニーズ」）","Target customers, uses and channels (one per line, \"customer profile: needs\")","目标客户・用途・渠道（每行1条「客户画像：需求」）","Clientes, usos y canales previstos (uno por línea, «perfil de cliente: necesidad»)"],
+ ["主な取引先・販路（公開してよい範囲）","Main clients and sales channels (only what may be made public)","主要客户・销售渠道（可公开的范围）","Principales clientes y canales (solo lo que pueda hacerse público)"],
+ ["推薦・お客様の声（公開の許可があるもののみ・氏名と肩書き）","Endorsements / customer testimonials (only those approved for publication; name and title)","推荐・客户评价（仅限已获公开许可的内容・姓名与头衔）","Recomendaciones / opiniones de clientes (solo con permiso de publicación; nombre y cargo)"],
+ ["担当者の役職（英文推奨）","Contact person's job title (English recommended)","负责人职位（建议用英文）","Cargo del responsable (se recomienda en inglés)"],
+ ["担当者の会社名（英文・自社なら空欄）","Contact person's company (in English; leave blank if it's your own company)","负责人所属公司（英文・如为本公司则留空）","Empresa del responsable (en inglés; déjelo vacío si es su propia empresa)"],
+ ["例：\n1995：大阪府堺市で創業\n2008：独自の低刺激洗浄成分を開発\n2019：経済産業省「地域未来牽引企業」に選定","e.g.\n1995: Founded in Sakai, Osaka\n2008: Developed a proprietary low-irritation cleansing ingredient\n2019: Selected by the Ministry of Economy, Trade and Industry as a leading regional company","例：\n1995：在大阪府堺市创业\n2008：开发出独有的低刺激清洁成分\n2019：入选经济产业省“地域未来牵引企业”","p. ej.\n1995: Fundación en Sakai (Osaka)\n2008: Desarrollo de un ingrediente limpiador propio de baja irritación\n2019: Seleccionada por el Ministerio de Economía, Comercio e Industria como empresa líder regional"],
+ ["例：\n肌へのやさしさ：刺激の少ない洗浄を追求\n科学的な根拠：大学との共同研究","e.g.\nGentle on the skin: pursuing low-irritation cleansing\nScientific evidence: joint research with universities","例：\n对肌肤温和：追求低刺激的清洁\n科学依据：与大学共同研究","p. ej.\nSuavidad con la piel: limpieza de baja irritación\nBase científica: investigación conjunta con universidades"],
+ ["例：創業者がアレルギーに悩む家族のために開発したのが始まり","e.g. It began when the founder developed it for a family member with allergies","例：创始人为受过敏困扰的家人研发，由此起步","p. ej. Empezó cuando el fundador lo desarrolló para un familiar con alergias"],
+ ["例：「世界中の敏感肌の人に、安心して使える洗浄料を届けたい」","e.g. \"We want to deliver cleansers that people with sensitive skin all over the world can use with confidence.\"","例：“希望为世界各地的敏感肌人群，送上可以安心使用的清洁产品”","p. ej. «Queremos llevar a las personas con piel sensible de todo el mundo un limpiador que puedan usar con tranquilidad»"],
+ ["例：\n国内累計販売 300万本\n全国1,200店舗で取り扱い\n台湾・香港へ輸出実績あり","e.g.\n3 million units sold in Japan (cumulative)\nSold at 1,200 stores nationwide\nExported to Taiwan and Hong Kong","例：\n国内累计销售300万件\n全国1,200家门店有售\n有出口台湾・香港的实绩","p. ej.\n3 millones de unidades vendidas en Japón (acumulado)\nA la venta en 1.200 tiendas de todo el país\nExportaciones a Taiwán y Hong Kong"],
+ ["例：\n特許 第5057337号\n大阪・関西万博 公式採用","e.g.\nPatent No. 5057337\nOfficially adopted by Expo 2025 Osaka, Kansai","例：\n专利 第5057337号\n大阪・关西世博会 官方采用","p. ej.\nPatente n.º 5057337\nAdoptado oficialmente por la Expo 2025 Osaka, Kansai"],
+ ["例：\n洗浄成分：硫酸系が主流｜酢酸系の独自成分（特許）\n生分解性：記載なしが多い｜14日で90%分解","e.g.\nCleansing agent: mostly sulfate-based｜proprietary acetic-acid-based ingredient (patented)\nBiodegradability: often not stated｜90% biodegrades in 14 days","例：\n清洁成分：以硫酸盐类为主｜醋酸类独有成分（专利）\n生物降解性：多数未标注｜14天分解90%","p. ej.\nAgente limpiador: la mayoría con sulfatos｜ingrediente propio a base de ácido acético (patentado)\nBiodegradabilidad: a menudo no se indica｜90 % en 14 días"],
+ ["例：\n敏感肌の家族：毎日使える低刺激の洗浄料\nホテル・スパ：高品質なアメニティ","e.g.\nFamilies with sensitive skin: a gentle cleanser for everyday use\nHotels and spas: high-quality amenities","例：\n敏感肌家庭：可每天使用的低刺激清洁产品\n酒店・水疗：高品质的洗护用品","p. ej.\nFamilias con piel sensible: un limpiador suave para uso diario\nHoteles y spas: amenidades de alta calidad"],
+ ["例：全国のドラッグストア、百貨店、EC","e.g. Drugstores and department stores nationwide, e-commerce","例：全国的药妆店、百货公司、电商","p. ej. Droguerías y grandes almacenes de todo el país, comercio electrónico"],
+ ["例：「…」— ○○クリニック 院長","e.g. \"…\" — Director, ○○ Clinic","例：“…”— ○○诊所 院长","p. ej. «…» — Director, Clínica ○○"],
+ ["例：Export Sales Manager","e.g. Export Sales Manager","例：Export Sales Manager","p. ej. Export Sales Manager"],["例：STANDAGE Inc.","e.g. STANDAGE Inc.","例：STANDAGE Inc.","p. ej. STANDAGE Inc."],
+ /* 公式サイトから沿革・理念・実績を集める（フォーム・画面・生成の途中） */
+ ["公式サイトのURL（上の「公式サイト」欄）を入れてください","Enter the official website URL (in the \"Website\" field above)","请填写官网网址（上方的“网站”栏）","Introduzca la URL del sitio web oficial (en el campo «Sitio web» de arriba)"],
+ ["公式サイトのトップページを読んでいます…","Reading the website's top page…","正在读取官网首页…","Leyendo la página de inicio del sitio web…"],
+ ["AIエンジンが未接続です","The AI engine is not connected","AI引擎未连接","El motor de IA no está conectado"],
+ ["公式サイトのURLを入力してください","Enter the official website URL","请输入官网网址","Introduzca la URL del sitio web oficial"],
+ ["公式サイトの本文を取得できませんでした","Could not get the text of the official website","未能获取官网正文","No se pudo obtener el texto del sitio web oficial"],
+ ["調査中に商品が切り替わったため中止しました","Stopped because the product was switched during the research","调查过程中商品被切换，已中止","Se detuvo porque se cambió de producto durante la investigación"],
+ ["URLが空です","The URL is empty","网址为空","La URL está vacía"],
+ ["先に「ロゴ・写真」の欄で公式サイトのURLを入れてください","First enter your official website URL in the \"Logo & photos\" section","请先在“标志・照片”栏中填写官网网址","Primero introduzca la URL de su sitio web oficial en la sección «Logo y fotos»"],
+ /* 全項目の案をAIが作成（会社リサーチ） */
+ ["⚠ ウェブサイト欄が検索結果のURLになっています。","⚠ The Website field contains a search results URL. Please enter ","⚠ 网站栏中填的是搜索结果的网址。请填写","⚠ El campo Sitio web contiene una URL de resultados de búsqueda. Introduzca "],
+ ["会社の公式サイトのURL","your company's official website URL","贵公司官网的网址","la URL del sitio web oficial de su empresa"],
+ ["（例：https://example.co.jp/）を入れてください。"," (e.g. https://example.co.jp/).","（例：https://example.co.jp/）。"," (p. ej. https://example.co.jp/)."],
+ ["公式サイトもWeb検索も読み取れませんでした（通信が遮断されている可能性）","Could not read the official website or the web search results (the connection may be blocked)","官网和网络搜索结果都无法读取（可能是网络连接被阻断）","No se pudo leer el sitio web oficial ni los resultados de búsqueda (puede que la conexión esté bloqueada)"],
+ ["AIの応答が読み取れませんでした","Could not read the AI's response","无法读取AI的回复","No se pudo leer la respuesta de la IA"],
+ ["——誤情報を避けるため空欄のままです"," — left blank to avoid misinformation","——为避免错误信息，保持空白"," — se dejan en blanco para evitar información errónea"],
+ ["内容を確認・修正して「保存して資料に反映」を押してください（最終決定はお客様です）。","Review and correct the content, then press \"Save and apply to the deck\" (the final decision is yours).","请确认并修改内容后，点击“保存并反映到资料”（最终由您决定）。","Revise y corrija el contenido y pulse «Guardar y aplicar» (la decisión final es suya)."],
+ ["所在地","Address","所在地","Dirección"],["事業内容","Business","业务内容","Actividad"],["ミッション","Mission","使命","Misión"],["キャッチコピー","Catchphrase","宣传语","Eslogan"],["使い方","How to use","使用方法","Modo de uso"],
+ ["会社名","Company name","公司名称","Nombre de la empresa"],["公式サイト","Official website","官网","Sitio web oficial"],["ブランド","Brands","品牌","Marcas"],
+ ["要確認（根拠なし）","Unverified (no source)","待确认（无依据）","Por verificar (sin fuente)"],
+ ["会社情報を証拠から確認できませんでした。","Could not confirm the company information from the evidence.","未能从证据中确认公司信息。","No se pudo confirmar la información de la empresa a partir de las pruebas."],
+ ["公式サイトのURL（会社概要ページのあるサイト）をご確認ください。"," Please check the official website URL (a site that has a company profile page).","请确认官网网址（有公司概况页面的网站）。"," Compruebe la URL del sitio web oficial (un sitio con página de perfil de la empresa)."],
+ ["トップページ","Top page","首页","Página de inicio"],["（商品ページ）"," (product page)","（商品页面）"," (página de producto)"],["（Web検索）"," (web search)","（网络搜索）"," (búsqueda web)"],["なし","None","无","Ninguno"],
+ ["公式サイトを読み込んでいます…","Loading the official website…","正在读取官网…","Cargando el sitio web oficial…"],
+ ["Webを検索しています…（会社概要・製造元・法人情報）","Searching the web… (company profile, manufacturer, corporate registration)","正在网络搜索…（公司概况・生产商・法人信息）","Buscando en la web… (perfil de la empresa, fabricante, datos registrales)"],
+ ["検索結果の上位ページを読んでいます…","Reading the top search results…","正在读取搜索结果的前几个页面…","Leyendo los primeros resultados de búsqueda…"],
+ /* 英文名の読み取り・AI の提案（v21.11 の漏れ） */
+ ["この形式には対応していません（Excel・Word・PowerPoint・CSV・PDF・画像）","This file format is not supported (Excel, Word, PowerPoint, CSV, PDF, images)","不支持此格式（Excel・Word・PowerPoint・CSV・PDF・图片）","Este formato no es compatible (Excel, Word, PowerPoint, CSV, PDF, imágenes)"],
+ ["PDF・画像の読み取りにはAIエンジンの接続が必要です（Excel・Word・PowerPoint・CSVならこのまま読めます）","Reading PDFs and images requires a connected AI engine (Excel, Word, PowerPoint and CSV files can be read as they are)","读取PDF・图片需要连接AI引擎（Excel・Word・PowerPoint・CSV可直接读取）","Para leer PDF e imágenes se necesita un motor de IA conectado (Excel, Word, PowerPoint y CSV se leen directamente)"],
+ ["ロゴを読み込んでいます…","Loading the logo…","正在读取标志…","Cargando el logotipo…"],["写真を読み込んでいます…","Loading the photos…","正在读取照片…","Cargando las fotos…"],
+ ["保存しました。納品レベルの材料が揃い、生成ボタンが解放されました 🎉","Saved. All delivery-level materials are ready and the generate buttons are unlocked 🎉","已保存。交付级别的素材已齐全，生成按钮已解锁 🎉","Guardado. Ya están todos los materiales de nivel de entrega y los botones de generar están desbloqueados 🎉"],
+ /* ── 営業資料の画面：納品レベルチェック ── */
+ ["必須があと","Still missing","必填项还差","Faltan"],
+ ["足りないため、まだ生成できません。","of the required information, so the deck can't be generated yet. ","未填，因此暂时无法生成。","obligatorios, por lo que aún no se puede generar. "],
+ ["会社の歴史と想い・写真3枚・価格表・MOQ・成分や仕様","Company history and philosophy, 3 photos, a price list, MOQ, and ingredients or specifications","公司沿革与理念・照片3张・价格表・最小起订量・成分或规格","La historia y filosofía de la empresa, 3 fotos, la lista de precios, el MOQ y los ingredientes o especificaciones"],
+ ["は、海外バイヤーが最初に見る情報なので必須にしています。"," are required because they are the first things overseas buyers look at.","是海外买家最先查看的信息，因此设为必填。"," son obligatorios porque es lo primero que miran los compradores extranjeros."],
+ ["必須はすべて揃っています。推奨の項目を足すほど、ページが増えて説得力が上がります。","All required items are complete. The more recommended items you add, the more pages the deck gets and the more persuasive it becomes.","必填项已全部齐全。推荐项目填得越多，页面越多，说服力越强。","Todos los elementos obligatorios están completos. Cuantos más elementos recomendados añada, más páginas tendrá y más convincente será."],
+ ["「商品情報を登録」または下の「AI商社マンと埋める」で英文社名を入力","Enter the English company name in \"Register product\" or with \"Fill in with the AI trading assistant\" below","在“登记商品信息”或下方的“与AI商社顾问一起补全”中填写英文公司名","Introduzca el nombre de la empresa en inglés en «Registrar producto» o con «Completar con el asistente IA» abajo"],
+ ["「ロゴ・写真」でロゴをアップロード（透過PNG推奨）","Upload your logo in \"Logo & photos\" (transparent PNG recommended)","在“标志・照片”中上传标志（建议使用透明PNG）","Suba el logotipo en «Logo y fotos» (se recomienda PNG transparente)"],
+ ["「AI商社マンと埋める」→ 設立・所在地・事業内容（公式サイトから自動で集められます）","\"Fill in with the AI trading assistant\" → founded, address, business (can be collected automatically from your website)","“与AI商社顾问一起补全”→ 成立时间・所在地・业务内容（可从官网自动收集）","«Completar con el asistente IA» → fundación, dirección, actividad (se pueden recopilar automáticamente del sitio web)"],
+ ["「AI商社マンと埋める」→ 沿革（1行に「西暦：出来事」）。公式サイトの沿革ページから自動で集められます","\"Fill in with the AI trading assistant\" → history (one per line, \"year: event\"). It can be collected automatically from the history page of your website","“与AI商社顾问一起补全”→ 沿革（每行1条「公历年：事件」）。可从官网的沿革页面自动收集","«Completar con el asistente IA» → historia (una por línea, «año: hecho»). Se puede recopilar automáticamente de la página de historia de su sitio web"],
+ ["「AI商社マンと埋める」→ 理念・ミッション","\"Fill in with the AI trading assistant\" → philosophy / mission","“与AI商社顾问一起补全”→ 理念・使命","«Completar con el asistente IA» → filosofía / misión"],
+ ["代表者の言葉があると「想い」のページが強くなります","Words from your CEO make the \"Our Mission\" page more compelling","有代表人的话，“企业使命”页面会更有感染力","Unas palabras del director hacen más convincente la página «Nuestra Misión»"],
+ ["数字の実績は「実績」のページになります","Achievements with numbers become the \"Proven Track Record\" page","带数字的业绩会成为“业绩实证”页面","Los logros con cifras forman la página «Trayectoria Comprobada»"],
+ ["「品質・根拠」のページになります","This becomes the \"Quality & Certifications\" page","会成为“品质与认证”页面","Forma la página «Calidad y Certificaciones»"],
+ ["「商品情報を登録」で英文商品名を入力（AI提案あり）","Enter the English product name in \"Register product\" (AI suggestions available)","在“登记商品信息”中填写英文商品名（有AI建议）","Introduzca el nombre del producto en inglés en «Registrar producto» (con sugerencias de IA)"],
+ ["「商品情報を登録」または「AI商社マンと埋める」で強みを追加","Add strengths in \"Register product\" or with \"Fill in with the AI trading assistant\"","在“登记商品信息”或“与AI商社顾问一起补全”中添加优势","Añada puntos fuertes en «Registrar producto» o con «Completar con el asistente IA»"],
+ ["成分表・規格表を取り込むか「AI商社マンと埋める」で入力","Import an ingredient or specification sheet, or enter it with \"Fill in with the AI trading assistant\"","导入成分表・规格表，或通过“与AI商社顾问一起补全”填写","Importe una tabla de ingredientes o especificaciones, o introdúzcala con «Completar con el asistente IA»"],
+ ["比較表のページになります（1行に「比較項目：一般的な製品｜自社」）","This becomes the comparison table page, \"Why Buyers Choose Us\" (one per line, \"point: typical products｜yours\")","会成为对比表页面“买家选择我们的理由”（每行1条「比较项目：一般产品｜本公司」）","Forma la página con la tabla comparativa, «Por Qué Nos Eligen» (una por línea, «aspecto: productos típicos｜el suyo»)"],
+ ["「ターゲット顧客と販路」のページになります","This becomes the \"Target Customers & Channels\" page","会成为“目标客户与渠道”页面","Forma la página «Clientes Objetivo y Canales»"],
+ ["会社の写真があると「会社概要」「想い」のページが写真つきになります","With company photos, the \"Company Profile\" and \"Our Mission\" pages get photos","有公司照片时，“公司简介”“企业使命”页面会配上照片","Con fotos de la empresa, las páginas «Perfil de la Empresa» y «Nuestra Misión» llevan fotos"],
+ ["価格表を取り込むか「商品情報を登録」で数量帯と単価を入力","Import a price list, or enter quantity tiers and unit prices in \"Register product\"","导入价格表，或在“登记商品信息”中填写数量档位和单价","Importe una lista de precios o introduzca tramos de cantidad y precios unitarios en «Registrar producto»"],
+ ["「商品情報を登録」でMOQを入力","Enter the MOQ in \"Register product\"","在“登记商品信息”中填写最小起订量","Introduzca el MOQ en «Registrar producto»"],
+ ["「商品情報を登録」で取引条件を入力","Enter the trade terms in \"Register product\"","在“登记商品信息”中填写交易条件","Introduzca las condiciones comerciales en «Registrar producto»"],
+ ["梱包・物流のページになります","This becomes the \"Packaging & Logistics\" page","会成为“包装与物流”页面","Forma la página «Embalaje y Logística»"],
+ ["公式サイトから沿革・理念・写真を自動で集められます","History, philosophy and photos can be collected automatically from your website","可从官网自动收集沿革・理念・照片","La historia, la filosofía y las fotos se pueden recopilar automáticamente del sitio web"],
+ /* ── 営業資料の画面：そのほか ── */
+ ["見せ方（デザイン）","Design style","呈现风格（设计）","Estilo de diseño"],["営業資料を作る","Create the sales deck","制作销售资料","Crear la presentación comercial"],["資料に含める商品","Products to include","资料中包含的商品","Productos a incluir"],
+ ["登録した会社・商品・資料をAI商社マンが読み込み、海外バイヤー向けの営業資料（英語・中国語・スペイン語・韓国語）を作ります。会社の歴史と想い・写真・図解・コーポレートカラー・価格・MOQ・成分まで、根拠を確かめて1枚ずつ組み立てます。","The AI Trade Agent reads your registered company, products and documents and creates sales decks for overseas buyers (English, Chinese, Spanish and Korean). It builds the deck one slide at a time, from company history and philosophy, photos, diagrams and corporate colors to prices, MOQ and ingredients, checking the evidence for each.","AI商社专员读取已登记的公司・商品・资料，为海外买家制作销售资料（英语・中文・西班牙语・韩语）。从公司沿革与理念、照片、图解、企业色，到价格・最小起订量・成分，逐页核对依据后组装。","El Agente comercial IA lee la empresa, los productos y los documentos registrados y crea presentaciones comerciales para compradores extranjeros (inglés, chino, español y coreano). Monta la presentación diapositiva a diapositiva, desde la historia y filosofía de la empresa, fotos, diagramas y colores corporativos hasta precios, MOQ e ingredientes, comprobando las fuentes de cada dato."],
+ ["過去の入力で会話文がそのまま登録された可能性があります。修正すると書類・営業資料・AI回答が正しくなります。","Conversational text from an earlier entry may have been saved as data. Fixing it makes your documents, sales decks and AI answers correct.","过去输入时可能把对话内容直接登记成了数据。修改后，单证・销售资料・AI回答都会变得正确。","Es posible que un texto de conversación de una entrada anterior se haya guardado como dato. Al corregirlo, los documentos, las presentaciones y las respuestas de la IA serán correctos."],
+ ["🧹 内容を確認して修正","🧹 Review and fix","🧹 确认并修改内容","🧹 Revisar y corregir"],
+ ["色はロゴから取り出したコーポレートカラーを使います（ロゴ・写真の欄で変更できます）。","Colors use the corporate color taken from your logo (you can change it in the Logo & photos section).","配色使用从标志中提取的企业色（可在“标志・照片”栏中更改）。","Los colores usan el color corporativo extraído de su logotipo (puede cambiarlo en la sección «Logo y fotos»)."],
+ ["上品","Elegant","雅致","Elegante"],["根拠重視","Evidence-led","重依据","Basado en evidencia"],["力強い","Bold","有力","Audaz"],
+ ["化粧品・食品・日本茶・工芸","Cosmetics, food, Japanese tea, crafts","化妆品・食品・日本茶・工艺品","Cosmética, alimentación, té japonés, artesanía"],
+ ["健康食品・医療・機能性","Health foods, medical, functional products","保健食品・医疗・功能性产品","Alimentos saludables, medicina, productos funcionales"],
+ ["工業製品・機能性衣料・機械","Industrial products, functional apparel, machinery","工业产品・功能性服装・机械","Productos industriales, ropa funcional, maquinaria"],
+ ["AIエンジン：","AI engine: ","AI引擎：","Motor de IA: "],["接続中","Connected","已连接","Conectado"],
+ ["（上位モデルで執筆し、根拠と照合します。1〜4分）"," (written with a top-tier model and checked against the evidence; 1–4 min)","（使用高级模型撰写，并与依据核对。1〜4分钟）"," (redactado con un modelo superior y cotejado con las fuentes; 1–4 min)"],
+ ["⚠ AIエンジン未接続のため、外国語の文章を作れません（登録データのまま＝最終チェックで止まります）。管理画面でAIを接続してください。","⚠ The AI engine is not connected, so no foreign-language text can be written (the registered data stays as it is, and the final check will stop it). Connect an AI in the admin screen.","⚠ AI引擎未连接，无法撰写外语文字（保持登记数据原样＝会在最终检查时被拦下）。请在管理画面连接AI。","⚠ El motor de IA no está conectado, así que no se puede redactar el texto en otros idiomas (los datos registrados quedan tal cual y el control final lo detendrá). Conecte una IA en la pantalla de administración."],
+ ["見せ方を変更しました（次に作る資料から反映）","Design style changed (applies to the next deck you create)","已更改呈现风格（从下次制作的资料开始生效）","Estilo de diseño cambiado (se aplica a la próxima presentación que cree)"],
+ ["クリックで全文を表示","Click to show the full text","点击显示全文","Haga clic para ver el texto completo"],
+ ["画面はこのまま、右側でAI商社マンに質問できます","Ask the AI Trade Agent on the right without leaving this screen","无需离开此页面，即可在右侧向AI商社专员提问","Pregunte al Agente comercial IA a la derecha sin salir de esta pantalla"],
+ ["https://…（貴社公式サイトのURL）","https://… (your official website URL)","https://…（贵公司官网网址）","https://… (URL de su sitio web oficial)"],
+ ["同じ写真が複数スロットにある場合、1枚だけ残して整理します","If the same photo is in several slots, keeps just one of them","同一张照片出现在多个位置时，只保留1张","Si la misma foto está en varios espacios, deja solo una"]
+]); }catch(e){}
+
+/* 数や名前が入る文（前に足す＝古い型より先に当たる。訳せない時は null を返して次の型へ） */
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  /* 「⚠ 」「✗ 」＋辞書にある文（v18 の「⚠ (.+)」の素通しより先に当てる） */
+  {re:/^([⚠✗]️?\s+)([\s\S]+)$/,en:(m,d)=>{ const t=i12D(m[2],d); return t!=null?m[1]+t:null; },zh:(m,d)=>{ const t=i12D(m[2],d); return t!=null?m[1]+t:null; },es:(m,d)=>{ const t=i12D(m[2],d); return t!=null?m[1]+t:null; }},
+  {re:/^⚠ 提案を作れませんでした：([\s\S]+)$/,en:(m,d)=>"⚠ Could not make a suggestion: "+(i12D(m[1],d)||m[1]),zh:(m,d)=>"⚠ 未能生成建议："+(i12D(m[1],d)||m[1]),es:(m,d)=>"⚠ No se pudo hacer una sugerencia: "+(i12D(m[1],d)||m[1])},
+  {re:/^AI提案を作れませんでした：([\s\S]*)$/,en:(m,d)=>"Could not create AI suggestions: "+(i12D(m[1],d)||m[1]),zh:(m,d)=>"未能生成AI建议："+(i12D(m[1],d)||m[1]),es:(m,d)=>"No se pudieron crear sugerencias de IA: "+(i12D(m[1],d)||m[1])},
+  /* 英文名が資料に無かった時（v21.11 は項目名が日本語のまま出ていた） */
+  {re:/^「(.+)」から(英文商品名|英文社名)は見つかりませんでした。欄に直接入力してください。$/,en:(m)=>"No "+(m[2]==="英文商品名"?"English product name":"English company name")+" was found in \""+m[1]+"\". Please type it into the field.",zh:(m)=>"未在“"+m[1]+"”中找到"+(m[2]==="英文商品名"?"英文商品名":"英文公司名")+"。请直接在栏中输入。",es:(m)=>"No se encontró "+(m[2]==="英文商品名"?"el nombre del producto en inglés":"el nombre de la empresa en inglés")+" en «"+m[1]+"». Escríbalo en el campo."},
+  /* 保存後の知らせ（v21.11＝チェックと同じ基準／v1＝旧版の基準。残りの項目名も訳す） */
+  {re:/^保存しました（必須 (\d+)\/(\d+)）。必須はあと(\d+)件：(.+)$/,en:(m,d)=>"Saved (required "+m[1]+"/"+m[2]+"). "+m[3]+" required items left: "+I12_JOIN.en(i12Names(m[4],d)),zh:(m,d)=>"已保存（必填 "+m[1]+"/"+m[2]+"）。还差 "+m[3]+" 项必填："+I12_JOIN.zh(i12Names(m[4],d)),es:(m,d)=>"Guardado (obligatorios "+m[1]+"/"+m[2]+"). Faltan "+m[3]+" obligatorios: "+I12_JOIN.es(i12Names(m[4],d))},
+  {re:/^保存しました（納品レベル (\d+)\/(\d+)）。必須はあと(\d+)件：(.+)$/,en:(m,d)=>"Saved (delivery level "+m[1]+"/"+m[2]+"). "+m[3]+" required items left: "+I12_JOIN.en(i12Names(m[4],d,i12V1Names())),zh:(m,d)=>"已保存（交付级别 "+m[1]+"/"+m[2]+"）。还差 "+m[3]+" 项必填："+I12_JOIN.zh(i12Names(m[4],d,i12V1Names())),es:(m,d)=>"Guardado (nivel de entrega "+m[1]+"/"+m[2]+"). Faltan "+m[3]+" obligatorios: "+I12_JOIN.es(i12Names(m[4],d,i12V1Names()))},
+  /* 沿革・理念・実績を集める */
+  {re:/^会社の歴史・理念・実績が載っていそうなページを (\d+)件 読んでいます…$/,en:"Reading $1 pages that likely cover the company's history, philosophy and track record…",zh:"正在读取可能载有公司沿革・理念・业绩的 $1 个页面…",es:"Leyendo $1 páginas que probablemente tratan la historia, filosofía y trayectoria de la empresa…"},
+  {re:/^AIが (\d+)ページから沿革・理念・代表メッセージ・受賞・実績を抜き出しています…$/,en:"AI is extracting history, philosophy, the CEO message, awards and track record from $1 pages…",zh:"AI正在从 $1 个页面中提取沿革・理念・代表致辞・获奖・业绩…",es:"La IA está extrayendo historia, filosofía, mensaje del director, premios y trayectoria de $1 páginas…"},
+  {re:/^✓ 公式サイト (\d+)ページから集めました（空欄だけ埋めています。内容を確認して「保存」してください）$/,en:"✓ Collected from $1 pages of the official website (only empty fields were filled; review them and press \"Save and apply to the deck\")",zh:"✓ 已从官网 $1 个页面收集（只填入了空白栏。请确认内容后点击“保存并反映到资料”）",es:"✓ Recopilado de $1 páginas del sitio web oficial (solo se completaron los campos vacíos; revíselos y pulse «Guardar y aplicar»)"},
+  {re:/^公式サイトから沿革 (\d+)件などを集めました（出典つき）$/,en:"Collected $1 history entries and more from the official website (with sources)",zh:"已从官网收集沿革 $1 条等（附出处）",es:"Se recopilaron $1 hitos históricos y más del sitio web oficial (con fuentes)"},
+  /* 全項目の案をAIが作成（会社リサーチ）：途中・結果 */
+  {re:/^公式サイトの関連ページを読んでいます…（会社概要・特定商取引法など (\d+)件、商品ページ (\d+)件）$/,en:"Reading related pages of the official website… (company profile, legal notices, etc.: $1; product pages: $2)",zh:"正在读取官网的相关页面…（公司概况・特定商业交易法等 $1 个，商品页面 $2 个）",es:"Leyendo páginas relacionadas del sitio web oficial… (perfil de la empresa, avisos legales, etc.: $1; páginas de producto: $2)"},
+  {re:/^証拠（公式サイト (\d+)ページ・Web検索 (\d+)件・関連ページ (\d+)件）から、AIが会社情報を整理しています…（10〜40秒）$/,en:"AI is organizing the company information from the evidence (official website: $1 pages · web search: $2 results · related pages: $3)… (10–40 sec)",zh:"AI正在根据证据（官网 $1 页・网络搜索 $2 条・相关页面 $3 个）整理公司信息…（10〜40秒）",es:"La IA está organizando la información de la empresa a partir de las pruebas (sitio oficial: $1 páginas · búsqueda web: $2 resultados · páginas relacionadas: $3)… (10–40 s)"},
+  {re:/^✓ 案を入れました（(.+)）$/,en:(m,d)=>"✓ Suggestions filled in ("+i12Simple(m[1],d,"en")+")",zh:(m,d)=>"✓ 已填入建议（"+i12Simple(m[1],d,"zh")+"）",es:(m,d)=>"✓ Sugerencias añadidas ("+i12Simple(m[1],d,"es")+")"},
+  {re:/^確認できなかった項目：(.+)$/,en:(m,d)=>"Could not confirm: "+i12Simple(m[1],d,"en"),zh:(m,d)=>"未能确认的项目："+i12Simple(m[1],d,"zh"),es:(m,d)=>"No se pudo confirmar: "+i12Simple(m[1],d,"es")},
+  {re:/^✓ 出典：(.+)$/,en:(m)=>"✓ Source: "+(m[1]==="リンク"?"link":m[1]),zh:(m)=>"✓ 出处："+(m[1]==="リンク"?"链接":m[1]),es:(m)=>"✓ Fuente: "+(m[1]==="リンク"?"enlace":m[1])},
+  {re:/^要確認：(.+)$/,en:(m)=>"Unverified: "+(m[1]==="リンク"?"link":m[1]),zh:(m)=>"待确认："+(m[1]==="リンク"?"链接":m[1]),es:(m)=>"Por verificar: "+(m[1]==="リンク"?"enlace":m[1])},
+  {re:/^証拠として読んだページ（公式サイト (\d+)・Web検索 (\d+)件・関連ページ (\d+)）$/,en:"Pages read as evidence (official website: $1 · web search: $2 results · related pages: $3)",zh:"作为证据读取的页面（官网 $1・网络搜索 $2 条・相关页面 $3）",es:"Páginas leídas como prueba (sitio web oficial: $1 · búsqueda web: $2 resultados · páginas relacionadas: $3)"},
+  {re:/^(?=[\s\S]*(?:公式サイトを取得できませんでした（|関連ページの取得に失敗しました|Web検索に失敗：))([\s\S]+)$/,en:(m,d)=>i12Diag(m[1],d,"en"),zh:(m,d)=>i12Diag(m[1],d,"zh"),es:(m,d)=>i12Diag(m[1],d,"es")},
+  /* 営業資料の画面：納品レベルチェック・生成ロック */
+  {re:/^必須 (\d+)\/(\d+)・全体 (\d+)\/(\d+)$/,en:"Required $1/$2 · Overall $3/$4",zh:"必填 $1/$2・全部 $3/$4",es:"Obligatorios $1/$2 · Total $3/$4"},
+  {re:/^🤖 AI商社マンと埋める（必須 残り(\d+)）$/,en:"🤖 Fill in with the AI trading assistant ($1 required left)",zh:"🤖 与AI商社顾问一起补全（必填 还剩$1项）",es:"🤖 Completar con el asistente IA (faltan $1 obligatorios)"},
+  {re:/^(.+)（推奨）$/,en:(m,d)=>{ const t=i12D(m[1],d); return t!=null?t+" (recommended)":null; },zh:(m,d)=>{ const t=i12D(m[1],d); return t!=null?t+"（推荐）":null; },es:(m,d)=>{ const t=i12D(m[1],d); return t!=null?t+" (recomendado)":null; }},
+  {re:/^「ロゴ・写真」で高解像度の写真を3枚以上（商品・使用シーン・社屋や工場など）。今 (\d+)枚$/,en:"Add 3 or more high-resolution photos in \"Logo & photos\" (the product, the product in use, your offices or factory, etc.). Now: $1",zh:"在“标志・照片”中添加3张以上高分辨率照片（商品・使用场景・公司大楼或工厂等）。目前 $1 张",es:"Añada 3 o más fotos de alta resolución en «Logo y fotos» (el producto, el producto en uso, las oficinas o la fábrica, etc.). Ahora: $1"},
+  {re:/^英文商品名「(.+)」は汎用の名前です。「商品情報を登録」でこの商品の正式な英語名を入力$/,en:"The English product name \"$1\" is generic. Enter this product's proper English name in \"Register product\"",zh:"英文商品名“$1”是通用名称。请在“登记商品信息”中填写该商品的正式英文名",es:"El nombre en inglés «$1» es genérico. Introduzca el nombre correcto de este producto en «Registrar producto»"},
+  {re:/^MOQ未登録：(.+)。その商品に切り替えてMOQを登録するか、「資料に含める商品」でチェックを外してください$/,en:"MOQ not registered: $1. Switch to that product and register the MOQ, or uncheck it in \"Products to include\"",zh:"未登记最小起订量：$1。请切换到该商品登记最小起订量，或在“资料中包含的商品”中取消勾选",es:"MOQ sin registrar: $1. Cambie a ese producto y registre el MOQ, o desmárquelo en «Productos a incluir»"},
+  {re:/^🔒 生成はロック中：納品レベルの必須があと (\d+)項目（(.+)）$/,en:(m,d)=>"🔒 Generation locked: "+m[1]+" required items missing for delivery level ("+I12_JOIN.en(i12Names(m[2],d))+")",zh:(m,d)=>"🔒 生成已锁定：交付级别的必填项还差 "+m[1]+" 项（"+I12_JOIN.zh(i12Names(m[2],d))+"）",es:(m,d)=>"🔒 Generación bloqueada: faltan "+m[1]+" elementos obligatorios del nivel de entrega ("+I12_JOIN.es(i12Names(m[2],d))+")"},
+  {re:/^🔒 納品レベルの必須があと (\d+)項目（上の「納品レベルチェック」）を満たすと作り直せます$/,en:"🔒 You can recreate it once the $1 missing required items (see \"Delivery-level check\" above) are filled",zh:"🔒 补齐交付级别还差的 $1 项必填（见上方“交付级别检查”）后即可重新制作",es:"🔒 Podrá rehacerla cuando complete los $1 elementos obligatorios que faltan (vea «Control de nivel de entrega» arriba)"},
+  {re:/^納品レベルまで残り(\d+)項目です（生成はロック中）$/,en:"$1 items left to reach delivery level (generation is locked)",zh:"距交付级别还差 $1 项（生成已锁定）",es:"Faltan $1 elementos para el nivel de entrega (generación bloqueada)"},
+  /* 営業資料の画面：そのほか */
+  {re:/^⚠ 登録データに不自然な値が (\d+)件 あります$/,en:"⚠ Unusual values in the registered data: $1",zh:"⚠ 登记数据中有 $1 处不自然的值",es:"⚠ Valores inusuales en los datos registrados: $1"},
+  {re:/^業種とロゴから自動（今は「(上品|根拠重視|力強い)」）$/,en:(m)=>"Automatic from your industry and logo (currently \""+I12_STY[m[1]].en+"\")",zh:(m)=>"根据行业和标志自动选择（目前为“"+I12_STY[m[1]].zh+"”）",es:(m)=>"Automático según el sector y el logotipo (ahora «"+I12_STY[m[1]].es+"»)"},
+  {re:/^前回：(.+?)・(.+)・(\d+)枚・(?:納品レベル (\d+)点|(要修正))$/,en:(m)=>"Last time: "+m[1]+" · "+m[2]+" · "+m[3]+" slides · "+(m[4]!=null?"delivery level "+m[4]+" pts":"needs fixes"),zh:(m)=>"上次："+m[1]+"・"+m[2]+"・"+m[3]+"页・"+(m[4]!=null?"交付级别 "+m[4]+"分":"需修改"),es:(m)=>"Última vez: "+m[1]+" · "+m[2]+" · "+m[3]+" diapositivas · "+(m[4]!=null?"nivel de entrega "+m[4]+" pts":"requiere correcciones")},
+  {re:/^資料に含められるのは最大(\d+)点です（表示中の商品を含む）$/,en:"You can include up to $1 products (including the current product)",zh:"资料中最多可包含 $1 件商品（含当前商品）",es:"Puede incluir hasta $1 productos (incluido el producto actual)"},
+  {re:/^最大(\d+)点のため、先頭から(\d+)点を選びました$/,en:"The maximum is $1, so the first $2 were selected",zh:"最多 $1 件，因此从前面选择了 $2 件",es:"El máximo es $1, así que se seleccionaron los $2 primeros"}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
 
 </script>
