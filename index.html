@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="5298fccb17e6";
+const BC20_BUILD="e61d6e5e50fd";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31371,5 +31371,65 @@ try{ if(typeof dk3I18n==="function") dk3I18n([
    "生效时间：客户下次登录时，或使用中10分钟内（返回画面时）送达。取消勾选后，该功能的显示也会恢复为默认（不显示）。",
    "Cuándo se aplica: en el próximo inicio de sesión del cliente, o en 10 minutos si lo está usando (o al volver a la pantalla). Al desmarcar una función, su visualización vuelve a lo predeterminado (no se muestra)."]
 ]); }catch(e){}
+
+/* ═══ v21.19（2026-09-28）やりとり：メッセージの入力欄をいつも見える位置に（Slack と同じく、動くのは一覧だけで、入力欄は画面の下にいる）
+   お客様の依頼：一覧の下までスクロールしないと入力欄が見えず、わかりづらい（一覧 470px 固定＋入力欄 272px で、1920×915 でも入力欄はほぼ画面の外）
+   ・一覧（#mlist）の高さを画面に合わせる：一覧の上端から、入力欄の高さと下の余白（スマホは下のタブも）を引いた残り（最小 200px・スマホ 160px）。
+     画面の大きさ・入力欄の高さ（書くと伸びる）・一覧の上の行（翻訳・スレッドの切り替えなど）が変わるたびに合わせ直す
+   ・入力欄は画面の下に貼り付ける（position:sticky）。上へスクロールして見出しを見ている間も、入力欄は下に見えたまま
+   ・開いた時：一覧は最新（いちばん下）。小さな画面で収まらない時は、入力欄が見えるところまでページを送る。PC は入力欄にカーソルを置く（すぐ打てる）
+   ・入力欄を詰める（272px → 約210px）：可視範囲の切り替えを1行に・書式ボタンを小さく・入力欄は2行から（書くと伸びる＝v19.3。やりとりでは 200px まで）。
+     スマホは書式ボタンを省く（AI商社マンの画面と同じ）・キーボードが出ている間は貼り付けをやめる（端末のスクロールに任せる）
+   ・この画面では右下の「AIに質問」の丸いボタンと「↑」を出さない（入力欄の送信ボタンに重なるため。スマホの AI商社マンの画面と同じ扱い） */
+const FX19={last:"",raf:0,ro:null};
+function fx19Narrow(){ try{ return matchMedia("(max-width:820px)").matches; }catch(e){ return false; } }
+function fx19Tab(){ try{ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tabbar-h"))||0; }catch(e){ return 0; } }
+function fx19Els(){ if(typeof cur==="undefined"||cur!=="msg") return null; const ml=document.getElementById("mlist"); if(!ml) return null;
+  const card=ml.closest(".c"); const comp=card&&card.querySelector(":scope > .composer"); return comp?{ml,card,comp}:null; }
+const FX19_GAP=11, FX19_PAD=12;
+function fx19Fit(){ try{
+  const E=fx19Els(); if(!E) return; const {ml,comp}=E; comp.classList.add("fx19c"); ml.classList.add("fx19l");
+  const top=ml.getBoundingClientRect().top+scrollY;   /* 文書の中での位置（スクロールに関係しない）＝ページのいちばん上で開いた時に、入力欄が画面の下に収まる高さ */
+  const h=Math.max(fx19Narrow()?160:200,Math.floor(innerHeight-top-FX19_GAP-comp.offsetHeight-FX19_PAD-fx19Tab()));
+  if(Math.abs((parseFloat(ml.style.maxHeight)||0)-h)>1){ const atBottom=ml.scrollHeight-ml.scrollTop-ml.clientHeight<24; ml.style.maxHeight=h+"px"; if(atBottom) ml.scrollTop=ml.scrollHeight; }
+}catch(e){} }
+function fx19Soon(){ if(FX19.raf) return; FX19.raf=requestAnimationFrame(()=>{ FX19.raf=0; fx19Fit(); }); }
+function fx19Observe(E){ try{ if(!FX19.ro&&typeof ResizeObserver!=="undefined") FX19.ro=new ResizeObserver(()=>fx19Soon()); if(FX19.ro){ FX19.ro.observe(E.comp); FX19.ro.observe(E.card); } }catch(e){} }
+/* 開いた時：最新を表示・入力欄が画面に入るまでページを送る・PC はカーソルを入力欄へ */
+function fx19Open(){ const E=fx19Els(); if(!E) return; fx19Fit(); E.ml.scrollTop=E.ml.scrollHeight;
+  const natBottom=E.ml.getBoundingClientRect().bottom+FX19_GAP+E.comp.offsetHeight;   /* 貼り付けではない本来の位置 */
+  const over=natBottom-(innerHeight-FX19_PAD-fx19Tab()); if(over>1) scrollBy(0,Math.ceil(over));
+  try{ if(fx19Narrow()||!matchMedia("(pointer:fine)").matches) return; if(document.querySelector("#welv,#v1811ov,.dw[data-open='true']")) return;
+    const a=document.activeElement; if(a&&a!==document.body&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=="mtext") return;
+    const ta=document.getElementById("mtext"); if(ta) ta.focus({preventScroll:true}); }catch(e){} }
+if(typeof render==="function"){ const __r19=render; render=function(){ const prev=FX19.last; let had=false; try{ const a=document.activeElement; had=!!a&&a.id==="mtext"; }catch(e){} const r=__r19.apply(this,arguments);
+  try{ const now=(typeof cur!=="undefined")?cur:""; FX19.last=now; document.body.classList.toggle("fx19on",now==="msg"); if(now==="msg"){ const E=fx19Els(); if(E){ E.comp.classList.add("fx19c"); E.ml.classList.add("fx19l"); fx19Observe(E); fx19Fit(); if(prev!=="msg") requestAnimationFrame(()=>requestAnimationFrame(fx19Open));
+      else if(had){ const ta=document.getElementById("mtext"); if(ta&&document.activeElement!==ta) try{ ta.focus({preventScroll:true}); }catch(e){} } } }   /* 送った後・描き直した後も、打っていた人のカーソルは入力欄に残す（Slack と同じ） */ }catch(e){}
+  return r; }; }
+/* 書くと伸びる入力欄（v19.3 は 40vh まで）は、やりとりでは 200px まで（一覧の場所を残す。超えた分は入力欄の中でスクロール） */
+document.addEventListener("input",e=>{ try{ const ta=e.target; if(!ta||ta.id!=="mtext"||ta.__uxh||!ta.closest(".composer.fx19c")) return;
+  if(ta.getBoundingClientRect().height>201){ ta.style.setProperty("height","200px","important"); ta.__auto=1; } }catch(x){} });
+addEventListener("resize",()=>fx19Soon());
+try{ const vv=window.visualViewport; if(vv) vv.addEventListener("resize",()=>fx19Soon()); }catch(e){}
+
+/* ── 見た目（やりとりの入力欄だけ） ── */
+(function(){ try{ if(document.getElementById("fx19css")) return; const st=document.createElement("style"); st.id="fx19css"; st.textContent=`
+#well .c>.composer.fx19c{position:sticky;bottom:calc(8px + var(--tabbar-h,0px));z-index:7}
+/* 入力欄が下にいる画面では、右下の「AIに質問」の丸いボタンと「↑」を出さない（送信ボタンに重なる。AIへの質問は見出しの「🤖 AIに質問」と上の案内の「AI商社マンに聞く」から） */
+body.fx19on #askfab,body.fx19on #uxtop{display:none!important}
+body.kbopen #well .c>.composer.fx19c{position:relative;bottom:auto}
+#well .composer.fx19c>.rw:first-child .btn[data-mscope]{min-height:38px;padding:6px 10px;line-height:1.35}
+#well .composer.fx19c>.rw:first-child .btn[data-mscope] br{display:none}
+#well .composer.fx19c>.rw:first-child .btn[data-mscope] span{margin-left:8px;font-size:11.5px!important}
+#well .composer.fx19c>.rw:has(>.btn[data-md]){padding:3px 8px!important}
+#well .composer.fx19c .btn[data-md]{min-height:30px;padding:2px 10px!important}
+#well .composer.fx19c #mtext{min-height:60px!important;padding:9px 12px!important}
+#well .composer.fx19c>.rw:last-child{padding:5px 10px!important}
+@media (max-width:820px){
+  #well .composer.fx19c>.rw:has(>.btn[data-md]){display:none}
+  #well .composer.fx19c>.rw:first-child .btn[data-mscope]{min-height:40px}
+  #well .composer.fx19c>.rw:first-child .btn[data-mscope] span{display:none}
+}
+`; document.head.appendChild(st); }catch(e){} })();
 
 </script>
