@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="fb0040affcec";
+const BC20_BUILD="d58659128cd1";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -30716,5 +30716,84 @@ try{ if(typeof I18N!=="undefined"&&I18N.pat){ const tr=(s,d)=>{ try{ const t=i18
     {re:/^保存した資料を開きました（(\d{4}-\d\d-\d\d \d\d:\d\d)・(\S+)）$/,en:(m)=>"Opened the saved deck ("+m[1]+", "+ln(m[2],0)+")",zh:(m)=>"已打开保存的资料（"+m[1]+"・"+ln(m[2],1)+"）",es:(m)=>"Se abrió la presentación guardada ("+m[1]+", "+ln(m[2],2)+")"},
     {re:/^開けませんでした：([\s\S]*)$/,en:(m,d)=>"Could not open it: "+tr(m[1],d),zh:(m,d)=>"无法打开："+tr(m[1],d),es:(m,d)=>"No se pudo abrir: "+tr(m[1],d)}
   ].reverse().forEach(p=>I18N.pat.unshift(p)); } }catch(e){}
+
+/* ═══ v21.15（2026-09-28）外国語 営業資料：「資料に含める商品」のチェックしていない商品を畳む ═══
+   お客様の依頼：「資料に含める商品」が10商品もあると下にかなりスクロールする必要があるため、クリックして、チェックを入れたプロダクト以外は畳めるように
+   ・欄の操作の並び（すべて選ぶ／表示中の商品だけ）に「▲ チェックしていない商品を畳む」を足す。押すと、主役（表示中の商品）とチェックした商品だけが残り、
+     チェックしていない商品は一覧のすぐ下の1行「▼ チェックしていない N点を畳んでいます　商品名・商品名…」にまとまる。
+     その行か「▼ 畳んだ商品を表示（N点）」を押すと元の一覧に戻る
+   ・畳んだかどうかはこの端末に覚える（選び直し・再読み込みの後も同じ）。チェックの中身・生成・保存の決まりは今までと同じ
+   ・チェックしていない商品が無い時（すべて選んだ時など）は、畳むボタンも1行も出さない（畳んだ覚えはそのまま） */
+const DK15={key:"bc20_dk15fold",mem:false};
+function dk15Fold(){ try{ const v=localStorage.getItem(DK15.key); if(v!=null) return v==="1"; }catch(e){} return !!DK15.mem; }
+function dk15SetFold(on){ DK15.mem=!!on; try{ if(on) localStorage.setItem(DK15.key,"1"); else localStorage.removeItem(DK15.key); }catch(e){} }
+(function(){ try{ if(document.getElementById("dk15css")) return; const st=document.createElement("style"); st.id="dk15css"; st.textContent=`
+.dk3-sel.dk15f .dk3-selr:not(.on):not(.main){display:none}
+.dk15-bar{display:flex;align-items:center;gap:4px 10px;width:100%;margin-top:6px;border:1px dashed var(--line);border-radius:var(--r2);padding:9px 12px;background:var(--surface);font:inherit;font-size:var(--fs-sm,14px);color:var(--ink-2,var(--ink));text-align:left;cursor:pointer}
+.dk15-bar:hover{border-color:var(--or);color:var(--ink)} .dk15-bar:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+.dk15-bar .dk15-t{flex:none;font-weight:700} .dk15-bar .dk15-n{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-3);font-size:var(--fs-xs,13px)}
+@media(max-width:560px){.dk15-bar{flex-wrap:wrap}.dk15-bar .dk15-n{flex-basis:100%}}
+`; document.head.appendChild(st); }catch(e){} })();
+/* 欄の中身は今までと同じ（v21.9 の dk3SelHtml）。そこに、畳むボタン・一覧の印・畳んだ1行を足す（目印が見つからない時は何も足さない） */
+if(typeof dk3SelHtml==="function"){ const __dk15s=dk3SelHtml; dk3SelHtml=function(){ const h=__dk15s.apply(this,arguments);
+  try{ if(!h||typeof TEN==="undefined"||!TEN) return h;
+    const sel=new Set(dk3Sel(TEN).map(dk3PKey)); const rest=dk3Cands(TEN).filter(t=>!sel.has(dk3PKey(t))); if(!rest.length) return h;
+    const f=dk15Fold(), n=rest.length; const A='<div class="dk3-sel">', C='<span class="nn" id="dk3selcnt">';
+    const i=h.indexOf(A), j=h.indexOf(C); if(i<0||j<0||j>i) return h; const k=h.indexOf("</div>",i); if(k<0) return h;
+    const btn=`<button class="btn g" type="button" id="dk15fold" data-dk15fold="${f?0:1}" aria-expanded="${f?"false":"true"}" aria-controls="dk15list">${f?"▼ 畳んだ商品を表示（"+n+"点）":"▲ チェックしていない商品を畳む"}</button>`;
+    const bar=f?`<button type="button" class="dk15-bar" data-dk15fold="0" aria-expanded="false" aria-controls="dk15list"><span class="dk15-t">▼ チェックしていない ${n}点を畳んでいます</span><span class="dk15-n" data-noi18n="1">${esc(rest.map(t=>dk3S(t.item)).join("・"))}</span></button>`:"";
+    return h.slice(0,j)+btn+h.slice(j,i)+'<div class="dk3-sel'+(f?" dk15f":"")+'" id="dk15list">'+h.slice(i+A.length,k+6)+bar+h.slice(k+6);
+  }catch(e){ return h; } }; }
+if(typeof deckBind==="function"){ const __dk15b=deckBind; deckBind=function(){ try{ __dk15b.apply(this,arguments); }catch(e){}
+  document.querySelectorAll("[data-dk15fold]").forEach(b=>b.onclick=ev=>{ dk15SetFold(b.dataset.dk15fold==="1");
+    const se=document.scrollingElement||document.documentElement; const y=se.scrollTop; render(); se.scrollTop=y;
+    const t=document.getElementById("dk15fold"); if(t&&ev&&ev.detail===0) try{ t.focus({preventScroll:true}); }catch(e){} }); }; }
+/* ── 英・中・西（言い方は v21.12〜v21.14 に揃える） ── */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  ["チェックしていない商品を畳む","Collapse unchecked products","收起未勾选的商品","Ocultar productos sin marcar"]
+]); }catch(e){}
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^畳んだ商品を表示（(\d+)点）$/,en:"Show collapsed products ($1)",zh:"显示已收起的商品（$1 件）",es:"Mostrar productos ocultos ($1)"},
+  {re:/^チェックしていない (\d+)点を畳んでいます$/,en:(m)=>m[1]+" unchecked product"+(m[1]==="1"?" is":"s are")+" collapsed",zh:"已收起 $1 件未勾选的商品",es:(m)=>m[1]==="1"?"1 producto sin marcar está oculto":m[1]+" productos sin marcar están ocultos"}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+/* 前からの取りこぼし：「選択中：N点（最大10点）」は数が <b> で分かれているため文の型が当たらず、英中西で「点（最大10点）」が日本語のまま残っていた → 要素ごとの訳で直す */
+try{ if(typeof I18N_EL!=="undefined"&&typeof DK3_MAXP!=="undefined") for(let n=1;n<=DK3_MAXP;n++){ const k="選択中："+n+"点（最大"+DK3_MAXP+"点）";
+  I18N_EL.en[k]="Selected: <b>"+n+"</b> (max. "+DK3_MAXP+")"; I18N_EL.zh[k]="已选：<b>"+n+"</b> 件（最多 "+DK3_MAXP+" 件）"; I18N_EL.es[k]="Seleccionados: <b>"+n+"</b> (máx. "+DK3_MAXP+")"; } }catch(e){}
+
+/* ═══ v21.15 ②（2026-09-28）「商品情報を登録」は必ず「何をしますか？」から・後ろは「新しい会社の商品を登録」の簡素なページ ═══
+   お客様の依頼：「商品情報を登録」のページは、必ず「商品情報を登録 ― 何をしますか？」の画面からスタートし、背景は「新しい会社の商品を登録」の
+   一番ベーシックなページ（v18.12 の集中モード＝登録済みの商品・前回の資料・サンプルを隠し、登録欄だけ）になるように
+   ・このページに入るたび（左のメニュー・ボタン、ログインの後や開いた時にこのページになる時も）、後ろを集中モード（新しい会社）にして「何をしますか？」を出す。
+     ①〜③を選んだ後・「通常表示に戻る」の動きは今までと同じ
+   ・「次回からこの画面を表示しない」は無くす（必ず出す。前に選んだ覚えも使わない）
+   ・今までどおり出さない時：AIヒアリングの途中・読み取りの確認待ち・はじめての案内の表示中・管理者・物流会社・ほかの操作からの移動（登録欄へ・ヒアリングへ）
+   ・同期で表示中の商品が作り直されても、同じ商品なら集中モードを保つ（v18.13 は物の同一で見ていた）。ヒアリングが始まったら集中モードを解く */
+const DK15U={last:"",inGo:0};
+if(typeof v1811Off==="function") v1811Off=function(){ return false; };
+function dk15UpLive(){ return !document.body.classList.contains("locked"); }
+function dk15UpOk(){ try{ if(typeof V1811==="undefined"||V1811.sup) return false; if(typeof FWDON!=="undefined"&&FWDON) return false;
+  if(typeof SES!=="undefined"&&SES&&SES.t==="admin") return false; if(typeof FILL!=="undefined"&&FILL&&FILL.on) return false;
+  if(document.getElementById("welv")) return false; if(typeof v188Pend==="function"&&v188Pend(typeof TEN!=="undefined"?TEN:null)) return false; return true; }catch(e){ return false; } }
+function dk15UpShow(){ try{ if(typeof cur==="undefined"||cur!=="up"||!V1811.focus||V1811.focus.k!=="newco"||document.getElementById("v1811ov")||!dk15UpOk()) return; v1811Open("main"); }catch(e){} }
+/* 左のメニュー・ボタンから（go） */
+{ const __go15=go; go=function(id){
+  if(id!=="up"){ const r=__go15.apply(this,arguments);   /* 商品が無いと開けないページを押して、このページに戻された時も同じ（入り直し） */
+    try{ if(typeof cur!=="undefined"&&cur==="up"&&!V1811.focus&&dk15UpOk()){ V1811.mode=null; V1811.focus={k:"newco"}; render(); dk15UpShow(); } }catch(e){} return r; }
+  if(!dk15UpOk()) return __go15.apply(this,arguments);
+  V1811.mode=null; V1811.focus={k:"newco"}; DK15U.inGo++; let r; try{ r=__go15.apply(this,arguments); }finally{ DK15U.inGo--; } dk15UpShow(); return r; }; }
+/* go を通らずにこのページになる時（開いた時・ログインの後・ページが無い時の戻り先）：描く前に集中モード、描いた後に「何をしますか？」 */
+{ const __r15=render; render=function(){ let entry=false;
+  try{ if(!dk15UpLive()) DK15U.last=""; else if(typeof cur!=="undefined"&&cur==="up"&&DK15U.last!=="up"&&!DK15U.inGo&&!V1811.focus&&dk15UpOk()){ V1811.mode=null; V1811.focus={k:"newco"}; entry=true; } }catch(e){}
+  const r=__r15.apply(this,arguments);
+  try{ if(dk15UpLive()) DK15U.last=(typeof cur!=="undefined")?cur:""; if(entry) setTimeout(dk15UpShow,0); }catch(e){} return r; }; }
+/* 「次回からこの画面を表示しない」を出さない（閉じるボタンは右に） */
+if(typeof v1811Open==="function"){ const __o15=v1811Open; v1811Open=function(){ const r=__o15.apply(this,arguments);
+  try{ const c=document.getElementById("v1811nomore"); const l=c&&c.closest("label"); if(l) l.remove(); const s=document.querySelector("#v1811ov #v1811skip"); if(s) s.style.marginLeft="auto"; }catch(e){} return r; }; }
+/* 同期で商品の物が作り直されても、同じ商品なら集中モードを保つ */
+if(typeof v1812Focus==="function"){ const __f15=v1812Focus; v1812Focus=function(){ try{ const f=V1811.focus; if(f&&f.ten&&typeof TEN!=="undefined"&&TEN&&f.ten!==TEN&&typeof dk3PKey==="function"&&dk3PKey(f.ten)===dk3PKey(TEN)) f.ten=TEN; }catch(e){} return __f15.apply(this,arguments); }; }
+/* ヒアリングが始まったら集中モードを解く（上部の「新しい会社を登録中…」が残らないように） */
+if(typeof fillStart==="function"){ const __fs15=fillStart; fillStart=function(){ try{ if(typeof V1811!=="undefined"&&V1811.focus){ V1811.focus=null; V1811.mode=null; } }catch(e){} return __fs15.apply(this,arguments); }; }
+/* 開いた時にもうこのページになっている時（デモ版は、この版のファイルより前に最初の描画が済んでいる）。トライアル版はログインの後の描画で上の render が拾う */
+setTimeout(()=>{ try{ if(!dk15UpLive()||typeof cur==="undefined"||cur!=="up"||V1811.focus||!dk15UpOk()) return; V1811.mode=null; V1811.focus={k:"newco"}; render(); dk15UpShow(); }catch(e){} },0);
 
 </script>
