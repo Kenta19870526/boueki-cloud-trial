@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="e47ea9b78864";
+const BC20_BUILD="fb0040affcec";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -30309,5 +30309,412 @@ try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
   {re:/^資料に含められるのは最大(\d+)点です（表示中の商品を含む）$/,en:"You can include up to $1 products (including the current product)",zh:"资料中最多可包含 $1 件商品（含当前商品）",es:"Puede incluir hasta $1 productos (incluido el producto actual)"},
   {re:/^最大(\d+)点のため、先頭から(\d+)点を選びました$/,en:"The maximum is $1, so the first $2 were selected",zh:"最多 $1 件，因此从前面选择了 $2 件",es:"El máximo es $1, así que se seleccionaron los $2 primeros"}
 ].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ═══ v21.13（2026-09-27）外国語 営業資料：資料を作っている間の途中経過と、出来上がった資料の最終チェック・結果のカードを英・中・西に ═══
+   お客様の依頼：「営業資料の生成画面の文言を英中西に訳す」（v21.12 の残り）
+   ・作っている間の7つの手順の名前と、それぞれの途中経過・結果の説明（素材・会社の歴史と想い・執筆・照合・表の翻訳・組み立て・最終チェック）
+   ・出来上がった資料の最終チェックの指摘（重大な問題・注意・問題なしの全種類。中に入る表の種類・欄の名前・外した理由も）
+   ・結果のカード（見出し・点数・含めた商品・ボタン・案内）、ダウンロード・PDF・作り直しの知らせ、PDF の印刷の案内（別の窓）
+   仕組みは今までと同じ（辞書＝表示の文字の置き換え。数や名前が入る文は I18N.pat）。日本語の表示・動きは変えない。
+   「✗ 」「⚠ 」「✓ 」「✅ 」が付いた文は、中の文を辞書とこの版の型で訳す（v18 の「⚠ (.+)」の素通しより先に当てる）。
+   言い方は画面の説明（「AI Trade Agent」「evidence」「history and philosophy」）と v21.12 の訳（納品レベル＝delivery level 等）に揃える */
+
+/* 最終チェックの文の中に入る語（表の種類・欄の名前・ローマ字にした名前の種類・訳で変わったもの・ページの名前） */
+const I13_W={
+  tbl:{価格表:{en:"price table",zh:"价格表",es:"tabla de precios"},寸法表:{en:"dimensions table",zh:"尺寸表",es:"tabla de dimensiones"},成分表:{en:"ingredients table",zh:"成分表",es:"tabla de ingredientes"},
+    "成分・仕様の表":{en:"ingredients/specifications table",zh:"成分・规格表",es:"tabla de ingredientes/especificaciones"},"寸法・梱包の表":{en:"dimensions/packaging table",zh:"尺寸・包装表",es:"tabla de dimensiones/embalaje"}},
+  roman:{社名:{en:"company name",zh:"公司名",es:"nombre de la empresa"},商品名:{en:"product name",zh:"商品名",es:"nombre del producto"},担当者名:{en:"contact name",zh:"负责人姓名",es:"nombre del contacto"}},
+  fix:{数字:{en:"the figures changed",zh:"数字发生变化",es:"cambiaron las cifras"},語:{en:"key terms changed",zh:"关键用语发生变化",es:"cambiaron términos clave"},単位:{en:"the units changed",zh:"单位发生变化",es:"cambiaron las unidades"},訳が空:{en:"the translation was empty",zh:"译文为空",es:"la traducción quedó vacía"}},
+  page:{会社概要:{en:"Company Profile",zh:"公司概况",es:"Perfil de la empresa"},商品ページ:{en:"Product",zh:"商品",es:"Producto"},"価格・MOQ・取引条件":{en:"Pricing, MOQ & Trade Terms",zh:"价格・最小起订量・交易条件",es:"Precios, MOQ y condiciones comerciales"},連絡先:{en:"Contact",zh:"联系方式",es:"Contacto"}},
+  story:{"沿革・理念":{en:"history, philosophy",zh:"沿革・理念",es:"historia, filosofía"},沿革:{en:"history",zh:"沿革",es:"historia"},理念:{en:"philosophy",zh:"理念",es:"filosofía"}}
+};
+/* 登録内容が回答になっていない欄の名前（「・」区切り。「賞味期限・使用期限」は名前の中にも「・」→ v21.12 の i12Names で一番長い名前から） */
+const I13_F={
+  en:{MOQ:"MOQ",リードタイム:"lead time",取引条件:"trade terms",支払条件:"payment terms",仕出港:"port of loading",入数:"units per carton","賞味期限・使用期限":"shelf life",保存方法:"storage",認証:"certifications",産地:"origin"},
+  zh:{MOQ:"最小起订量",リードタイム:"交货期",取引条件:"交易条件",支払条件:"付款条件",仕出港:"装运港",入数:"每箱数量","賞味期限・使用期限":"保质期・使用期限",保存方法:"保存方法",認証:"认证",産地:"产地"},
+  es:{MOQ:"MOQ",リードタイム:"plazo de entrega",取引条件:"condiciones comerciales",支払条件:"condiciones de pago",仕出港:"puerto de carga",入数:"unidades por caja","賞味期限・使用期限":"vida útil",保存方法:"conservación",認証:"certificaciones",産地:"origen"}};
+/* 資料から外した文言の理由（照合の結果。値が入るものは $1） */
+const I13_WHY=[
+  [/^根拠に無い数字：(.+)$/,{en:"figures not found in the evidence: $1",zh:"依据中没有的数字：$1",es:"cifras que no están en las fuentes: $1"}],
+  [/^根拠に無い最上級・唯一の表現$/,{en:"superlative or \"only\" claim not found in the evidence",zh:"依据中没有的最高级・唯一性表述",es:"superlativo o afirmación de exclusividad sin respaldo en las fuentes"}],
+  [/^医薬品的な効能表現（輸出先の規制上、載せない）$/,{en:"medicinal efficacy claim (not allowed by the destination's regulations)",zh:"医药品式的功效表述（受出口目的地法规限制，不刊载）",es:"afirmación de eficacia de tipo medicinal (no permitida por la normativa del destino)"}],
+  [/^根拠に無い産地・所在地：(.+)$/,{en:"place of origin or location not found in the evidence: $1",zh:"依据中没有的产地・所在地：$1",es:"origen o ubicación que no están en las fuentes: $1"}],
+  [/^同じ最上級・順位の表現は資料全体で2回まで$/,{en:"the same superlative or ranking claim is limited to twice per deck",zh:"同一最高级・排名表述在整份资料中最多2次",es:"la misma expresión superlativa o de ranking se limita a dos veces por presentación"}],
+  [/^事実を含むのに根拠の引用が無い$/,{en:"states a fact but quotes no evidence",zh:"包含事实但没有引用依据",es:"contiene un dato pero no cita ninguna fuente"}],
+  [/^根拠の引用が短すぎる$/,{en:"the quoted evidence is too short",zh:"引用的依据过短",es:"la cita de la fuente es demasiado corta"}],
+  [/^根拠の引用が根拠の原文に見つからない$/,{en:"the quote was not found in the original evidence",zh:"在依据原文中找不到所引用的内容",es:"la cita no se encontró en la fuente original"}],
+  [/^別の商品の根拠を引用している$/,{en:"quotes the evidence of a different product",zh:"引用了其他商品的依据",es:"cita la fuente de otro producto"}],
+  [/^引用に数字が含まれていない：(.+)$/,{en:"the quote does not contain the figures: $1",zh:"引用中不包含数字：$1",es:"la cita no contiene las cifras: $1"}]];
+function i13Why(w,l){ for(const [re,t] of I13_WHY){ const m=String(w).match(re); if(m) return t[l].replace("$1",m[1]||""); } return null; }
+/* 「外した文言：<文>（<理由>）」＝理由は最後の括弧（理由の中にも括弧がある）。知っている理由で終わっているかを後ろから見る */
+function i13Drop(s,l){ const m=String(s).match(/^外した文言：([\s\S]*)$/); if(!m) return null; const b=m[1];
+  for(let i=b.lastIndexOf("（");i>=0;i=b.lastIndexOf("（",i-1)){ if(b[b.length-1]!=="）") break; const w=b.slice(i+1,-1), t=i13Why(w,l); if(t!=null){ const tx=b.slice(0,i);
+      return l==="zh"?"删除的文句："+tx+"（"+t+"）":l==="es"?"Frase eliminada: "+tx+" ("+t+")":"Removed statement: "+tx+" ("+t+")"; } if(i===0) break; }
+  return null; }
+/* 「3・5枚目」→ ページの並び */
+function i13Pg(s,l){ const a=String(s).split("・").filter(Boolean); if(l==="zh") return "第"+a.join("、")+"页"; const pl=a.length>1; return (l==="es"?(pl?"diapositivas ":"diapositiva "):(pl?"slides ":"slide "))+a.join(", "); }
+/* 数に合わせた単数・複数（英・西） */
+function i13N(n,one,many){ return String(n)==="1"?one:many; }
+/* 中に入った日本語の文（エラーの知らせなど）を、辞書と今までの型で訳す（無ければそのまま） */
+function i13T(s,d){ try{ const t=(typeof i18nStr==="function")?i18nStr(s,d):null; return t!=null?t:s; }catch(e){ return s; } }
+/* 表の種類ごとの語 */
+function i13Tb(t,l){ const w=I13_W.tbl[t]; return w?w[l]:t; }
+
+/* 辞書（決まった文） */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  /* 手順の名前 */
+  ["素材を確認する（ロゴの色・写真の役割）","Check the materials (logo colors, photo roles)","确认素材（标志颜色・照片用途）","Revisar los materiales (colores del logotipo, función de las fotos)"],
+  ["会社の歴史と想いを確認する","Check the company history and philosophy","确认公司沿革与理念","Revisar la historia y filosofía de la empresa"],
+  ["文章を根拠と1項目ずつ照合する（数字・年・受賞・成分・実績）","Check the text against the evidence item by item (figures, years, awards, ingredients, track record)","将文案与依据逐项核对（数字・年份・获奖・成分・业绩）","Cotejar el texto con las fuentes punto por punto (cifras, años, premios, ingredientes, trayectoria)"],
+  ["価格表・寸法・成分・取引条件を訳す（数字は変えない）","Translate the price table, dimensions, ingredients and trade terms (figures unchanged)","翻译价格表・尺寸・成分・交易条件（数字不变）","Traducir la tabla de precios, dimensiones, ingredientes y condiciones comerciales (sin cambiar las cifras)"],
+  ["スライドを組み立てる（写真・アイコン・図・グラフ）","Build the slides (photos, icons, diagrams, charts)","组装幻灯片（照片・图标・图示・图表）","Montar las diapositivas (fotos, iconos, diagramas, gráficos)"],
+  ["出来上がった資料を納品レベルで最終チェックする","Run the final delivery-level check on the finished deck","按交付级别对完成的资料进行最终检查","Hacer la revisión final de nivel de entrega de la presentación terminada"],
+  /* 途中経過・結果の説明 */
+  ["ロゴからコーポレートカラーを取り出し、写真を「商品・情景・社屋・人物・原料」に分けています","Extracting the corporate colors from the logo and sorting the photos into \"product, scene, building, people, raw materials\"","正在从标志中提取企业色，并将照片分为“商品・场景・公司建筑・人物・原料”","Extrayendo los colores corporativos del logotipo y clasificando las fotos en «producto, escena, edificio, personas, materias primas»"],
+  ["公式サイトの沿革・理念・代表メッセージ・受賞・実績のページを探しています","Looking for pages on the official website about the history, philosophy, CEO message, awards and track record","正在官网查找沿革・理念・代表致辞・获奖・业绩的页面","Buscando en el sitio web oficial páginas sobre la historia, la filosofía, el mensaje del director, los premios y la trayectoria"],
+  ["登録の沿革・理念を使用","Using the registered history and philosophy","使用登记的沿革・理念","Se usan la historia y la filosofía registradas"],
+  ["AI商社マンが根拠を読み込んでいます","The AI Trade Agent is reading the evidence","AI商社专员正在读取依据","El Agente comercial IA está leyendo las fuentes"],
+  ["書いた文章の全項目を、根拠の原文と1項目ずつ照合しています（数字・年・受賞・成分・実績・販路）…","Checking every item of the text against the original evidence one by one (figures, years, awards, ingredients, track record, sales channels)…","正在将文案的所有项目与依据原文逐项核对（数字・年份・获奖・成分・业绩・销售渠道）…","Cotejando cada punto del texto con las fuentes originales uno por uno (cifras, años, premios, ingredientes, trayectoria, canales de venta)…"],
+  ["前回照合済みの文章を使用（登録データに変更なし）","Using the previously checked text (no changes to the registered data)","使用上次已核对的文案（登记数据无变化）","Se usa el texto cotejado anteriormente (sin cambios en los datos registrados)"],
+  ["照合が完了しませんでした（AIの応答が不正・通信の問題）","The check could not be completed (invalid AI response or connection problem)","核对未能完成（AI响应无效・通信问题）","No se pudo completar el cotejo (respuesta de la IA no válida o problema de conexión)"],
+  ["AIエンジン未接続のため、登録データの文章をそのまま使います（外国語にはなりません）","The AI engine is not connected, so the registered text is used as is (it will not be in the foreign language)","由于AI引擎未连接，将直接使用登记数据的文案（不会译成外语）","El motor de IA no está conectado, así que se usa el texto registrado tal cual (no estará en el idioma extranjero)"],
+  ["（未接続のため省略）","(skipped: not connected)","（未连接，已省略）","(omitido: sin conexión)"],
+  ["未接続のため原文のまま","Kept in the original (not connected)","未连接，保留原文","Se mantiene el original (sin conexión)"],
+  ["数字・単位・税抜/税込などの一致を確認済み","Checked that figures, units, tax excluded/included, etc. match","已确认数字・单位・含税/不含税等一致","Se comprobó que coinciden cifras, unidades, impuestos incluidos/excluidos, etc."],
+  ["写真を当てはめ、文字を実寸で測って枠に収めています","Placing the photos and measuring the text at actual size to fit it in its boxes","正在放入照片，并按实际尺寸测量文字使其容纳在框内","Colocando las fotos y midiendo el texto a tamaño real para que quepa en sus cuadros"],
+  ["生成中に表示中の商品が切り替わったため中止しました（元の商品に戻して、もう一度作ってください）","Stopped because the displayed product was switched during generation (switch back to the original product and create it again)","由于生成过程中切换了当前商品，已中止（请切回原商品后重新制作）","Se detuvo porque se cambió el producto mostrado durante la generación (vuelva al producto original y créela de nuevo)"],
+  ["AIエンジンから文章を受け取れませんでした","No text was received from the AI engine","未能从AI引擎收到文案","No se recibió texto del motor de IA"],
+  /* 最終チェック：問題なし */
+  ["文字のはみ出し：なし","Text overflow: none","文字溢出：无","Texto desbordado: ninguno"],
+  ["日本語の残り：なし","Remaining Japanese: none","残留日语：无","Japonés restante: ninguno"],
+  ["文章の全項目を根拠と照合済み","Every item of the text checked against the evidence","文案的所有项目均已与依据核对","Todos los puntos del texto cotejados con las fuentes"],
+  ["成分・仕様：あり","Ingredients & specifications: included","成分・规格：有","Ingredientes y especificaciones: incluidos"],
+  ["MOQ：あり（価格を載せる全商品）","MOQ: included (all products with prices)","最小起订量：有（所有刊载价格的商品）","MOQ: incluido (todos los productos con precio)"],
+  ["価格・成分・寸法の表：登録の全行を掲載","Price, ingredient and dimension tables: all registered rows included","价格・成分・尺寸表：已刊载登记的全部行","Tablas de precios, ingredientes y dimensiones: se incluyen todas las filas registradas"],
+  /* 最終チェック：重大な問題・注意（決まった文） */
+  ["文章と根拠の照合（AIによる1項目ずつの確認）が完了しませんでした。通信の状態を確かめて「もう一度作る」を押してください","Checking the text against the evidence (item-by-item AI verification) could not be completed. Check your connection and press \"Create again\"","文案与依据的核对（AI逐项确认）未能完成。请确认网络状态后点击“重新制作”","No se pudo completar el cotejo del texto con las fuentes (verificación de la IA punto por punto). Compruebe la conexión y pulse «Crear de nuevo»"],
+  ["会社の歴史・想い（沿革または理念）のページがありません","There is no page on the company history and philosophy (history or philosophy)","没有公司沿革与理念（沿革或理念）的页面","No hay una página sobre la historia y filosofía de la empresa (historia o filosofía)"],
+  ["成分・仕様のページがありません（成分表・規格の登録が必要）","There is no ingredients/specifications page (an ingredients table or specifications must be registered)","没有成分・规格页面（需要登记成分表・规格）","No hay página de ingredientes/especificaciones (debe registrar una tabla de ingredientes o las especificaciones)"],
+  ["価格表がありません（価格帯・単価の登録が必要）","There is no price table (price ranges or unit prices must be registered)","没有价格表（需要登记价格区间・单价）","No hay tabla de precios (debe registrar rangos de precios o precios unitarios)"],
+  ["MOQ が価格表の列にしか無いのに、その列が資料に表示されていません","The MOQ is only in a column of the price table, but that column is not shown in the deck","最小起订量只在价格表的某一列中，但该列未在资料中显示","El MOQ solo está en una columna de la tabla de precios, pero esa columna no aparece en la presentación"],
+  ["コーポレートカラーが未設定のため、業種の標準色で作りました（ロゴを登録すると自動で反映）","No corporate colors are set, so the standard colors for your industry were used (registering a logo applies them automatically)","由于未设置企业色，使用了行业标准色（登记标志后会自动反映）","No hay colores corporativos, así que se usaron los colores estándar del sector (al registrar un logotipo se aplican automáticamente)"],
+  ["連絡先が記入例のまま（仮の名前・example.com・0000 の電話番号）です。「AI商社マンと埋める」で実際の担当者・メール・電話を入れてください","The contact details are still the examples (a sample name, example.com, a 0000 phone number). Enter the real contact person, email and phone with \"Fill in with the AI trading assistant\"","联系方式仍是填写示例（临时名字・example.com・0000 的电话号码）。请在“与AI商社顾问一起补全”中填写实际的负责人・邮箱・电话","Los datos de contacto siguen siendo los de ejemplo (nombre provisional, example.com, teléfono 0000). Introduzca la persona de contacto, el correo y el teléfono reales con «Completar con el asistente IA»"],
+  ["連絡先（メールまたは電話）がありません（メールは name@会社.com の形で登録してください）","There are no contact details (email or phone) (register the email in the form name@company.com)","没有联系方式（邮箱或电话）（邮箱请按 name@公司.com 的格式登记）","No hay datos de contacto (correo o teléfono) (registre el correo con el formato nombre@empresa.com)"],
+  ["所在地が（仮）のままです。確定した住所を登録してください（バイヤー向けの資料に仮の住所は載せません）","The address is still marked (provisional). Please register the confirmed address (provisional addresses are not shown in materials for buyers)","所在地仍是（暂定）。请登记确定的地址（面向买家的资料中不刊载暂定地址）","La dirección sigue marcada como (provisional). Registre la dirección definitiva (las direcciones provisionales no se muestran en los materiales para compradores)"],
+  ["取引条件が FOB で、積出地に空港が含まれています。FOB は海上輸送の条件です（航空便は FCA などが一般的）。登録を確認してください","The trade term is FOB, but the shipping point includes an airport. FOB is a term for sea freight (air shipments usually use FCA, etc.). Please check the registration","交易条件为 FOB，但装运地包含机场。FOB 是海运条件（空运一般使用 FCA 等）。请确认登记","La condición comercial es FOB, pero el punto de embarque incluye un aeropuerto. FOB es una condición para transporte marítimo (en envíos aéreos suele usarse FCA, etc.). Revise el registro"],
+  /* 結果のカード */
+  ["資料に含める商品が変わりました。「↻ もう一度作る」を押すと、今の選択で作り直します。","The products to include have changed. Press \"↻ Create again\" to recreate the deck with the current selection.","资料中包含的商品已更改。点击“↻ 重新制作”即可按当前选择重新制作。","Los productos a incluir han cambiado. Pulse «↻ Crear de nuevo» para rehacer la presentación con la selección actual."],
+  ["サムネイルをクリックすると大きく確認できます（← → で移動）。PowerPoint で開くと文字・図形はすべて編集できます。","Click a thumbnail to view it larger (← → to move). Opened in PowerPoint, all text and shapes are editable.","点击缩略图可放大查看（← → 切换）。用 PowerPoint 打开后，所有文字・图形均可编辑。","Haga clic en una miniatura para verla más grande (← → para moverse). Al abrirla en PowerPoint, todo el texto y las formas se pueden editar."],
+  ["PowerPoint（PPTX）をダウンロード","Download PowerPoint (PPTX)","下载 PowerPoint（PPTX）","Descargar PowerPoint (PPTX)"],
+  ["PDFで保存","Save as PDF","保存为PDF","Guardar como PDF"],
+  ["下書き（DRAFT透かし入り・社内確認用）を保存","Save a draft (with a DRAFT watermark, for internal review)","保存草稿（带DRAFT水印・供内部确认）","Guardar borrador (con marca de agua DRAFT, para revisión interna)"],
+  ["上の ✗ を直して「もう一度作る」と納品版を出せます","Fix the ✗ items above and press \"Create again\" to get the delivery version","修正上方的 ✗ 后点击“重新制作”即可生成交付版","Corrija los ✗ de arriba y pulse «Crear de nuevo» para obtener la versión de entrega"],
+  ["もう一度作る","Create again","重新制作","Crear de nuevo"],
+  /* 知らせ */
+  ["最終チェックに重大な問題があるため、納品版は出せません（下書きなら保存できます）","The delivery version cannot be downloaded because the final check found critical issues (you can save a draft)","由于最终检查发现严重问题，无法导出交付版（可以保存草稿）","No se puede descargar la versión de entrega porque la revisión final encontró problemas graves (puede guardar un borrador)"],
+  ["最終チェックに重大な問題があるため、PDFは出せません","A PDF cannot be created because the final check found critical issues","由于最终检查发现严重问题，无法导出PDF","No se puede crear el PDF porque la revisión final encontró problemas graves"],
+  ["ポップアップがブロックされました。許可してからもう一度お試しください","The pop-up was blocked. Allow pop-ups and try again","弹出窗口被拦截。请允许后重试","Se bloqueó la ventana emergente. Permítala e inténtelo de nuevo"],
+  ["先に商品情報を登録してください","Please register the product information first","请先登记商品信息","Registre primero la información del producto"]
+]); }catch(e){}
+
+/* 数や名前が入る文（この版の型。I18N.pat の先頭に足し、「✗ 」などの付いた文の中の文にも使う） */
+const I13_PAT=[
+  /* 手順の名前・途中経過 */
+  {re:/^根拠を読み込んで文章を書く（(.+)）$/,en:"Read the evidence and write the text ($1)",zh:"读取依据并撰写文案（$1）",es:"Leer las fuentes y redactar el texto ($1)"},
+  {re:/^(?:コーポレートカラー #([0-9A-Fa-f]+)|コーポレートカラー未設定（業種の標準色）)(?:・写真 (\d+)枚の役割をAIが判定)?$/,
+    en:(m)=>(m[1]!=null?"Corporate color #"+m[1]:"No corporate colors set (industry standard colors)")+(m[2]!=null?" · AI identified the roles of "+m[2]+" "+i13N(m[2],"photo","photos"):""),
+    zh:(m)=>(m[1]!=null?"企业色 #"+m[1]:"未设置企业色（行业标准色）")+(m[2]!=null?"・AI判定了 "+m[2]+" 张照片的用途":""),
+    es:(m)=>(m[1]!=null?"Color corporativo #"+m[1]:"Sin colores corporativos (colores estándar del sector)")+(m[2]!=null?" · La IA identificó la función de "+m[2]+" "+i13N(m[2],"foto","fotos"):"")},
+  {re:/^公式サイト (\d+)ページから沿革 (\d+)件などを確認（出典URLつき(?:・出典と合わない (\d+)件は不採用)?）$/,
+    en:(m)=>"Confirmed "+m[2]+" history "+i13N(m[2],"entry","entries")+" and more from "+m[1]+" "+i13N(m[1],"page","pages")+" of the official website (with source URLs"+(m[3]!=null?"; "+m[3]+" not used because they did not match their sources":"")+")",
+    zh:(m)=>"已从官网 "+m[1]+" 个页面确认沿革 "+m[2]+" 条等（附出处URL"+(m[3]!=null?"・与出处不符的 "+m[3]+" 条未采用":"")+"）",
+    es:(m)=>"Se confirmaron "+m[2]+" "+i13N(m[2],"hito","hitos")+" de la historia y más en "+m[1]+" "+i13N(m[1],"página","páginas")+" del sitio web oficial (con URL de las fuentes"+(m[3]!=null?"; "+m[3]+" descartados por no coincidir con su fuente":"")+")"},
+  {re:/^公式サイトから集められませんでした（登録の情報で作成）：([\s\S]*)$/,en:(m,d)=>"Could not collect from the official website (using the registered information): "+i13T(m[1],d),zh:(m,d)=>"未能从官网收集（使用登记的信息制作）："+i13T(m[1],d),es:(m,d)=>"No se pudo recopilar del sitio web oficial (se usa la información registrada): "+i13T(m[1],d)},
+  {re:/^確認済みの沿革 (\d+)件・登録の理念を使用$/,en:(m)=>"Using "+m[1]+" confirmed history "+i13N(m[1],"entry","entries")+" and the registered philosophy",zh:"使用已确认的沿革 $1 条和登记的理念",es:(m)=>"Se usan "+m[1]+" "+i13N(m[1],"hito confirmado","hitos confirmados")+" de la historia y la filosofía registrada"},
+  {re:/^根拠 (\d+)件（約([\d.]+)千字）をAI商社マンが読み込み、(.+) で文章を書いています…（上位モデル・1〜3分）$/,
+    en:"The AI Trade Agent is reading $1 pieces of evidence (about $2 thousand characters) and writing the text in $3… (top-tier model, 1–3 min)",
+    zh:"AI商社专员正在读取 $1 条依据（约$2千字）并撰写文案（语言：$3）…（高级模型・1〜3分钟）",
+    es:"El Agente comercial IA está leyendo $1 fuentes (unos $2 mil caracteres) y redactando el texto (idioma: $3)… (modelo superior, 1–3 min)"},
+  {re:/^価格表・寸法・成分・取引条件を (.+) にしています（数字・単位・意味は変えません）…$/,
+    en:"Translating the price table, dimensions, ingredients and trade terms into $1 (figures, units and meaning unchanged)…",
+    zh:"正在翻译价格表・尺寸・成分・交易条件（语言：$1。数字・单位・含义不变）…",
+    es:"Traduciendo la tabla de precios, dimensiones, ingredientes y condiciones comerciales (idioma: $1; sin cambiar cifras, unidades ni significado)…"},
+  {re:/^(前回の文章を再利用（登録データ・資料に変更なし）・)?根拠 (\d+)件（約([\d.]+)千字）から執筆(?:（(.+)）)?$/,
+    en:(m)=>(m[1]?"Reused the previous text (no changes to the registered data or documents) · ":"")+"Written from "+m[2]+" pieces of evidence (about "+m[3]+" thousand characters)"+(m[4]!=null?" ("+m[4]+")":""),
+    zh:(m)=>(m[1]?"沿用上次的文案（登记数据・资料无变化）・":"")+"根据 "+m[2]+" 条依据（约"+m[3]+"千字）撰写"+(m[4]!=null?"（"+m[4]+"）":""),
+    es:(m)=>(m[1]?"Se reutilizó el texto anterior (sin cambios en los datos ni documentos registrados) · ":"")+"Redactado a partir de "+m[2]+" fuentes (unos "+m[3]+" mil caracteres)"+(m[4]!=null?" ("+m[4]+")":"")},
+  {re:/^全項目を照合・外した文言 (\d+)件（根拠が確認できない・規制上載せられない）$/,
+    en:(m)=>"All items checked · "+m[1]+" "+i13N(m[1],"statement","statements")+" removed (no supporting evidence, or not allowed by regulations)",
+    zh:"已核对全部项目・删除的文句 $1 条（无法确认依据・受法规限制不能刊载）",
+    es:(m)=>"Todos los puntos cotejados · "+m[1]+" "+i13N(m[1],"frase eliminada","frases eliminadas")+" (sin fuentes que las respalden o no permitidas por la normativa)"},
+  {re:/^数字が変わったため原文に戻した値 (\d+)件$/,en:(m)=>m[1]+" "+i13N(m[1],"value","values")+" reverted to the original because the figures changed",zh:"因数字发生变化而恢复原文的值 $1 个",es:(m)=>m[1]+" "+i13N(m[1],"valor devuelto","valores devueltos")+" al original porque cambiaron las cifras"},
+  {re:/^(\d+)枚・写真 (\d+)枚・アイコン (\d+)種・見せ方「(上品|根拠重視|力強い)」$/,
+    en:(m)=>m[1]+" slides · "+m[2]+" "+i13N(m[2],"photo","photos")+" · "+m[3]+" icon "+i13N(m[3],"type","types")+" · design style \""+I12_STY[m[4]].en+"\"",
+    zh:(m)=>m[1]+" 页・照片 "+m[2]+" 张・图标 "+m[3]+" 种・呈现风格“"+I12_STY[m[4]].zh+"”",
+    es:(m)=>m[1]+" diapositivas · "+m[2]+" "+i13N(m[2],"foto","fotos")+" · "+m[3]+" "+i13N(m[3],"tipo","tipos")+" de iconos · estilo de diseño «"+I12_STY[m[4]].es+"»"},
+  {re:/^納品レベル（(\d+)点）$/,en:"Delivery level ($1 pts)",zh:"交付级别（$1分）",es:"Nivel de entrega ($1 pts)"},
+  {re:/^重大な問題 (\d+)件（下に表示）$/,en:(m)=>m[1]+" critical "+i13N(m[1],"issue","issues")+" (shown below)",zh:"严重问题 $1 个（见下方）",es:(m)=>m[1]+" "+i13N(m[1],"problema grave","problemas graves")+" (se muestran abajo)"},
+  {re:/^生成に失敗しました：([\s\S]*)$/,en:(m,d)=>"Generation failed: "+i13T(m[1],d),zh:(m,d)=>"生成失败："+i13T(m[1],d),es:(m,d)=>"Falló la generación: "+i13T(m[1],d)},
+  /* 最終チェック：問題なし（数が入るもの） */
+  {re:/^会社の歴史・想い：(沿革・理念|沿革|理念)$/,en:(m)=>"Company history and philosophy: "+I13_W.story[m[1]].en,zh:(m)=>"公司沿革与理念："+I13_W.story[m[1]].zh,es:(m)=>"Historia y filosofía de la empresa: "+I13_W.story[m[1]].es},
+  {re:/^価格表：(\d+)行（登録の数字のまま）$/,en:(m)=>"Price table: "+m[1]+" "+i13N(m[1],"row","rows")+" (registered figures as is)",zh:"价格表：$1 行（保持登记的数字）",es:(m)=>"Tabla de precios: "+m[1]+" "+i13N(m[1],"fila","filas")+" (cifras registradas sin cambios)"},
+  {re:/^写真：(\d+)枚・アイコン (\d+)個$/,en:(m)=>"Photos: "+m[1]+" · icons: "+m[2],zh:"照片：$1 张・图标 $2 个",es:(m)=>"Fotos: "+m[1]+" · iconos: "+m[2]},
+  {re:/^コーポレートカラー：#([0-9A-Fa-f]+)$/,en:"Corporate color: #$1",zh:"企业色：#$1",es:"Color corporativo: #$1"},
+  /* 最終チェック：重大な問題・注意（ページの番号が入るもの） */
+  {re:/^文字が枠からはみ出しているページがあります（([\d・]+)枚目）$/,en:(m)=>"Text overflows its box on some pages ("+i13Pg(m[1],"en")+")",zh:(m)=>"有页面的文字超出了框（"+i13Pg(m[1],"zh")+"）",es:(m)=>"Hay páginas con texto que se sale de su cuadro ("+i13Pg(m[1],"es")+")"},
+  {re:/^文字がかなり小さいページがあります（([\d・]+)枚目）。文章量を減らすと読みやすくなります$/,en:(m)=>"Some pages have very small text ("+i13Pg(m[1],"en")+"). Shorter text will be easier to read",zh:(m)=>"有页面的文字很小（"+i13Pg(m[1],"zh")+"）。减少文字量会更易读",es:(m)=>"Hay páginas con texto muy pequeño ("+i13Pg(m[1],"es")+"). Con menos texto se leerá mejor"},
+  {re:/^文が「…」で終わっている箇所があります（([\d・]+)枚目）。元の文章を確認してください$/,en:(m)=>"Some sentences end with \"…\" ("+i13Pg(m[1],"en")+"). Please check the original text",zh:(m)=>"有句子以“…”结尾（"+i13Pg(m[1],"zh")+"）。请确认原文",es:(m)=>"Hay frases que terminan en «…» ("+i13Pg(m[1],"es")+"). Revise el texto original"},
+  {re:/^日本語が残っているページがあります（([\d・]+)枚目）(。デモ版（AIエンジンなし）では外国語の文章を作れないため、下書き（DRAFT）としてのみ確認できます|。AIエンジン接続で外国語の文章になります)?$/,
+    en:(m)=>"Some pages still contain Japanese ("+i13Pg(m[1],"en")+")"+(m[2]?(/デモ版/.test(m[2])?". The demo version (no AI engine) cannot write text in foreign languages, so the deck can only be reviewed as a draft (DRAFT)":". Connect the AI engine to get the text in the foreign language"):""),
+    zh:(m)=>"有页面残留日语（"+i13Pg(m[1],"zh")+"）"+(m[2]?(/デモ版/.test(m[2])?"。演示版（无AI引擎）无法生成外语文案，只能作为草稿（DRAFT）查看":"。连接AI引擎后将生成外语文案"):""),
+    es:(m)=>"Hay páginas que aún contienen japonés ("+i13Pg(m[1],"es")+")"+(m[2]?(/デモ版/.test(m[2])?". La versión de demostración (sin motor de IA) no puede redactar en otros idiomas, así que solo se puede revisar como borrador (DRAFT)":". Conecte el motor de IA para obtener el texto en el idioma extranjero"):"")},
+  {re:/^写真を大きく引き伸ばしているページがあります（([\d・]+)枚目）。高解像度の写真を登録すると鮮明になります$/,en:(m)=>"Some pages stretch photos a lot ("+i13Pg(m[1],"en")+"). Registering high-resolution photos will make them sharp",zh:(m)=>"有页面把照片放得很大（"+i13Pg(m[1],"zh")+"）。登记高分辨率照片会更清晰",es:(m)=>"Hay páginas con fotos muy ampliadas ("+i13Pg(m[1],"es")+"). Con fotos de alta resolución se verán nítidas"},
+  {re:/^図・写真・アイコンの無いページがあります（([\d・]+)枚目）$/,en:(m)=>"Some pages have no diagrams, photos or icons ("+i13Pg(m[1],"en")+")",zh:(m)=>"有页面没有图示・照片・图标（"+i13Pg(m[1],"zh")+"）",es:(m)=>"Hay páginas sin diagramas, fotos ni iconos ("+i13Pg(m[1],"es")+")"},
+  /* 最終チェック：重大な問題・注意（名前や数が入るもの） */
+  {re:/^(会社概要|商品ページ|価格・MOQ・取引条件|連絡先)のページが作れていません（登録データが不足）$/,en:(m)=>"The \""+I13_W.page[m[1]].en+"\" page could not be created (not enough registered data)",zh:(m)=>"未能生成“"+I13_W.page[m[1]].zh+"”页面（登记数据不足）",es:(m)=>"No se pudo crear la página «"+I13_W.page[m[1]].es+"» (faltan datos registrados)"},
+  {re:/^主役の商品「(.+)」の価格表が未登録です（ほかの商品の価格だけが載っています）$/,en:"No price table is registered for the main product \"$1\" (only other products' prices are shown)",zh:"主打商品“$1”的价格表未登记（只刊载了其他商品的价格）",es:"No hay tabla de precios registrada para el producto principal «$1» (solo aparecen los precios de otros productos)"},
+  {re:/^「(.+)」の価格表が未登録のため、価格を載せていません$/,en:"Prices for \"$1\" are not shown because no price table is registered",zh:"“$1”的价格表未登记，因此未刊载价格",es:"No se muestran precios de «$1» porque no tiene tabla de precios registrada"},
+  {re:/^「(.+)」は価格を載せていますがMOQ（最小発注数量）が未登録です$/,en:"\"$1\" shows prices but has no MOQ (minimum order quantity) registered",zh:"“$1”刊载了价格，但未登记最小起订量（MOQ）",es:"«$1» muestra precios pero no tiene MOQ (cantidad mínima de pedido) registrado"},
+  {re:/^「(.+)」の(価格表|寸法表|成分表)が大きすぎて (\d+)行を載せられません（行を分けて登録してください）$/,
+    en:(m)=>"The "+i13Tb(m[2],"en")+" for \""+m[1]+"\" is too large; "+m[3]+" "+i13N(m[3],"row","rows")+" cannot be included (please split the rows when registering)",
+    zh:(m)=>"“"+m[1]+"”的"+i13Tb(m[2],"zh")+"过大，无法刊载 "+m[3]+" 行（请分行登记）",
+    es:(m)=>"La "+i13Tb(m[2],"es")+" de «"+m[1]+"» es demasiado grande; no se "+i13N(m[3],"puede incluir 1 fila","pueden incluir "+m[3]+" filas")+" (divida las filas al registrarla)"},
+  {re:/^「(.+)」の(価格表|寸法表|成分表)から社内向けの列を外しました：(.+)$/,en:(m)=>"Internal-only columns were removed from the "+i13Tb(m[2],"en")+" for \""+m[1]+"\": "+m[3],zh:(m)=>"已从“"+m[1]+"”的"+i13Tb(m[2],"zh")+"中去掉内部用的列："+m[3],es:(m)=>"Se quitaron columnas de uso interno de la "+i13Tb(m[2],"es")+" de «"+m[1]+"»: "+m[3]},
+  {re:/^「(.+)」の(価格表|寸法表|成分表)の記入例の行 (\d+)行を外しました$/,en:(m)=>"Removed "+m[3]+" example "+i13N(m[3],"row","rows")+" from the "+i13Tb(m[2],"en")+" for \""+m[1]+"\"",zh:(m)=>"已从“"+m[1]+"”的"+i13Tb(m[2],"zh")+"中去掉 "+m[3]+" 行填写示例",es:(m)=>"Se "+i13N(m[3],"quitó 1 fila","quitaron "+m[3]+" filas")+" de ejemplo de la "+i13Tb(m[2],"es")+" de «"+m[1]+"»"},
+  {re:/^登録した表の一部が資料に載っていません：(.+)$/,
+    en:(m)=>{ const r=i13Lack(m[1],"en"); return r!=null?"Part of the registered tables is missing from the deck: "+r:null; },
+    zh:(m)=>{ const r=i13Lack(m[1],"zh"); return r!=null?"登记的表格有一部分未刊载到资料中："+r:null; },
+    es:(m)=>{ const r=i13Lack(m[1],"es"); return r!=null?"Parte de las tablas registradas no aparece en la presentación: "+r:null; }},
+  {re:/^写真が (\d+)枚しか使えていません（納品品質の写真を3枚以上）$/,en:(m)=>"Only "+m[1]+" "+i13N(m[1],"photo","photos")+" could be used (3 or more delivery-quality photos are needed)",zh:"只用上了 $1 张照片（需要3张以上达到交付品质的照片）",es:(m)=>"Solo se "+i13N(m[1],"pudo usar 1 foto","pudieron usar "+m[1]+" fotos")+" (se necesitan 3 o más fotos con calidad de entrega)"},
+  {re:/^ページ数が (\d+)枚と少なめです（沿革・実績・差別化・顧客像などを登録すると充実します）$/,en:"The deck is short at $1 slides (registering history, track record, differentiators, customer profiles, etc. will make it fuller)",zh:"页数只有 $1 页，偏少（登记沿革・业绩・差异化・客户画像等会更充实）",es:"La presentación es corta, con $1 diapositivas (registrar historia, trayectoria, diferenciación, perfiles de clientes, etc. la hará más completa)"},
+  {re:/^英文表記が未登録のため訳した名前：(社名|商品名|担当者名)「(.+?)」→「(.+)」。正式な英文表記があれば登録してください$/,
+    en:(m)=>"Name translated because no English spelling is registered: "+I13_W.roman[m[1]].en+" \""+m[2]+"\" → \""+m[3]+"\". If there is an official English spelling, please register it",
+    zh:(m)=>"因未登记英文写法而翻译的名称："+I13_W.roman[m[1]].zh+"“"+m[2]+"”→“"+m[3]+"”。如有正式英文写法，请登记",
+    es:(m)=>"Nombre traducido porque no hay grafía en inglés registrada: "+I13_W.roman[m[1]].es+" «"+m[2]+"» → «"+m[3]+"». Si existe una grafía oficial en inglés, regístrela"},
+  {re:/^「(.+?)」の英文商品名「(.+)」は汎用の名前か、ほかの商品と同じ名前のため使っていません（日本語名から訳しました）。商品ごとの正式な英語名を登録してください$/,
+    en:"The English product name \"$2\" for \"$1\" is not used because it is generic or the same as another product's (it was translated from the Japanese name). Please register a proper English name for each product",
+    zh:"“$1”的英文商品名“$2”是通用名称或与其他商品同名，因此未使用（已根据日文名翻译）。请为每个商品登记正式英文名",
+    es:"No se usa el nombre en inglés «$2» de «$1» porque es genérico o igual al de otro producto (se tradujo del nombre japonés). Registre un nombre en inglés correcto para cada producto"},
+  {re:/^「(.+?)」の (.+) は、登録内容が回答になっていないため載せていません。登録を確認してください$/,
+    en:(m)=>"Not shown for \""+m[1]+"\" because the registered content does not answer the question: "+I12_JOIN.en(i12Names(m[2],I13_F.en))+". Please check the registration",
+    zh:(m)=>"“"+m[1]+"”的 "+I12_JOIN.zh(i12Names(m[2],I13_F.zh))+" 登记内容不是有效的回答，因此未刊载。请确认登记",
+    es:(m)=>"No se muestra para «"+m[1]+"» porque lo registrado no responde a la pregunta: "+I12_JOIN.es(i12Names(m[2],I13_F.es))+". Revise el registro"},
+  {re:/^電話番号「(.+)」は海外からかけられない番号のため載せていません。\+81 から始まる番号（固定電話など）を登録すると載ります$/,
+    en:"The phone number \"$1\" is not shown because it cannot be called from abroad. Register a number starting with +81 (such as a landline) to include it",
+    zh:"电话号码“$1”无法从海外拨打，因此未刊载。登记以 +81 开头的号码（如固定电话）即可刊载",
+    es:"No se muestra el teléfono «$1» porque no se puede llamar desde el extranjero. Registre un número que empiece por +81 (por ejemplo, un fijo) para incluirlo"},
+  {re:/^別の商品のページから取り込んだ写真・ラインアップ用の写真 (\d+)枚は、この資料では使っていません$/,
+    en:(m)=>m[1]+" "+i13N(m[1],"photo","photos")+" imported from other products' pages or meant for the product lineup "+i13N(m[1],"is","are")+" not used in this deck",
+    zh:"从其他商品页面导入的照片・用于产品阵容的照片 $1 张未在本资料中使用",
+    es:(m)=>"No se "+i13N(m[1],"usa en esta presentación 1 foto importada","usan en esta presentación "+m[1]+" fotos importadas")+" de páginas de otros productos o destinadas a la gama de productos"},
+  {re:/^同じ写真を3回以上使っています（(\d+)枚）。写真を追加すると見映えが上がります$/,en:(m)=>"The same photo is used 3 or more times ("+m[1]+" "+i13N(m[1],"photo","photos")+"). Adding photos will improve the look",zh:"同一张照片使用了3次以上（$1 张）。追加照片会更美观",es:(m)=>"La misma foto se usa 3 veces o más ("+m[1]+" "+i13N(m[1],"foto","fotos")+"). Añadir fotos mejorará el aspecto"},
+  {re:/^「(.+)」は数字の二重確認が無いため、その資料だけにある数字は使っていません（PDFを取り込み直すと使えます）$/,
+    en:"Figures that appear only in \"$1\" are not used because they were not double-checked (re-import the PDF to use them)",
+    zh:"“$1”没有数字的二次确认，因此未使用仅出现在该资料中的数字（重新导入PDF即可使用）",
+    es:"No se usan las cifras que solo aparecen en «$1» porque no se verificaron dos veces (vuelva a importar el PDF para usarlas)"},
+  {re:/^根拠が確認できない・輸出先の規制上載せられない文言 (\d+)件を資料から外しました（下に一部を表示）$/,
+    en:(m)=>m[1]+" "+i13N(m[1],"statement","statements")+" with no supporting evidence, or not allowed by the destination's regulations, "+i13N(m[1],"was","were")+" removed from the deck (some are shown below)",
+    zh:"已从资料中删除 $1 条无法确认依据・受出口目的地法规限制不能刊载的文句（下方显示部分）",
+    es:(m)=>"Se "+i13N(m[1],"eliminó 1 frase","eliminaron "+m[1]+" frases")+" sin fuentes que las respalden o no permitidas por la normativa del destino (algunas se muestran abajo)"},
+  {re:/^外した文言：[\s\S]*$/,en:(m)=>i13Drop(m[0],"en"),zh:(m)=>i13Drop(m[0],"zh"),es:(m)=>i13Drop(m[0],"es")},
+  {re:/^訳で(数字|語|単位|訳が空)が変わったため原文のまま載せた値：([\s\S]*)$/,en:(m)=>"Kept in the original because "+I13_W.fix[m[1]].en+" in translation: "+m[2],zh:(m)=>"因翻译后"+I13_W.fix[m[1]].zh+"而保留原文的值："+m[2],es:(m)=>"Se mantuvo el original porque "+I13_W.fix[m[1]].es+" en la traducción: "+m[2]},
+  {re:/^一部のページを作れませんでした：([\s\S]*)$/,en:"Some pages could not be created: $1",zh:"部分页面未能制作：$1",es:"No se pudieron crear algunas páginas: $1"},
+  /* 結果のカード・知らせ */
+  {re:/^出来上がった資料（(.+)・(\d+)枚）$/,en:"Finished deck ($1 · $2 slides)",zh:"完成的资料（$1・$2 页）",es:"Presentación terminada ($1 · $2 diapositivas)"},
+  {re:/^納品レベル (\d+)点$/,en:"Delivery level $1 pts",zh:"交付级别 $1 分",es:"Nivel de entrega $1 pts"},
+  {re:/^重大な問題 (\d+)件$/,en:(m)=>m[1]+" critical "+i13N(m[1],"issue","issues"),zh:"严重问题 $1 个",es:(m)=>m[1]+" "+i13N(m[1],"problema grave","problemas graves")},
+  {re:/^含めた商品（(\d+)点）：([\s\S]*)$/,en:"Products included ($1): $2",zh:"包含的商品（$1 件）：$2",es:"Productos incluidos ($1): $2"},
+  {re:/^(.+\.pptx) をダウンロードしました（(\d+)枚・(\d+)KB）$/,en:"Downloaded $1 ($2 slides, $3 KB)",zh:"已下载 $1（$2 页・$3KB）",es:"Se descargó $1 ($2 diapositivas, $3 KB)"},
+  {re:/^作り直す前に、納品レベルの必須を満たしてください：(.+)$/,en:(m,d)=>"Before recreating it, fill in the required delivery-level items: "+I12_JOIN.en(i12Names(m[1],d)),zh:(m,d)=>"重新制作前，请补齐交付级别的必填项："+I12_JOIN.zh(i12Names(m[1],d)),es:(m,d)=>"Antes de rehacerla, complete los elementos obligatorios del nivel de entrega: "+I12_JOIN.es(i12Names(m[1],d))}
+];
+/* 「登録した表の一部が…：価格表（登録 5行・掲載 3行）／成分・仕様の表（…）」の並び */
+function i13Lack(s,l){ let ok=true; const r=String(s).split("／").map(p=>{ const m=p.match(/^(価格表|成分・仕様の表|寸法・梱包の表)（登録 (\d+)行・掲載 (\d+)行）$/); if(!m){ ok=false; return p; }
+    const n=i13Tb(m[1],l); return l==="zh"?n+"（登记 "+m[2]+" 行・刊载 "+m[3]+" 行）":l==="es"?n+" ("+m[2]+" "+i13N(m[2],"fila registrada","filas registradas")+", "+m[3]+" "+i13N(m[3],"incluida","incluidas")+")":n+" ("+m[2]+" "+i13N(m[2],"row","rows")+" registered, "+m[3]+" shown)"; });
+  return ok?r.join(l==="zh"?"／":" / "):null; }
+/* 辞書とこの版の型で1つの文を訳す（無ければ null） */
+function i13Inner(s,d,l){ const k=String(s==null?"":s).trim(); if(!k) return null; if(d&&d[k]!=null) return d[k];
+  for(const p of I13_PAT){ const m=k.match(p.re); if(!m) continue; const o=p[l]; if(!o) continue; const r=typeof o==="function"?o(m,d):o.replace(/\$(\d)/g,(x,i)=>m[+i]); if(r!=null) return r; }
+  return null; }
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  /* 「✗ 」「⚠ 」「✓ 」「✅ 」＋中の文（最終チェックの指摘・結果の見出し・生成の失敗） */
+  {re:/^([⚠✗✓✅]️?\s+)([\s\S]+)$/,en:(m,d)=>{ const t=i13Inner(m[2],d,"en"); return t!=null?m[1]+t:null; },zh:(m,d)=>{ const t=i13Inner(m[2],d,"zh"); return t!=null?m[1]+t:null; },es:(m,d)=>{ const t=i13Inner(m[2],d,"es"); return t!=null?m[1]+t:null; }}
+].concat(I13_PAT).reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* PDF の印刷の窓の案内（別の窓なので辞書が効かない）：元の dk3Pdf と同じ処理で、案内の文だけ表示の言語に */
+const I13_PDFTIP={ja:"印刷ダイアログで「送信先：PDFに保存」を選び、「背景のグラフィック」をオンにして保存してください。",
+  en:"In the print dialog, choose \"Destination: Save as PDF\", turn on \"Background graphics\" and save.",
+  zh:"在打印对话框中选择“目标打印机：另存为 PDF”，打开“背景图形”后保存。",
+  es:"En el cuadro de impresión, elija «Destino: Guardar como PDF», active «Gráficos de fondo» y guarde."};
+function dk3Pdf(){ const deck=DK3G.deck; if(!deck) return; if(!(DK3G.check||{}).pass){ toast("最終チェックに重大な問題があるため、PDFは出せません"); return; }
+  const w=window.open("","_blank"); if(!w){ toast("ポップアップがブロックされました。許可してからもう一度お試しください"); return; }
+  const tip=I13_PDFTIP[(typeof I18N!=="undefined"&&I13_PDFTIP[I18N.lang])?I18N.lang:"ja"];
+  const html=deck.slides.map(S=>`<div class="pg">${dk3SlideHtml(S,deck,1)}</div>`).join("");
+  w.document.open(); w.document.write(`<!doctype html><html lang="${(DK3_LANGF[deck.lang]||{}).lang||"en"}"><head><meta charset="utf-8"><title>${dk3X(deck.title||"Sales Deck")}</title><style>@page{size:960px 540px;margin:0}html,body{margin:0;padding:0;background:#555}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+  .pg{width:960px;height:540px;overflow:hidden;position:relative;page-break-after:always;break-after:page;margin:0 auto 12px}.pg:last-of-type{page-break-after:auto;break-after:auto}
+  @media print{html,body{background:#fff;width:960px;overflow:hidden}.pg{margin:0}.tip{display:none}}.tip{color:#fff;font:14px/1.6 'Segoe UI',sans-serif;text-align:center;padding:10px}</style></head><body><div class="tip">${tip}</div>${html}<script>window.onload=function(){setTimeout(function(){window.print();},600)}<\/script></body></html>`); w.document.close(); }
+
+/* ═══ v21.14（2026-09-28）外国語 営業資料：作った資料をクラウドに残す（言語ごとに最新10件・いつでも開ける） ═══
+   お客様の依頼：「今まで生成した営業資料が、更新したら消えてしまう。各言語ごとに10個まで、ファイルがクラウド上に保管され、いつでも閲覧できるように。
+   11個目が生成された場合には、古い版から削除される仕組みで大丈夫」
+   ・作り終えるたびに、資料の本体（スライド・写真・最終チェックの結果）をアカウントの鍵で暗号化して、同期の接続先（クラウド）へ預ける（op deck_put）。
+     同じ商品・同じ言語で11件目を預けると、いちばん古い版から消える（サーバーが消す。1アカウントの合計は400件まで）
+   ・画面「外国語 営業資料」の一番下に「🗂 保存した営業資料」の欄（作った直後の画面は今までと同じ）：言語のタブ・日時・枚数・点数・含めた商品。
+     「開く」で、作った直後と同じ見本・PowerPoint・PDF に戻る（上の「出来上がった資料」の欄へ移る）
+     （開いた資料のダウンロードの決まりは今までと同じ＝最終チェックに重大な問題がある版は下書きだけ）
+   ・一覧の中身（商品名・点数など）も暗号化して預ける（サーバーに平文で残るのは、商品の鍵・言語・日時・大きさだけ）
+   ・クラウドにつながらない時（デモ版・未接続）は、この端末（IndexedDB）に同じ決まり（言語ごとに10件）で残す。
+     送れなかった時は端末に控え、次に一覧を開いた時に送り直す */
+const DK14={items:null,uid:"",at:0,busy:0,err:"",tab:"",open:"",loading:"",saving:0,seq:0};
+const DK14_MAX=10;
+function dk14Cloud(){ return typeof SYNC!=="undefined"&&!!SYNC&&!!SYNC.on&&!!SYNC.kid&&typeof syncCall==="function"&&typeof syncEnc==="function"; }
+function dk14Acct(){ return (typeof SYNC!=="undefined"&&SYNC&&SYNC.kid)||("c:"+((typeof SES!=="undefined"&&SES&&SES.code)||"")); }
+function dk14Id(){ return "d"+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function dk14Clone(deck){ return JSON.parse(JSON.stringify(deck,(k,v)=>k==="_url"?undefined:v)); }
+function dk14Meta(deck,ck,T){ return {title:String(deck.title||"").slice(0,200),lang:deck.lang,n:(deck.slides||[]).length,score:+(ck&&ck.score)||0,pass:!!(ck&&ck.pass),crit:((ck&&ck.crit)||[]).length,
+  style:deck.style||"",prods:((deck.M&&deck.M.products)||[]).map(x=>String(x.name||"").slice(0,80)).slice(0,12),item:String((T&&(T.item||T.itemEn))||"").slice(0,80)}; }
+/* ── この端末の控え（IndexedDB：デモ版・未接続の保存と、送れなかった分） ── */
+function dk14Db(){ return new Promise((res,rej)=>{ if(DK14.db) return res(DK14.db); try{ const rq=indexedDB.open("bc20_decks",1);
+  rq.onupgradeneeded=()=>{ try{ rq.result.createObjectStore("d",{keyPath:"id"}); }catch(e){} }; rq.onsuccess=()=>{ DK14.db=rq.result; res(rq.result); }; rq.onerror=()=>rej(rq.error); }catch(e){ rej(e); } }); }
+async function dk14LocalAll(){ try{ const db=await dk14Db(); return await new Promise(res=>{ const rq=db.transaction("d","readonly").objectStore("d").getAll(); rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>res([]); }); }catch(e){ return []; } }
+async function dk14LocalPut(rec){ const db=await dk14Db(); await new Promise((res,rej)=>{ const tx=db.transaction("d","readwrite"); tx.objectStore("d").put(rec); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error); }); }
+async function dk14LocalDel(id){ try{ const db=await dk14Db(); await new Promise(res=>{ const tx=db.transaction("d","readwrite"); tx.objectStore("d").delete(id); tx.oncomplete=res; tx.onerror=res; }); }catch(e){} }
+async function dk14LocalGet(id){ try{ const db=await dk14Db(); return await new Promise(res=>{ const rq=db.transaction("d","readonly").objectStore("d").get(id); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>res(null); }); }catch(e){ return null; } }
+async function dk14LocalRotate(acct,uid,lang){ const all=(await dk14LocalAll()).filter(x=>x.acct===acct&&x.uid===uid&&x.lang===lang&&x.local).sort((a,b)=>a.at<b.at?1:a.at>b.at?-1:0);
+  for(const x of all.slice(DK14_MAX)) await dk14LocalDel(x.id); return Math.min(all.length,DK14_MAX); }
+/* ── 預ける ── */
+async function dk14Upload(rec){ const blob=await syncEnc(rec.body); const m=await syncEnc(rec.m);
+  const r=await syncCall("deck_put",{kid:SYNC.kid,id:rec.id,uid:rec.uid,lang:rec.lang,at:rec.at,size:blob.length,m,blob},{timeout:180000});
+  if(!r||!r.ok) throw new Error((r&&r.msg)||"保存できませんでした"); return r; }
+async function dk14Save(deck,ck,T){
+  const uid=dk3PKey(T), lang=deck.lang, name=(DECK_L[lang]||{}).name||lang;
+  const rec={id:dk14Id(),acct:dk14Acct(),uid,lang,at:new Date().toISOString(),m:dk14Meta(deck,ck,T),body:{v:1,deck:dk14Clone(deck),check:ck}};
+  DK14.open=rec.id; DK14.saving=1; DK14.tab=lang; dk14Paint();
+  try{
+    if(dk14Cloud()){
+      try{ const r=await dk14Upload(rec); toast("クラウドに保存しました（"+name+"："+(r.n||1)+"／"+DK14_MAX+"件"+((r.dropped||[]).length?"・いちばん古い版を削除":"")+"）"); }
+      catch(e){ rec.pending=1; rec.err=String(e.message||e).slice(0,80); await dk14LocalPut(rec); toast("クラウドに保存できませんでした（この端末に控え、次に一覧を開いた時に送り直します）："+rec.err); }
+    } else { rec.local=1; await dk14LocalPut(rec); const n=await dk14LocalRotate(rec.acct,uid,lang); toast("この端末に保存しました（"+name+"："+n+"／"+DK14_MAX+"件）"); }
+  }catch(e){ toast("資料を保存できませんでした："+String(e.message||e).slice(0,80)); }
+  finally{ DK14.saving=0; DK14.items=null; await dk14Load(true); } }
+/* ── 一覧 ── */
+async function dk14Load(force){ if(typeof TEN==="undefined"||!TEN) return; const uid=dk3PKey(TEN);
+  if(!force&&(DK14.busy||(DK14.items&&DK14.uid===uid&&Date.now()-DK14.at<60000))) return;
+  const seq=++DK14.seq; DK14.busy=1; DK14.err=""; if(DK14.uid!==uid){ DK14.items=null; DK14.uid=uid; DK14.tab=""; } dk14Paint();
+  const acct=dk14Acct(); let items=[], err="";
+  const loc=(await dk14LocalAll()).filter(x=>x.acct===acct&&x.uid===uid);
+  if(dk14Cloud()){
+    for(const p of loc.filter(x=>x.pending).sort((a,b)=>a.at<b.at?-1:1)){ try{ await dk14Upload(p); await dk14LocalDel(p.id); p.sent=1; }catch(e){ p.err=String(e.message||e).slice(0,80); } }
+    try{ const r=await syncCall("deck_list",{kid:SYNC.kid,uid},{timeout:45000}); if(!r||!r.ok) throw new Error((r&&r.msg)||"一覧を読めませんでした");
+      for(const it of (r.items||[])){ let m=null; try{ m=await syncDec(it.m); }catch(e){} items.push({id:it.id,uid:it.uid,lang:it.lang,at:it.at,size:it.size,m:m||{},cloud:1}); } }
+    catch(e){ err=String(e.message||e).slice(0,100); }
+    loc.filter(x=>x.pending&&!x.sent).forEach(x=>items.push({id:x.id,uid:x.uid,lang:x.lang,at:x.at,m:x.m,pending:1,err:x.err}));
+  } else loc.filter(x=>x.local).forEach(x=>items.push({id:x.id,uid:x.uid,lang:x.lang,at:x.at,m:x.m,local:1}));
+  if(seq!==DK14.seq) return;
+  items.sort((a,b)=>a.at<b.at?1:a.at>b.at?-1:0); DK14.items=items; DK14.err=err; DK14.at=Date.now(); DK14.busy=0; dk14Paint(); }
+/* ── 開く（作った直後と同じ：見本・PowerPoint・PDF） ── */
+async function dk14Open(id){ const it=(DK14.items||[]).find(x=>x.id===id); if(!it||DK14.loading) return;
+  if(DK3G.run){ toast("資料を作っている間は開けません。終わってからお試しください"); return; }
+  DK14.loading=id; dk14Paint();
+  try{ let body=null;
+    if(it.cloud){ const r=await syncCall("deck_get",{kid:SYNC.kid,id},{timeout:180000}); if(!r||!r.ok) throw new Error((r&&r.msg)||"読み込めませんでした"); body=await syncDec(r.blob); }
+    else { const rec=await dk14LocalGet(id); body=rec&&rec.body; }
+    if(!body||!body.deck||!Array.isArray(body.deck.slides)) throw new Error("資料の中身が読めませんでした");
+    if(DK3G.run) throw new Error("資料を作っている間は開けません");
+    if(DK3G.deck) dk3FreeUrls(DK3G.deck);
+    const ck=body.check||{}; DK3G.deck=body.deck; DK3G.check={pass:!!ck.pass,score:+ck.score||0,crit:ck.crit||[],warn:ck.warn||[],ok:ck.ok||[]}; DK3G.lang=body.deck.lang; DK3G.ten=TEN; DK3G.steps=[]; DK3G.err=""; DK3G.cur=0; DK3G.at=Date.now();
+    DK14.open=id; DK14.loading=""; dk14Paint(true);
+    setTimeout(()=>{ const el=document.getElementById("dk3res1"); if(el) try{ el.scrollIntoView({behavior:"smooth",block:"start"}); }catch(e){} },80);
+    toast("保存した資料を開きました（"+dk14When(it.at)+"・"+((DECK_L[it.lang]||{}).name||it.lang)+"）"); }
+  catch(e){ toast("開けませんでした："+String(e.message||e).slice(0,100)); }
+  finally{ if(DK14.loading===id){ DK14.loading=""; dk14Paint(); } } }
+/* ── 描く ── */
+function dk14When(at){ const d=new Date(at); if(isNaN(d)) return String(at||"").slice(0,16).replace("T"," "); const p=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes()); }
+function dk14CardHtml(){ if(typeof TEN==="undefined"||!TEN) return ""; const uid=dk3PKey(TEN); const L=Object.keys(DECK_L);
+  const items=(DK14.uid===uid&&DK14.items)||[]; const by={}; L.forEach(k=>by[k]=[]); items.forEach(x=>{ (by[x.lang]||(by[x.lang]=[])).push(x); });
+  let tab=DK14.tab&&by[DK14.tab]?DK14.tab:""; if(!tab) tab=(items[0]&&items[0].lang)||(DK3G.deck&&DK3G.deck.lang)||L[0];
+  const cloud=dk14Cloud();
+  const tabs=L.map(k=>`<button type="button" class="${k===tab?"on":""}" data-dk14tab="${k}" data-noi18n="1">${DECK_L[k].flag} ${esc(DECK_L[k].name)} <span class="ct">${by[k].length}/${DK14_MAX}</span></button>`).join("");
+  const rows=(by[tab]||[]).map(x=>{ const m=x.m||{}; const cur=DK14.open===x.id&&!!DK3G.deck; const ld=DK14.loading===x.id;
+    return `<div class="dk14-r${cur?" on":""}"><div class="nm"><b>${esc(dk14When(x.at))}</b><span class="nn">${m.n?m.n+"枚":""}</span>${m.pass?`<span class="p hi">納品レベル ${+m.score||0}点</span>`:`<span class="p no">要修正（下書きのみ）</span>`}${cur?`<span class="p">表示中</span>`:""}${x.pending?`<span class="p no">未送信（この端末）</span>`:""}
+      ${(m.prods||[]).length?`<small>含めた商品：${(m.prods||[]).map(esc).join("／")}</small>`:""}</div>
+      <button class="btn g" type="button" data-dk14open="${esc(x.id)}"${ld||DK3G.run?" disabled":""}>${ld?'<span class="spin"></span> 開いています…':"開く"}</button></div>`; }).join("");
+  const note=cloud?"作った資料は自動でクラウドに保存されます（言語ごとに最新"+DK14_MAX+"件。"+(DK14_MAX+1)+"件目を作ると、いちばん古い版から消えます）。「開く」で、いつでも見本の確認・PowerPoint・PDF の保存ができます。"
+    :"クラウドにつながっていないため、作った資料はこの端末に保存されます（言語ごとに最新"+DK14_MAX+"件）。「開く」で、いつでも見本の確認・PowerPoint・PDF の保存ができます。";
+  const st=DK14.saving?`<p class="nn"><span class="spin"></span> 作った資料を保存しています…</p>`:DK14.busy&&!DK14.items?`<p class="nn"><span class="spin"></span> 保存した資料の一覧を読み込んでいます…</p>`:"";
+  const er=DK14.err?`<div class="warn-soft" style="margin-top:8px;padding:8px 10px;border-radius:var(--r2)">クラウドの一覧を読み込めませんでした：${esc(DK14.err)} <button class="btn g" type="button" data-dk14reload="1">↻ 読み直す</button></div>`:"";
+  const empty=DK14.items&&!(by[tab]||[]).length?`<p class="nn" style="margin-top:8px">この言語で保存した資料はまだありません。上の「営業資料を作る」で作ると、ここに自動で残ります。</p>`:"";
+  return `<div class="c" id="dk14"><h3>🗂 保存した営業資料</h3><p class="nn" style="margin-top:4px">${note}</p>${st}${er}<div class="dk14-tabs">${tabs}</div><div class="dk14-l">${rows}</div>${empty}</div>`; }
+function dk14Paint(scrollToRes){ if(typeof cur==="undefined"||cur!=="deck"||typeof render!=="function") return; const se=document.scrollingElement||document.documentElement; const y=se.scrollTop;
+  render(); if(!scrollToRes) se.scrollTop=y; }
+(function(){ try{ if(document.getElementById("dk14css")) return; const st=document.createElement("style"); st.id="dk14css"; st.textContent=`
+.dk14-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.dk14-tabs button{border:1px solid var(--line);border-radius:999px;background:var(--surface);padding:6px 12px;font:inherit;font-size:var(--fs-sm,14px);color:var(--ink);cursor:pointer}
+.dk14-tabs button.on{border-color:var(--bl);box-shadow:0 0 0 2px var(--bl-soft);font-weight:700} .dk14-tabs .ct{color:var(--ink-3);font-weight:400;margin-left:2px;font-variant-numeric:tabular-nums}
+.dk14-l{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.dk14-r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center;border:1px solid var(--line);border-radius:var(--r2);padding:9px 12px;background:var(--surface)}
+.dk14-r.on{border-color:var(--bl);box-shadow:0 0 0 2px var(--bl-soft)}
+.dk14-r .nm{min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px} .dk14-r .nm b{font-variant-numeric:tabular-nums}
+.dk14-r .nm small{flex-basis:100%;color:var(--ink-3);font-size:var(--fs-xs,13px);overflow-wrap:anywhere}
+@media(max-width:560px){.dk14-r{grid-template-columns:minmax(0,1fr)}.dk14-r .btn{justify-self:start}}
+`; document.head.appendChild(st); }catch(e){} })();
+/* ── 生成の後に預ける・画面に欄を足す・ボタン ── */
+if(typeof dk3Generate==="function"){ const __dk14g=dk3Generate; dk3Generate=async function(lang,force){ const before=DK3G.deck; DK14.open=""; const r=await __dk14g.apply(this,arguments);
+  try{ if(DK3G.deck&&DK3G.deck!==before&&!DK3G.err&&DK3G.check){ const T=(DK3G.ten)||TEN; if(T) await dk14Save(DK3G.deck,DK3G.check,T); } }catch(e){ console.warn("dk14",e); } return r; }; }
+if(typeof vDeck==="function"){ const __dk14v=vDeck; vDeck=function(p){ const h=__dk14v.apply(this,arguments); if(typeof TEN==="undefined"||!TEN) return h;
+  const uid=dk3PKey(TEN); if(!DK14.busy&&!DK14.saving&&(DK14.uid!==uid||!DK14.items||Date.now()-DK14.at>60000)) setTimeout(()=>dk14Load(false),0);
+  if(DK14.open&&!DK3G.deck) DK14.open="";
+  return h+dk14CardHtml(); }; }
+if(typeof deckBind==="function"){ const __dk14b=deckBind; deckBind=function(){ try{ __dk14b.apply(this,arguments); }catch(e){}
+  document.querySelectorAll("[data-dk14tab]").forEach(b=>b.onclick=()=>{ DK14.tab=b.dataset.dk14tab; dk14Paint(); });
+  document.querySelectorAll("[data-dk14open]").forEach(b=>b.onclick=()=>dk14Open(b.dataset.dk14open));
+  document.querySelectorAll("[data-dk14reload]").forEach(b=>b.onclick=()=>dk14Load(true)); }; }
+/* ── 英・中・西（辞書と、数・日時・名前が入る文の型。言い方は v21.12・v21.13 に揃える） ── */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  ["🗂 保存した営業資料","🗂 Saved sales decks","🗂 已保存的营销资料","🗂 Presentaciones guardadas"],
+  ["開く","Open","打开","Abrir"],
+  ["表示中","Showing","显示中","Abierta"],
+  ["要修正（下書きのみ）","Needs fixes (draft only)","需修正（仅草稿）","Requiere correcciones (solo borrador)"],
+  ["未送信（この端末）","Not uploaded (this device)","未上传（本设备）","Sin subir (este dispositivo)"],
+  ["↻ 読み直す","↻ Reload","↻ 重新加载","↻ Volver a cargar"],
+  ["作った資料を保存しています…","Saving the deck you made…","正在保存生成的资料…","Guardando la presentación…"],
+  ["保存した資料の一覧を読み込んでいます…","Loading your saved decks…","正在加载已保存的资料…","Cargando las presentaciones guardadas…"],
+  ["この言語で保存した資料はまだありません。上の「営業資料を作る」で作ると、ここに自動で残ります。","No decks saved in this language yet. Decks you create with “Create sales deck” above are saved here automatically.","该语言还没有已保存的资料。在上方“制作营销资料”中生成后，会自动保存在这里。","Aún no hay presentaciones guardadas en este idioma. Las que cree con «Crear presentación» arriba se guardan aquí automáticamente."],
+  ["資料を作っている間は開けません。終わってからお試しください","You can't open a deck while one is being created. Please try again when it finishes.","生成资料期间无法打开。请在完成后再试。","No se puede abrir mientras se crea una presentación. Inténtelo cuando termine."],
+  ["資料を作っている間は開けません","You can't open a deck while one is being created","生成资料期间无法打开","No se puede abrir mientras se crea una presentación"],
+  ["資料の中身が読めませんでした","The deck's contents could not be read","无法读取资料内容","No se pudo leer el contenido de la presentación"],
+  ["読み込めませんでした","Could not load it","无法加载","No se pudo cargar"],
+  ["一覧を読めませんでした","Could not load the list","无法加载列表","No se pudo cargar la lista"],
+  ["保存できませんでした","Could not save it","无法保存","No se pudo guardar"],
+  ["その資料はもうありません（新しい版で消えた可能性があります）","That deck no longer exists (a newer version may have replaced it)","该资料已不存在（可能已被新版本替换删除）","Esa presentación ya no existe (puede que una versión más nueva la haya reemplazado)"],
+  ["資料のファイルが読めません","The deck file can't be read","无法读取资料文件","No se puede leer el archivo de la presentación"],
+  ["資料の内容が足りません","The deck data is incomplete","资料内容不完整","Faltan datos de la presentación"],
+  ["資料が大きすぎます（30MB まで）","The deck is too large (30 MB max)","资料过大（最大 30MB）","La presentación es demasiado grande (máx. 30 MB)"],
+  ["アカウントが有効ではありません","The account is not active","账号未生效","La cuenta no está activa"]
+]); }catch(e){}
+try{ if(typeof I18N!=="undefined"&&I18N.pat){ const tr=(s,d)=>{ try{ const t=i18nStr(s,d); return t==null?s:t; }catch(e){ return s; } };
+  const LN={English:["English","英语","inglés"],"中文（简体）":["Chinese (Simplified)","简体中文","chino simplificado"],"中文（繁體）":["Chinese (Traditional)","繁体中文","chino tradicional"],"Español":["Spanish","西班牙语","español"],"한국어":["Korean","韩语","coreano"]}; const ln=(s,i)=>(LN[s]||[s,s,s])[i];
+  [
+    {re:/^作った資料は自動でクラウドに保存されます（言語ごとに最新(\d+)件。(\d+)件目を作ると、いちばん古い版から消えます）。「開く」で、いつでも見本の確認・PowerPoint・PDF の保存ができます。$/,
+      en:"Decks you create are saved to the cloud automatically (the latest $1 per language; creating an $2th removes the oldest version). Click “Open” any time to preview it and save it as PowerPoint or PDF.",
+      zh:"生成的资料会自动保存到云端（每种语言保留最新$1份；生成第$2份时会删除最旧的版本）。随时点击“打开”即可查看预览，并保存为 PowerPoint 或 PDF。",
+      es:"Las presentaciones que crea se guardan automáticamente en la nube (las $1 más recientes por idioma; al crear la $2.ª se elimina la versión más antigua). Pulse «Abrir» en cualquier momento para verla y guardarla en PowerPoint o PDF."},
+    {re:/^クラウドにつながっていないため、作った資料はこの端末に保存されます（言語ごとに最新(\d+)件）。「開く」で、いつでも見本の確認・PowerPoint・PDF の保存ができます。$/,
+      en:"Not connected to the cloud, so decks you create are saved on this device (the latest $1 per language). Click “Open” any time to preview it and save it as PowerPoint or PDF.",
+      zh:"未连接云端，生成的资料将保存在本设备上（每种语言保留最新$1份）。随时点击“打开”即可查看预览，并保存为 PowerPoint 或 PDF。",
+      es:"Sin conexión a la nube: las presentaciones se guardan en este dispositivo (las $1 más recientes por idioma). Pulse «Abrir» en cualquier momento para verla y guardarla en PowerPoint o PDF."},
+    {re:/^(\d+)枚$/,en:"$1 slides",zh:"$1页",es:"$1 diapositivas"},
+    {re:/^納品レベル (\d+)点$/,en:"Delivery level $1 pts",zh:"交付级别 $1分",es:"Nivel de entrega $1 pts"},
+    {re:/^含めた商品：([\s\S]+)$/,en:"Products included: $1",zh:"包含的商品：$1",es:"Productos incluidos: $1"},
+    {re:/^クラウドの一覧を読み込めませんでした：([\s\S]*)$/,en:(m,d)=>"Could not load the list from the cloud: "+tr(m[1],d),zh:(m,d)=>"无法从云端加载列表："+tr(m[1],d),es:(m,d)=>"No se pudo cargar la lista desde la nube: "+tr(m[1],d)},
+    {re:/^クラウドに保存しました（(\S+)：(\d+)／(\d+)件(・いちばん古い版を削除)?）$/,en:(m)=>"Saved to the cloud ("+ln(m[1],0)+": "+m[2]+"/"+m[3]+(m[4]?"; the oldest version was removed":"")+")",
+      zh:(m)=>"已保存到云端（"+ln(m[1],1)+"："+m[2]+"／"+m[3]+"份"+(m[4]?"・已删除最旧的版本":"")+"）",es:(m)=>"Guardada en la nube ("+ln(m[1],2)+": "+m[2]+"/"+m[3]+(m[4]?"; se eliminó la versión más antigua":"")+")"},
+    {re:/^この端末に保存しました（(\S+)：(\d+)／(\d+)件）$/,en:(m)=>"Saved on this device ("+ln(m[1],0)+": "+m[2]+"/"+m[3]+")",zh:(m)=>"已保存到本设备（"+ln(m[1],1)+"："+m[2]+"／"+m[3]+"份）",es:(m)=>"Guardada en este dispositivo ("+ln(m[1],2)+": "+m[2]+"/"+m[3]+")"},
+    {re:/^クラウドに保存できませんでした（この端末に控え、次に一覧を開いた時に送り直します）：([\s\S]*)$/,en:(m,d)=>"Could not save to the cloud (kept on this device; it will be uploaded the next time the list is opened): "+tr(m[1],d),
+      zh:(m,d)=>"无法保存到云端（已暂存在本设备，下次打开列表时会重新上传）："+tr(m[1],d),es:(m,d)=>"No se pudo guardar en la nube (se conserva en este dispositivo y se subirá la próxima vez que se abra la lista): "+tr(m[1],d)},
+    {re:/^資料を保存できませんでした：([\s\S]*)$/,en:(m,d)=>"Could not save the deck: "+tr(m[1],d),zh:(m,d)=>"无法保存资料："+tr(m[1],d),es:(m,d)=>"No se pudo guardar la presentación: "+tr(m[1],d)},
+    {re:/^保存した資料を開きました（(\d{4}-\d\d-\d\d \d\d:\d\d)・(\S+)）$/,en:(m)=>"Opened the saved deck ("+m[1]+", "+ln(m[2],0)+")",zh:(m)=>"已打开保存的资料（"+m[1]+"・"+ln(m[2],1)+"）",es:(m)=>"Se abrió la presentación guardada ("+m[1]+", "+ln(m[2],2)+")"},
+    {re:/^開けませんでした：([\s\S]*)$/,en:(m,d)=>"Could not open it: "+tr(m[1],d),zh:(m,d)=>"无法打开："+tr(m[1],d),es:(m,d)=>"No se pudo abrir: "+tr(m[1],d)}
+  ].reverse().forEach(p=>I18N.pat.unshift(p)); } }catch(e){}
 
 </script>
