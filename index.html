@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="e61d6e5e50fd";
+const BC20_BUILD="16fb563526ad";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31431,5 +31431,106 @@ body.kbopen #well .c>.composer.fx19c{position:relative;bottom:auto}
   #well .composer.fx19c>.rw:first-child .btn[data-mscope] span{display:none}
 }
 `; document.head.appendChild(st); }catch(e){} })();
+
+/* ═══ v21.20（2026-09-28）画面の下の空きをなくす・やりとりを画面いっぱいに・「トライアル環境について」を消す
+   お客様の依頼：①やりとり：下へスクロールすると下に空欄が出る → 全体を上下に広げて空欄をなくす。タイムライン／スレッドのメッセージを見やすく、スクロールしやすく
+                ②ほかの全画面も同じく、下までスクロールした時の画面下の空欄を極力なくす　③各ページの「トライアル環境について」をすべて削除し、見やすく
+   ・全画面：本文の下の余白（右下の「AIに質問」のために空けていた 72px）を 20px に。いちばん下までスクロールした時は、右下の「AIに質問」を丸いアイコンだけにして重なりを小さく。
+     トライアル版は「トライアル環境について」（#ft・aFoot）を出さない。デモ版の「デモ環境について」「業種サンプルについて」は架空データの断り書きなので残し、上下の余白だけ詰める
+   ・やりとり：開いた時にカードの上端を上部バー（と案内の帯）の下に合わせ、カードが画面の下まで届くように一覧を広げる。カードの下には何も残さない（空欄が出ない）。
+     一覧は高さを固定し、メッセージが少ない時は入力欄の側に寄せる（Slack と同じ）
+     メッセージのカードを詰める（約340px → 約190px）：名前・会社・日時を1行に／二重の「既読」を1つに／「訳す」「LINEで返信」を横に並べて小さく／返信・ピン留めのボタンを低く／カードの間隔と余白を小さく
+     一覧のスクロール：スクロールバーを太く／一覧の端まで来てもページが動かない（overscroll-behavior）／上に戻って読んでいる時は「↓ 最新へ」
+     入力欄の下の注記は1行に畳む（押すと全文） */
+
+/* ── ③ トライアル版の「トライアル環境について」を出さない（物流会社モードの説明は fwdRender が書くので残る） ── */
+if(typeof aFoot==="function"){ aFoot=function(){ try{ const f=document.getElementById("ft"); if(f) f.innerHTML=""; }catch(e){} }; try{ aFoot(); }catch(e){} }
+
+/* ── ① やりとり：画面いっぱいに ── */
+function fx20StickyTop(){ let t=0; try{ const bar=document.querySelector(".bar"); if(bar) t=bar.getBoundingClientRect().height;
+    const g=document.getElementById("guide"); if(g&&!g.hidden&&getComputedStyle(g).display!=="none"&&getComputedStyle(g).position==="sticky") t+=g.getBoundingClientRect().height; }catch(e){} return t; }
+fx19Fit=function(){ try{
+  const E=fx19Els(); if(!E) return; const {ml,card,comp}=E; comp.classList.add("fx19c"); ml.classList.add("fx19l","fx20l");
+  const cr=card.getBoundingClientRect(), lr=ml.getBoundingClientRect();
+  const head=lr.top-cr.top;                                            /* カードの上端〜一覧の上端（見出し・絞り込み・切り替え） */
+  const natComp=lr.bottom+FX19_GAP+comp.offsetHeight;                  /* 入力欄の本来の下端（画面の下に貼り付いている時の位置は使わない） */
+  const below=Math.max(0,cr.bottom-natComp);                           /* 入力欄の下（注記・カードの余白） */
+  const avail=innerHeight-(fx20StickyTop()+8)-head-FX19_GAP-comp.offsetHeight-below-10-fx19Tab();
+  const h=Math.max(fx19Narrow()?160:200,Math.floor(avail));
+  if(Math.abs((parseFloat(ml.style.height)||0)-h)>1){ const atBottom=ml.scrollHeight-ml.scrollTop-ml.clientHeight<24; ml.style.height=h+"px"; ml.style.maxHeight=h+"px"; if(atBottom) ml.scrollTop=ml.scrollHeight; }
+}catch(e){} };
+fx19Open=function(){ const E=fx19Els(); if(!E) return; fx19Fit(); E.ml.scrollTop=E.ml.scrollHeight; fx20Jump(E.ml);
+  try{ const want=Math.max(0,Math.round(E.card.getBoundingClientRect().top+scrollY-(fx20StickyTop()+8))); scrollTo({top:want}); }catch(e){}
+  try{ if(fx19Narrow()||!matchMedia("(pointer:fine)").matches) return; if(document.querySelector("#welv,#v1811ov,.dw[data-open='true']")) return;
+    const a=document.activeElement; if(a&&a!==document.body&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.id!=="mtext") return;
+    const ta=document.getElementById("mtext"); if(ta) ta.focus({preventScroll:true}); }catch(e){} };
+
+/* 一覧の飾り：二重の「既読」を1つに・「↓ 最新へ」 */
+function fx20Tidy(){ try{ const ml=document.getElementById("mlist"); if(!ml) return; ml.classList.add("fx20l");
+  ml.querySelectorAll(":scope > [data-mi]").forEach(card=>{ const rx=card.querySelector(":scope > .lwrx"); if(!rx||!/既読/.test(rx.textContent||"")) return;
+    [...card.children].forEach(r=>{ if(r.classList.contains("rw")&&!r.classList.contains("lwrx")&&!r.hasAttribute("data-v16tr")&&!r.hasAttribute("data-v16lw")&&!/space-between/.test(r.getAttribute("style")||"")){
+      const s=r.querySelector(":scope > span"); if(s&&/^既読\s*\d+/.test((s.textContent||"").trim())) r.classList.add("fx20dup"); } }); });
+  fx20Jump(ml);
+  const note=document.getElementById("dk16note"); if(note&&!note.__fx20){ note.__fx20=1; note.classList.add("nnc"); note.title="クリックで全文を表示"; note.addEventListener("click",e=>{ if(e.target.closest("a,button,input")) return; note.classList.toggle("open"); }); }
+}catch(e){} }
+function fx20Jump(ml){ try{ if(!ml) return; let b=ml.querySelector(":scope > .fx20jump");
+  if(!b){ b=document.createElement("button"); b.type="button"; b.className="fx20jump"; b.textContent="↓ 最新へ"; b.title="いちばん新しいメッセージへ";
+    b.onclick=e=>{ e.stopPropagation(); ml.scrollTo({top:ml.scrollHeight,behavior:matchMedia("(prefers-reduced-motion:reduce)").matches?"auto":"smooth"}); }; ml.appendChild(b); }
+  else if(b!==ml.lastElementChild) ml.appendChild(b);
+  const upd=()=>{ b.classList.toggle("on",ml.scrollHeight-ml.scrollTop-ml.clientHeight>160); };
+  if(!ml.__fx20s){ ml.__fx20s=1; ml.addEventListener("scroll",upd,{passive:true}); } upd(); }catch(e){} }
+if(typeof mRows==="function"){ const __mr20=mRows; mRows=function(){ const r=__mr20.apply(this,arguments); fx20Tidy(); return r; }; }
+if(typeof render==="function"){ const __r20=render; render=function(){ const r=__r20.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="msg") fx20Tidy(); }catch(e){} return r; }; }
+
+/* ── ② いちばん下までスクロールした時：右下の「AIに質問」を丸いアイコンだけに ── */
+(function(){ let t=0; const f=()=>{ t=0; try{ const end=scrollY+innerHeight>=document.documentElement.scrollHeight-6&&document.documentElement.scrollHeight>innerHeight+40; document.body.classList.toggle("fx20end",end); }catch(e){} };
+  addEventListener("scroll",()=>{ if(!t) t=requestAnimationFrame(f); },{passive:true}); addEventListener("resize",()=>{ if(!t) t=requestAnimationFrame(f); }); setTimeout(f,300); })();
+
+/* ── 見た目 ── */
+(function(){ try{ if(document.getElementById("fx20css")) return; const st=document.createElement("style"); st.id="fx20css"; st.textContent=`
+#well{padding-bottom:20px!important}
+@media (max-width:820px){#well{padding-bottom:12px!important}}
+#ft:empty{display:none!important}
+.pg-ft{margin-top:12px!important;padding-bottom:6px!important}
+body.fx20end #askfab{padding:0 14px;gap:0}
+body.fx20end #askfab .afl{max-width:0;opacity:0}
+body.fx19on #ft{display:none!important}
+body.fx19on #well{padding-bottom:0!important}
+body.fx19on .stage{padding-bottom:10px!important}
+@media (max-width:820px){body.fx19on .stage{padding-bottom:calc(var(--tabbar-h,0px) + 10px)!important}}
+#mlist.fx20l{gap:8px!important;overscroll-behavior:contain;padding-right:6px!important}
+#mlist.fx20l>:first-child{margin-top:auto}
+#mlist.fx20l::-webkit-scrollbar{width:12px}
+#mlist.fx20l::-webkit-scrollbar-track{background:transparent}
+#mlist.fx20l::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink-3) 55%,transparent);border-radius:8px;border:3px solid var(--surface)}
+#mlist.fx20l::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+#mlist.fx20l>[data-mi]{padding:9px 12px!important}
+#mlist.fx20l>[data-mi]>.th-ttl{margin:-2px 0 5px;padding-bottom:5px}
+#mlist.fx20l>[data-mi]>.rw[style*="space-between"]{margin-bottom:3px!important}
+#mlist.fx20l>[data-mi]>.rw[style*="space-between"]>.rw>span:last-child>br{display:none}
+#mlist.fx20l>[data-mi]>.rw[style*="space-between"]>.rw>span:last-child>span:last-child{margin-left:8px}
+#mlist.fx20l>[data-mi]>.fx20dup{display:none!important}
+#mlist.fx20l>[data-mi]>[data-v16tr]:not(:has(>:not(button))),#mlist.fx20l>[data-mi]>[data-v16lw]{display:inline-flex!important;margin:6px 8px 0 0!important;vertical-align:middle}
+#mlist.fx20l>[data-mi] .q{min-height:28px;padding:2px 10px!important}
+#mlist.fx20l>[data-mi] .th-ft{margin-top:6px;padding-top:6px}
+#mlist.fx20l>[data-mi] .th-ft .btn{min-height:32px;padding:4px 12px}
+@media (max-width:820px){#mlist.fx20l>[data-mi] .th-ft .btn{min-height:40px}#mlist.fx20l>[data-mi] .q{min-height:36px}
+  /* スマホ：絞り込みのボタンは横にスクロールする1行・タイムライン／スレッドの切り替えと「＋ 新しいスレッド」も1行・返信の無いカードの「返信はまだありません」は省く（一覧を広く） */
+  body.fx19on #well .rw:has(>button[onclick*="msgScope="]){flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;max-width:100%}
+  body.fx19on #well .rw:has(>button[onclick*="msgScope="])::-webkit-scrollbar{display:none}
+  body.fx19on #well .rw:has(>button[onclick*="msgScope="])>button{flex:none;white-space:nowrap}
+  body.fx19on #thbar{flex-wrap:nowrap}
+  body.fx19on #thbar #thNew{white-space:nowrap;padding:5px 10px!important}
+  #mlist.fx20l>[data-mi] .th-ft>span[style*="ink-3"]:first-child{display:none}}
+#mlist .fx20jump{position:sticky;bottom:8px;align-self:center;margin-top:-40px;z-index:3;display:none;border:1px solid var(--or);background:var(--surface);color:var(--or-deep);font:inherit;font-size:12.5px;font-weight:700;border-radius:999px;padding:5px 14px;box-shadow:var(--sh-2);cursor:pointer;min-height:0;flex:none}
+#mlist .fx20jump.on{display:block}
+#mlist .fx20jump:hover,#mlist .fx20jump:focus-visible{background:var(--or-soft)}
+`; document.head.appendChild(st); }catch(e){} })();
+
+/* ── 英・中・西 ── */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  ["↓ 最新へ","↓ Latest","↓ 最新","↓ Lo más reciente"],
+  ["いちばん新しいメッセージへ","Jump to the newest message","跳到最新消息","Ir al mensaje más reciente"]
+]); }catch(e){}
 
 </script>
