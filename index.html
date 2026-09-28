@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="abcf0c7d30f1";
+const BC20_BUILD="ba092a91409e";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31149,5 +31149,159 @@ if(typeof v16fComposer==="function"){ v16fComposer=function(ta,btn,min,max,onFoc
   try{ if(ta.__v16mo) ta.__v16mo.disconnect(); const opt={attributes:true,attributeFilter:["style"]};
     const mo=new MutationObserver(()=>{ const h=parseFloat(ta.style.height)||0; if(h>max+1||(h>min+1&&!ta.value)){ mo.disconnect(); try{ v16fGrow(ta,min,max); }finally{ mo.observe(ta,opt); } } });
     mo.observe(ta,opt); ta.__v16mo=mo; }catch(e){} }; }
+
+/* ═══ v21.17（2026-09-28）上部バーの整理：「🔍 会社・商品を検索」「◫ 右パネル」「やさしい説明」「スマホ表示」を標準から外し、
+       管理コンソールでアカウントごとに「追加機能」として足せるようにする（お客様の依頼：上部バーが詰まっていて情報量が多すぎる）
+   ・標準（追加なし）：4つとも上部バーにも「⋯」メニューにも出さない。その機能で変えていた表示も標準に戻す
+     （右パネル＝補助パネルは常に表示／やさしい説明＝オフ／スマホ表示＝手動の切り替えを解除し、スマホの幅なら自動でスマホ用の画面）。
+     会社・商品の切り替えは、上部の商品の選択と「何でも検索」でできる
+   ・管理コンソール：アカウント一覧に「🧩 追加機能」の列。押すと、そのアカウントに足す機能を選べる（すぐ保存して台帳の fx としてサーバーへ）
+   ・お客様の端末：ログインの時と、利用中は10分ごと（画面に戻った時も）に台帳の fx を受け取り、上部バーに反映する
+   ・管理者の画面は今までどおり4つとも出す。デモ版（管理コンソールが無い）は標準（追加なし）
+   ・同期サーバー（Apps Script）は v2.11 で fx を預かる。v2.10 のままでは管理コンソールの設定がお客様の端末に届かないので、設定の画面で知らせて止める */
+const FX17=[
+  {k:"find",el:"pfind",ic:"🔍",nm:"会社・商品を検索",d:"上部に「🔍」ボタンを出し、会社名・商品名・カテゴリで探して、表示する商品を切り替えられるようにします。外しても、上部の商品の選択と「何でも検索」で切り替えられます。"},
+  {k:"rail",el:"rail",ic:"◫",nm:"右パネル",d:"上部に「◫ 右パネル」を出し、画面右側の補助パネル（手順・サンプルなど）を隠して本文を広く使えるようにします。外すと、補助パネルは常に表示します。"},
+  {k:"easy",el:"easy",ic:"🔰",nm:"やさしい説明",d:"上部に「やさしい説明」を出し、貿易用語に色を付けて説明を表示します（ログインした時はオン）。外しても、点線の下線の言葉にマウスを重ねると説明が出ます。"},
+  {k:"mob",el:"mob",ic:"📱",nm:"スマホ表示",d:"上部に「スマホ表示」を出し、パソコンの画面でスマホでの見え方を確かめられるようにします。スマホで開いた時は、この設定に関係なく自動でスマホ用の画面になります。"}];
+const FX17_KEYS=FX17.map(f=>f.k);
+function fx17Clean(v){ const out=[]; (Array.isArray(v)?v:[]).forEach(x=>{ x=String(x==null?"":x); if(/^[a-z0-9_]{1,16}$/.test(x)&&!out.includes(x)&&out.length<16) out.push(x); }); return out; }
+function fx17Mode(){ try{ if(typeof SES==="undefined"||!SES) return "none"; return SES.t==="admin"?"admin":"user"; }catch(e){ return "none"; } }
+/* このログインで使える追加機能：管理者＝全部／お客様＝台帳の fx（この端末の控え → サーバーの応答の順）／デモ版・ログイン前＝なし */
+function fx17List(){ try{ const m=fx17Mode(); if(m==="admin") return FX17_KEYS.slice(); if(m!=="user") return [];
+    const a=(typeof findAcct==="function"&&SES.code)?findAcct(SES.code):null; if(a&&Array.isArray(a.fx)) return fx17Clean(a.fx);
+    const s=(typeof SYNC!=="undefined"&&SYNC&&SYNC.srvAcct)||null; if(s&&Array.isArray(s.fx)) return fx17Clean(s.fx); }catch(e){} return []; }
+function fx17On(k){ return fx17List().includes(k); }
+function fx17Name(k){ const f=FX17.find(x=>x.k===k); return f?f.ic+" "+f.nm:k; }
+
+/* 上部バーへ反映（表示・非表示は body の印と CSS。ほかの処理が hidden を付け外ししても効く） */
+function fx17Apply(){ try{
+  const b=document.body; if(!b) return; const on=new Set(fx17List()); let ch=false;
+  FX17.forEach(f=>{ const want=on.has(f.k); if(b.classList.contains("fx17-"+f.k)!==want){ b.classList.toggle("fx17-"+f.k,want); ch=true; } });
+  if(!on.has("rail")&&b.classList.contains("norail")){ b.classList.remove("norail"); try{ localStorage.setItem("bc20_norail","0"); }catch(e){} const r=document.getElementById("rail"); if(r) r.setAttribute("aria-pressed","true"); ch=true; }
+  if(!on.has("easy")&&b.classList.contains("easy")){ b.classList.remove("easy"); const e=document.getElementById("easy"); if(e) e.setAttribute("aria-pressed","false"); }
+  if(!on.has("mob")){ let man=""; try{ man=localStorage.getItem("bc20_mob_manual")||""; }catch(e){}
+    if(man){ try{ localStorage.removeItem("bc20_mob_manual"); }catch(e){} try{ if(typeof mobAuto==="function") mobAuto(); }catch(e){} ch=true; } }
+  if(ch){ try{ if(typeof ux17BarLayout==="function") ux17BarLayout(); }catch(e){} }
+  fx17Text();
+}catch(e){} }
+/* 画面の文で、出していない切り替えを案内している所を言い換える（「旧版からの改善」など） */
+const FX17_TXT=[["mob","上部の「スマホ表示」で実際の見え方を確認できます。","スマホで開くと、自動でスマホ用の画面に切り替わります。"],
+  ["easy","むずかしい言葉は「やさしい説明」をオンにすると解説が出ます。","むずかしい言葉は、点線の下線にマウスを重ねると解説が出ます。"]];
+function fx17Text(){ try{ if(typeof cur==="undefined"||(cur!=="gap"&&cur!=="dash")) return;   /* 言い換える文があるのは「旧版からの改善」と「ダッシュボード」だけ */
+  const w=document.getElementById("well"); if(!w) return; const on=new Set(fx17List()); const todo=FX17_TXT.filter(x=>!on.has(x[0])); if(!todo.length) return;
+  const all=w.textContent||""; if(!todo.some(x=>all.includes(x[1]))) return;
+  const tw=document.createTreeWalker(w,NodeFilter.SHOW_TEXT); const L=[]; while(tw.nextNode()){ const n=tw.currentNode; if(todo.some(x=>n.nodeValue.includes(x[1]))) L.push(n); }
+  L.forEach(n=>{ let v=n.nodeValue; todo.forEach(x=>{ v=v.split(x[1]).join(x[2]); }); n.nodeValue=v; }); }catch(e){} }
+
+/* 描くたび・ログインの時・台帳を受け取った時に反映 */
+if(typeof render==="function"){ const __r17=render; render=function(){ const r=__r17.apply(this,arguments); fx17Apply(); return r; }; }
+if(typeof fwdRender==="function"){ const __fr17=fwdRender; fwdRender=function(){ const r=__fr17.apply(this,arguments); fx17Apply(); return r; }; }
+if(typeof enterApp==="function"){ const __ea17=enterApp; enterApp=function(){ const r=__ea17.apply(this,arguments); fx17Apply(); return r; }; }
+if(typeof v213SrvApply==="function"){ const __sa17=v213SrvApply; v213SrvApply=function(a,s){ let ch=__sa17.apply(this,arguments);
+  try{ if(a&&s&&Array.isArray(s.fx)){ const v=fx17Clean(s.fx); if(JSON.stringify(a.fx||null)!==JSON.stringify(v)){ a.fx=v; ch=true; } } }catch(e){} setTimeout(fx17Apply,0); return ch; }; }
+/* 管理コンソール：サーバーの台帳を取り込む時に fx も（サーバーが fx を返さない＝v2.10 以前なら、この端末の値を残す） */
+if(typeof v213TakeSrv==="function"){ const __ts17=v213TakeSrv; v213TakeSrv=function(a,s){ let ch=__ts17.apply(this,arguments);
+  try{ if(a&&s&&Array.isArray(s.fx)){ const v=fx17Clean(s.fx); if(JSON.stringify(a.fx||null)!==JSON.stringify(v)){ a.fx=v; ch=true; } } }catch(e){} return ch; }; }
+/* 管理コンソール：台帳を送る時に fx を足す（まだ一度も選んでいないアカウントは送らない＝サーバーの値を残す） */
+if(typeof syncCall==="function"){ const __sc17=syncCall; syncCall=async function(op,body,opt){
+  try{ if(op==="admin_set"&&body&&Array.isArray(body.accounts)&&typeof findAcct==="function") body.accounts.forEach(x=>{ const a=x&&x.code?findAcct(x.code):null; if(a&&Array.isArray(a.fx)) x.fx=fx17Clean(a.fx); }); }catch(e){}
+  const r=await __sc17.apply(this,arguments);
+  try{ if(op==="login"||op==="lookup") setTimeout(fx17Apply,0); }catch(e){}
+  return r; }; }
+setTimeout(fx17Apply,0);
+
+/* ── 管理コンソール：アカウント一覧の「🧩 追加機能」列と、選ぶ画面 ── */
+function fx17SrvOk(){ try{ if(!(typeof syncOn==="function"&&syncOn())) return true;   /* 同期なし＝この端末の中だけ（管理コンソールと同じブラウザ）なら、そのまま効く */
+    const s=(typeof SYNC!=="undefined"&&SYNC&&SYNC.relStr)||""; if(!s) return true; const f=(typeof hf21151Rel==="function")?hf21151Rel:(x=>parseFloat(x)||0); return f(s)>=f("2.11"); }catch(e){ return true; } }
+function fx17Cell(a){ const L=fx17Clean(a&&a.fx);
+  return `<button type="button" class="fx17b" data-fx17b="${esc(a.code)}" title="このアカウントに足す機能を選ぶ">`+
+    (L.length?L.map(k=>`<span class="p on">${esc(fx17Name(k))}</span>`).join(""):`<span class="p lo">なし（標準）</span>`)+`<span class="fx17e">選ぶ</span></button>`; }
+function fx17Bind(root){ (root||document).querySelectorAll("[data-fx17b]").forEach(b=>{ b.onclick=()=>fx17Edit(b.dataset.fx17b); }); }
+function fx17Col(){
+  const tbl=document.querySelector("#accounts table"); if(!tbl||tbl.querySelector("th[data-fx17col]")||typeof findAcct!=="function") return;
+  /* 「ログイン」列（数の列の先頭 th.num）の手前に入れる。英中西では見出しが先に訳されているので、文字では探さない */
+  const ths=[...tbl.querySelectorAll("thead th")]; let li=ths.findIndex(th=>th.classList.contains("num")); if(li<0) li=ths.findIndex(th=>/ログイン/.test(th.textContent)); if(li<0) return;
+  ths[li].insertAdjacentHTML("beforebegin",'<th data-fx17col title="お客様の上部バーに足す機能（標準は無し）">🧩 追加機能</th>');
+  tbl.querySelectorAll("tbody tr").forEach(tr=>{ const code=((tr.querySelector(".acode")||{}).textContent||"").trim(); const a=code?findAcct(code):null; const td=tr.children[li]; if(!td) return;
+    td.insertAdjacentHTML("beforebegin",`<td data-fx17td>${a?fx17Cell(a):""}</td>`); });
+  fx17Bind(tbl); }
+function fx17CellRefresh(a){ document.querySelectorAll("[data-fx17b]").forEach(b=>{ if(b.dataset.fx17b===a.code) b.outerHTML=fx17Cell(a); }); fx17Bind(document.getElementById("accounts")); }
+function fx17Edit(code){
+  const a=(typeof findAcct==="function")?findAcct(code):null; if(!a) return; const ok=fx17SrvOk(); const L=fx17Clean(a.fx);
+  openDW(`<h3>🧩 追加機能</h3>
+    <p class="nn fx17who"><b>${esc(a.co||"")}</b>（<span class="acode">${esc(a.code)}</span>）${a.role==="fwd"?' <span class="p on">🚚 物流会社</span>':""}</p>
+    <p class="nn" style="margin-top:8px">お客様の画面の上部バーは、標準では必要なものだけにしています。このアカウントで使えるようにする機能にチェックを入れてください。チェックした機能だけが、上部バーに出ます。</p>
+    ${ok?"":'<p class="fx17warn">⚠ 同期サーバー（Apps Script）が v2.11 より前のため、この設定はお客様の端末に届きません。sync_gas.js v2.11 を反映してから設定してください。</p>'}
+    <div class="fx17list">${FX17.map(f=>`<label class="fx17row"><input type="checkbox" data-fx17k="${f.k}" ${L.includes(f.k)?"checked":""} ${ok?"":"disabled"}><span class="fx17t"><b>${esc(f.ic+" "+f.nm)}</b><small>${esc(f.d)}</small></span></label>`).join("")}</div>
+    <p class="nn" style="margin-top:10px">反映：お客様の端末には、次にログインした時か、利用中なら10分以内（画面に戻った時）に届きます。チェックを外すと、その機能で変えていた表示（右パネルを隠す・スマホ表示など）も標準に戻ります。</p>
+    <div class="rw" style="margin-top:12px"><button type="button" class="btn g" id="fx17close">閉じる</button></div>`);
+  const pn=document.getElementById("pn"); const cl=document.getElementById("fx17close"); if(cl) cl.onclick=()=>closeDW();
+  pn.querySelectorAll("[data-fx17k]").forEach(cb=>cb.onchange=()=>{
+    const sel=[...pn.querySelectorAll("[data-fx17k]")].filter(x=>x.checked).map(x=>x.dataset.fx17k);
+    const other=fx17Clean(a.fx).filter(k=>!FX17_KEYS.includes(k));   /* この版が知らない機能（後の版で足したもの）は残す */
+    a.fx=FX17_KEYS.filter(k=>sel.includes(k)).concat(other);
+    asave(); fx17CellRefresh(a); if(typeof SES!=="undefined"&&SES&&SES.code===a.code) fx17Apply();
+    toast("追加機能を保存しました（お客様の端末には、次のログイン時か10分以内に届きます）"); });
+}
+if(typeof renderAdmin==="function"){ const __ra17=renderAdmin; renderAdmin=function(){ const r=__ra17.apply(this,arguments); try{ fx17Col(); }catch(e){} fx17Apply(); return r; }; }
+/* 台帳の変更履歴に「追加機能」 */
+if(typeof v214LogText==="function"){ const __lt17=v214LogText; v214LogText=function(c){ let s=__lt17.apply(this,arguments);
+  try{ if(c&&Array.isArray(c.fx)){ const t="追加機能："+(c.fx.length?c.fx.map(fx17Name).join("・"):"なし"); s=/：変更$/.test(s)?s.replace(/：変更$/,"："+t):s+"・"+t; } }catch(e){} return s; }; }
+
+/* ── 見た目 ── */
+(function(){ try{ if(document.getElementById("fx17css")) return; const st=document.createElement("style"); st.id="fx17css"; st.textContent=`
+body:not(.fx17-find) #pfind,body:not(.fx17-rail) #rail,body:not(.fx17-easy) #easy,body:not(.fx17-mob) #mob{display:none!important}
+body:not(.fx17-rail) #barmenu .bmrow[data-for="rail"],body:not(.fx17-easy) #barmenu .bmrow[data-for="easy"],body:not(.fx17-mob) #barmenu .bmrow[data-for="mob"]{display:none!important}
+.fx17b{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-wrap:wrap;gap:3px;align-items:center;max-width:190px;padding:3px 4px;border-radius:6px}
+.fx17b:hover,.fx17b:focus-visible{background:var(--or-soft);outline:none}
+.fx17b .p{font-size:11.5px;padding:2px 7px}
+.fx17e{font-size:12px;font-weight:700;color:var(--bl);margin-left:2px}
+.fx17who{margin-top:4px}
+.fx17list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.fx17row{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;background:var(--surface);cursor:pointer}
+.fx17row:has(input:checked){border-color:var(--or);background:var(--or-soft)}
+.fx17row input{margin-top:3px;width:17px;height:17px;flex:none;accent-color:var(--or)}
+.fx17row:has(input:disabled){cursor:not-allowed;opacity:.6}
+.fx17t{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fx17t b{font-size:13.5px;color:var(--ink)}
+.fx17t small{font-size:12px;line-height:1.6;color:var(--ink-2)}
+.fx17warn{margin-top:10px;padding:9px 12px;border:1px solid var(--warn);border-radius:var(--r2);background:var(--warn-soft);color:var(--ink);font-size:12.5px;line-height:1.6}
+`; document.head.appendChild(st); }catch(e){} })();
+
+/* ── 英・中・西 ── */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  ["🧩 追加機能","🧩 Extra features","🧩 附加功能","🧩 Funciones adicionales"],["追加機能","Extra features","附加功能","Funciones adicionales"],
+  ["お客様の上部バーに足す機能（標準は無し）","Features added to this customer's top bar (none by default)","为该客户的顶部栏添加的功能（默认无）","Funciones que se añaden a la barra superior del cliente (ninguna por defecto)"],
+  ["なし（標準）","None (default)","无（默认）","Ninguna (por defecto)"],["選ぶ","Choose","选择","Elegir"],
+  ["このアカウントに足す機能を選ぶ","Choose features to add for this account","选择为此账号添加的功能","Elegir funciones para esta cuenta"],
+  ["🚚 物流会社","🚚 Logistics company","🚚 物流公司","🚚 Empresa logística"],
+  ["会社・商品を検索","Search companies & products","搜索公司・商品","Buscar empresas y productos"],
+  ["お客様の画面の上部バーは、標準では必要なものだけにしています。このアカウントで使えるようにする機能にチェックを入れてください。チェックした機能だけが、上部バーに出ます。",
+   "By default, the customer's top bar shows only the essentials. Check the features to enable for this account. Only checked features appear in the top bar.",
+   "客户画面的顶部栏默认只显示必要的项目。请勾选要为此账号开放的功能。只有勾选的功能会显示在顶部栏。",
+   "Por defecto, la barra superior del cliente muestra solo lo esencial. Marque las funciones que quiere habilitar para esta cuenta. Solo las marcadas aparecerán en la barra superior."],
+  ["⚠ 同期サーバー（Apps Script）が v2.11 より前のため、この設定はお客様の端末に届きません。sync_gas.js v2.11 を反映してから設定してください。",
+   "⚠ The sync server (Apps Script) is older than v2.11, so this setting can't reach the customer's devices. Deploy sync_gas.js v2.11 first, then set it.",
+   "⚠ 同步服务器（Apps Script）早于 v2.11，此设置无法送达客户的终端。请先部署 sync_gas.js v2.11 再进行设置。",
+   "⚠ El servidor de sincronización (Apps Script) es anterior a v2.11, así que este ajuste no llegará a los dispositivos del cliente. Despliegue primero sync_gas.js v2.11."],
+  ["反映：お客様の端末には、次にログインした時か、利用中なら10分以内（画面に戻った時）に届きます。チェックを外すと、その機能で変えていた表示（右パネルを隠す・スマホ表示など）も標準に戻ります。",
+   "When it applies: at the customer's next login, or within 10 minutes if they're using it (or when they return to the screen). Unchecking a feature also resets anything it changed (a hidden side panel, mobile view, etc.) to the default.",
+   "生效时间：客户下次登录时，或使用中10分钟内（返回画面时）送达。取消勾选后，该功能改变的显示（隐藏的右侧面板、手机视图等）也会恢复为默认。",
+   "Cuándo se aplica: en el próximo inicio de sesión del cliente, o en 10 minutos si lo está usando (o al volver a la pantalla). Al desmarcar una función, lo que cambió (panel lateral oculto, vista móvil, etc.) vuelve a lo predeterminado."],
+  [FX17[0].d,"Shows a 🔍 button in the top bar to find a company or product by name or category and switch to it. Without it, products can still be switched from the product menu at the top or with Search anything.",
+   "在顶部显示「🔍」按钮，可按公司名、商品名、类别搜索并切换显示的商品。关闭后，仍可通过顶部的商品选择和「搜索一切」切换。",
+   "Muestra un botón 🔍 en la barra superior para buscar una empresa o un producto por nombre o categoría y cambiar a él. Sin él, se puede cambiar de producto desde el menú superior o con Buscar."],
+  [FX17[1].d,"Shows ◫ Side panel in the top bar to hide the helper panel on the right (steps, samples, etc.) and widen the main area. Without it, the helper panel is always shown.",
+   "在顶部显示「◫ 右侧面板」，可隐藏画面右侧的辅助面板（步骤、示例等），加宽正文区域。关闭后，辅助面板始终显示。",
+   "Muestra ◫ Panel lateral en la barra superior para ocultar el panel de ayuda de la derecha (pasos, ejemplos, etc.) y ampliar el área principal. Sin él, el panel de ayuda se muestra siempre."],
+  [FX17[2].d,"Shows Plain language in the top bar, which highlights trade terms and explains them (on at login). Without it, hovering over a word with a dotted underline still shows its explanation.",
+   "在顶部显示「通俗说明」，为贸易术语加上颜色并显示说明（登录时开启）。关闭后，将鼠标移到带虚线下划线的词上仍会显示说明。",
+   "Muestra Explicación simple en la barra superior, que resalta los términos de comercio y los explica (activada al iniciar sesión). Sin ella, al pasar el ratón sobre una palabra con subrayado punteado se sigue viendo la explicación."],
+  [FX17[3].d,"Shows Mobile view in the top bar to preview the phone layout on a computer. On a phone, the mobile layout is used automatically regardless of this setting.",
+   "在顶部显示「手机视图」，可在电脑上确认手机上的显示效果。用手机打开时，无论此设置如何都会自动切换为手机画面。",
+   "Muestra Vista móvil en la barra superior para ver en el ordenador cómo se ve en el móvil. En un teléfono, la vista móvil se usa automáticamente, sin importar este ajuste."],
+  ["追加機能を保存しました（お客様の端末には、次のログイン時か10分以内に届きます）","Extra features saved (they reach the customer's devices at next login or within 10 minutes)","已保存附加功能（将在客户下次登录时或10分钟内送达其终端）","Funciones adicionales guardadas (llegan a los dispositivos del cliente en el próximo inicio de sesión o en 10 minutos)"]
+]); }catch(e){}
 
 </script>
