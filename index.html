@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="ba092a91409e";
+const BC20_BUILD="5298fccb17e6";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31209,7 +31209,7 @@ if(typeof syncCall==="function"){ const __sc17=syncCall; syncCall=async function
   const r=await __sc17.apply(this,arguments);
   try{ if(op==="login"||op==="lookup") setTimeout(fx17Apply,0); }catch(e){}
   return r; }; }
-setTimeout(fx17Apply,0);
+setTimeout(()=>fx17Apply(),0);   /* 呼ぶ時点の fx17Apply（後の版が差し替えたもの）を使う */
 
 /* ── 管理コンソール：アカウント一覧の「🧩 追加機能」列と、選ぶ画面 ── */
 function fx17SrvOk(){ try{ if(!(typeof syncOn==="function"&&syncOn())) return true;   /* 同期なし＝この端末の中だけ（管理コンソールと同じブラウザ）なら、そのまま効く */
@@ -31302,6 +31302,74 @@ try{ if(typeof dk3I18n==="function") dk3I18n([
    "在顶部显示「手机视图」，可在电脑上确认手机上的显示效果。用手机打开时，无论此设置如何都会自动切换为手机画面。",
    "Muestra Vista móvil en la barra superior para ver en el ordenador cómo se ve en el móvil. En un teléfono, la vista móvil se usa automáticamente, sin importar este ajuste."],
   ["追加機能を保存しました（お客様の端末には、次のログイン時か10分以内に届きます）","Extra features saved (they reach the customer's devices at next login or within 10 minutes)","已保存附加功能（将在客户下次登录时或10分钟内送达其终端）","Funciones adicionales guardadas (llegan a los dispositivos del cliente en el próximo inicio de sesión o en 10 minutos)"]
+]); }catch(e){}
+
+/* ═══ v21.18（2026-09-28）画面右側の補助パネル（右の列）も「◫ 右パネル」の追加機能に含める
+       （お客様の依頼：やりとりの画面の右側の部分は＜右パネル＞に当たるので、管理画面で追加機能を選ばない限り表示しない）
+   ・追加なし：右の列（#well の .stk・.railr＝やりとりの要約・メンバー・通知の説明／AI商社マンの会話の履歴・AIが見ているもの・脈あり度／出荷の手順の説明）を出さない。
+     今までの「◫ 右パネル」で隠した時と同じ body.norail（本文が画面いっぱいになる）。端末の設定 bc20_norail は書き換えない
+   ・追加あり：上部の「◫ 右パネル」で表示・非表示を切り替えられる。追加された時は、その端末の前の設定に戻す（既定は表示）
+   ・AI商社マンの画面：右の列の「💬 会話の履歴」が出ていない間は、チャットの上の会話の欄に「🕘 履歴」（右側のAIパネルで履歴を開く） */
+const FX18={rail:undefined};
+fx17Apply=function(){ try{
+  const b=document.body; if(!b) return; const on=new Set(fx17List()); let ch=false;
+  FX17.forEach(f=>{ const want=on.has(f.k); if(b.classList.contains("fx17-"+f.k)!==want){ b.classList.toggle("fx17-"+f.k,want); ch=true; } });
+  const railOn=on.has("rail");
+  if(!railOn){ if(!b.classList.contains("norail")){ b.classList.add("norail"); ch=true; } }
+  else if(FX18.rail===false){   /* 追加された時：その端末の前の設定（既定は表示） */
+    let off=false; try{ off=localStorage.getItem("bc20_norail")==="1"; }catch(e){}
+    if(b.classList.contains("norail")!==off){ b.classList.toggle("norail",off); ch=true; } const r=document.getElementById("rail"); if(r) r.setAttribute("aria-pressed",String(!off)); }
+  FX18.rail=railOn;
+  if(!on.has("easy")&&b.classList.contains("easy")){ b.classList.remove("easy"); const e=document.getElementById("easy"); if(e) e.setAttribute("aria-pressed","false"); }
+  if(!on.has("mob")){ let man=""; try{ man=localStorage.getItem("bc20_mob_manual")||""; }catch(e){}
+    if(man){ try{ localStorage.removeItem("bc20_mob_manual"); }catch(e){} try{ if(typeof mobAuto==="function") mobAuto(); }catch(e){} ch=true; } }
+  if(ch){ try{ if(typeof ux17BarLayout==="function") ux17BarLayout(); }catch(e){} try{ fx18HisBtn(); }catch(e){} }
+  fx17Text(); fx18Keep();
+}catch(e){} };
+
+/* 右の列でも「操作に使うもの」は隠さない（右の列を出さない時は、本文の下に置く）：
+   ・商品情報を登録の「サンプルで試す」（商品が無い間は、ここ以外にサンプルを読み込む入口が無い）
+   ・出荷を進めるの「この手続きでやっていること」（ステップの書類・「✎ このステップを編集」はここだけ。チャットの書類から飛ぶ先）
+   説明だけのカード（データはどこから来ているか 等）は隠す。本文の下に置く時は「右の…」の案内を「下の…」に言い換える */
+function fx18Keep(){ try{ const w=document.getElementById("well"); if(!w) return;
+  w.querySelectorAll(".railr").forEach(r=>{ if(r.querySelector("[data-smp],[data-smp2]")) r.classList.add("fx18keep"); });
+  w.querySelectorAll(".stk").forEach(s=>{ const keep=[...s.children].filter(c=>c.querySelector('[onclick*="shipFoldAll"],[id^="stepart"]')); if(keep.length){ s.classList.add("fx18keep"); keep.forEach(c=>c.classList.add("fx18keep")); } });
+  const onShip=typeof cur!=="undefined"&&(cur==="ship"||(cur==="ops"&&typeof opsTab!=="undefined"&&opsTab==="ship"));   /* 出荷を進める＝「貿易実務・書類・出荷」の出荷タブ（cur は ops） */
+  if(!onShip) return; const down=document.body.classList.contains("norail");
+  const A=down?["右の手続きパネル","右の「この手続きでやっていること」"]:["下の手続きパネル","下の「この手続きでやっていること」"], B=down?["下の手続きパネル","下の「この手続きでやっていること」"]:["右の手続きパネル","右の「この手続きでやっていること」"];
+  const fix=s=>{ let v=s; A.forEach((a,i)=>{ v=v.split(a).join(B[i]); }); return v; };
+  const tw=document.createTreeWalker(w,NodeFilter.SHOW_TEXT); const L=[]; while(tw.nextNode()){ const n=tw.currentNode; if(A.some(a=>n.nodeValue.includes(a))) L.push(n); } L.forEach(n=>{ n.nodeValue=fix(n.nodeValue); });
+  w.querySelectorAll("[title]").forEach(e=>{ const t=e.getAttribute("title"); if(t&&A.some(a=>t.includes(a))) e.setAttribute("title",fix(t)); });
+}catch(e){} }
+(function(){ try{ if(document.getElementById("fx18css")) return; const st=document.createElement("style"); st.id="fx18css"; st.textContent=`
+body.norail #well .railr.fx18keep{display:block!important}
+body.norail #well .stk.fx18keep{display:flex!important}
+body.norail #well .stk.fx18keep>:not(.fx18keep){display:none!important}
+`; document.head.appendChild(st); }catch(e){} })();
+
+/* 管理コンソールの説明を新しい動きに合わせる */
+FX17[1].d="画面右側の補助パネル（やりとりの要約・メンバー、AI商社マンの会話の履歴、出荷の手順の説明など）を表示し、上部の「◫ 右パネル」で表示・非表示を切り替えられるようにします。外すと、補助パネルは表示せず、本文を画面いっぱいに使います。";
+const FX18_FOOT="反映：お客様の端末には、次にログインした時か、利用中なら10分以内（画面に戻った時）に届きます。チェックを外すと、その機能の表示も標準（出さない）に戻ります。";
+if(typeof fx17Edit==="function"){ const __fe18=fx17Edit; fx17Edit=function(){ const r=__fe18.apply(this,arguments);
+  try{ const p=[...document.querySelectorAll("#pn p.nn")].find(x=>/^反映：/.test(x.textContent||"")); if(p) p.textContent=FX18_FOOT; }catch(e){} return r; }; }
+
+/* AI商社マンの画面：右の列が出ていない間は、会話の欄に「🕘 履歴」 */
+function fx18HisBtn(){ const bar=document.getElementById("dk16cvp"); if(!bar) return; const need=document.body.classList.contains("norail"); let btn=bar.querySelector("[data-fx18his]");
+  if(!need){ if(btn) btn.remove(); return; }
+  if(!btn){ bar.insertAdjacentHTML("beforeend",'<button type="button" class="btn g dk16hb" data-fx18his="1" style="margin-left:6px" title="これまでの会話を開く・検索する">🕘 履歴</button>'); btn=bar.querySelector("[data-fx18his]"); }
+  btn.onclick=ev=>{ ev.stopPropagation(); try{ openAskAI(); setTimeout(()=>{ try{ dk16Hist(true); }catch(e){} },0); }catch(e){} }; }
+if(typeof dk16Paint==="function"){ const __dp18=dk16Paint; dk16Paint=function(){ const r=__dp18.apply(this,arguments); try{ fx18HisBtn(); }catch(e){} return r; }; }
+(function(){ try{ const r=document.getElementById("rail"); if(r) r.addEventListener("click",()=>setTimeout(()=>{ try{ fx18HisBtn(); fx18Keep(); }catch(e){} },0)); }catch(e){} })();
+setTimeout(()=>fx17Apply(),0);
+
+/* ── 英・中・西 ── */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  [FX17[1].d,"Shows the helper panel on the right (Messages summary and members, AI Trade Agent chat history, shipping step notes, etc.) and adds ◫ Side panel to the top bar to show or hide it. Without it, the helper panel is not shown and the main content uses the full width.",
+   "显示画面右侧的辅助面板（沟通记录的摘要与成员、AI商社专员的对话记录、出货步骤说明等），并可通过顶部的「◫ 右侧面板」切换显示或隐藏。关闭后不显示辅助面板，正文占满整个画面。",
+   "Muestra el panel de ayuda de la derecha (resumen y miembros de Mensajes, historial de conversaciones con el Agente IA, notas de los pasos de envío, etc.) y añade ◫ Panel lateral a la barra superior para mostrarlo u ocultarlo. Sin él, el panel de ayuda no se muestra y el contenido principal ocupa todo el ancho."],
+  [FX18_FOOT,"When it applies: at the customer's next login, or within 10 minutes if they're using it (or when they return to the screen). Unchecking a feature returns its display to the default (not shown).",
+   "生效时间：客户下次登录时，或使用中10分钟内（返回画面时）送达。取消勾选后，该功能的显示也会恢复为默认（不显示）。",
+   "Cuándo se aplica: en el próximo inicio de sesión del cliente, o en 10 minutos si lo está usando (o al volver a la pantalla). Al desmarcar una función, su visualización vuelve a lo predeterminado (no se muestra)."]
 ]); }catch(e){}
 
 </script>
