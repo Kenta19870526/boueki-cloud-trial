@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="d58659128cd1";
+const BC20_BUILD="14b75787ee0e";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -30795,5 +30795,15 @@ if(typeof v1812Focus==="function"){ const __f15=v1812Focus; v1812Focus=function(
 if(typeof fillStart==="function"){ const __fs15=fillStart; fillStart=function(){ try{ if(typeof V1811!=="undefined"&&V1811.focus){ V1811.focus=null; V1811.mode=null; } }catch(e){} return __fs15.apply(this,arguments); }; }
 /* 開いた時にもうこのページになっている時（デモ版は、この版のファイルより前に最初の描画が済んでいる）。トライアル版はログインの後の描画で上の render が拾う */
 setTimeout(()=>{ try{ if(!dk15UpLive()||typeof cur==="undefined"||cur!=="up"||V1811.focus||!dk15UpOk()) return; V1811.mode=null; V1811.focus={k:"newco"}; render(); dk15UpShow(); }catch(e){} },0);
+
+/* ═══ v21.15.1（2026-09-28）同期の送信が「このアカウントのデータは新しい版で保存されています」で断られる不具合の修正 ═══
+   原因：同期のサーバー（Apps Script）の版が "2.10" になった（v21.14 の公開で反映）。画面は版を parseFloat で読むので 2.1 になり、
+         「2.4 より古いサーバー」と判断して圧縮なしの形式（fmt 1）で送る → サーバーは保存済みの形式（fmt 2）より古い送信として断る（v21.4 の保護）。
+         受け取り（pull）は動くので、ほかの端末の変更は見えるが、この端末の変更がクラウドに届かない
+   対応：版の文字を「主.副」として読み、副が 10 以上でも大小が正しくなる数にする（2.4＝2.4、2.9＝2.9、2.10＝2.91、2.11＝2.911）。
+         今までの比較（2.4・2.6 以上か）はそのまま正しく働く。届かなかった変更は、次の送信（この版を開いた時の取り込み・保存）で送られる */
+function hf21151Rel(s){ const m=String(s==null?"":s).match(/^(\d+)\.(\d+)/); if(!m) return parseFloat(s)||0; const a=+m[1], b=+m[2]; return a+(b<10?b/10:0.9+b/1000); }
+if(typeof syncCall==="function"){ const __sc21151=syncCall; syncCall=async function(op,body,opt){ const r=await __sc21151.apply(this,arguments);
+  try{ if(r&&r.rel!=null&&typeof SYNC!=="undefined"&&SYNC){ const v=hf21151Rel(r.rel); if(v) SYNC.rel=v; SYNC.relStr=String(r.rel); } }catch(e){} return r; }; }
 
 </script>
