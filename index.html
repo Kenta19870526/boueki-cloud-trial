@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="14b75787ee0e";
+const BC20_BUILD="abcf0c7d30f1";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -30805,5 +30805,349 @@ setTimeout(()=>{ try{ if(!dk15UpLive()||typeof cur==="undefined"||cur!=="up"||V1
 function hf21151Rel(s){ const m=String(s==null?"":s).match(/^(\d+)\.(\d+)/); if(!m) return parseFloat(s)||0; const a=+m[1], b=+m[2]; return a+(b<10?b/10:0.9+b/1000); }
 if(typeof syncCall==="function"){ const __sc21151=syncCall; syncCall=async function(op,body,opt){ const r=await __sc21151.apply(this,arguments);
   try{ if(r&&r.rel!=null&&typeof SYNC!=="undefined"&&SYNC){ const v=hf21151Rel(r.rel); if(v) SYNC.rel=v; SYNC.relStr=String(r.rel); } }catch(e){} return r; }; }
+
+/* ═══ v21.16（2026-09-28）AI商社マンとの会話を保存・検索（Claude と同じ使い方）／「AIに質問」を右上の1か所に ═══
+   お客様の依頼：「Claude と同じように、AI商社マンとやり取りした各スレッドが保存され、更に検索できるように」
+                「やりとりの画面の2つの『AIに質問』の違いは？ 同じなら青の『AIに質問』へ集約でも」
+   ・会話（スレッド）：右上の「🤖 AIに質問」（右パネル）と「AI商社マン」の画面のやりとりを、1つの会話として自動で保存（商品ごと・最新40件・1件80通まで）。
+     タイトルは最初の質問（✎で変えられる）。トライアル版は同期でほかの端末・同じアカウントのメンバーにも残る（削除は墓標で伝わる）。デモ版は開いている間だけ
+   ・右パネル：「＋ 新しい会話」「🕘 履歴」。履歴は検索（タイトル・質問・回答の全文。空白で区切ると全部を含むもの）、「この商品／すべての商品」、
+     今日・昨日・過去7日間・過去30日間・それ以前でまとめる。開くと続きから話せる（接続AIには、その会話の直近の往復を「いま開いている会話」として渡す）
+   ・AI商社マンの画面：右の列に「💬 会話の履歴」（検索・一覧）、チャットの上に今の会話と「＋ 新しい会話」。描き直すたびにチャットが空になっていたのを、今の会話から描き直す
+   ・回答ごとに「📤 やりとりに共有」：質問と回答を、この案件のやりとり（共有）に残す（今までの「やりとり」の「🤖 AIに質問」と同じ形の投稿）
+   ・「やりとり」の入力欄の「🤖 AIに質問」は無くし、AIへの質問は右上の「🤖 AIに質問」に1本化（DK16_ONEAI を false にすると戻る）。
+     今までの AI の投稿は「🤖 AIとのやりとり」でそのまま見られる。ファイルを読ませる時は AI商社マンの画面の📎 */
+const DK16_ONEAI=true;
+const DK16={cur:{},mute:0,q:"",all:false,edit:"",del:"",pend:null,st:0};
+const DK16_MAXC=40, DK16_MAXM=80, DK16_MAXH=20000, DK16_MAXB=160000;
+function dk16T(){ return (typeof TEN!=="undefined"&&TEN)?TEN:null; }
+function dk16K(t){ try{ return t?String(typeof dk3PKey==="function"?dk3PKey(t):(t.uid||t.item||"")):"_"; }catch(e){ return "_"; } }
+function dk16S(t){ const o=t?(t.aiConv=(t.aiConv&&typeof t.aiConv==="object")?t.aiConv:{}):(window.__dk16s=window.__dk16s||{}); if(!Array.isArray(o.list)) o.list=[]; if(!Array.isArray(o.del)) o.del=[]; return o; }
+/* 読むだけの時は商品に何も足さない（空の履歴を全商品に付けて同期が走らないように） */
+function dk16R(t){ const o=t?t.aiConv:window.__dk16s; return {list:(o&&Array.isArray(o.list))?o.list:[],del:(o&&Array.isArray(o.del))?o.del:[]}; }
+function dk16Id(p){ return p+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function dk16P(h){ return (typeof l211Plain==="function")?l211Plain(h):String(h||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim(); }
+function dk16Who(){ try{ return (typeof SES!=="undefined"&&SES&&SES.who)||""; }catch(e){ return ""; } }
+function dk16Trial(){ try{ return typeof SES!=="undefined"&&!!SES&&SES.t==="trial"; }catch(e){ return false; } }
+function dk16TenOf(k){ if(k==="_") return null; try{ const t=dk16T(); if(t&&dk16K(t)===k) return t; return ((typeof TENS!=="undefined"&&Array.isArray(TENS))?TENS:[]).find(x=>x&&dk16K(x)===k)||null; }catch(e){ return null; } }
+function dk16Loc(k,id){ const t=dk16TenOf(k); if(k!=="_"&&!t) return null; const conv=dk16R(t).list.find(c=>c&&c.id===id); return conv?{t,s:dk16S(t),conv}:null; }
+function dk16Cur(){ const t=dk16T(); const id=DK16.cur[dk16K(t)]; return id?(dk16R(t).list.find(c=>c&&c.id===id)||null):null; }
+function dk16SetCur(id){ DK16.cur[dk16K(dk16T())]=id||""; }
+function dk16Save(){ clearTimeout(DK16.st); DK16.st=setTimeout(()=>{ try{ if(typeof saveTen==="function") saveTen(); }catch(e){} },300); }
+/* 件数と大きさの上限（今の会話は残す）：新しい順に最新40件・合計およそ160KB まで */
+function dk16Trim(s,keep){ const L=s.list.filter(c=>c&&c.id).sort((a,b)=>(b.up||0)-(a.up||0)); let n=0, bytes=0; const out=[];
+  for(const c of L){ const sz=JSON.stringify(c).length; if(c.id===keep||(n<DK16_MAXC&&bytes+sz<=DK16_MAXB)){ out.push(c); n++; bytes+=sz; } }
+  s.list=out; }
+function dk16Ensure(src){ const t=dk16T(); let c=dk16Cur(); if(c) return {t,conv:c};
+  const s=dk16S(t); c={id:dk16Id("c"),t:"",at:Date.now(),up:Date.now(),who:dk16Who(),src:String(src||""),m:[]}; s.list.push(c); dk16SetCur(c.id); return {t,conv:c}; }
+function dk16Add(L,w,h){ let hh=String(h||""); if(hh.length>DK16_MAXH) hh=esc(dk16P(hh).slice(0,DK16_MAXH))+"…";
+  const id=dk16Id("m"); const c=L.conv; c.m.push({id,w,h:hh,at:Date.now()}); if(c.m.length>DK16_MAXM) c.m=c.m.slice(-DK16_MAXM);
+  if(w==="u"&&!c.t) c.t=dk16P(hh).replace(/^📎\S*\s*/,"").slice(0,60)||"（無題）"; c.up=Date.now(); dk16Trim(L.s||dk16S(L.t),c.id); dk16Save(); return id; }
+function dk16Del(k,id){ const L=dk16Loc(k,id); if(!L) return; L.s.list=L.s.list.filter(c=>c.id!==id); L.s.del=(L.s.del||[]).concat([id]).slice(-400);
+  Object.keys(DK16.cur).forEach(x=>{ if(DK16.cur[x]===id) DK16.cur[x]=""; }); dk16Save(); }
+function dk16Rename(k,id,title){ const L=dk16Loc(k,id); const v=String(title||"").trim().slice(0,60); if(!L||!v) return false; L.conv.t=v; L.conv.tm=1; L.conv.tu=Date.now(); dk16Save(); return true; }
+
+/* ── 質問と回答を会話に入れる（右パネル #dwchat・AI商社マンの画面 #chat） ── */
+function dk16Clean(bb){ const cl=bb.cloneNode(true); cl.querySelectorAll(".cpy,.l211fb,.l211tg,.dk16sh,.car").forEach(z=>z.remove()); return cl.innerHTML.trim(); }
+function dk16Watch(bb,ref,c){
+  const done=()=>!!bb.querySelector(".ci")&&!bb.querySelector(".car");
+  const fin=()=>{ try{ const L=dk16Loc(ref.k,ref.id); if(!L) return; const h=dk16Clean(bb); if(!h) return; const mid=dk16Add(L,"a",h); dk16ShareBtn(bb,ref.k,ref.id,mid,false);
+      if(DK16.pend&&DK16.pend.id===ref.id) DK16.pend=null; dk16Paint(); if(!bb.isConnected&&typeof cur!=="undefined"&&cur==="ai"&&c&&c.id==="chat") setTimeout(()=>{ try{ render(); }catch(e){} },0); }catch(e){} };
+  if(done()){ fin(); return; }
+  let tm=0; const mo=new MutationObserver(()=>{ if(!done()) return; mo.disconnect(); clearTimeout(tm); fin(); });
+  mo.observe(bb,{childList:true,subtree:true,characterData:true});
+  tm=setTimeout(()=>{ mo.disconnect(); if(!bb.querySelector(".car")&&bb.textContent.trim()) fin(); },240000);
+}
+if(typeof pushTo==="function"){ const __pt16=pushTo; pushTo=function(c,who,html){ const bb=__pt16.apply(this,arguments);
+  try{ if(DK16.mute||!c||(c.id!=="dwchat"&&c.id!=="chat")) return bb;
+    if(who==="u"){ const L=dk16Ensure(c.id==="chat"?"AI商社マンの画面":"右パネル"); dk16Add(L,"u",html); c.__dk16={k:dk16K(L.t),id:L.conv.id}; DK16.pend={k:dk16K(L.t),id:L.conv.id,at:Date.now()}; dk16Paint(); }
+    else if(who==="a"&&c.__dk16){ const ref=c.__dk16; c.__dk16=null; dk16Watch(bb,ref,c); }
+  }catch(e){} return bb; }; }
+/* 開いている会話の続きとして答える（接続AIの文脈に、その会話の直近の往復を足す） */
+if(typeof ppContext==="function"){ const __pc16=ppContext; ppContext=function(){ const s=__pc16.apply(this,arguments);
+  try{ const p=DK16.pend; if(!p||Date.now()-p.at>240000) return s; const L=dk16Loc(p.k,p.id); if(!L) return s; const prev=L.conv.m.slice(0,-1).slice(-12); if(prev.length<2) return s;
+    return s+`\n## いま開いている会話（「${L.conv.t}」の直近のやりとり。この続きとして、前の答えと食い違わないように答える）\n`+prev.map(x=>(x.w==="u"?"Q: ":"A: ")+dk16P(x.h).slice(0,x.w==="u"?220:420)).join("\n"); }catch(e){ return s; } }; }
+
+/* ── 📤 やりとりに共有（質問と回答を、この案件のやりとり＝共有に残す） ── */
+function dk16ShareBtn(bb,k,id,mid,shared){ if(!bb||bb.querySelector(".dk16sh")) return; const b=document.createElement("span"); b.className="dk16sh"+(shared?" done":""); b.textContent=shared?"✓ やりとりに共有済み":"📤 やりとりに共有";
+  b.title="この質問と回答を「やりとり」（共有）に残す"; if(!shared) b.onclick=ev=>{ ev.stopPropagation(); if(dk16Share(k,id,mid)){ b.classList.add("done"); b.textContent="✓ やりとりに共有済み"; b.onclick=null; } };
+  const cp=bb.querySelector(".cpy"); if(cp) cp.insertAdjacentElement("afterend",b); else bb.appendChild(b); }
+function dk16Share(k,id,mid){
+  const L=dk16Loc(k,id); if(!L){ toast("共有できませんでした（会話が見つかりません）"); return false; }
+  if(L.t!==dk16T()){ toast("表示中の商品の会話だけ、やりとりに共有できます"); return false; }
+  if(typeof msgStore!=="function"||typeof D==="undefined"||!D){ toast("共有できませんでした"); return false; }
+  const i=L.conv.m.findIndex(m=>m.id===mid); if(i<0){ toast("共有できませんでした（回答が見つかりません）"); return false; } const a=L.conv.m[i]; if(a.sh){ toast("この回答はもう、やりとりに共有しています"); return false; }
+  let q=null; for(let j=i-1;j>=0;j--){ if(L.conv.m[j].w==="u"){ q=L.conv.m[j]; break; } }
+  const who=dk16Who()||"貴社担当"; const tstr=(typeof TODAYS!=="undefined"?TODAYS:"")+" "+new Date().toTimeString().slice(0,5); const st=msgStore(); const now=Date.now();
+  st.push({id:dk16Id("m"),at:now,who,org:D.co,t:tstr,scope:"共有",body:"🤖 "+(q?q.h:"（質問）"),read:1,mention:["AI商社マン"]});
+  st.push({id:dk16Id("m"),at:now+1,who:"AI商社マン",org:"貴社データ専用",ai:1,t:tstr,scope:"共有",read:1,body:a.h});
+  a.sh=1; L.conv.up=Math.max(L.conv.up||0,now);
+  try{ const T0=dk16T(); if(T0&&(T0.src==="upload"||T0.src==="sample2")&&typeof syncTenant==="function") syncTenant(); }catch(e){} dk16Save();
+  toast("やりとりに共有しました（共有＝STANDAGE と海外拠点にも見えます）"); return true; }
+
+/* ── 右パネル：開くたびに今の会話を描く・見出しに「＋ 新しい会話」「🕘 履歴」・履歴の画面 ── */
+function dk16Hello(){ try{ return {w:"a",h:`こんにちは。<b>${esc(D.item)}</b>のデータを読み込み済みです。画面を見ながら、そのまま聞いてください。`}; }catch(e){ return null; } }
+if(typeof openAskAI==="function"){ const __oa16=openAskAI; openAskAI=function(){
+  try{ if(typeof D!=="undefined"&&D){ const c=dk16Cur(); const hi=dk16Hello(); ASKDW=(hi?[hi]:[]).concat(c?c.m.map(x=>({w:x.w,h:x.h})):[]); } }catch(e){}
+  DK16.mute++; let r; try{ r=__oa16.apply(this,arguments); }finally{ DK16.mute--; }
+  try{ dk16Panel(); }catch(e){} return r; }; }
+function dk16PanelOpen(){ const pn=document.getElementById("pn"), dw=document.getElementById("dw"); return !!(pn&&pn.querySelector("#dwchat")&&dw&&dw.dataset.open==="true"); }
+function dk16Panel(){
+  const pn=document.getElementById("pn"); if(!pn||!pn.querySelector("#dwchat")) return; pn.classList.remove("dk16h");
+  const mx=pn.querySelector("#dwmax"), hd=pn.querySelector(".dwhead");
+  if(hd&&!pn.querySelector("#dk16new")){ const html=`<button class="btn g dk16hb" id="dk16new" type="button" title="新しい会話を始める（今の会話は履歴に残ります）">＋ 新しい会話</button><button class="btn g dk16hb" id="dk16his" type="button" title="これまでの会話を開く・検索する">🕘 履歴</button>`;
+    if(mx) mx.insertAdjacentHTML("beforebegin",html); else hd.insertAdjacentHTML("beforeend",html); }
+  const body=pn.querySelector(".dwbody"), chat=pn.querySelector("#dwchat");
+  if(body&&!pn.querySelector("#dk16cv")) chat.insertAdjacentHTML("beforebegin",`<div class="dk16cv" id="dk16cv"></div>`);
+  if(body&&!pn.querySelector("#dk16hv")) body.insertAdjacentHTML("beforeend",`<div id="dk16hv"><div class="dk16hh"><button class="btn g dk16hb" type="button" id="dk16back">← 会話に戻る</button><b>会話の履歴</b><button class="btn g dk16hb" type="button" data-dk16new="1">＋ 新しい会話</button></div>${dk16SearchHtml()}<div class="dk16list" data-dk16list="1"></div><p class="nn dk16note">${esc(dk16Note())}</p></div>`);
+  pn.querySelector("#dk16new").onclick=()=>dk16New();
+  pn.querySelector("#dk16his").onclick=()=>dk16Hist(!pn.classList.contains("dk16h"));
+  const bk=pn.querySelector("#dk16back"); if(bk) bk.onclick=()=>dk16Hist(false);
+  /* 描き直した回答に「📤 やりとりに共有」 */
+  const c=dk16Cur(); if(c&&chat){ const bbs=[...chat.querySelectorAll(".m.a .bb")].slice(1); const as=c.m.filter(m=>m.w==="a"); bbs.forEach((bb,i)=>{ const m=as[i]; if(m) dk16ShareBtn(bb,dk16K(dk16T()),c.id,m.id,!!m.sh); }); }
+  dk16Bind(pn); dk16Paint();
+  /* 英中西：右パネルの案内文（会社名が入るので文ごと差し替える。前からの取りこぼし） */
+  try{ const lg=(typeof I18N!=="undefined"&&I18N.lang)||"ja"; const intro=pn.querySelector(".dwbody>.nn"); if(lg!=="ja"&&intro&&typeof D!=="undefined"&&D){ const co=esc(D.co||"");
+    const T={en:`Stay on this screen; everything happens in the side panel. Answers are based on <b>${co}'s registered data</b>. Use <b>⛶ Expand</b> to widen the panel, or drag its left edge to fine-tune the width (it opens at the same width next time).`,
+      zh:`无需离开当前页面，在右侧即可完成。回答以<b>${co}的登记数据</b>为依据。点击<b>⛶ 放大</b>可加宽面板，拖动左侧边缘可微调宽度（下次以相同宽度打开）。`,
+      es:`Sin salir de esta pantalla: todo ocurre en el panel lateral. Las respuestas se basan en <b>los datos registrados de ${co}</b>. Use <b>⛶ Ampliar</b> para ensanchar el panel o arrastre su borde izquierdo para ajustar el ancho (se abrirá igual la próxima vez).`};
+    if(T[lg]){ intro.setAttribute("data-noi18n","1"); intro.innerHTML=T[lg]; } } }catch(e){}
+}
+function dk16Hist(on){ const pn=document.getElementById("pn"); if(!pn) return; pn.classList.toggle("dk16h",!!on); const b=pn.querySelector("#dk16his"); if(b) b.setAttribute("aria-pressed",String(!!on));
+  if(on){ DK16.edit=""; DK16.del=""; dk16Paint(); const q=pn.querySelector("[data-dk16q]"); if(q) try{ q.focus({preventScroll:true}); }catch(e){} } }
+function dk16New(){ dk16SetCur(""); DK16.pend=null; DK16.edit=""; DK16.del="";
+  if(typeof cur!=="undefined"&&cur==="ai"&&!dk16PanelOpen()){ try{ render(); }catch(e){} toast("新しい会話を始めました（前の会話は「💬 会話の履歴」に残っています）"); return; }
+  if(dk16PanelOpen()){ openAskAI(); const q=document.getElementById("dwq"); if(q) try{ q.focus(); }catch(e){} }
+  else if(typeof cur!=="undefined"&&cur==="ai"){ try{ render(); }catch(e){} }
+  toast("新しい会話を始めました（前の会話は履歴に残っています）"); }
+function dk16Open(k,id){ const L=dk16Loc(k,id); if(!L){ toast("その会話はもうありません"); return; }
+  if(L.t!==dk16T()&&L.t&&typeof TENS!=="undefined"){ const i=TENS.indexOf(L.t); if(i<0){ toast("その商品が見つかりません"); return; }
+    const wasAi=typeof cur!=="undefined"&&cur==="ai", wasPanel=dk16PanelOpen(); try{ switchTen(i); }catch(e){} DK16.cur[k]=id;
+    toast(`${L.t.item||"商品"} に切り替えて開きました`); if(wasPanel&&!wasAi) openAskAI(); else if(wasAi){ try{ render(); }catch(e){} } return; }
+  DK16.cur[k]=id; DK16.edit=""; DK16.del="";
+  if(typeof cur!=="undefined"&&cur==="ai"){ if(dk16PanelOpen()&&typeof closeDW==="function") closeDW(); try{ render(); }catch(e){} const c=document.getElementById("chat"); if(c) c.scrollTop=c.scrollHeight; return; }
+  openAskAI(); }
+
+/* ── 一覧（右パネルと AI商社マンの画面で共通） ── */
+function dk16Note(){ return dk16Trial()?"会話は自動で保存され、ほかの端末や同じアカウントのメンバーにも残ります（商品ごとに最新40件）。":"デモ版では、会話はこの画面を開いている間だけ保存されます（トライアル版は自動で保存・同期）。"; }
+function dk16SearchHtml(){ return `<input class="sel dk16q" data-dk16q="1" type="search" placeholder="会話を検索（タイトル・質問・回答）" value="${esc(DK16.q)}" autocomplete="off"><div class="dk16sc" data-dk16sc="1"></div>`; }
+function dk16Rows(all){ const out=[]; const seen=new Set(); const add=t=>{ const k=dk16K(t); if(seen.has(k)) return; seen.add(k); dk16R(t).list.forEach(c=>{ if(c&&c.id&&c.m&&c.m.length) out.push({t,k,c}); }); };
+  add(dk16T()); if(all){ try{ (typeof TENS!=="undefined"&&Array.isArray(TENS)?TENS:[]).forEach(t=>{ if(t) add(t); }); }catch(e){} }
+  return out.sort((a,b)=>(b.c.up||0)-(a.c.up||0)); }
+function dk16Esc(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"); }
+function dk16Mark(txt,toks){ let h=esc(txt); toks.forEach(tk=>{ if(!tk) return; const e=esc(tk); h=h.replace(new RegExp(dk16Esc(e),"gi"),m=>`<mark>${m}</mark>`); }); return h; }
+function dk16Snip(r,toks){ const parts=r.c.m.map(m=>dk16P(m.h)); if(!toks.length){ const a=[...r.c.m].reverse().find(m=>m.w==="a"); return esc((a?dk16P(a.h):parts[parts.length-1]||"").slice(0,90)); }
+  const body=parts.join(" … "), low=body.toLowerCase(); let i=-1; for(const tk of toks){ i=low.indexOf(tk); if(i>=0) break; } if(i<0) return esc(body.slice(0,90));
+  const s=Math.max(0,i-36), e=Math.min(body.length,i+70); return (s>0?"…":"")+dk16Mark(body.slice(s,e),toks)+(e<body.length?"…":""); }
+function dk16When(ms){ const d=new Date(ms), n=new Date(); const p=x=>String(x).padStart(2,"0"); const hm=p(d.getHours())+":"+p(d.getMinutes());
+  if(d.toDateString()===n.toDateString()) return hm; return (d.getFullYear()!==n.getFullYear()?d.getFullYear()+"/":"")+(d.getMonth()+1)+"/"+d.getDate()+" "+hm; }
+function dk16Group(ms){ const d=new Date(ms); d.setHours(0,0,0,0); const n=new Date(); n.setHours(0,0,0,0); const days=Math.round((n-d)/86400000);
+  return days<=0?"今日":days===1?"昨日":days<7?"過去7日間":days<30?"過去30日間":"それ以前"; }
+function dk16ListHtml(){
+  const toks=DK16.q.trim().toLowerCase().split(/\s+/).filter(Boolean); const rows=dk16Rows(DK16.all); const curId=(dk16Cur()||{}).id; const ck=dk16K(dk16T());
+  const hit=rows.filter(r=>{ if(!toks.length) return true; const txt=((r.c.t||"")+"\n"+r.c.m.map(m=>dk16P(m.h)).join("\n")).toLowerCase(); return toks.every(tk=>txt.includes(tk)); });
+  if(!rows.length) return `<div class="dk16none">まだ保存された会話はありません。質問すると、ここに自動で残ります。</div>`;
+  if(!hit.length) return `<div class="dk16none">「${esc(DK16.q.trim())}」を含む会話はありません</div>`;
+  let g="", h=""; hit.forEach(r=>{ const gg=dk16Group(r.c.up||r.c.at||0); if(gg!==g){ g=gg; h+=`<div class="dk16g">${esc(gg)}</div>`; }
+    const key=r.k+"|"+r.c.id, n=r.c.m.length; const other=r.k!==ck;
+    if(DK16.edit===key){ h+=`<div class="dk16r ed" data-dk16k="${esc(key)}"><input type="text" data-dk16ti="${esc(key)}" value="${esc(r.c.t||"")}" maxlength="60" aria-label="会話のタイトル"><div class="dk16x" style="color:var(--ink-3)"><button class="btn dk16hb" type="button" data-dk16save="${esc(key)}">タイトルを保存</button><button class="btn g dk16hb" type="button" data-dk16cancel="1">やめる</button></div></div>`; return; }
+    h+=`<div class="dk16r${r.c.id===curId&&!other?" on":""}" role="button" tabindex="0" data-dk16o="${esc(key)}"><div class="t" data-noi18n="1">${toks.length?dk16Mark(r.c.t||"（無題）",toks):esc(r.c.t||"（無題）")}</div><div class="s" data-noi18n="1">${dk16Snip(r,toks)}</div>
+      <div class="m"><span data-noi18n="1">${esc(dk16When(r.c.up||r.c.at||0))}</span> · <span>${n}通</span>${other||DK16.all?` · <span data-noi18n="1">${esc((r.t&&r.t.item)||"")}</span>`:""}${r.c.who?` · <span data-noi18n="1">${esc(r.c.who)}</span>`:""}</div>
+      <span class="a"><button type="button" data-dk16ren="${esc(key)}" title="タイトルを変える" aria-label="タイトルを変える">✎</button><button type="button" data-dk16del="${esc(key)}" title="この会話を削除" aria-label="この会話を削除">🗑</button></span>
+      ${DK16.del===key?`<div class="dk16x">この会話を削除しますか？（元に戻せません）<button class="btn dk16hb" type="button" data-dk16delok="${esc(key)}" style="background:var(--crit);border-color:var(--crit)">削除する</button><button class="btn g dk16hb" type="button" data-dk16cancel="1">やめる</button></div>`:""}</div>`; });
+  return h; }
+function dk16ScHtml(){ const a=dk16Rows(false).length, b=dk16Rows(true).length; return `<button type="button" data-dk16all="0" class="${DK16.all?"":"on"}">この商品（${a}）</button><button type="button" data-dk16all="1" class="${DK16.all?"on":""}">すべての商品（${b}）</button>`; }
+function dk16CvHtml(){ const c=dk16Cur(); if(!c||!c.m.length) return `<span>💬 新しい会話（最初の質問がタイトルになります）</span>`;
+  return `<span>💬</span><b title="${esc(c.t||"")}" data-noi18n="1">${esc(c.t||"（無題）")}</b><button type="button" data-dk16ren="${esc(dk16K(dk16T())+"|"+c.id)}" title="タイトルを変える" aria-label="タイトルを変える">✎</button><span class="sp"></span><span>${c.m.length}通</span><span data-noi18n="1"> · ${esc(dk16When(c.up||c.at))}</span>`; }
+function dk16Paint(){ try{
+  document.querySelectorAll("[data-dk16list]").forEach(el=>{ el.innerHTML=dk16ListHtml(); }); document.querySelectorAll("[data-dk16sc]").forEach(el=>{ el.innerHTML=dk16ScHtml(); });
+  ["dk16cv","dk16cvp"].forEach(id=>{ const el=document.getElementById(id); if(el){ el.innerHTML=dk16CvHtml()+(id==="dk16cvp"?`<button type="button" class="btn g dk16hb" data-dk16new="1" style="margin-left:6px">＋ 新しい会話</button>`:""); } });
+  const inp=document.querySelector("[data-dk16ti]"); if(inp&&document.activeElement!==inp) try{ inp.focus(); inp.select(); }catch(e){}
+}catch(e){} }
+/* クリック・入力は委譲で（描き直しても効く） */
+function dk16Bind(root){ if(!root||root.__dk16b) return; root.__dk16b=1;
+  root.addEventListener("click",ev=>{ const b=ev.target.closest("[data-dk16o],[data-dk16ren],[data-dk16del],[data-dk16delok],[data-dk16cancel],[data-dk16save],[data-dk16all],[data-dk16new]"); if(!b||!root.contains(b)) return;
+    const d=b.dataset; const sp=k=>{ const i=k.lastIndexOf("|"); return [k.slice(0,i),k.slice(i+1)]; };   /* 商品の鍵に「|」が入ることがある（uid の無い商品＝k:商品名|SKU）→ 最後の「|」で分ける */
+    if(d.dk16new){ ev.stopPropagation(); dk16New(); return; }
+    if(d.dk16all){ ev.stopPropagation(); DK16.all=d.dk16all==="1"; dk16Paint(); return; }
+    if(d.dk16ren){ ev.stopPropagation(); if(b.closest(".dk16cv")){ DK16.q=""; DK16.all=false; document.querySelectorAll("[data-dk16q]").forEach(x=>{ x.value=""; }); if(b.closest("#pn")) dk16Hist(true); } DK16.edit=d.dk16ren; DK16.del=""; dk16Paint(); return; }
+    if(d.dk16save){ ev.stopPropagation(); const [k,id]=sp(d.dk16save); const inp=root.querySelector(`[data-dk16ti="${CSS.escape(d.dk16save)}"]`); if(inp&&dk16Rename(k,id,inp.value)){ DK16.edit=""; toast("タイトルを変えました"); dk16Paint(); } else if(inp){ inp.focus(); } return; }
+    if(d.dk16del){ ev.stopPropagation(); DK16.del=d.dk16del; DK16.edit=""; dk16Paint(); return; }
+    if(d.dk16delok){ ev.stopPropagation(); const [k,id]=sp(d.dk16delok); const wasCur=(dk16Cur()||{}).id===id; dk16Del(k,id); DK16.del=""; toast("会話を削除しました"); dk16Paint();
+      if(wasCur){ if(dk16PanelOpen()){ openAskAI(); dk16Hist(true); } else if(typeof cur!=="undefined"&&cur==="ai"){ try{ render(); }catch(e){} } } return; }
+    if(d.dk16cancel){ ev.stopPropagation(); DK16.edit=""; DK16.del=""; dk16Paint(); return; }
+    if(d.dk16o){ if(ev.target.closest(".a,.dk16x,input")) return; const [k,id]=sp(d.dk16o); dk16Open(k,id); } });
+  root.addEventListener("keydown",ev=>{ const r=ev.target.closest&&ev.target.closest("[data-dk16o]"); if(r&&(ev.key==="Enter"||ev.key===" ")&&ev.target===r){ ev.preventDefault(); r.click(); return; }
+    const ti=ev.target.closest&&ev.target.closest("[data-dk16ti]"); if(ti){ if(ev.key==="Enter"){ ev.preventDefault(); const s=root.querySelector(`[data-dk16save="${CSS.escape(ti.dataset.dk16ti)}"]`); if(s) s.click(); } else if(ev.key==="Escape"){ ev.preventDefault(); ev.stopPropagation(); DK16.edit=""; dk16Paint(); } } });
+  root.addEventListener("input",ev=>{ const q=ev.target.closest&&ev.target.closest("[data-dk16q]"); if(!q) return; DK16.q=q.value; document.querySelectorAll("[data-dk16q]").forEach(x=>{ if(x!==q) x.value=q.value; }); document.querySelectorAll("[data-dk16list]").forEach(el=>{ el.innerHTML=dk16ListHtml(); }); });
+}
+
+/* ── AI商社マンの画面：チャットの上に今の会話、右の列に「💬 会話の履歴」。描き直しても今の会話を出す ── */
+function dk16AiPage(){ if(typeof cur==="undefined"||cur!=="ai") return; const c=document.getElementById("chat"); if(!c) return;
+  if(!document.getElementById("dk16cvp")) c.insertAdjacentHTML("beforebegin",`<div class="dk16cv" id="dk16cvp"></div>`);
+  const conv=dk16Cur(); if(conv&&!c.__dk16r){ c.__dk16r=1; DK16.mute++; try{ conv.m.forEach(m=>{ const bb=pushTo(c,m.w,m.h); if(m.w==="a"){ try{ addCopy(bb); }catch(e){} dk16ShareBtn(bb,dk16K(dk16T()),conv.id,m.id,!!m.sh); } }); }finally{ DK16.mute--; } c.scrollTop=c.scrollHeight; }
+  const g2=c.closest(".g2"), stk=g2&&g2.querySelector(":scope > .stk");
+  if(stk&&!document.getElementById("dk16hc")) stk.insertAdjacentHTML("afterbegin",`<div class="c" id="dk16hc"><div class="rw" style="justify-content:space-between;align-items:center"><h3>💬 会話の履歴</h3><button type="button" class="btn g dk16hb" data-dk16new="1">＋ 新しい会話</button></div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">${dk16SearchHtml()}<div class="dk16list" data-dk16list="1" style="max-height:440px"></div></div><p class="nn dk16note" style="margin-top:8px">${esc(dk16Note())}</p></div>`);
+  const w=document.getElementById("well"); if(w) dk16Bind(w); dk16Paint(); }
+{ const __r16=render; render=function(){ const r=__r16.apply(this,arguments); try{ dk16AiPage(); }catch(e){} try{ dk16OneAi(); }catch(e){} return r; }; }
+
+/* ── 「やりとり」：入力欄の「🤖 AIに質問」を無くし、AIへの質問は右上の「🤖 AIに質問」に1本化 ── */
+function dk16OneAi(){ if(!DK16_ONEAI||typeof cur==="undefined"||cur!=="msg") return;
+  const b=document.querySelector('[data-mscope="AIに質問"]'); if(b){ b.remove(); try{ if(typeof msgNewScope!=="undefined"&&msgNewScope==="AIに質問"){ msgNewScope="共有"; const n=document.getElementById("mscopeNow"); if(n) n.textContent="共有";
+      document.querySelectorAll("[data-mscope]").forEach(x=>x.classList.toggle("g",x.dataset.mscope!=="共有")); } }catch(e){} }
+  const p=[...document.querySelectorAll("#well p.nn")].find(x=>/「🤖 AIに質問」を選ぶと/.test(x.textContent)); if(p&&!document.getElementById("dk16note")){ p.hidden=true;
+    p.insertAdjacentHTML("afterend",`<p class="nn" id="dk16note" style="margin-top:8px"><span>トライアル環境のため、STANDAGE担当への実際の送信・通知は行われません（製品版では通知されます）。</span><span>AI商社マンへの質問は、右上の「🤖 AIに質問」からどうぞ。会話は自動で保存・検索でき、回答は「📤 やりとりに共有」でこの画面に残せます。</span></p>`); } }
+
+/* ── 同期の結合：会話は id ごと、同じ会話の中は通ごとに足し合わせる（タイトルは新しく変えた方・削除は墓標） ── */
+function dk16Union(dt,st){ const a=dt.aiConv||{}, b=st.aiConv||{}; if(!Array.isArray(b.list)&&!Array.isArray(b.del)) return false;
+  const del=new Set([...(a.del||[]),...(b.del||[])]); let ch=false; const map=new Map();
+  (a.list||[]).forEach(c=>{ if(!c||!c.id) return; if(del.has(c.id)){ ch=true; return; } map.set(c.id,c); });
+  (b.list||[]).forEach(c=>{ if(!c||!c.id||del.has(c.id)) return; const x=map.get(c.id); if(!x){ map.set(c.id,JSON.parse(JSON.stringify(c))); ch=true; return; }
+    const ids=new Set((x.m||[]).map(m=>m&&m.id)); const add=(c.m||[]).filter(m=>m&&m.id&&!ids.has(m.id)); if(add.length){ x.m=(x.m||[]).concat(JSON.parse(JSON.stringify(add))).sort((p,q)=>(p.at||0)-(q.at||0)).slice(-DK16_MAXM); ch=true; }
+    (c.m||[]).forEach(m=>{ if(m&&m.sh){ const y=(x.m||[]).find(z=>z.id===m.id); if(y&&!y.sh){ y.sh=1; ch=true; } } });
+    if((c.tu||0)>(x.tu||0)){ x.t=c.t; x.tu=c.tu; x.tm=c.tm; ch=true; } if((c.up||0)>(x.up||0)){ x.up=c.up; ch=true; } });
+  const dl=[...del].slice(-400); if(dl.length!==(a.del||[]).length) ch=true;
+  if(ch){ const s={list:[...map.values()],del:dl}; dk16Trim(s,""); dt.aiConv=s; } return ch; }
+if(typeof v16UnionInto==="function"){ const __un16=v16UnionInto; v16UnionInto=function(DST,SRC){ const c=__un16.apply(this,arguments); let c2=false;
+  try{ (SRC||[]).forEach(st=>{ if(!st) return; const dt=(DST||[]).find(x=>x&&x.co===st.co&&x.item===st.item); if(!dt||dt===st) return; if(dk16Union(dt,st)) c2=true; }); }catch(e){} return c||c2; }; }
+
+/* ── 見た目 ── */
+(function(){ try{ if(document.getElementById("dk16css")) return; const st=document.createElement("style"); st.id="dk16css"; st.textContent=`
+.btn.dk16hb{padding:4px 10px;font-size:12px}
+.dk16cv{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);padding:6px 10px;margin:0 0 8px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)}
+.dk16cv b{color:var(--ink);min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk16cv .sp{flex:1}
+.dk16cv button:not(.btn){border:0;background:none;color:var(--ink-3);cursor:pointer;font:inherit;padding:0 3px}
+.dk16cv button:not(.btn):hover{color:var(--or-deep)}
+#pn.dk16h #dwchat,#pn.dk16h .dwbody>.qb,#pn.dk16h .dwbody>.nn,#pn.dk16h .dwfoot,#pn.dk16h #dk16cv{display:none!important}
+#dk16hv{display:none;flex:1;min-height:0;flex-direction:column;gap:8px}
+#pn.dk16h #dk16hv{display:flex}
+#pn.dk16h #dk16his{border-color:var(--or);color:var(--or-deep);background:var(--or-soft)}
+.dk16hh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dk16hh b{font-size:14px;flex:1;min-width:80px}
+.dk16sc{display:flex;gap:6px;flex-wrap:wrap}
+.dk16sc button{border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:4px 11px;font:inherit;font-size:12px;cursor:pointer}
+.dk16sc button.on{border-color:var(--or);background:var(--or-soft);color:var(--or-deep);font-weight:700}
+.dk16list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;min-height:0}
+#dk16hv .dk16list{flex:1}
+.dk16g{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--ink-3);margin:6px 2px 0}
+.dk16r{position:relative;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:8px 64px 8px 11px;cursor:pointer;text-align:left}
+.dk16r:hover,.dk16r:focus-visible{border-color:var(--or);outline:none}
+.dk16r.on{border-color:var(--bl);box-shadow:0 0 0 2px var(--bl-soft)}
+.dk16r.ed{padding:8px 11px;cursor:default}
+.dk16r .t{font-weight:700;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dk16r .s{font-size:12px;color:var(--ink-2);margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.dk16r mark{background:var(--or-soft);color:var(--or-deep);padding:0 1px;border-radius:2px}
+.dk16r .m{font-size:11px;color:var(--ink-3);margin-top:3px;overflow-wrap:anywhere}
+.dk16r .a{position:absolute;right:6px;top:6px;display:flex;gap:2px}
+.dk16r .a button{border:0;background:none;cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;color:var(--ink-3)}
+.dk16r .a button:hover,.dk16r .a button:focus-visible{background:var(--sunk);color:var(--ink)}
+.dk16r input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:5px 8px;border:1.5px solid var(--or);border-radius:6px;background:var(--surface);color:var(--ink)}
+.dk16x{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--crit)}
+.dk16none{font-size:12.5px;color:var(--ink-3);padding:14px 4px;text-align:center}
+.dk16note{margin:0}
+.bb .dk16sh{display:inline-block;margin:6px 0 0 6px;font-size:9.5px;color:var(--ink-3);cursor:pointer;border:1px solid var(--line);border-radius:5px;padding:1.5px 8px;background:var(--surface)}
+.bb .dk16sh:hover{color:var(--or);border-color:var(--or)}
+.bb .dk16sh.done{color:var(--good);border-color:var(--good);cursor:default}
+`; document.head.appendChild(st); }catch(e){} })();
+
+/* ── 英・中・西 ── */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  ["＋ 新しい会話","＋ New chat","＋ 新对话","＋ Nueva conversación"],
+  ["🕘 履歴","🕘 History","🕘 历史记录","🕘 Historial"],
+  ["🤖 AI商社マンに質問","🤖 Ask the AI Trade Agent","🤖 向AI商社专员提问","🤖 Preguntar a la IA comercial"],
+  ["じっくり使うときは","For in-depth use,","需要深入使用时，","Para un uso a fondo,"],["AI商社マンの画面へ →","go to the AI Trade Agent page →","请前往AI商社专员页面 →","vaya a la página de la IA comercial →"],
+  ["← 会話に戻る","← Back to chat","← 返回对话","← Volver a la conversación"],
+  ["会話の履歴","Chat history","对话记录","Historial de conversaciones"],
+  ["💬 会話の履歴","💬 Chat history","💬 对话记录","💬 Historial de conversaciones"],
+  ["会話を検索（タイトル・質問・回答）","Search chats (titles, questions, answers)","搜索对话（标题、提问、回答）","Buscar conversaciones (títulos, preguntas, respuestas)"],
+  ["今日","Today","今天","Hoy"],["昨日","Yesterday","昨天","Ayer"],["過去7日間","Previous 7 days","过去7天","Últimos 7 días"],["過去30日間","Previous 30 days","过去30天","Últimos 30 días"],["それ以前","Older","更早","Anteriores"],
+  ["💬 新しい会話（最初の質問がタイトルになります）","💬 New chat (your first question becomes the title)","💬 新对话（第一个问题将作为标题）","💬 Nueva conversación (su primera pregunta será el título)"],
+  ["まだ保存された会話はありません。質問すると、ここに自動で残ります。","No saved chats yet. Ask a question and it will be saved here automatically.","还没有保存的对话。提问后会自动保存在这里。","Aún no hay conversaciones guardadas. Haga una pregunta y se guardará aquí automáticamente."],
+  ["タイトルを変える","Rename","修改标题","Cambiar título"],["この会話を削除","Delete this chat","删除此对话","Eliminar esta conversación"],
+  ["タイトルを保存","Save title","保存标题","Guardar título"],["やめる","Cancel","取消","Cancelar"],["削除する","Delete","删除","Eliminar"],
+  ["この会話を削除しますか？（元に戻せません）","Delete this chat? (This can't be undone)","要删除此对话吗？（无法恢复）","¿Eliminar esta conversación? (No se puede deshacer)"],
+  ["会話のタイトル","Chat title","对话标题","Título de la conversación"],
+  ["📤 やりとりに共有","📤 Share to Messages","📤 分享到沟通记录","📤 Compartir en Mensajes"],
+  ["✓ やりとりに共有済み","✓ Shared to Messages","✓ 已分享到沟通记录","✓ Compartido en Mensajes"],
+  ["この質問と回答を「やりとり」（共有）に残す","Keep this question and answer in Messages (shared)","将此问答保存到“沟通记录”（共享）","Guardar esta pregunta y respuesta en Mensajes (compartido)"],
+  ["新しい会話を始める（今の会話は履歴に残ります）","Start a new chat (the current chat stays in your history)","开始新对话（当前对话会保留在历史记录中）","Iniciar una nueva conversación (la actual queda en el historial)"],
+  ["これまでの会話を開く・検索する","Open or search past chats","打开或搜索以往的对话","Abrir o buscar conversaciones anteriores"],
+  ["会話は自動で保存され、ほかの端末や同じアカウントのメンバーにも残ります（商品ごとに最新40件）。","Chats are saved automatically and are available on your other devices and to members of the same account (latest 40 per product).","对话会自动保存，也会同步到您的其他设备和同一账号的成员（每个商品保留最新40条）。","Las conversaciones se guardan automáticamente y están disponibles en sus otros dispositivos y para los miembros de la misma cuenta (las 40 más recientes por producto)."],
+  ["デモ版では、会話はこの画面を開いている間だけ保存されます（トライアル版は自動で保存・同期）。","In the demo, chats are kept only while this page is open (the trial version saves and syncs them automatically).","演示版中，对话仅在此页面打开期间保存（试用版会自动保存并同步）。","En la demo, las conversaciones solo se conservan mientras esta página esté abierta (la versión de prueba las guarda y sincroniza automáticamente)."],
+  ["トライアル環境のため、STANDAGE担当への実際の送信・通知は行われません（製品版では通知されます）。","Because this is a trial environment, nothing is actually sent to or notified to STANDAGE staff (notifications are sent in the product version).","由于是试用环境，不会实际发送给STANDAGE负责人或通知（正式版会通知）。","Al ser un entorno de prueba, no se envía ni se notifica nada al personal de STANDAGE (en la versión de producto sí se notifica)."],
+  ["AI商社マンへの質問は、右上の「🤖 AIに質問」からどうぞ。会話は自動で保存・検索でき、回答は「📤 やりとりに共有」でこの画面に残せます。","Ask the AI trade agent from “🤖 Ask AI” at the top right. Chats are saved and searchable, and you can keep an answer here with “📤 Share to Messages”.","向AI商社专员提问，请使用右上角的“🤖 向AI提问”。对话会自动保存并可搜索，回答可通过“📤 分享到沟通记录”保留在此页面。","Pregunte al agente comercial IA desde «🤖 Preguntar a la IA» arriba a la derecha. Las conversaciones se guardan y se pueden buscar, y puede conservar una respuesta aquí con «📤 Compartir en Mensajes»."],
+  ["タイトルを変えました","Chat renamed","标题已修改","Título cambiado"],["会話を削除しました","Chat deleted","对话已删除","Conversación eliminada"],
+  ["新しい会話を始めました（前の会話は履歴に残っています）","Started a new chat (the previous chat is in your history)","已开始新对话（之前的对话保留在历史记录中）","Nueva conversación iniciada (la anterior está en el historial)"],
+  ["新しい会話を始めました（前の会話は「💬 会話の履歴」に残っています）","Started a new chat (the previous chat is in “💬 Chat history”)","已开始新对话（之前的对话保留在“💬 对话记录”中）","Nueva conversación iniciada (la anterior está en «💬 Historial de conversaciones»)"],
+  ["やりとりに共有しました（共有＝STANDAGE と海外拠点にも見えます）","Shared to Messages (visible to STANDAGE and overseas offices)","已分享到沟通记录（STANDAGE 和海外据点也能看到）","Compartido en Mensajes (visible para STANDAGE y las oficinas en el extranjero)"],
+  ["表示中の商品の会話だけ、やりとりに共有できます","Only chats for the product on screen can be shared to Messages","只能分享当前显示商品的对话","Solo se pueden compartir en Mensajes las conversaciones del producto en pantalla"],
+  ["この回答はもう、やりとりに共有しています","This answer is already shared to Messages","此回答已分享到沟通记录","Esta respuesta ya está compartida en Mensajes"],
+  ["その会話はもうありません","That chat no longer exists","该对话已不存在","Esa conversación ya no existe"],["その商品が見つかりません","That product can't be found","找不到该商品","No se encuentra ese producto"],
+  ["共有できませんでした","Could not share it","无法分享","No se pudo compartir"],["共有できませんでした（会話が見つかりません）","Could not share it (chat not found)","无法分享（找不到对话）","No se pudo compartir (conversación no encontrada)"],
+  ["共有できませんでした（回答が見つかりません）","Could not share it (answer not found)","无法分享（找不到回答）","No se pudo compartir (respuesta no encontrada)"],["（無題）","(Untitled)","（无标题）","(Sin título)"]
+]); }catch(e){}
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^(\d+)通$/,en:(m)=>m[1]+(m[1]==="1"?" message":" messages"),zh:"$1 条",es:(m)=>m[1]+(m[1]==="1"?" mensaje":" mensajes")},
+  {re:/^この商品（(\d+)）$/,en:"This product ($1)",zh:"当前商品（$1）",es:"Este producto ($1)"},
+  {re:/^すべての商品（(\d+)）$/,en:"All products ($1)",zh:"全部商品（$1）",es:"Todos los productos ($1)"},
+  {re:/^「([\s\S]+)」を含む会話はありません$/,en:"No chats contain “$1”",zh:"没有包含“$1”的对话",es:"Ninguna conversación contiene «$1»"},
+  {re:/^([\s\S]+) に切り替えて開きました$/,en:"Switched to $1 and opened the chat",zh:"已切换到 $1 并打开对话",es:"Se cambió a $1 y se abrió la conversación"}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ── 回答の下のボタン（📋 コピー・📤 やりとりに共有・👍／👎 と「教える」欄）を英・中・西に ──
+   翻訳の層は回答（.bb）の中を訳さない（AI の回答文を辞書で書き換えないため）。そのため回答に後から付けるボタンは日本語のままだった
+   対応：ボタンと「教える」欄だけを、同じ辞書で訳す（元の日本語は翻訳の層と同じ控えに入るので、言語を変える・日本語に戻す時もそのまま戻る）。
+   あわせて「📋 コピー」で写す文字から、ボタンの文字（📤 やりとりに共有・👍／👎）と「担当者から教わったこと」を除く */
+const DK16_CTL=".cpy,.dk16sh,.l211fb", DK16_CTLB=".bb .cpy,.bb .dk16sh,.bb .l211fb";
+function dk16TrCtl(ctl){ try{
+  if(typeof I18N==="undefined"||!I18N||I18N.lang==="ja"||!ctl||ctl.nodeType!==1||!ctl.isConnected) return; const d=I18N.dict&&I18N.dict[I18N.lang]; if(!d) return;
+  const all=[ctl,...ctl.querySelectorAll("*")], skip=/^(TEXTAREA|SCRIPT|STYLE)$/;
+  const E=typeof I18N_EL!=="undefined"&&I18N_EL[I18N.lang];
+  if(E&&typeof i18nElMerge==="function") all.forEach(el=>{ if(skip.test(el.nodeName)||!el.childNodes.length||I18N.elDone.has(el)) return; const tr=E[i18nElKey(el)]; if(tr){ try{ if(i18nElMerge(el,tr)) I18N.elDone.add(el); }catch(e){} } });
+  const w=document.createTreeWalker(ctl,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentNode&&!skip.test(n.parentNode.nodeName)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});
+  const L=[]; while(w.nextNode()) L.push(w.currentNode); L.forEach(n=>i18nText(n,d));
+  all.forEach(e=>["placeholder","title","aria-label"].forEach(a=>{ if(!e.hasAttribute(a)) return; const o=I18N.attr.get(e)||{}; const src=(o[a]!==undefined)?o[a]:e.getAttribute(a); const t=i18nStr(src,d); if(t==null) return;
+    if(o[a]===undefined){ o[a]=src; I18N.attr.set(e,o); } if(e.getAttribute(a)!==t) e.setAttribute(a,t); }));
+}catch(e){} }
+function dk16TrAll(){ try{ if(typeof I18N!=="undefined"&&I18N&&I18N.lang!=="ja") document.querySelectorAll(DK16_CTLB).forEach(dk16TrCtl); }catch(e){} }
+try{ new MutationObserver(muts=>{ try{ if(typeof I18N==="undefined"||!I18N||I18N.lang==="ja") return; const seen=new Set();
+  muts.forEach(m=>m.addedNodes.forEach(n=>{ const h=n.nodeType===1?n:n.parentNode; if(!h||h.nodeType!==1||!h.closest) return;
+    const c=h.closest(DK16_CTL); if(c){ if(c.closest(".bb")) seen.add(c); return; } if(n.nodeType===1) n.querySelectorAll(DK16_CTLB).forEach(x=>seen.add(x)); }));
+  seen.forEach(dk16TrCtl); }catch(e){} }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+if(typeof i18nSet==="function"){ const __is16=i18nSet; i18nSet=function(){ const r=__is16.apply(this,arguments); dk16TrAll(); return r; }; }
+setTimeout(dk16TrAll,0);
+if(typeof addCopy==="function"){ const __ac16=addCopy; addCopy=function(bb){ const r=__ac16.apply(this,arguments);
+  try{ const b=bb&&bb.querySelector(".cpy"); if(b&&!b.__dk16){ b.__dk16=1; b.onclick=()=>{
+    const t=bb.cloneNode(true); t.querySelectorAll(".cpy,.dk16sh,.l211fb,.l211tg,.car").forEach(x=>x.remove()); const txt=t.innerText.trim();
+    const ok=()=>toast("回答をコピーしました");
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok,()=>{});
+    else{ const ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); ok(); }catch(e){} ta.remove(); } }; } }catch(e){}
+  return r; }; }
+try{ if(typeof dk3I18n==="function") dk3I18n([
+  ["📋 コピー","📋 Copy","📋 复制","📋 Copiar"],["回答をコピーしました","Answer copied","已复制回答","Respuesta copiada"],
+  ["この回答は役に立った","This answer was helpful","这个回答有帮助","Esta respuesta fue útil"],
+  ["まちがい・足りない点をAI商社マンに教える","Tell the AI Trade Agent what was wrong or missing","告诉AI商社专员哪里不对或不足","Indicar al Agente IA qué estaba mal o qué faltaba"],
+  ["例：MOQは300箱に変わりました／UAE向けはハラール証明が必須です","e.g. The MOQ changed to 300 cases / Halal certification is required for the UAE","例：MOQ已改为300箱／出口阿联酋必须有清真认证","p. ej.: El MOQ cambió a 300 cajas / Para EAU se exige el certificado halal"]
+]); }catch(e){}
+try{ if(typeof I18N_EL!=="undefined"){ const k="どこがちがいましたか？ 正しい内容を書いてください。AI商社マンが覚えて、次の回答から優先して使います。";
+  I18N_EL.en[k]="What was wrong? Please write <b>the correct information</b>. The AI Trade Agent will remember it and use it first from the next answer.";
+  I18N_EL.zh[k]="哪里不对？请写下<b>正确的内容</b>。AI商社专员会记住，并从下次回答起优先使用。";
+  I18N_EL.es[k]="¿Qué estaba mal? Escriba <b>la información correcta</b>. El Agente IA la recordará y la usará primero desde la próxima respuesta."; } }catch(e){}
+
+/* ── スマホ：右パネル・AI商社マンの画面で質問を送ると、画面が止まる（前からの不具合。v21.15 でも起きる）──
+   原因：v16.1 の入力欄の高さの見張り（MutationObserver）が、自分で高さを書き換えた変化にまた反応する。「書き換え中」の印は同じ処理の中で戻すので、
+         次に届く変化には効かない。空の入力欄の自然な高さが「最小＋1px」を超える端末（文字の大きさ・行の高さしだい）では、書き換え→反応が止まらない
+   対応：書き換える間だけ見張りを外す（外している間の変化は届かない）。ほかの動きは v16.1 と同じ */
+if(typeof v16fComposer==="function"){ v16fComposer=function(ta,btn,min,max,onFocus){
+  if(!ta) return; ta.rows=1; ta.placeholder="質問を入力（Enterで送信・Shift+Enterで改行）"; v16fGrow(ta,min,max);
+  ta.addEventListener("input",()=>v16fGrow(ta,min,max));
+  ta.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey) setTimeout(()=>v16fGrow(ta,min,max),0); });
+  ta.addEventListener("focus",()=>{ if(onFocus) onFocus(); });
+  if(btn){ btn.textContent="送信"; btn.addEventListener("click",()=>setTimeout(()=>v16fGrow(ta,min,max),0)); }
+  try{ if(ta.__v16mo) ta.__v16mo.disconnect(); const opt={attributes:true,attributeFilter:["style"]};
+    const mo=new MutationObserver(()=>{ const h=parseFloat(ta.style.height)||0; if(h>max+1||(h>min+1&&!ta.value)){ mo.disconnect(); try{ v16fGrow(ta,min,max); }finally{ mo.observe(ta,opt); } } });
+    mo.observe(ta,opt); ta.__v16mo=mo; }catch(e){} }; }
 
 </script>
