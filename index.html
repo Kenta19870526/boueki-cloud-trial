@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="82e48f165194";
+const BC20_BUILD="0e803ee2481a";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31880,6 +31880,110 @@ if(typeof openFOB==="function"){ const __of21=openFOB;
       hadKg=!!(mem&&mem.hs0===hs0&&mem.kg); }catch(e){}
     const r=__of21.apply(this,arguments);
     try{ fob21Enhance(hadKg); }catch(e){}
+    return r; };
+}
+
+/* ═══ v21.22（2026-09-29）推奨FOB の「✎ この価格を価格表へ」を押しても価格表に価格が入らない不具合を直す
+   お客様の報告：推奨FOB を出して「標準」「プレミアム」の「この価格を価格表へ」を押しても、価格表の編集画面に価格が反映されない
+   原因＝ボタンは openTableEdit('price',{suggest:金額}) で価格表の編集画面を開くだけで、編集画面は
+     「推奨FOB US$20 を反映する場合は、該当する数量帯の単価セルを書き換えてください」という案内を出すだけだった（どのセルにも書き込んでいない）。
+     どの行・どの数量帯に入れるかを決めず、手で書き換える前提の作りだった。
+   直し＝押した段の金額を、編集画面の表に入れた状態で開く（オレンジの枠で示す。「保存して反映」で確定、キャンセルなら何も変わらない）。
+     ・SKU×数量帯の表（推奨FOB の画面で選んだ行に単価の列が2つ以上）：「FOB単価（US$）」の列を足して（あればそれに）、選んだ行に入れる
+     ・それ以外（項目／内容の表・数量帯が行の表・空の表）：「FOB単価（US$/個）」の行を足して（あれば書き換えて）入れる
+     ・推奨FOB の画面を JPY で見ている時は円で入れる（「FOB単価（円/個）」）。単位は商品の単位（袋・本・個）、無ければ価格表の「/個」など
+     ・同じ段を押し直す・別の段を押すと、同じ列・行を書き換える（増えない）。入れた金額は採用した自社の価格として「現在のFOB単価」にも数える */
+
+const FOB22_UNITS="個|本|袋|箱|枚|缶|瓶|セット|パック|ケース|カートン|pcs";
+function fob22Unit(){
+  const u=String((typeof D!=="undefined"&&D&&D.unit)||(typeof TEN!=="undefined"&&TEN&&TEN.unit)||"").trim();
+  if(u&&u.length<=4) return u;
+  try{ const rows=(typeof D!=="undefined"&&D&&D.priceRows)||[];
+    /* 「2,000円/個」の「/個」、無ければ数量帯の「〜499本」「5,000セット〜」の単位 */
+    for(const r of rows) for(const c of (r||[])){ const m=String(c||"").match(new RegExp("[/／]\\s*("+FOB22_UNITS+")","i")); if(m) return m[1]; }
+    for(const r of rows){ const m=String((r||[])[0]||"").match(new RegExp("[\\d,]+\\s*("+FOB22_UNITS+")\\s*(?:[〜~]|以上|以下|未満|$)","i")); if(m) return m[1]; } }catch(e){}
+  return "個";
+}
+/* 入れた「FOB単価（US$/個）」の行（項目／内容の表・数量帯が行の表）は、自社が採用した価格：
+   現在のFOB単価は、この行を含む全行で出す（数量帯の表の見分けがこの行で崩れないように）・行の名前は「採用したFOB単価」 */
+function fob22IsAdopted(s){ return /^FOB単価（(?:US\$|円)[\/／]/.test(String(s||"").trim()); }
+if(typeof fob21PriceRows==="function"){ const __fpr22=fob21PriceRows;
+  fob21PriceRows=function(){ const rows=__fpr22.apply(this,arguments);
+    rows.forEach(r=>{ if(fob22IsAdopted(r.first)){ r.adopted=1; r.label="採用したFOB単価"; } }); return rows; };
+}
+if(typeof fob21Pick==="function"){ const __fpk22=fob21Pick;
+  fob21Pick=function(rows){ if(rows&&rows.length>1&&rows.some(r=>r.adopted)) return {mode:"all",row:null,how:"adopted"}; return __fpk22.apply(this,arguments); };
+}
+if(typeof fob21Enhance==="function"){ const __fen22=fob21Enhance;
+  fob21Enhance=function(){ const r=__fen22.apply(this,arguments);
+    try{ const c=csCurFob(); if(c&&c.how==="adopted"){ const kgI=document.getElementById("fobKg"); const cell=kgI&&kgI.parentElement&&kgI.parentElement.nextElementSibling;
+      const sp=cell&&[...cell.querySelectorAll("span")].find(s=>/数量帯の全行/.test(s.textContent||"")); if(sp) sp.textContent="（採用したFOB単価を含む全行）"; } }catch(e){}
+    return r; };
+}
+/* 推奨FOB の段（0＝守り・1＝標準・2＝プレミアム）の金額を、価格表の編集画面に入れて開く */
+function fob22Apply(i){
+  const L=window.__fobLast; const t=L&&L.tiers&&L.tiers[i]; if(!t||!(+t.usd>0)) return;
+  const fx=(typeof ddpFx==="function")?ddpFx():{rates:{USD:150},live:0,at:"参照"};
+  const rate=+((fx.rates||{}).USD)||150;
+  const tier=String(t.name||"").replace(/（[^）]*）/g,"").trim()||["守り","標準","プレミアム"][i]||"";
+  openTableEdit("price",{fob22:{tier,usd:+t.usd,jpy:L.cur==="JPY",rate,live:!!fx.live}});
+}
+function fob22Fill(f){
+  const T=(typeof __TBL!=="undefined")?__TBL:null; if(!T||T.kind!=="price") return;
+  const unit=fob22Unit();
+  const amt=f.jpy?Math.round(f.usd*f.rate):Math.round(f.usd*100)/100;
+  const money=f.jpy?"¥"+amt.toLocaleString("en-US"):"US$"+amt.toFixed(2);
+  const colLbl=f.jpy?"FOB単価（円）":"FOB単価（US$）", rowLbl=f.jpy?`FOB単価（円/${unit}）`:`FOB単価（US$/${unit}）`;
+  const isCol=s=>/^FOB単価（(?:US\$|円)）$/.test(String(s||"").trim()), isRow=s=>/^FOB単価（(?:US\$|円)[\/／]/.test(String(s||"").trim());
+  const blank=r=>(r||[]).every(v=>!String(v||"").trim());
+  let mark, where;
+  const cur=(typeof csCurFob==="function")?csCurFob():null;
+  const pr=(typeof fob21PriceRows==="function")?fob21PriceRows():[];
+  const tgt=(cur&&cur.mode==="row"&&cur.row)?pr.find(x=>x.i===cur.row.i):null;
+  if(tgt&&tgt.px.length>=2&&T.rows[tgt.i]){
+    /* SKU×数量帯の表：「FOB単価（US$）」の列の、選んだ行 */
+    let ci=T.cols.findIndex(isCol);
+    if(ci<0){ T.cols.push(colLbl); T.rows.forEach(r=>r.push("")); ci=T.cols.length-1; } else T.cols[ci]=colLbl;
+    T.rows[tgt.i][ci]=money; mark={r:tgt.i,c:ci,h:ci}; where=`「${tgt.label}」の行の「${colLbl}」の列`;
+  } else {
+    /* 項目／内容の表・数量帯が行の表・空の表：「FOB単価（US$/個）」の行 */
+    if(T.rows.length===1&&blank(T.rows[0])) T.rows=[];
+    if(T.cols.length<2){ T.cols=[T.cols[0]||"項目","内容"]; T.rows=T.rows.map(r=>[r[0]||"",r[1]||""]); }
+    let ri=T.rows.findIndex(r=>isRow(r[0]));
+    if(ri<0){ T.rows.push(T.cols.map(()=>"")); ri=T.rows.length-1; }
+    T.rows[ri][0]=rowLbl; T.rows[ri][1]=money; mark={r:ri,c:1,c0:0}; where=`「${rowLbl}」の行`;
+  }
+  tblPaint();
+  const g=document.getElementById("tblGrid"); if(!g) return;
+  const hl=el=>{ if(el){ el.classList.add("fob22hl"); el.style.outline="2px solid var(--or)"; el.style.background="var(--or-soft)"; } };
+  const cell=g.querySelector(`input[data-r="${mark.r}"][data-c="${mark.c}"]`); hl(cell);
+  if(mark.c0!=null) hl(g.querySelector(`input[data-r="${mark.r}"][data-c="${mark.c0}"]`));
+  if(mark.h!=null) hl(g.querySelector(`input[data-h="${mark.h}"]`));
+  const rt=`${f.live?"本日のTTM":"参照レート"} ${f.rate}円`;
+  const ref=f.jpy?`（US$${f.usd.toFixed(2)}・${rt}）`:`（参考：約¥${Math.round(f.usd*f.rate).toLocaleString("en-US")}・${rt}）`;
+  const old=document.querySelector(".fob22msg"); if(old) old.remove();
+  const box=document.createElement("div"); box.className="fob22msg";
+  box.setAttribute("style","padding:8px 11px;border:1px solid var(--or);border-left:4px solid var(--or);background:var(--or-soft);border-radius:var(--r2);font-size:11.5px;line-height:1.7;margin-bottom:8px");
+  box.innerHTML=`✅ 推奨FOB（${esc(f.tier)}）<b>${esc(money)}</b>${esc(ref)} を、表の${esc(where)}に入れました（オレンジの枠）。確かめて<b>「保存して反映」</b>を押すと、商品情報・営業資料・書類・AI回答に反映されます（キャンセルなら何も変わりません）。`;
+  g.parentElement.insertBefore(box,g);
+  /* 入れた欄まで縦に送る。行を足した時は、項目名の列が見えるように横は左端のまま（列を足した時は右の新しい列まで送る） */
+  try{ if(cell){ cell.scrollIntoView({block:"nearest",inline:"nearest"}); if(mark.c0!=null) g.scrollLeft=0; } }catch(e){}
+}
+/* 価格表の編集画面：推奨FOB から開いた時は、元の「書き換えてください」の案内の代わりに金額を表に入れる */
+if(typeof openTableEdit==="function"){ const __ote22=openTableEdit;
+  openTableEdit=function(kind,opt){
+    const f=opt&&opt.fob22;
+    const r=__ote22.call(this,kind,f?Object.assign({},opt,{suggest:0}):opt);
+    if(f&&kind==="price"){ try{ fob22Fill(f); }catch(e){} }
+    return r; };
+}
+/* 推奨FOB の3段のカードの「✎ この価格を価格表へ」を、その段の金額を入れて開くボタンにする（USD/JPY の切り替えで描き直しても同じ） */
+if(typeof fobRenderAI==="function"){ const __fra22=fobRenderAI;
+  fobRenderAI=function(){
+    const r=__fra22.apply(this,arguments);
+    try{ document.querySelectorAll("#fobAI .g3 > .c").forEach((c,i)=>{
+      const b=[...c.querySelectorAll("button")].find(x=>/openTableEdit\('price'/.test(x.getAttribute("onclick")||""));
+      if(b){ b.removeAttribute("onclick"); b.onclick=()=>fob22Apply(i); b.title="この金額を価格表に入れて開きます（保存して反映で確定）"; } }); }catch(e){}
     return r; };
 }
 
