@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="16fb563526ad";
+const BC20_BUILD="82e48f165194";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31532,5 +31532,355 @@ try{ if(typeof dk3I18n==="function") dk3I18n([
   ["↓ 最新へ","↓ Latest","↓ 最新","↓ Lo más reciente"],
   ["いちばん新しいメッセージへ","Jump to the newest message","跳到最新消息","Ir al mensaje más reciente"]
 ]); }catch(e){}
+
+/* ═══ v21.21（2026-09-29）推奨FOB Japan Price の4つの不具合を直す（logic_fob.js の関数を置き換える）
+   お客様の依頼：推奨FOB価格の画面の不具合（はじめてガイド Ver.2 の作成で見つかったもの）の原因究明と改良
+   ① 平均輸出単価が「—」・上位仕向国の表が空
+      原因＝csStats が「輸出額のある最新の期間」を使っていた。通関統計（内蔵版・公開版とも）の最新の期間 2026年上期（2026H1）は、
+      759品目に輸出額だけが入り、重量・数量・国別の内訳が無い → 単価が出ず、仕向国も0件。前年比も「半年分÷前年の通年」になっていた。
+      直し＝単価・前年比・上位仕向国は「重量のある最新の通年」（無ければ最新の通年）で出す。上期・下期は通年と比べず、輸出額を注記で示す
+      （知識台帳の kbStats と同じ扱い）。数量の単位が kg の品目は、正味重量が無い年は数量を重さとして使う（両方ある年は 726件中723件で同じ値）。
+      重量・数量・国別の内訳がそもそも無い品目（輸出額だけの品目が多い）は、「—」の理由を画面に書く。
+   ② 現在のFOB単価が「$4.8〜$520」
+      原因＝csCurFob が価格表のすべての行（全サイズ 30g〜5kg）×数量帯の単価をまとめて最小〜最大にしていた。
+      直し＝価格表の行（商品・サイズ）を1つ選び、その行の数量帯の単価だけで出す。既定の行は、前回選んだ行 → SKU → 商品名の内容量（例 100g）
+      → 1単位の重量 の順で一致する行。行が選べる時は画面に「価格表の行」の選択を出し、選び直すと1単位の重量もその行の内容量（無ければ
+      寸法表の同じ型番の行の重さ）に合わせる。行が数量帯（例「〜999個」「1,000〜4,999個」）の表は、従来どおり全行で1つの商品。
+      ケース・カートン・合計の列は、ほかに単価の列がある時は外す。
+   ③ プレミアムが標準より安くなる
+      原因＝内蔵ルールの「標準」は現行価格表の下限まで引き上げるのに、「守り」「プレミアム」は統計平均の −5%・+35% のままだった
+      （例：統計換算 $5.35・現行下限 $13.20 → 守り $5.08／標準 $13.20／プレミアム $7.22）。
+      直し＝現行価格表の下限が「統計平均の+15%」より高い時は、3段階とも現行下限を基準に同じ比率（0.95：1.15：1.35）で出す
+      （→ 守り $10.90／標準 $13.20／プレミアム $15.50）。それ以外は従来どおり。接続AIの3段階が「守り＜標準＜プレミアム」の順に
+      なっていない時は、内蔵ルールの金額に置き換えて、その旨を表示する。
+   ④ 理由の欄に「<b>」がそのまま出る
+      原因＝fobGapLocal の文に <b> タグを入れていたが、表示の ppFormat は文字をエスケープしてから **太字** だけを太字にする
+      （ppFormat の無いデモ版は esc だけ）。
+      直し＝**太字** で書く。トライアル版は ppFormat で、デモ版は描いた後に太字にする。
+   ほかに：価格表の金額は端数を小数2桁で（$13.2 → $13.20）。1単位の名前は商品の単位（袋・本・個）で。1単位の重量の既定は、選んだ行の内容量、
+   無ければ寸法表の同じ型番の行の重さ（従来は寸法表の最初の行＝別の型番の重さになることがあった）。 */
+
+function fob21Period(y){ const s=String(y); const m=s.match(/^(\d{4})H([12])$/); return m?`${m[1]}年${m[2]==="1"?"上期":"下期"}`:(/^\d{4}$/.test(s)?s+"年":s); }
+function fob21Usd(v){ return "$"+(v>=100?Math.round(v).toLocaleString():(+v).toFixed(2)); }
+function fob21M(v){ return "$"+(v/1e6).toFixed(1)+"M"; }
+/* 価格表の金額の表示（$13.20・$520・¥1,200）：端数がある時は小数2桁 */
+function fob21Money(sym,v){ v=+v; return sym+v.toLocaleString("en-US",{minimumFractionDigits:(Math.round(v*100)%100)?2:0,maximumFractionDigits:2}); }
+function fob21Range(c){ return `${fob21Money(c.sym,c.min)}〜${fob21Money(c.sym,c.max)}`; }
+
+/* ── ① 統計の期間 ── */
+csStats=function(hs){
+  const C=csData(); const d=C&&C.raw[hs]; if(!d||!d.annual) return null;
+  const Xof=y=>(d.annual[y]&&d.annual[y].X)||null;
+  const all=Object.keys(d.annual).sort().filter(y=>{ const X=Xof(y); return !!(X&&X[0]>0); });
+  if(!all.length) return null;
+  const unit=C.unit[d.qty_unit_code]||"単位";
+  /* 正味重量（kg）：統計の正味重量。無い年は、数量の単位が kg なら数量を使う */
+  const nwOf=X=>(X&&X[2]>0)?X[2]:((unit==="kg"&&X&&X[1]>0)?X[1]:null);
+  const full=all.filter(y=>/^\d{4}$/.test(y));
+  const withW=full.filter(y=>nwOf(Xof(y)));
+  /* 基準の年：重量のある最新の通年 → 最新の通年 → （通年が無い時だけ）最新の期間 */
+  const y=withW.length?withW[withW.length-1]:(full.length?full[full.length-1]:all[all.length-1]);
+  const fi=full.indexOf(y), py=fi>0?full[fi-1]:null;
+  const X=Xof(y), PX=py?Xof(py):null;
+  const up=r=>{ const w=nwOf(r); return (r&&r[0]&&w)?r[0]/w:null; }, uu=r=>(r&&r[0]&&r[1])?r[0]/r[1]:null;
+  const world={y,value:X[0],qty:X[1],nw:nwOf(X),upkg:up(X),upunit:uu(X),unit};
+  const prev=PX?{y:py,value:PX[0],upkg:up(PX)}:null;
+  const series=(full.length?full:[y]).map(yy=>({y:yy,upkg:up(Xof(yy)),value:Xof(yy)[0]}));
+  const pr=((d.partners&&d.partners[y])||[]).filter(r=>r[1]==="X"&&r[0]!==0&&r[2]>0)
+    .map(r=>{ const w=(r[4]>0)?r[4]:((unit==="kg"&&r[3]>0)?r[3]:null);
+      return {code:r[0],name:C.partner[r[0]]||("国"+r[0]),value:r[2],qty:r[3],nw:w,upkg:(r[2]&&w)?r[2]/w:null,upunit:(r[2]&&r[3])?r[2]/r[3]:null}; })
+    .sort((a,b)=>b.value-a.value);
+  const top=pr.slice(0,8).map(p=>Object.assign(p,{share:world.value?p.value/world.value:0}));
+  /* 基準の年より後の期間（重量が無くて基準にしなかった通年・年の途中の上期／下期）：輸出額だけを注記に出す */
+  const later=all.filter(yy=>yy>y).map(yy=>{ const L=Xof(yy); return {y:yy,label:fob21Period(yy),value:L[0],nw:nwOf(L),full:/^\d{4}$/.test(yy),
+    partners:!!(d.partners&&d.partners[yy]&&d.partners[yy].length)}; });
+  return {hs,meta:C.meta[hs]||{},world,prev,series,top,later,hasPartners:!!(d.partners&&Object.keys(d.partners).length),
+    fxY:C.fx[y]||C.fx[String(y).slice(0,4)]||150,
+    yoyValue:(prev&&prev.value)?(world.value/prev.value-1):null,yoyUpkg:(prev&&prev.upkg&&world.upkg)?(world.upkg/prev.upkg-1):null};
+};
+
+/* ── ② 価格表の行 ── */
+const FOB21_CUR=/^(US\$|\$|¥|￥)\s?([\d,]+(?:\.\d+)?)$/;
+function fob21SizeKg(s){ const m=String(s||"").match(/(\d[\d,]*(?:\.\d+)?)\s*(kg|mg|g|ml|mL|l|L)(?![A-Za-z])/); if(!m) return null;
+  const v=parseFloat(m[1].replace(/,/g,"")); if(!(v>0)) return null; const u=m[2].toLowerCase();
+  return (u==="kg"||u==="l")?v:(u==="mg")?v/1e6:v/1000; }
+function fob21PriceRows(){
+  const dd=(typeof D!=="undefined"&&D)||{};
+  const cols=(dd.priceCols||[]).map(c=>String(c==null?"":c));
+  const bulkCol=cols.map(c=>/ケース|カートン|case|carton|ctn|合計|総額|total/i.test(c));
+  const out=[];
+  (dd.priceRows||[]).forEach((r,i)=>{
+    const cells=(r||[]).map(v=>String(v==null?"":v).trim());
+    const px=[]; cells.forEach((v,ci)=>{ const m=v.match(FOB21_CUR); if(m) px.push({ci,v:parseFloat(m[2].replace(/,/g,"")),sym:m[1]}); });
+    if(!px.length) return;
+    const unitPx=px.filter(p=>!bulkCol[p.ci]); const use=unitPx.length?unitPx:px;
+    const txt=cells.filter((v,ci)=>v&&!px.some(p=>p.ci===ci));
+    /* 行の名前は、単価の列より前の列（SKU・型番・内容量など）から。後ろの MOQ・リードタイム・備考は使わない */
+    const pre=cells.slice(0,Math.min(...px.map(p=>p.ci))).filter(v=>v); const idc=pre.length?pre:txt;
+    out.push({i,cells,px:use,label:idc.slice(0,2).join("・")||("行"+(i+1)),first:idc[0]||"",
+      kg:pre.map(fob21SizeKg).find(x=>x)||txt.map(fob21SizeKg).find(x=>x)||null});
+  });
+  return out;
+}
+/* 行が数量帯（「〜999個」「1,000〜4,999個」「5,000セット〜」「〜39,999km」）なら、全行で1つの商品 */
+function fob21IsTiers(rows){
+  if(rows.length<2) return false;
+  if(new Set(rows.map(r=>r.kg).filter(Boolean)).size>1) return false;
+  const q=/^[\d,]+\s*[^\d\s〜~\-–]{0,4}\s*(?:[〜~\-–]|以上|以下|未満)|^[〜~]\s*[\d,]+|^(?:MOQ|数量|ロット)/i;
+  return rows.every(r=>q.test(r.first));
+}
+function fob21Item(){ return (typeof D!=="undefined"&&D&&D.item)||""; }
+function fob21RowMem(){ const item=fob21Item();
+  const t=(typeof TEN!=="undefined"&&TEN&&TEN.fobRow&&TEN.fobRow.item===item)?TEN.fobRow:null;
+  return t||((window.__fob21Row||{})[item])||null; }
+function fob21RowSave(row){ const item=fob21Item(); const rec={item,label:row.label,i:row.i};
+  window.__fob21Row=window.__fob21Row||{}; window.__fob21Row[item]=rec;
+  if(typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2")){ TEN.fobRow=rec; if(typeof saveTen==="function") saveTen(); } }
+function fob21Pick(rows){
+  if(!rows.length) return null;
+  if(rows.length===1) return {mode:"row",row:rows[0],how:"only"};
+  if(fob21IsTiers(rows)) return {mode:"all",row:null,how:"tiers"};
+  const mem=fob21RowMem(); if(mem){ const r=rows.find(x=>x.label===mem.label); if(r) return {mode:"row",row:r,how:"saved"}; }
+  const dd=(typeof D!=="undefined"&&D)||{}; const sku=String(dd.sku||"").trim().toLowerCase();
+  if(sku){ const r=rows.find(x=>x.cells.some(c=>c.toLowerCase()===sku)); if(r) return {mode:"row",row:r,how:"sku"}; }
+  const near=(a,b)=>!!(a&&b&&Math.abs(a-b)<=b*0.001);
+  const kgItem=fob21SizeKg(dd.item); if(kgItem){ const r=rows.find(x=>near(x.kg,kgItem)); if(r) return {mode:"row",row:r,how:"item"}; }
+  const kgIn=parseFloat((document.getElementById("fobKg")||{}).value)||null; if(kgIn){ const r=rows.find(x=>near(x.kg,kgIn)); if(r) return {mode:"row",row:r,how:"kg"}; }
+  return {mode:"row",row:rows[0],how:"first"};
+}
+csCurFob=function(){
+  const rows=fob21PriceRows(); if(!rows.length) return null;
+  const P=fob21Pick(rows); const use=P.mode==="all"?rows:[P.row];
+  const cells=[].concat(...use.map(r=>r.px));
+  const fx=(typeof ddpFx==="function")?ddpFx().rates.USD:150;
+  const isY=s=>/¥|￥/.test(s); const usd=p=>isY(p.sym)?p.v/fx:p.v;
+  const same=cells.every(p=>isY(p.sym)===isY(cells[0].sym));
+  const vals=same?cells.map(p=>p.v):cells.map(usd), uv=cells.map(usd);
+  return {sym:same?cells[0].sym:"$",min:Math.min(...vals),max:Math.max(...vals),minUsd:Math.min(...uv),maxUsd:Math.max(...uv),fx,
+    row:P.mode==="row"?{i:P.row.i,label:P.row.label,kg:P.row.kg,first:P.row.first}:null,mode:P.mode,how:P.how,rows:rows.length};
+};
+/* 寸法表の同じ型番（1列目）の行の重さ（「正味」「質量」「重量」「net」の列を優先） */
+function fob21DimKg(key){
+  const dd=(typeof D!=="undefined"&&D)||{}; if(!key) return null;
+  const row=(dd.dimRows||[]).find(r=>String((r||[])[0]||"").trim()===key); if(!row) return null;
+  const cols=(dd.dimCols||[]).map(c=>String(c||"")); const w=v=>{ const m=String(v||"").trim().match(/^([\d,]+(?:\.\d+)?)\s*(kg|g)$/i); return m?parseFloat(m[1].replace(/,/g,""))/(m[2].toLowerCase()==="kg"?1:1000):null; };
+  const pref=cols.map((c,i)=>/正味|質量|net/i.test(c)?i:-1).filter(i=>i>=0);
+  for(const i of pref){ const v=w(row[i]); if(v) return v; }
+  for(const c of row){ const v=w(c); if(v) return v; }
+  return null;
+}
+/* 1単位の正味重量：商品名の内容量 → 選んだ価格表の行の内容量 → 寸法表の同じ型番の行 → 従来（寸法表の最初の重さ） */
+const __cuk21=csUnitKg;
+csUnitKg=function(){
+  try{ const k=fob21SizeKg(fob21Item()); if(k) return k;
+    const cur=csCurFob(); if(cur&&cur.row){ if(cur.row.kg) return cur.row.kg; const d=fob21DimKg(cur.row.first); if(d) return d; } }catch(e){}
+  return __cuk21.apply(this,arguments);
+};
+
+/* ── 画面：統計のカード（①の注記・「—」の理由・国別の内訳が無い時の案内・選んだ行） ── */
+fobRenderStats=function(hs,kg){
+  const out=document.getElementById("fobOut"); if(!out) return;
+  const S=csStats(hs); const cur=csCurFob();
+  if(!S){ out.innerHTML=`<p class="nn">この品目の統計データはありません。候補から別の類似品目を選んでください。</p>`; return; }
+  const usdU=(S.world.upkg&&kg)?S.world.upkg*kg:null;
+  const yl=fob21Period(S.world.y);
+  const spark=(()=>{ const s=S.series.filter(x=>x.upkg); if(s.length<2) return ""; const mx=Math.max(...s.map(x=>x.upkg)), w=Math.max(3,Math.floor(180/s.length))-1;
+    return `<svg viewBox="0 0 ${s.length*(w+1)} 34" style="width:${s.length*(w+1)}px;height:34px" preserveAspectRatio="none">${s.map((x,i)=>`<rect x="${i*(w+1)}" y="${34-Math.max(2,x.upkg/mx*32)}" width="${w}" height="${Math.max(2,x.upkg/mx*32)}" fill="var(--bl)" opacity="${i===s.length-1?1:.5}"><title>${x.y}年 $${x.upkg.toFixed(2)}/kg</title></rect>`).join("")}</svg>`; })();
+  const sp=S.series.filter(x=>x.upkg);
+  const pct=v=>v==null?"—":((v>=0?"+":"")+(v*100).toFixed(1)+"%");
+  window.__fobStat={S,kg,cur,usdU};
+  const qtyTxt=S.world.nw?Math.round(S.world.nw/1000).toLocaleString()+" t":((S.world.qty&&S.world.unit!=="kg")?Math.round(S.world.qty).toLocaleString()+" "+esc(S.world.unit):"—");
+  const qtySub=S.world.nw?((S.world.unit!=="kg"&&S.world.qty)?Math.round(S.world.qty).toLocaleString()+" "+esc(S.world.unit):"正味重量ベース"):((S.world.qty&&S.world.unit!=="kg")?"単位あたりの数量":"統計に数量なし");
+  const cards=[
+    ["平均輸出単価（FOB）",S.world.upkg?"$"+S.world.upkg.toFixed(2)+"/kg":"—",S.world.upkg?"前年比 "+pct(S.yoyUpkg):"統計に重量・数量なし"],
+    ["1単位あたり換算",usdU?"$"+usdU.toFixed(2):"—",S.world.upkg?(kg?`正味${kg}kg × 単価/kg`:"重量を入力すると換算"):"単価/kgが無いため換算不可"],
+    ["輸出額（世界）",fob21M(S.world.value),"前年比 "+pct(S.yoyValue)],
+    ["輸出数量",qtyTxt,qtySub]];
+  /* 注記：基準にしなかった後の期間・単価が出ない理由 */
+  const notes=[];
+  S.later.filter(l=>l.full).forEach(l=>notes.push(`${l.label}は統計に重量が無いため、単価が出る${yl}の数字で表示しています（${l.label}の輸出額 ${fob21M(l.value)}）。`));
+  S.later.filter(l=>!l.full).forEach(l=>notes.push(`${l.label}の輸出額は ${fob21M(l.value)}${l.nw?`（単価 $${(l.value/l.nw).toFixed(2)}/kg・参考）`:""}。年の途中の数字のため通年とは比べていません。`
+    +((!l.nw||!l.partners)?`${l.label}の統計には${!l.nw&&!l.partners?"重量・国別の内訳":!l.nw?"重量":"国別の内訳"}が無いため、単価と上位仕向国は${yl}の通年で表示しています。`:"")));
+  if(!S.world.upkg) notes.push(`この品目（HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}）の統計は輸出額だけで、重量・数量がありません。単価（$/kg）と1単位の換算は出せないため、推奨FOBは${cur?"貴社の価格表を基準にします":"価格表に単価を登録すると出せます"}。`);
+  /* 表は自分の枠の中で横に動かす（スマホ幅でパネルの外にはみ出さない） */
+  const topHtml=S.top.length?`<div style="overflow-x:auto;margin-top:8px"><table style="font-size:11px;min-width:100%"><thead><tr><th>上位仕向国（輸出額順）</th><th class="num">シェア</th><th class="num">単価 $/kg</th><th class="num">数量 t</th></tr></thead><tbody>
+       ${S.top.map(p=>`<tr><td>${esc(p.name)}</td><td class="num n">${(p.share*100).toFixed(1)}%</td><td class="num n">${p.upkg?"$"+p.upkg.toFixed(2):"—"}</td><td class="num n">${p.nw?Math.round(p.nw/1000).toLocaleString():"—"}</td></tr>`).join("")}</tbody></table></div>`
+    :`<p class="nn" style="margin-top:8px">上位仕向国：この品目の統計には国別の内訳がありません（${S.hasPartners?esc(yl)+"の内訳なし":"輸出額の合計のみ"}）。</p>`;
+  out.innerHTML=`
+   <div class="doc"><h4>📊 通関統計上のFOB実勢（HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}・${esc(S.meta.ja||"")}・日本→世界 輸出 ${esc(yl)}）</h4>
+     <div class="g4" style="margin-top:8px;gap:8px">
+       ${cards.map(([l,v,d])=>`<div style="padding:8px 10px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)"><p class="lbl" style="font-size:9px">${l}</p><div class="kv n" style="font-size:16px">${v}</div><div class="kd">${d}</div></div>`).join("")}
+     </div>
+     ${notes.length?`<p class="fob21note" style="font-size:10.5px;line-height:1.7;color:var(--ink-2);margin:8px 0 0;padding:6px 10px;border-radius:var(--r2);background:var(--surface-2)">${notes.map(esc).join("<br>")}</p>`:""}
+     ${spark?`<div class="rw" style="margin-top:8px;gap:12px;align-items:center;flex-wrap:wrap"><span style="font-size:10px;color:var(--ink-3)">単価/kgの推移 ${sp[0].y}〜${sp[sp.length-1].y}</span>${spark}</div>`:""}
+     ${topHtml}
+     <p style="font-size:9.5px;color:var(--ink-3);margin-top:6px">出典：UN Comtrade（日本の計数は財務省貿易統計）。HS6桁の同一分類には規格違いの品も含まれるため、あくまで<b>実勢の目安</b>です。
+       ${cur?`貴社の現行FOB${cur.row?"（"+esc(cur.row.label)+"）":""}：${esc(fob21Range(cur))}${usdU?`（統計換算 $${usdU.toFixed(2)} に対し ${cur.minUsd>usdU?"上位":"下位"}レンジ）`:""}`:""}</p>
+   </div>
+   <div id="fobAI"></div>`;
+};
+
+/* ── ③ 内蔵ルールの3段階 ── */
+fobLocal=function(){
+  const st=window.__fobStat; if(!st) return null;
+  const {S,cur,usdU,kg}=st;
+  const base=usdU||(cur?cur.minUsd:null); if(!base) return null;
+  const n=((typeof D!=="undefined"&&D&&D.strengths)||[]).length;
+  const hiCty=S.top.filter(p=>p.upkg).sort((a,b)=>b.upkg-a.upkg)[0];
+  const yl=fob21Period(S.world.y), R=[0.95,1.15,1.35];
+  const rowL=cur&&cur.row?`（${cur.row.label}）`:"";
+  const strong=n?`登録済みの強み${n}件で差別化できる水準。`:"強みを登録すると根拠が強まります。";
+  const hiTxt=hiCty?`高単価市場（${hiCty.name} $${hiCty.upkg.toFixed(2)}/kg）向け。`:"";
+  let tiers, basis;
+  if(usdU&&cur&&cur.minUsd>base*R[1]){
+    /* 現行価格表の下限が「統計平均の+15%」より高い：3段階とも現行下限を基準に同じ比率（統計平均まで下げる提案はしない） */
+    basis="anchor"; const std=cur.minUsd, k0=R[0]/R[1], k2=R[2]/R[1];
+    tiers=[
+      {name:"守り（数量優先）",usd:std*k0,why:`現行価格表の下限${rowL} ${fob21Usd(std)} の−${Math.round((1-k0)*100)}%。初回取引・数量獲得を優先する場合の目安。`},
+      {name:"標準（推奨）",usd:std,why:`現行価格表の下限を維持（統計平均の1単位換算 ${fob21Usd(usdU)} の${(std/usdU).toFixed(1)}倍）。${strong}`},
+      {name:"プレミアム",usd:std*k2,why:`標準の+${Math.round((k2-1)*100)}%。${hiTxt}ブランド・認証・実績を資料の冒頭で示せる場合。`}];
+  } else {
+    basis=usdU?"stat":"cur";
+    const bLbl=usdU?`統計の平均FOB単価（$${S.world.upkg.toFixed(2)}/kg換算＝1単位 ${fob21Usd(usdU)}）`:`貴社の現行価格表の下限${rowL}（${fob21Usd(base)}。統計は重量換算できないため基準にしていません）`;
+    const w=usdU?"統計平均":"現行下限";
+    tiers=[
+      {name:usdU?"守り（統計平均並み）":"守り（現行下限並み）",usd:base*R[0],why:`${bLbl}の−5%。初回取引・数量獲得を優先する場合。`},
+      {name:"標準（推奨）",usd:base*R[1],why:`${w}の+15%。${strong}`},
+      {name:"プレミアム",usd:base*R[2],why:`${w}の+35%。${hiTxt}ブランド・認証・実績を資料の冒頭で示せる場合。`}];
+  }
+  tiers.forEach(t=>{ t.basis=basis; });
+  const why=[];
+  if(S.world.upkg) why.push(`直近${yl}の日本の輸出単価は $${S.world.upkg.toFixed(2)}/kg（前年比${S.yoyUpkg==null?"—":((S.yoyUpkg>=0?"+":"")+(S.yoyUpkg*100).toFixed(1)+"%")}）${kg?`＝1単位 $${(S.world.upkg*kg).toFixed(2)}`:"（1単位の重量が未入力のため換算不可）"}。`);
+  else why.push(`${yl}の統計はこの品目に重量・数量が無く、単価（$/kg）は出せません（輸出額 ${fob21M(S.world.value)}）。`);
+  why.push(S.top.length?`輸出額上位は ${S.top.slice(0,3).map(p=>p.name).join("・")}（合計シェア${(S.top.slice(0,3).reduce((a,p)=>a+p.share,0)*100).toFixed(0)}%）。`:"この品目の統計には国別の内訳がありません（輸出額の合計のみ）。");
+  if(!cur) why.push("価格表に単価が無いため、統計だけから提案しています。");
+  else if(usdU) why.push(`貴社の現行FOB${rowL} ${fob21Money(cur.sym,cur.min)}〜 は統計換算に対し${cur.minUsd/usdU>=1?"+"+((cur.minUsd/usdU-1)*100).toFixed(0)+"%":"−"+((1-cur.minUsd/usdU)*100).toFixed(0)+"%"}の位置。`);
+  else why.push(`貴社の現行FOB${rowL} ${fob21Money(cur.sym,cur.min)}〜 を基準にしています（統計は重量換算できないため）。`);
+  return {tiers,why,basis,risks:["HS6桁には規格・等級違いが混在するため、同等品の単価は上下に振れます。","為替（年平均レートで換算）と輸送費の変動で、現地着値は変わります。"]};
+};
+
+/* ── ④ 統計との乖離の理由（太字は **…**。国別の内訳が無い品目・選んだ行にも対応） ── */
+fobGapLocal=function(gapPct){
+  const st=window.__fobStat; if(!st) return [];
+  const {S,cur,usdU,kg}=st; const out=[];
+  const strengths=((typeof D!=="undefined"&&D&&D.strengths)||[]).map(s=>s[0]).filter(Boolean);
+  const avg=S.world.upkg?"$"+S.world.upkg.toFixed(2):"—";
+  if(gapPct>=0.2){
+    const prem=S.top.filter(p=>p.upkg&&S.world.upkg&&p.upkg>=S.world.upkg*1.5).sort((a,b)=>b.upkg-a.upkg).slice(0,3);
+    const low=S.top.filter(p=>p.upkg&&S.world.upkg&&p.upkg<=S.world.upkg*0.6).slice(0,2);
+    out.push(`統計の平均 ${avg}/kg は HS ${S.hs.slice(0,4)}.${S.hs.slice(4)}（${S.meta.ja||""}）の全等級の平均で、${low.length?`${low.map(p=>p.name+" $"+p.upkg.toFixed(2)).join("・")}など低単価帯の大口輸出が平均を押し下げています`:"廉価品から高級品まで混在しています"}。貴社の商品と同じ土俵の数字ではありません。`);
+    if(prem.length) out.push(`一方で ${prem.map(p=>`${p.name} $${p.upkg.toFixed(2)}/kg`).join("・")} と、平均の${(prem[0].upkg/S.world.upkg).toFixed(1)}倍で取引されるプレミアム市場が統計上に実在します（1単位換算 $${(prem[0].upkg*(kg||1)).toFixed(2)}）。狙う市場を上位単価国に絞れば、この価格帯は統計とも整合します。`);
+    if(cur&&usdU) out.push(`現行の価格表${cur.row?"（"+cur.row.label+"）":""} ${fob21Range(cur)} は既に統計換算の${(cur.minUsd/usdU).toFixed(1)}倍で、商談に使われている＝**市場が受け入れている実績値**です。ここを統計平均まで下げる合理性はありません。`);
+    if(strengths.length) out.push(`「${strengths.slice(0,3).join("」「")}」といった差別化要素（受賞・原料・製法・認証）は統計の平均単価には一切反映されていません。これらを営業資料の冒頭で示せる前提で、プレミアム帯の成立可能性があると判断しています。`);
+    out.push(`重量換算（正味${kg||"?"}kg × 単価/kg）は、瓶・小袋など**本数・個数で評価される商品**では実勢より低く出ます。統計側の「単位あたり単価」も併せて確認してください（エクスプローラの「単価/単位」）。`);
+  } else if(gapPct<=-0.2){
+    out.push(`統計平均 ${avg}/kg（換算 $${usdU?usdU.toFixed(2):"—"}）より低い提案です。数量獲得・初回参入を優先し、${S.top.length?`上位仕向国（${S.top.slice(0,3).map(p=>p.name).join("・")}）の大口価格帯`:"大口の価格帯"}に合わせています。`);
+    out.push(`低価格で入る場合は MOQ・支払条件（前払比率）で採算を守り、実績が付いた時点で「標準」へ引き上げる前提です。`);
+  }
+  return out;
+};
+
+/* ── 相談の内蔵の答え（③の基準に合わせた説明・国別の内訳が無い品目） ── */
+fobAdviseLocal=function(q){
+  const st=window.__fobStat, L=window.__fobLast; if(!st) return ["先に推奨FOBを算出してください。"];
+  const {S,cur}=st; const out=[]; const basis=L&&L.tiers&&L.tiers[1]&&L.tiers[1].basis;
+  const hi=(S.top.filter(p=>p.upkg).sort((a,b)=>b.upkg-a.upkg)[0]||{}).name;
+  const avg=S.world.upkg?"$"+S.world.upkg.toFixed(2):"—";
+  if(/なぜ|妥当|根拠/.test(q)){
+    if(basis==="anchor") out.push(`貴社の現行価格表の下限${cur&&cur.row?"（"+cur.row.label+"）":""}が、統計の平均FOB単価（${avg}/kg・全等級の平均）の+15%を上回るため、標準は現行下限を維持し、守り・プレミアムは同じ比率（−17%／+17%）で置いています。${hi?`高単価市場（${hi}）の実勢も参考になります。`:""}`);
+    else if(basis==="cur") out.push(`この品目の統計には重量が無く単価を出せないため、貴社の現行価格表の下限を基準に、守り−5%・標準+15%・プレミアム+35%で置いています。同等品の相場は商談記録（成約単価）で補正してください。`);
+    else out.push(`統計の平均FOB単価 ${avg}/kg（前年比${S.yoyUpkg==null?"—":(S.yoyUpkg*100).toFixed(1)+"%"}）を基準に、標準は+15%＝差別化要素を価格に載せる一般的な幅、プレミアムは+35%＝高単価市場（${hi||"—"}）の実勢に合わせた幅です。`);
+  }
+  if(/円安|円高|為替/.test(q)) out.push(`FOBはUSD建て提示が基本のため、円安はJPY手取りの増加＝値下げ余地、円高はその逆です。統計換算は年平均レート（${S.world.y}年 ${S.fxY}円）ですので、当日TTMとの差分（${((typeof ddpFx==="function")?ddpFx().rates.USD:150)}円）を見て、USD価格は据え置き・国内コスト上昇分だけ年1回見直す運用が安定します。`);
+  if(/国|仕向|市場/.test(q)){ const ps=S.top.filter(p=>p.upkg).slice(0,3);
+    out.push(ps.length?`上位仕向国の単価差（${ps.map(p=>`${p.name} $${p.upkg.toFixed(2)}`).join("／")}/kg）を踏まえ、単価の高い国は「プレミアム」、数量の大きい国は「標準」で分ける国別FOBが有効です。国別のDDP試算（🚚）と併用すると現地着値でも整合が取れます。`
+      :`この品目の統計には国別の単価が無いため、国別の価格差は商談記録（成約単価）と国別のDDP試算（🚚）で確かめてください。`); }
+  if(!out.length) out.push(`提案は ${L?L.tiers.map(t=>`${t.name} $${t.usd.toFixed(2)}`).join("／"):"未算出"}。統計はHS6桁の平均で規格違いを含むため、同等グレードの相場は貴社の商談記録（成約単価）で補正するのが確実です。`);
+  return out;
+};
+
+/* ── 相談の文脈（期間の表記・選んだ行） ── */
+fobCtx=function(){
+  const st=window.__fobStat, L=window.__fobLast; if(!st) return "";
+  const {S,cur,usdU,kg}=st;
+  return `【商品】${(typeof D!=="undefined"&&D&&D.item)||""}／HS ${S.hs}（${S.meta.ja||""}）
+【通関統計 ${fob21Period(S.world.y)}】平均FOB単価 ${S.world.upkg?"$"+S.world.upkg.toFixed(2)+"/kg":"—（重量なし）"}（前年比${S.yoyUpkg==null?"—":(S.yoyUpkg*100).toFixed(1)+"%"}）、輸出額 ${fob21M(S.world.value)}、上位国 ${S.top.length?S.top.slice(0,5).map(p=>`${p.name}${p.upkg?"($"+p.upkg.toFixed(2)+"/kg)":""}`).join("、"):"（国別の内訳なし）"}${S.later.length?"／"+S.later.map(l=>`${l.label} 輸出額 ${fob21M(l.value)}`).join("、"):""}
+【自社】1単位${kg||"?"}kg、統計換算 ${usdU?"$"+usdU.toFixed(2):"—"}、現行FOB${cur&&cur.row?"（"+cur.row.label+"）":""} ${cur?fob21Range(cur):"未登録"}、強み ${((typeof D!=="undefined"&&D&&D.strengths)||[]).slice(0,4).map(s=>s[0]).join("／")||"未登録"}
+【提案】${L?L.tiers.map(t=>`${t.name} $${t.usd.toFixed(2)}`).join("／"):"未算出"}${L&&L.web?"／情勢："+[L.web.trend].concat(L.web.factors||[]).filter(Boolean).join("；"):""}${L&&L.gap?`／統計との乖離${Math.round(L.gap.pct*100)}%の理由：${L.gap.reasons.join("；")}`:""}`;
+};
+
+/* ── ④ 太字：ppFormat の無い組み立て（デモ版）では理由の欄が esc だけで描かれるので、**…** を描いた後に太字にする ── */
+if(typeof fobRenderAI==="function"){ const __fra21=fobRenderAI;
+  fobRenderAI=function(){
+    const r=__fra21.apply(this,arguments);
+    try{ document.querySelectorAll("#fobAI ol li").forEach(li=>{
+      if(!li.children.length&&/\*\*[^*\n]+\*\*/.test(li.textContent||"")) li.innerHTML=esc(li.textContent).replace(/\*\*([^*\n]{1,80})\*\*/g,"<b>$1</b>"); }); }catch(e){}
+    return r; };
+}
+
+/* ── ③ 接続AIの3段階の順の確かめ（守り＜標準＜プレミアム でなければ内蔵ルールの金額に） ── */
+function fob21OrderOk(ts){ return Array.isArray(ts)&&ts.length>=3&&ts.every((t,i)=>i===0||(+t.usd>+ts[i-1].usd)); }
+if(typeof fobRun==="function"){ const __fr21=fobRun;
+  fobRun=async function(){
+    const r=await __fr21.apply(this,arguments);
+    try{ const L=window.__fobLast, st=window.__fobStat;
+      if(L&&L.ai&&L.tiers&&L.tiers.length>=3&&!fob21OrderOk(L.tiers)){
+        const loc=fobLocal();
+        if(loc&&fob21OrderOk(loc.tiers)){
+          L.tiers=loc.tiers; L.orderFixed=1;
+          const usdU=st&&st.usdU, std=L.tiers[1], gp=(std&&usdU)?(std.usd/usdU-1):null;
+          L.gap=(gp!=null&&Math.abs(gp)>=0.2)?{pct:gp,reasons:fobGapLocal(gp),ai:false}:null;
+          fobRenderAI();
+          const g=document.querySelector("#fobAI .g3");
+          if(g) g.insertAdjacentHTML("afterend",`<p class="fob21order" style="font-size:10px;color:var(--or-deep);margin:6px 0 0">※接続AIの3段階の金額が「守り＜標準＜プレミアム」の順になっていなかったため、金額は内蔵ルール（統計と価格表）で出しています。</p>`);
+        } } }catch(e){}
+    return r; };
+}
+
+/* ── 画面：価格表の行の選択と、1単位の単位の名前 ── */
+function fob21Enhance(hadKg){
+  const kgI=document.getElementById("fobKg"); if(!kgI) return;
+  /* 1単位（1袋あたり）：商品の単位（袋・本・個など）があればそれで */
+  try{ const u=String((typeof D!=="undefined"&&D&&D.unit)||"").trim(); const lb=kgI.parentElement&&kgI.parentElement.querySelector("p.lbl");
+    if(u&&u.length<=3&&lb&&/^1単位（1/.test(lb.textContent||"")) lb.textContent=`1単位（1${u}あたり）の正味重量 kg`; }catch(e){}
+  const cell=kgI.parentElement&&kgI.parentElement.nextElementSibling; if(!cell) return;
+  const lbl=cell.querySelector("p.lbl"), box=cell.querySelector("div.sel"); if(!lbl||!box) return;
+  const rows=fob21PriceRows(); const cur=csCurFob(); if(!cur) return;
+  const rng=c=>`${fob21Money(c.sym,c.min)} 〜 ${fob21Money(c.sym,c.max)}`;
+  if(cur.mode!=="row"||rows.length<2){
+    box.textContent=rng(cur);
+    if(cur.mode==="all") box.insertAdjacentHTML("beforeend",` <span style="font-size:10px;color:var(--ink-3)">（数量帯の全行）</span>`);
+    return;
+  }
+  lbl.textContent="現在のFOB単価（②価格表の行を選んで自動）";
+  const one=r=>{ const v=r.px.map(p=>p.v), s=r.px[0].sym; return `${r.label}　${fob21Money(s,Math.min(...v))} 〜 ${fob21Money(s,Math.max(...v))}`; };
+  const hintOf=how=>how==="sku"?`SKU ${esc(String(D.sku||""))} の行を自動で選びました。`
+    :how==="item"?"商品名の内容量に合う行を自動で選びました。":how==="kg"?"1単位の重量に合う行を自動で選びました。":how==="saved"?"選んだ行を覚えています（商品ごと）。"
+    :`<span style="color:var(--or-deep)">商品名・SKUから行を特定できなかったため、先頭の行にしています。対象の行を選んでください。</span>`;
+  const wrap=document.createElement("div"); wrap.id="fob21Cur";
+  /* 選択の窓が狭いと選んだ行の金額が切れるので、金額は下の行に大きく出す */
+  wrap.innerHTML=`<select class="sel" id="fobRow" style="width:100%">${rows.map(r=>`<option value="${r.i}" ${cur.row&&r.i===cur.row.i?"selected":""}>${esc(one(r))}</option>`).join("")}</select>
+    <div class="kv n" id="fobRowRange" style="font-size:14px;margin-top:4px">${esc(rng(cur))}</div>
+    <p class="kd" id="fobRowHint" style="margin:2px 0 0;font-size:10px">${hintOf(cur.how)}</p>`;
+  box.replaceWith(wrap);
+  const sel=document.getElementById("fobRow");
+  sel.onchange=()=>{ const row=fob21PriceRows().find(x=>x.i===+sel.value); if(!row) return; fob21RowSave(row);
+    const k=row.kg||fob21DimKg(row.first); if(k) kgI.value=String(k);
+    const h=document.getElementById("fobRowHint"); if(h) h.innerHTML=hintOf("saved");
+    const g=document.getElementById("fobRowRange"), c2=csCurFob(); if(g&&c2) g.textContent=rng(c2);
+    if(typeof kgI.onchange==="function") kgI.onchange(); };
+  /* 1単位の重量を覚えていない時は、選んだ行の内容量（無ければ寸法表の同じ型番の重さ）に合わせる */
+  if(!hadKg&&cur.row){ const k=cur.row.kg||fob21DimKg(cur.row.first); if(k&&Math.abs((parseFloat(kgI.value)||0)-k)>1e-9){ kgI.value=String(k); if(typeof kgI.onchange==="function") kgI.onchange(); } }
+}
+if(typeof openFOB==="function"){ const __of21=openFOB;
+  openFOB=function(){
+    let hadKg=false;
+    try{ const item=fob21Item(), hs0=csHs6((typeof D!=="undefined"&&D&&D.hs)||"");
+      const mem=(typeof TEN!=="undefined"&&TEN&&TEN.fobIn&&TEN.fobIn.item===item)?TEN.fobIn:(((window.__fobIn||{})[item])||null);
+      hadKg=!!(mem&&mem.hs0===hs0&&mem.kg); }catch(e){}
+    const r=__of21.apply(this,arguments);
+    try{ fob21Enhance(hadKg); }catch(e){}
+    return r; };
+}
 
 </script>
