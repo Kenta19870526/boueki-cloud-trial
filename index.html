@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="4f02448c8a11";
+const BC20_BUILD="df4f2538b4cf";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -32080,5 +32080,83 @@ tenantFromTextGrids=function(text,grids,filename,pages){
   if(HSR.note&&t.hs===HSR.hs&&t.hsGuess) t._hsNote=[[HSR.hs,HSR.note]];   /* v21.23：資料記載の4桁は、AIの読み取り（mergeTen）・商品一覧の表と同じ注記 */
   return t;
 };
+
+/* ═══ v21.24（2026-09-30）HS コードと産地の読み取りの残り2つ（v21.23 の確かめで見つけたもの）
+   ① AIヒアリング・項目の編集で HS コードに「0902」と4桁で答えると、答えを捨てて商品名からの推定（hsCandidates）に置き換え、
+      「商品名から 0902.10（茶（緑茶・粉末））と推定しました」と出していた。applyAnswer は 0902.10 の形しか読まなかったため
+      （例：「架空の抹茶ラテ」に「2101」と答えても、商品名の「茶」から 0902.10 になっていた）
+      → 答えの読み方を資料の読み取り（v21.23）と同じにする＝hs24Parse：
+         ・4桁だけ（0902）→ 4桁のまま登録（推定の印＋注記「4桁までの指定（6桁の細分は要確定）」）
+         ・空白で区切った6桁（2106 90）・全角（０９０２．１０）→ 確定で登録
+         ・数字の無い答え（「緑茶」「わかりません」など）→ これまでどおり商品名から推定
+      → 返事の文：4桁の時は「商品名から…と推定しました」ではなく「ご指定どおり 0902（4桁）です。6桁の細分が決まると…」
+      → 商品の説明（buildSummary）も同じ：資料の4桁（v21.23）・答えの4桁を「商品名から推定」と書いていた → 「資料の記載どおり／ご指定どおり 0902（4桁）」
+   ② 項目／内容の形の資料・質問票で「原産国｜日本」が産地に入らなかった（LBL.origin に 原産国 が無かった）→ 原産国・生産国 を足す
+      （商品一覧の表の読み取りは前から「原産」を含む見出しを読む）
+   B2 の read で applyAnswer・buildSummary は部品になった。ここは包むだけなので、新しい構成では部品の上に同じ包みが乗る。
+   LBL は部品に写した表があれば、そちらにも同じ2つを足す */
+
+/* HS の値を読む（v21.23 の hs23Read と同じ読み方）。読めなければ null
+   ・0902.10・090210・0902-10・0902．10 → これまでと同じ文字で確定 ・全角 → 確定 ・空白で区切った6桁 → 確定 ・4桁だけ → {ok:false} */
+function hs24Parse(v){
+  const raw=String(v==null?"":v);
+  if(raw&&/\d{4}/.test(raw)){ const m=raw.match(/\d{4}[.．-]?\d{2}/); if(m) return {hs:m[0].replace(/[．-]/,"."),ok:true}; }
+  if(!raw) return null;
+  let s=raw; try{ s=raw.normalize("NFKC"); }catch(e){}
+  if(s!==raw){ const m=s.match(/\d{4}[.-]?\d{2}/); if(m) return {hs:m[0].replace(/-/,"."),ok:true}; }
+  const sp=s.match(/(^|\D)(\d{4})\s+(\d{2})(?!\d)/); if(sp) return {hs:sp[2]+"."+sp[3],ok:true};
+  const m4=s.match(/(^|\D)(\d{4})(?!\d)/); if(m4) return {hs:m4[2],ok:false};
+  return null;
+}
+/* 資料の読み取り（v21.23）も同じ読み方を使う（動きは v21.23 と同じ） */
+if(typeof hs23Read==="function"){
+  hs23Read=function(v,allTxt,cat){ const r=hs24Parse(v);
+    if(r) return r.ok?{hs:r.hs,ok:true}:{hs:r.hs,ok:false,note:"資料記載の4桁（6桁の細分は要確定）"};
+    return pickHS(allTxt,cat); };
+}
+
+/* ① 答えの4桁・空白・全角を読む（0902.10 の形の答え・数字の無い答えは元の applyAnswer のまま） */
+const HS24_ANS="4桁までの指定（6桁の細分は要確定）";
+if(typeof applyAnswer==="function"){ const __aa24=applyAnswer;
+  applyAnswer=function(t,k,raw){
+    if(k==="hs"&&t){ const v=String(raw==null?"":raw).trim();
+      if(v&&!/\d{4}[.．-]?\d{2}/.test(v)){ const r=hs24Parse(v);
+        if(r&&r.ok){ t.hs=r.hs; t.hsGuess=false; return true; }
+        if(r){ t.hs=r.hs; t.hsGuess=true; t._hsNote=[[r.hs,HS24_ANS]]; return true; } } }
+    return __aa24.apply(this,arguments); };
+}
+/* 4桁で登録されているか（資料の4桁＝v21.23・答えの4桁＝上） */
+function hs24Is4(t){ try{ return !!(t&&t.hsGuess&&/^\d{4}$/.test(String(t.hs||""))&&t._hsNote&&t._hsNote[0]&&/4桁/.test(String(t._hsNote[0][1]||""))); }catch(e){ return false; } }
+function hs24How(t){ return /資料/.test(String(t._hsNote[0][1]))?"資料の記載どおり":"ご指定どおり"; }
+/* 返事の文（fillCommit・fillAnswer の「商品名から<b>…</b>（注記）と推定しました。」）を4桁の時だけ言い換える */
+if(typeof fillSay==="function"){ const __fs24=fillSay;
+  fillSay=function(who,html,extra){
+    try{ if(who==="ai"&&typeof TEN!=="undefined"&&hs24Is4(TEN)){
+      const old=`商品名から<b>${TEN.hs}</b>（${TEN._hsNote[0][1]}）と推定しました。`, h=String(html);
+      if(h.includes(old)) html=h.split(old).join(`${hs24How(TEN)}<b>${TEN.hs}</b>（4桁）です。6桁の細分が決まると、関税率と必要書類が確定します。`);
+    } }catch(e){}
+    return __fs24.call(this,who,html,extra); };
+}
+/* 商品の説明（buildSummary）の HS の文も4桁の時だけ言い換える */
+if(typeof buildSummary==="function"){ const __bs24=buildSummary;
+  buildSummary=function(t,s){ const r=__bs24.apply(this,arguments);
+    try{ if(hs24Is4(t)) return String(r).replace(/\{HSコード\}は商品名から<b>[^<]*<\/b>と推定しました。\s*正式な分類は税関の事前教示で確定できます。/,
+      `{HSコード}は${hs24How(t)}<b>${t.hs}</b>（4桁）。6桁の細分が決まると、関税率と必要書類が確定します。正式な分類は税関の事前教示で確定できます。`); }catch(e){}
+    return r; };
+}
+/* 商品の説明の新しい文の英・中・西（辞書＝表示の文字の置き換え。文の途中の <b> で区切られた部分ごと） */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+ ["は資料の記載どおり"," is, as stated in your documents, ","按资料记载为"," es, según sus documentos, "],
+ ["はご指定どおり"," is, as you specified, ","按您的指定为"," es, según lo indicado, "],
+]); }catch(e){}
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+ {re:/^（4桁）。\s*6桁の細分が決まると、関税率と必要書類が確定します。\s*正式な分類は税関の事前教示で確定できます。$/,
+  en:" (4 digits). Once the 6-digit subheading is decided, the duty rate and required documents are fixed. The official classification can be confirmed through a customs advance ruling.",
+  zh:"（4位）。确定6位子目后，关税税率和所需文件即可确定。正式分类可通过海关预裁定确定。",
+  es:" (4 dígitos). Cuando se decida la subpartida de 6 dígitos, se fijarán el arancel y los documentos necesarios. La clasificación oficial puede confirmarse con una resolución anticipada de aduana."}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ② 「原産国」「生産国」の行を産地として読む（項目／内容の資料・質問票の両方が LBL を使う） */
+try{ if(typeof LBL!=="undefined"&&LBL&&Array.isArray(LBL.origin)) ["原産国","生産国"].forEach(l=>{ if(!LBL.origin.includes(l)) LBL.origin.push(l); }); }catch(e){}
 
 </script>
