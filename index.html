@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="df4f2538b4cf";
+const BC20_BUILD="ad6a43b9458e";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -32158,5 +32158,219 @@ try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
 
 /* ② 「原産国」「生産国」の行を産地として読む（項目／内容の資料・質問票の両方が LBL を使う） */
 try{ if(typeof LBL!=="undefined"&&LBL&&Array.isArray(LBL.origin)) ["原産国","生産国"].forEach(l=>{ if(!LBL.origin.includes(l)) LBL.origin.push(l); }); }catch(e){}
+
+/* ═══ v21.25（2026-09-30）画面の見やすさ・迷わなさの仕上げ
+   依頼：日・米・欧・中・豪の各上位5社（評価額10億ドル以上の SaaS）の UI/UX（文字・サイズ・余白など）の共通点を分析し、素人でも迷わず使えるように洗練する
+   25社の共通点（詳細は報告ページ）：本文 14〜16px（日本の公的基準＝デジタル庁・SmartHR は 16px）・行間 1.4〜1.75・余白は 4/8px の刻み・
+     ボタンと入力欄の高さ 32〜40px（スマホ 44〜48px）・角丸は部品 4〜8px／カード 8〜12px・置いた面は線、浮く面だけ影・主ボタンは1画面に1つ・
+     空の画面は「1行＋説明＋副ボタン」・用語はその場で説明・最初の一歩を1つに絞る・AI の入口は1つ・AI の出力は根拠つきで人が確定
+   改修前の実測（v21.24 デモ版、PC 1440×900 とスマホ 375×812 の 17 画面。bc20-platform/tmp/ux-audit）：文字の中央値 14px（16px 以上は 4%）・
+     題名までに画面の 22〜45%・1画面目の AI の入口は平均 3.5 個・用語の説明は 23%・初期画面にサンプルが無い・コントラスト不足 38・
+     ボタンの高さ 13 種・余白の値 24 種・スマホで表が1字ずつ折れる・「旧版からの改善」の表に <b> がそのまま
+   直すこと
+   ① 文字：ページの説明・AI の答え・やりとり（読む文）を 16px。カードの説明を 15px（スマホ 16px）で濃い灰色に。表 14px・見出し行 13px。用語の吹き出し 14px
+   ② 余白・形・部品：4/8px の刻み（カード 16/20・カードの間 12・表のセル 8/12）、角丸は部品 6・ボタンと入力欄 8、ボタンと入力欄の高さ 40px（スマホ 44px）、
+      チェックボックス 18px
+   ③ 画面の上：PC の案内帯はスクロールで流す（固定は上部バーと目次だけ）、ページの説明は2行まで見せる、畳んだ文の2行目がのぞくのを止める
+   ④ AI の入口を1つに：ページ見出しの「AIに質問」は枠線（副）に。スマホは下のタブの「AI商社マン」だけ（右下のボタン・案内帯・見出しの AI ボタンを出さない）
+   ⑤ 初めての人：何も登録していない時の「何をしますか？」に「サンプルで試す」を足し、使えない②③は押せなくする（理由は元の表示どおり）。
+      集中モードの帯にも「サンプルで試す」。用語は各ページの最初の1回に説明を付ける（日本語の表示の時。訳の表示は文の区切りが変わるので付けない）
+   ⑥ スマホ：左右の余白 16px、4列以上の表は横にスクロール（1字ずつ折れない）、下のタブを線のアイコンに（左のメニューと同じ絵）
+   ⑦ コントラスト：出荷の未着手ステップ・「クリックで内訳▸」・営業資料の「入力する›」・リアクション・番号の丸
+   ⑧ 不具合：「旧版からの改善」（デモ版だけの画面）の対応表で <b> がそのまま文字で出ていた
+   デモ版の「レイヤー③」「この版で新規」の札は営業の説明用に残す（トライアル版＝お客様の画面は v21.1 から出していない） */
+
+const UX25={re:null,reN:0};
+function ux25Narrow(){ try{ return matchMedia("(max-width:820px)").matches; }catch(e){ return false; } }
+function ux25Css(){
+  if(document.getElementById("ux2125css")) return;
+  const st=document.createElement("style"); st.id="ux2125css"; st.textContent=`
+/* 刻み（4/8px）・角丸・部品の高さ・行間 */
+:root{--sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
+  --r:6px;--r-lg:12px;--r-pill:999px;--ctl-h:40px;--ctl-h-sm:32px;--fs-read:16px;--lh-read:1.75;--lh-ui:1.5;--lh-head:1.3}
+@media (max-width:820px){:root{--ctl-h:44px;--ctl-h-sm:40px}}
+/* 入力欄の枠は地に対して 3:1 以上（どこに書くかが見える。Atlassian と同じ考え方） */
+:root,:root[data-theme="light"]{--ctl-line:#868F9F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ctl-line:#6E7A8C}}
+:root[data-theme="dark"]{--ctl-line:#6E7A8C}
+/* 端末の「コントラストを上げる」設定の時は、灰色の文字と線を濃くする */
+@media (prefers-contrast:more){:root:not([data-theme="dark"]){--ink-2:#26313F;--ink-3:#3D4C60;--line:rgba(70,86,109,.45);--line-2:rgba(70,86,109,.3);--ctl-line:#5E6778}}
+/* ① 文字：読む文 16px・カードの説明 15px（スマホ 16px）を濃い灰色に・表 14/13px */
+.c .nn,.nn{font-size:var(--fs-md);line-height:1.7;color:var(--ink-2)}
+.ph .cando{font-size:var(--fs-read);line-height:1.7}
+.bb{font-size:var(--fs-read);line-height:var(--lh-read)}
+table{font-size:14px} th{font-size:13px;color:var(--ink-2);letter-spacing:0}
+#well table td{font-size:14px} #well table th{font-size:13px}
+.lbl{font-size:var(--fs-sm)}
+td.num,td.n,th.n,.kv .v,.ddc .v{font-variant-numeric:tabular-nums}
+.tm:hover::after,.tm:focus::after{font-size:14px;line-height:1.6;max-width:min(320px,86vw)}
+/* ② 余白・形・部品 */
+.c{padding:var(--sp-4) var(--sp-5)}
+.g2,.g3,.g4,.stk{gap:var(--sp-3)}
+th,td{padding:var(--sp-2) var(--sp-3)}
+.btn{min-height:var(--ctl-h);border-radius:var(--r2);letter-spacing:0}
+td .btn,.tw .btn,.bb .btn,.lwrx .btn,#tabbar .btn{min-height:var(--ctl-h-sm)}
+.sel{min-height:var(--ctl-h);border-radius:var(--r2);border-color:var(--ctl-line)}
+.sel:focus{border-color:var(--or)}
+.dscope .dsl .sel{min-height:var(--ctl-h)}
+.q{font-size:14px;min-height:var(--ctl-h-sm)}
+input[type=checkbox],input[type=radio]{width:18px;height:18px;accent-color:var(--or-deep)}
+@media (max-width:820px){.sel{font-size:16px}}
+/* ③ 画面の上：PC の案内帯はスクロールで流す・ページの説明は2行・畳んだ文の2行目ののぞきを止める */
+@media (min-width:821px){#guide{position:relative!important;top:auto!important}}
+.ph .cando.nnc:not(.open){-webkit-line-clamp:2}
+.nnc:not(.open){padding-bottom:0!important}
+.pg-ft.nnc:not(.open){margin-bottom:30px}
+/* ④ AI の入口：見出しの「AIに質問」は枠線（副）。主な入口は右下（スマホは下のタブ） */
+.ph .btn.askai{background:var(--surface)!important;background-image:none!important;color:var(--bl)!important;border:1px solid var(--bl)!important;box-shadow:none!important}
+@media (max-width:820px){
+  body:has(#tabbar) #askfab,body:has(#tabbar) .ph .btn.askai,body:has(#tabbar) #guide{display:none!important}
+}
+/* ⑤ 初めての人：サンプルで試す */
+.ux25smp{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-4);border:1px dashed var(--line);border-radius:var(--r2);background:var(--surface-2)}
+.ux25smp .nn{margin:0;flex:1 1 220px}
+.v1811o.ux25off{opacity:.55;cursor:not-allowed}
+.ux25hl{outline:3px solid var(--or);outline-offset:3px;border-radius:var(--r2)}
+/* スマホの集中モードの帯：ボタン3つを詰めて並べる（1つずつの行にしない） */
+@media (max-width:820px){#v1811fmenu,#ux25smp2,#v1811fexit{min-height:var(--ctl-h-sm);padding:6px 12px;font-size:14px}}
+/* ⑥ スマホ：左右の余白 16px・4列以上の表は横にスクロール・下のタブは線のアイコン */
+@media (max-width:820px){
+  .stage,body.narrow .stage,body.mob .stage{padding-left:var(--sp-4)!important;padding-right:var(--sp-4)!important}
+  table.ux25wide{min-width:600px} table.ux25wide5{min-width:680px}
+}
+.ux25tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+#tabbar .tbi svg{display:block}
+/* ⑦ コントラスト */
+.ddhint{opacity:1!important}
+body .dk3-gi .dk3-fixgo{color:var(--or-deep)}
+.ti[style*="opacity:.45"]{opacity:1!important}
+.ti[style*="opacity:.45"] time,.ti[style*="opacity:.45"] b{color:var(--ink-3)!important}
+#v1811ov .v1811o .k{color:var(--btn-ink)}
+@media (hover:hover){.lwpal{opacity:0}.lwrx:hover .lwpal,.lwrx:focus-within .lwpal{opacity:1}}
+@media (hover:none){.lwpal{opacity:1}}
+`;
+  document.head.appendChild(st);
+}
+/* 実行時に足される別の <style>（v186・v1811 など）より後ろに置き直す（同じ強さの指定は後ろが勝つ） */
+function ux25CssLast(){ try{ const st=document.getElementById("ux2125css"); if(st&&st!==document.head.lastElementChild) document.head.appendChild(st); }catch(e){} }
+
+/* ⑧「旧版からの改善」の対応表：資料の <b> を太字として出す（デモ版の固定の文だけ） */
+function ux25Gap(){
+  if(typeof cur==="undefined"||cur!=="gap") return;
+  document.querySelectorAll("#well td").forEach(td=>{ const h=td.innerHTML; if(h.indexOf("&lt;b&gt;")>=0||h.indexOf("&lt;/b&gt;")>=0) td.innerHTML=h.replace(/&lt;(\/?)b&gt;/g,"<$1b>"); });
+}
+
+/* ⑥ スマホ：4列以上の表は横にスクロール（スクロールする枠の中に無ければ枠で包む） */
+function ux25Tables(){
+  if(!ux25Narrow()) return; const well=document.getElementById("well"); if(!well) return;
+  well.querySelectorAll("table").forEach(t=>{
+    if(t.dataset.ux25w) return;
+    let cols=0; for(const r of [...t.rows].slice(0,3)) cols=Math.max(cols,r.cells.length);
+    if(cols<4) return;
+    t.dataset.ux25w="1"; t.classList.add(cols>=5?"ux25wide5":"ux25wide");
+    let e=t.parentElement, sc=false; while(e&&e!==well){ const ox=getComputedStyle(e).overflowX; if(ox==="auto"||ox==="scroll"){ sc=true; break; } e=e.parentElement; }
+    if(!sc){ const w=document.createElement("div"); w.className="ux25tw"; t.parentNode.insertBefore(w,t); w.appendChild(t); }
+  });
+}
+
+/* ⑥ 下のタブのアイコン：左のメニュー（PAGES）と同じ線の絵。物流会社のタブは同じ線の太さの絵 */
+const UX25_IC={
+  finbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  frates:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  fagg:'<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  fai:'<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>'
+};
+/* AI商社マンは左のメニューの絵が「今日」の太陽と見分けにくいので、ロボットの線の絵にする */
+function ux25Icon(id){ if(id==="ai") return UX25_IC.fai; try{ const p=(typeof PAGES!=="undefined")?PAGES.find(x=>x.id===id):null; if(p&&p.ic) return p.ic; }catch(e){} return UX25_IC[id]||""; }
+function ux25TabIcons(){
+  const bar=document.getElementById("tabbar"); if(!bar) return;
+  bar.querySelectorAll("[data-tb]").forEach(b=>{ const s=b.querySelector(".tbi"); const ic=ux25Icon(b.dataset.tb); if(!s||!ic||s.dataset.ux25) return;
+    const badge=s.querySelector(".tbn"); s.innerHTML=`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg>`+(badge?badge.outerHTML:""); s.dataset.ux25="1"; });
+}
+if(typeof ux17Tabs==="function"){ const __t25=ux17Tabs; ux17Tabs=function(){ const r=__t25.apply(this,arguments); try{ ux25TabIcons(); }catch(e){} return r; }; }
+
+/* ⑤ 用語の説明：各ページの最初の1回だけ（日本語の表示の時） */
+if(typeof GL!=="undefined"&&GL){ const add={
+  "インボイス":"商業送り状（CI）。品名・数量・単価・金額・取引条件を書いた輸出の基本書類で、通関と代金の請求に使います。",
+  "パッキングリスト":"梱包明細書（PL）。箱ごとの中身・数量・重量・寸法を書いた書類で、通関や貨物の受け取りの確認に使います。",
+  "リードタイム":"注文を受けてから出荷（または納品）できるまでにかかる日数です。",
+  "EXW":"工場渡し。売り手の工場や倉庫で引き渡し、そこから先の輸出通関・運賃・保険・リスクはすべて買い手が負担する条件です。",
+  "FCA":"運送人渡し。売り手が輸出通関を済ませ、買い手が指定した運送人に引き渡すまでを負担する条件です。コンテナ船や航空便でよく使われます。",
+  "CFR":"運賃込み。到着港までの運賃は売り手が負担しますが、貨物のリスクは輸出港で船に積んだ時点で買い手に移ります。保険は必要なら買い手が掛けます。",
+  "DAP":"仕向地持込渡し。売り手が買い手の指定場所まで運びますが、輸入の通関と関税は買い手が負担する条件です。",
+  "SDS":"安全データシート。化学品の成分・危険性・取り扱い方を書いた書類で、MSDS の今の呼び方です。"};
+  Object.keys(add).forEach(k=>{ if(!GL[k]) GL[k]=add[k]; }); }
+const UX25_SKIP=new Set(["A","BUTTON","INPUT","TEXTAREA","SELECT","OPTION","SCRIPT","STYLE","CODE","PRE","SVG","H1","H2","H3","H4","LABEL","TIME","NOSCRIPT","SUMMARY"]);
+function ux25TermRe(){
+  const ks=Object.keys(GL).filter(k=>GL[k]); if(UX25.re&&UX25.reN===ks.length) return UX25.re;
+  UX25.re=new RegExp("("+ks.sort((a,b)=>b.length-a.length).map(k=>k.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&")).join("|")+")","g"); UX25.reN=ks.length; return UX25.re;
+}
+function ux25Terms(){
+  if(typeof GL==="undefined"||!GL||(typeof I18N!=="undefined"&&I18N&&I18N.lang&&I18N.lang!=="ja")) return;
+  const well=document.getElementById("well"); if(!well) return;
+  const re=ux25TermRe(), seen=new Set([...well.querySelectorAll(".tm")].map(e=>(e.textContent||"").trim()));
+  const ok=n=>{ let e=n.parentElement; while(e&&e!==well){ if(UX25_SKIP.has(e.tagName)||e.classList.contains("tm")||e.classList.contains("bb")||e.isContentEditable||e.hasAttribute("data-noterm")||e.hidden) return false; e=e.parentElement; } return true; };
+  const tw=document.createTreeWalker(well,NodeFilter.SHOW_TEXT,null); const nodes=[]; let n;
+  while((n=tw.nextNode())){ const v=n.nodeValue; if(v&&v.length>=2&&/[A-Za-z぀-ヿ一-鿿]/.test(v)) nodes.push(n); }
+  let added=0;
+  for(const node of nodes){
+    if(added>=40) break; if(!ok(node)) continue;
+    const v=node.nodeValue; re.lastIndex=0; let m, hit=null;
+    while((m=re.exec(v))){ const w=m[1], a=m.index, b=a+w.length;
+      /* 英字の用語（PI・CI・PL・EXW など）は前後が英数字なら別の語の一部（API・CIF など）なので付けない */
+      if(/^[A-Za-z/]+$/.test(w)&&((a>0&&/[A-Za-z0-9]/.test(v[a-1]))||(b<v.length&&/[A-Za-z0-9]/.test(v[b])))) continue;
+      if(seen.has(w)) continue; hit={w,a,b}; break; }
+    if(!hit) continue;
+    const span=document.createElement("span"); span.className="tm"; span.tabIndex=0; span.setAttribute("data-def",GL[hit.w]); span.textContent=hit.w;
+    const rest=node.splitText(hit.a); rest.nodeValue=rest.nodeValue.slice(hit.w.length); node.parentNode.insertBefore(span,rest);
+    seen.add(hit.w); added++;
+  }
+}
+
+/* ⑤ 何も登録していない時の「何をしますか？」：②③を押せなくし、「サンプルで試す」を足す */
+function ux25NoCo(){ try{ return !((typeof v1811Cos==="function")?v1811Cos():[]).length; }catch(e){ return false; } }
+function ux25Popup(step){
+  if(step&&step!=="main") return; const v=document.getElementById("v1811ov"); if(!v) return;
+  const nT=(typeof TENS!=="undefined"&&TENS)?TENS.length:0, noCo=ux25NoCo();
+  const off=b=>{ if(b){ b.disabled=true; b.classList.add("ux25off"); b.setAttribute("aria-disabled","true"); } };
+  if(noCo) off(v.querySelector('[data-v1811="addto"]'));
+  if(!nT) off(v.querySelector('[data-v1811="edit"]'));
+  if(noCo&&!v.querySelector("#ux25smp")&&(typeof PRODUCTS!=="undefined"||typeof SAMPLES2!=="undefined")){
+    const f=v.querySelector(".v1811f"); if(!f) return;
+    const box=document.createElement("div"); box.className="ux25smp";
+    box.innerHTML=`<button class="btn g" id="ux25smp" type="button">サンプルで試す</button><p class="nn">登録しないで、完成形のデモ商材や業種サンプルの画面を見られます。</p>`;
+    f.parentNode.insertBefore(box,f); box.querySelector("#ux25smp").onclick=ux25ToSamples;
+  }
+  ux25CssLast();
+}
+function ux25ToSamples(){
+  try{ if(typeof v1811Close==="function") v1811Close(); }catch(e){}
+  try{ if(typeof V1811!=="undefined"&&V1811){ V1811.focus=null; V1811.sup=true; } if(typeof cur!=="undefined"&&cur!=="up"&&typeof go==="function") go("up"); else if(typeof render==="function") render(); }
+  catch(e){} finally{ try{ if(typeof V1811!=="undefined"&&V1811) V1811.sup=false; }catch(e){} }
+  setTimeout(()=>{ const r=document.querySelector(".c.railr"); if(!r) return; const bar=document.querySelector(".bar"); const top=r.getBoundingClientRect().top+scrollY-((bar&&bar.offsetHeight)||48)-12;
+    try{ scrollTo({top:Math.max(0,top)}); }catch(e){ scrollTo(0,Math.max(0,top)); } r.classList.add("ux25hl"); setTimeout(()=>r.classList.remove("ux25hl"),2600); },80);
+}
+if(typeof v1811Open==="function"){ const __vo25=v1811Open; v1811Open=function(step){ const r=__vo25.apply(this,arguments); try{ ux25Popup(step); }catch(e){} return r; }; }
+/* 集中モードの帯（新しい会社の商品を登録）にも「サンプルで試す」 */
+function ux25FocusBar(){
+  const ex=document.getElementById("v1811fexit"); if(!ex||document.getElementById("ux25smp2")||!ux25NoCo()) return;
+  if(typeof PRODUCTS==="undefined"&&typeof SAMPLES2==="undefined") return;
+  const b=document.createElement("button"); b.className="btn g"; b.id="ux25smp2"; b.type="button"; b.textContent="サンプルで試す"; b.onclick=ux25ToSamples; ex.parentNode.insertBefore(b,ex);
+}
+
+/* 描画のあと：スタイルを最後に・不具合の表・スマホの表・集中モードの帯・用語 */
+function ux25After(){ ux25CssLast(); try{ ux25Gap(); }catch(e){} try{ ux25Tables(); }catch(e){} try{ ux25FocusBar(); }catch(e){} try{ ux25Terms(); }catch(e){} }
+if(typeof render==="function"){ const __r25=render; render=function(){ const r=__r25.apply(this,arguments); try{ ux25After(); }catch(e){} return r; }; }
+
+/* 新しい文の英・中・西（辞書＝表示の文字の置き換え） */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+ ["サンプルで試す","Try a sample","用示例试用","Probar un ejemplo"],
+ ["登録しないで、完成形のデモ商材や業種サンプルの画面を見られます。","See finished demo products and industry samples without registering anything.","无需登记，即可查看已完成的演示商品和行业示例。","Vea productos de demostración completos y ejemplos por sector sin registrar nada."],
+]); }catch(e){}
+
+ux25Css();
+try{ if(document.readyState!=="loading") setTimeout(()=>{ ux25CssLast(); try{ ux17Tabs(); }catch(e){} ux25After(); },0);
+  else document.addEventListener("DOMContentLoaded",()=>{ ux25CssLast(); ux25After(); }); }catch(e){}
+addEventListener("resize",()=>{ try{ ux25Tables(); }catch(e){} });
 
 </script>
