@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="c0327f20365e";
+const BC20_BUILD="b7b6a4c38e4d";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -3358,7 +3358,7 @@ function openMyBuyer(i){
     <div class="dl" style="margin-top:8px">
       <span>ID</span><span class="n">${esc(b.id)}</span><span>国</span><span>${esc(b.cty)}</span>
       <span>業種</span><span>${esc(b.biz)}</span><span>取扱</span><span>${esc(b.ints||"—")}</span>
-      <span>規模</span><span>${esc(b.size||"—")}</span><span>URL</span><span style="word-break:break-all">${b.url?`<a href="${esc(b.url)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(b.url.slice(0,40))}</a>`:"—"}</span>
+      <span>規模</span><span>${esc(b.size||"—")}</span><span>URL</span><span style="word-break:break-all">${b.url?(bc20HttpUrl(b.url)?`<a href="${esc(b.url)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(b.url.slice(0,40))}</a>`:esc(b.url.slice(0,40))):"—"}</span>
       <span>連絡先</span><span>${esc(b.contact||"—")}</span><span>登録日</span><span class="n">${esc(b.added||"—")}</span></div>
     ${b.memo?`<p style="font-size:11.5px;color:var(--ink-2);margin-top:7px">${esc(b.memo)}</p>`:""}
     <p class="lbl" style="margin-top:12px">🤖 AI商社マンのチェック${ai&&ai.checkedAt?`（${esc(ai.checkedAt)}）`:""}</p>
@@ -3366,7 +3366,7 @@ function openMyBuyer(i){
       <div style="margin-top:5px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:11.5px;line-height:1.8">
         <b>ファクトチェック：</b><span class="p ${vP[ai.fact.verdict]||"lo"}">${esc(ai.fact.verdict)}</span><br>
         <span style="color:var(--ink-2)">${esc(ai.fact.note||"")}</span>
-        ${(ai.fact.cits||[]).length?`<br><span style="font-size:10px">🌐 ${ai.fact.cits.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,36))}</a>`).join("　")}</span>`:""}
+        ${(ai.fact.cits||[]).length?`<br><span style="font-size:10px">🌐 ${ai.fact.cits.map(u=>bc20HttpUrl(u)?`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">${esc(String(u).replace(/^https?:\/\//,"").slice(0,36))}</a>`:esc(String(u).replace(/^https?:\/\//,"").slice(0,36))).join("　")}</span>`:""}
         ${(ai.missing||[]).length?`<br><b>不足情報：</b>${ai.missing.map(esc).join("／")}`:"<br><b>不足情報：</b>ありません"}
         ${(ai.advice||[]).length?`<br><b>アドバイス：</b><br>${ai.advice.map(a2=>"・"+esc(a2)).join("<br>")}`:""}
       </div>`
@@ -4072,6 +4072,10 @@ fillStart=function(){
     render(); return;
   }
   /* B) 反映待ちなし：状況に応じた正直な導入 */
+  if(TEN.file==="手入力（資料なし）"){   /* 資料なしで始めた商品（3択の「資料なしで始める」）の続き */
+    fillSay("ai",`資料なしで始めた商品の続きです。いま登録できているのは<b>${s.filled.length}項目</b>、充足度は <b>${s.pct}%</b> です。${s.missing.length?`あと<b>${s.missing.length}項目</b>を重要な順に1つずつ伺いますね。途中で📎から資料（Excel・規格書など）を追加いただければ、その分は自動で埋まります。`:"<b>すべての項目が揃っています。</b>"}`);
+    fillNext(); return;
+  }
   if(TEN.unparsed&&!s.filled.length){
     const isPdf=/\.(pdf|png|jpe?g)$/i.test(TEN.file||"");
     const on=(typeof ppReady==="function"&&ppReady());
@@ -6682,7 +6686,7 @@ function vTask(p){
       <div class="rw"><label style="font-size:11.5px;display:flex;align-items:center;gap:5px">
         <input type="checkbox" id="tHide" ${tHide?"checked":""}> 終了済みタスクを非表示</label>
         <select class="sel" id="tSt"><option value="">すべてのステータス</option>
-          <option>未着手</option><option>対応中</option><option>完了</option><option>中止</option></select></div></div>
+          <option value="未着手">未着手</option><option value="対応中">対応中</option><option value="完了">完了</option><option value="中止">中止</option></select></div></div>
     ${taskTab==="task"?`
     <div class="tw" style="margin-top:10px;max-height:430px"><table><thead><tr>
       <th>タスク名</th><th>優先度</th><th>開始日</th><th>終了日</th><th>ステータス</th><th>担当</th>
@@ -6790,7 +6794,7 @@ function openAiTask(){
 let msgScope="all", msgQ="";
 function vMsg(p){
   return ph(p,"<b>この画面でできること：</b>STANDAGEの担当者・海外拠点・AI商社マンと、この案件のことだけを1か所で話せます。<b>誰に見えるか</b>は1つの切替で決まります。",
-    `<button class="btn g" onclick="openNotif()">通知（${typeof notifCalc==="function"?notifCalc().length:0}）</button>`)+`
+    `<button class="btn g" onclick="openNotif()">通知（${typeof notifCalc==="function"?((typeof v16MarkRead==="function"&&v16MarkRead()),notifCalc().length):0}）</button>`)+`
   <div class="g2" style="align-items:start">
     <div class="c">
       <div class="rw" style="justify-content:space-between;margin-bottom:9px">
@@ -7074,7 +7078,7 @@ function bindMsgComposer(){
   const setAtt=f=>{
     if(!f) return;
     MSGA=f;
-    const chip=$("#mattn"); if(chip) chip.innerHTML=`<span class="p on" style="font-size:9.5px">📎 ${esc(f.name).slice(0,24)}
+    const chip=$("#mattn"); if(chip) chip.innerHTML=`<span class="p on" style="font-size:9.5px">📎 ${esc(Array.from(String(f.name)).slice(0,24).join(""))}
       <a style="cursor:pointer;font-weight:700;margin-left:3px" id="mattx">×</a></span>`;
     const x=$("#mattx"); if(x) x.onclick=()=>{ MSGA=null; if(chip) chip.innerHTML=""; };
     if(msgNewScope!=="AIに質問") toast("解析させる場合は「🤖 AIに質問」で送信してください");
@@ -7113,6 +7117,13 @@ function vDocs(){
       この版ではファイル名と中身からAIが分類し、<b>規制調査に必要な書類が揃っているかも自動で判定</b>します。</div>
   </div>`;
 }
+/* 状態のピルの色・書類の状態のピルの色（グループCの直し C3。出荷の進み具合の表 logic.js の vOpsReg と、React の版のつなぎ adapter/pages/ops.js も使う） */
+function opsStCls(s) {
+  s = String(s == null ? "" : s);
+  return /中止|キャンセル|取消|取り消し|失注/.test(s) ? "no" : /未/.test(s) ? "lo" : /完了|済/.test(s) ? "hi" : /待ち|稟議/.test(s) ? "mid"
+    : /手配|出荷|船積|通関|輸送|配送|納品|製造|生産|対応中|進行中/.test(s) ? "on" : "lo";
+}
+function opsDocCls(s) { return /済/.test(String(s == null ? "" : s)) ? "hi" : "lo"; }
 function vOrders(){
   return `<div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between">
@@ -7122,14 +7133,14 @@ function vOrders(){
     <div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>
       <th>受注番号</th><th>お相手</th><th>国</th><th class="num">金額</th><th>承認</th><th>受注書</th><th>請求書</th><th>入金</th><th>入金期日</th><th>状況</th>
     </tr></thead><tbody>
-      ${D.orders.map((o,i)=>`<tr><td class="n"><b>${o.no}</b></td><td>${esc(o.buyer)}</td><td>${o.c}</td>
-        <td class="num">${esc(o.amt)}<br><span style="font-size:10px;color:var(--ink-3)">${o.jpy}</span></td>
+      ${D.orders.map((o,i)=>`<tr><td class="n"><b>${esc(o.no)}</b></td><td>${esc(o.buyer)}</td><td>${esc(o.c)}</td>
+        <td class="num">${esc(o.amt)}<br><span style="font-size:10px;color:var(--ink-3)">${esc(o.jpy)}</span></td>
         <td>${typeof ordApprChip==="function"?ordApprChip(o)+`<div class="rw" style="gap:4px;margin-top:4px">${ordApprBtns(o)}</div>`:"—"}</td>
-        <td><span class="p ${/送付済/.test(o.od)?"hi":"lo"}">${o.od}</span></td>
-        <td><span class="p ${/発行済/.test(o.inv)?"hi":"lo"}">${o.inv}</span></td>
-        <td><span class="p ${/入金済/.test(o.pay)?"hi":o.pay==="入金待ち"?"mid":"lo"}">${o.pay}</span></td>
-        <td class="n" style="color:var(--ink-3)">${o.due}</td>
-        <td><span class="p ${i===0?"on":i===1?"hi":"lo"}">${esc(o.st)}</span></td></tr>`).join("")}
+        <td><span class="p ${/送付済/.test(o.od)?"hi":"lo"}">${esc(o.od)}</span></td>
+        <td><span class="p ${/発行済/.test(o.inv)?"hi":"lo"}">${esc(o.inv)}</span></td>
+        <td><span class="p ${/入金済/.test(o.pay)?"hi":o.pay==="入金待ち"?"mid":"lo"}">${esc(o.pay)}</span></td>
+        <td class="n" style="color:var(--ink-3)">${esc(o.due)}</td>
+        <td><span class="p ${opsStCls(o.st)}">${esc(o.st)}</span></td></tr>`).join("")}
       ${D.orders.length?"":`<tr><td colspan="10" style="text-align:center;color:var(--ink-3);padding:20px;line-height:1.8">まだ受注がありません。<br><b style="color:var(--ink-2)">「出荷を進める」で、受注から入金までの流れを想定シナリオで体験できます。</b></td></tr>`}
     </tbody></table></div>
     <div class="g3" style="margin-top:11px">
@@ -7137,7 +7148,7 @@ function vOrders(){
          ["入金待ちの金額",D.orders.find(o=>o.pay==="入金待ち")?.jpy||"—","期日 "+(D.orders.find(o=>o.pay==="入金待ち")?.due||"—")],
          ["見積提出前",D.orders.filter(o=>o.od==="作成待ち").length+"件","AIが受注書のドラフトを用意できます"]]
         .map(([l,v,d])=>`<div style="padding:10px 12px;border-radius:var(--r2);background:var(--surface-2);border:1px solid var(--line)">
-          <p class="lbl">${l}</p><div class="kv n" style="font-size:20px">${v}</div><div class="kd">${d}</div></div>`).join("")}
+          <p class="lbl">${l}</p><div class="kv n" style="font-size:20px">${esc(v)}</div><div class="kd">${esc(d)}</div></div>`).join("")}
     </div>
     <p class="nn" style="margin-top:9px">現行版では受注・請求の機能はありますが、<b>商談記録との紐付けが手作業</b>でした。
       この版では商談フィードバックから受注書まで自動でつながります。</p>
@@ -7159,7 +7170,7 @@ function vFill(p){
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;align-items:flex-start;margin-bottom:9px">
       <div><h3>貿易クラウドの充足度</h3>
-        <p class="nn">${esc(TEN.file)} から ${TEN.nSheets}シート・${TEN.nTables}個の表を解析しました。</p></div>
+        <p class="nn">${TEN.file==="手入力（資料なし）"?"資料なしで始めた商品です。質問に答えるたびに充足度が上がります。":`${esc(TEN.file)} から ${TEN.nSheets}シート・${TEN.nTables}個の表を解析しました。`}</p></div>
       <span class="p ${s.pct>=100?"hi":"or"}">${s.filled.length} / ${NEED.length} 項目</span></div>
     ${meter(s.pct)}
     <div class="g4" style="margin-top:12px;gap:8px">
@@ -7237,7 +7248,7 @@ function fillRender(){
   }
   const cu=FILL.cur;
   box.innerHTML=(cu.chips?`<div class="qb" style="margin-bottom:8px">${cu.chips.map(x=>
-      `<button class="q" data-chip="${esc(x)}">${esc(x)}</button>`).join("")}
+      `<button class="q" data-chip="${esc(x)}"${cu.multi&&(FILL.sel||[]).includes(x)?' style="background:var(--or-soft);border-color:var(--or);color:var(--or-deep)"':""}>${esc(x)}</button>`).join("")}
       ${cu.multi?`<button class="btn" id="chipdone">選び終わった</button>`:""}</div>`:"")+
     `<div class="composer" id="fanswrap">
       ${typeof mdBarHtml==="function"?mdBarHtml("fans"):""}
@@ -7272,7 +7283,7 @@ function fillRender(){
     fillSay("ai",`承知しました。<b>${FILL.cur.n}</b>は後回しにします。
       ${FILL.cur.k==="hs"?"HSコードは税関の事前教示で確定できます。STANDAGEが代行します。":
         "STANDAGEの担当からあらためて確認させてください。"}`);
-    const skipped=FILL.cur.k; FILL.skip=(FILL.skip||[]).concat(skipped);
+    const skipped=FILL.cur.k; FILL.skip=(FILL.skip||[]).concat(skipped); FILL.sel=[];
     const s=scoreOf(TEN);
     const nx=s.missing.filter(m=>!(FILL.skip||[]).includes(m.k)).sort((a,b)=>b.w-a.w)[0];
     if(!nx){
@@ -8424,6 +8435,7 @@ async function readFile(f){
   }catch(e){ info.sheets=1; }
   return info;
 }
+const UPCLD={busy:0,html:""};   /* B7：クラウドからの取り込み中か・いま出している状態（#cldst の中身） */
 function wireUp(){
   if(FILL.on){ wireFill(); return; }
   const dz=$("#drop"), fin=$("#fin");
@@ -8451,10 +8463,11 @@ function wireUp(){
   dz.addEventListener("drop",e=>take(e.dataTransfer.files[0]));
   fin.onchange=e=>{take(e.target.files[0]);e.target.value="";};
   const cgo=$("#cldgo"), cin=$("#cldu");
+  if(cgo&&UPCLD.busy){ cgo.disabled=true; cgo.textContent="取込中…"; const e=$("#cldst"); if(e) e.innerHTML=UPCLD.html; }
   if(cgo&&cin) cgo.onclick=async()=>{
     const u=(cin.value||"").trim(); if(!u){ cin.focus(); return; }
     cgo.disabled=true; cgo.textContent="取込中…";
-    const st=$("#cldst");
+    const st={set innerHTML(h){ UPCLD.html=h; const e=$("#cldst"); if(e) e.innerHTML=h; }}; UPCLD.busy=1;   /* 書くたびに、いまの画面の欄を id で探す */
     if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">☁ 読み取り中…（リンクの種類により数十秒かかることがあります）</p>`;
     try{
       const prog=m2=>{ if(st) st.innerHTML=`<p class="nn" style="margin-top:6px">☁ ${esc(m2)}</p>`; };
@@ -8477,7 +8490,7 @@ function wireUp(){
     }catch(e){
       if(st) st.innerHTML=`<div style="margin-top:7px;padding:9px 11px;border:1px solid var(--crit);border-radius:8px;font-size:11.5px;color:var(--crit);line-height:1.7">${esc(String(e.message))}</div>`;
     }
-    cgo.disabled=false; cgo.textContent="取り込む";
+    UPCLD.busy=0; { const b=$("#cldgo"); if(b){ b.disabled=false; b.textContent="取り込む"; } }
   };
   document.querySelectorAll("[data-tedit]").forEach(el=>el.addEventListener("click",e=>{
     e.stopPropagation(); e.preventDefault();
@@ -8854,6 +8867,8 @@ function shipEnsure(){
   c.step=shipStep; c.qa=SHIPQA;
   if(c.custom) D.ship=c.ship;
 }
+/* 出荷の手続きの段の数（案件の一覧の「ステップ n/段の数」。グループCの直し C6） */
+function shipStepN(){ try{ return shipSteps().length; }catch(e){ return 7; } }
 function shipShort(b){ return String(b||"").replace(/ (Ltd|Co|Inc|Pte|LLC|GmbH|JSC|SARL|DMCC|Sdn)\.?.*/,"").slice(0,14); }
 function shipCaseNew(o){
   o=o||{};
@@ -8875,8 +8890,9 @@ function shipSlot(keep){
   if(lru){ lru.c.open=false;
     toast("タブが4件のため "+lru.c.ship.no+" をタブから外しました（案件は保存済み・🔍検索から再開できます）"); }
 }
-function shipActivate(i){
-  if(!SHIPS||!SHIPS[i]) return;
+/* 案件を切り替える（状態だけ。描き直さない）。描き直しまでするのは shipActivate（グループCの直し C5） */
+function shipUse(i){
+  if(!SHIPS||!SHIPS[i]) return false;
   const cur2=SHIPS[SHIPA];
   if(cur2){ cur2.step=shipStep; cur2.qa=SHIPQA; }
   SHIPA=i;
@@ -8886,8 +8902,9 @@ function shipActivate(i){
   shipSlot(i);
   shipStep=c.step||0; SHIPQA=c.qa||[];
   if(c.custom) D.ship=c.ship; else if(SHIPS[0]&&SHIPS[0].seed) D.ship=SHIPS[0].ship;
-  render();
+  return true;
 }
+function shipActivate(i){ if(shipUse(i)) render(); }
 function shipCloseCase(i){
   if(!SHIPS||i===0||!SHIPS[i]) return;
   SHIPS[i].open=false;
@@ -8949,10 +8966,11 @@ function shipNewList(q){
   let h="";
   /* 開いている案件 */
   const open=(SHIPS||[]).map((c,i)=>({c,i})).filter(x=>hit(x.c.ship.no)||hit(x.c.ship.country)||hit(x.c.ship.buyer));
+  const stepN=open.length?shipStepN():0;
   if(open.length) h+=`<p class="lbl">開いている案件（クリックで切替）</p>`+open.map(x=>
     `<div class="rw" style="justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--or);border-radius:8px;margin-bottom:6px;background:var(--or-soft)">
       <span><b style="font-size:12px">${esc(x.c.ship.no)}</b>　${esc(x.c.ship.country)}・${esc(shipShort(x.c.ship.buyer))}<br>
-      <span style="font-size:10.5px;color:var(--ink-2)">ステップ ${(x.c.step||0)+1}/7</span></span>
+      <span style="font-size:10.5px;color:var(--ink-2)">ステップ ${(x.c.step||0)+1}/${stepN}</span></span>
       <button class="btn g" style="flex:none;padding:5px 11px;font-size:11px" data-shiptab2="${x.i}">開く</button></div>`).join("");
   /* 商談記録から */
   const fb=(D.fb||[]).filter(f=>f&&!Array.isArray(f)&&f.b&&(hit(f.b)||hit(f.c)||hit(f.ch)||hit(f.st))).slice(0,8);
@@ -9225,7 +9243,7 @@ function shipRender(){
       sqo.innerHTML=hits.length?hits.map(({c2,i})=>
         `<div class="rw" data-shipfind="${i}" style="justify-content:space-between;gap:6px;padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--line-2);font-size:11.5px">
           <span style="min-width:0"><b>${esc(c2.ship.no)}</b>｜${esc(c2.ship.country)}・${esc(shipShort(c2.ship.buyer))}</span>
-          <span style="color:var(--ink-3);flex:none">${(i===SHIPA?shipStep:c2.step||0)+1}/7・${c2.open!==false?"タブ表示中":"保管中"}</span></div>`).join("")
+          <span style="color:var(--ink-3);flex:none">${(i===SHIPA?shipStep:c2.step||0)+1}/${ST.length}・${c2.open!==false?"タブ表示中":"保管中"}</span></div>`).join("")
         :`<div style="padding:9px 11px;font-size:11.5px;color:var(--ink-3)">該当する案件がありません。「＋ 新しい案件」から開始できます。</div>`;
       sqo.style.display="block";
       sqo.querySelectorAll("[data-shipfind]").forEach(x=>x.onclick=()=>{
@@ -9620,17 +9638,18 @@ function vOpsReg(){
       <div class="rw" style="margin-top:10px">
         <select class="sel" id="rI">${D.priceRows.map(r=>{
           const sub=String(r[1]||""), add=sub&&sub.charAt(0)!=="$"&&sub!=="—";
-          const t=esc(r[0])+(add?"（"+esc(sub)+"）":"");
-          return `<option ${t===opsRegI?"selected":""}>${t}</option>`;}).join("")}</select>
-        <select class="sel" id="rC">${Object.keys(D.regs).map(c=>`<option ${c===opsRegC?"selected":""}>${c}</option>`).join("")}</select></div>
+          /* 選択肢の value＝元の文字（前回の選択 opsRegI・opsRegC と同じ形）。表示の文字はエスケープ（グループCの直し C2） */
+          const t=String(r[0])+(add?"（"+sub+"）":"");
+          return `<option value="${esc(t)}" ${t===opsRegI?"selected":""}>${esc(t)}</option>`;}).join("")}</select>
+        <select class="sel" id="rC">${Object.keys(D.regs).map(c=>`<option value="${esc(c)}" ${c===opsRegC?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
       <div id="rO" style="margin-top:11px"></div></div>
   <div class="c"><h3>出荷の進み具合</h3>
     <p class="nn">見積から入金まで、1本の流れとして追えます。</p>
     <div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr>
       <th>案件</th><th>相手</th><th>送り先</th><th>数量</th><th>取引条件</th><th>書類</th><th>状況</th><th>入金</th>
     </tr></thead><tbody>${D.pipeline.map((r,i)=>`<tr><td class="n">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td>
-      <td class="n">${esc(r[3])}</td><td>${T(r[4])}</td><td><span class="p ${i?"lo":"on"}">${esc(r[5])}</span></td>
-      <td><span class="p ${i===0?"hi":i===1?"mid":"lo"}">${esc(r[6])}</span></td><td>${T(r[7])}</td></tr>`).join("")}
+      <td class="n">${esc(r[3])}</td><td>${T(r[4])}</td><td><span class="p ${opsDocCls(r[5])}">${esc(r[5])}</span></td>
+      <td><span class="p ${opsStCls(r[6])}">${esc(r[6])}</span></td><td>${T(r[7])}</td></tr>`).join("")}
     </tbody></table></div></div>`;
 }
 function vOpsDoc(){
@@ -9698,10 +9717,17 @@ function openRegdb(){
    <div class="rw" style="margin-top:10px">
      <button class="btn" onclick="window.open('${u.replace(/'/g,"")}','_blank','noopener')">↗ 新しいタブでポータルを開く</button>
      <button class="btn g" onclick="closeDW()">閉じる</button></div>
-   <iframe src="${u.replace(/'/g,"")}" style="width:100%;height:54vh;border:1px solid var(--line);border-radius:8px;margin-top:11px;background:#fff"></iframe>
+   <div id="regdbph" style="margin-top:11px;padding:14px;border:1px dashed var(--line);border-radius:var(--r2);text-align:center;color:var(--ink-3);font-size:12px">開いただけでは社内ポータルに接続しません。ボタンを押すと、この枠の中に表示します。<div class="rw" style="justify-content:center;margin-top:10px"><button class="btn" onclick="regdbShow()">🌐 規制データベースを表示する</button></div></div>
+   <iframe id="regdbf" data-src="${u.replace(/'/g,"")}" hidden style="width:100%;height:54vh;border:1px solid var(--line);border-radius:8px;margin-top:11px;background:#fff"></iframe>
    <p class="nn" style="margin-top:6px">この枠内で表示されない場合（Googleのサインイン制限）は、上の「新しいタブ」からご覧ください。検索語「${esc(c)} ${esc((D&&D.item)||"")}」を引き継ぎます。</p>`);
   if(typeof dwChrome==="function") dwChrome();
   if(typeof logU==="function") logU("ai","規制DB:"+c);
+}
+/* 社内規制DB の枠に読み込む（「規制データベースを表示する」を押した時だけ外へ出る。グループCの直し C7） */
+function regdbShow(){
+  const f=document.getElementById("regdbf"); if(!f) return; const u=f.getAttribute("data-src")||""; if(!u) return;
+  if(f.getAttribute("src")!==u) f.setAttribute("src",u); f.hidden=false;
+  const ph=document.getElementById("regdbph"); if(ph) ph.style.display="none";
 }
 function regStore(){ return (typeof TEN!=="undefined"&&TEN)?(TEN.regsAI=TEN.regsAI||{}):(window.__regsAI=window.__regsAI||{}); }
 function regAIView(c,html,ts){
@@ -9810,9 +9836,9 @@ function vDB(p){
     <div class="c" id="bnfind"><h3>相手を探す <span class="nt">この版で新規</span></h3>
       <p class="nn">国・カテゴリ・脈あり度で絞り込めます。「実績」＝貿易クラウド上で成立させた取引の件数です。</p>
       <div class="rw" style="margin-top:10px">
-        <select class="sel" id="dC"><option value="">すべての国</option>${BN_CTY.map(([c])=>`<option>${c}</option>`).join("")}</select>
+        <select class="sel" id="dC"><option value="">すべての国</option>${BN_CTY.map(([c])=>`<option value="${esc(c)}">${c}</option>`).join("")}</select>
         <select class="sel" id="dK"><option value="">すべてのカテゴリ</option>${BN_CATS.map(([k,n])=>`<option value="${k}" ${st.catKey===k?"selected":""}>${n}</option>`).join("")}</select>
-        <select class="sel" id="dL"><option value="">すべての脈あり度</option><option>高</option><option>中</option></select>
+        <select class="sel" id="dL"><option value="">すべての脈あり度</option><option value="高">高</option><option value="中">中</option></select>
         <button class="btn" style="margin-left:auto;flex:none" onclick="openBuyerAdd()">＋ Buyerを追加（自社開拓）</button></div>
       <p class="nn" id="dbcount" style="margin:8px 0 0"></p>
       <div class="tw" id="dbbw" style="margin-top:10px;max-height:300px"><table><thead><tr>
@@ -9837,7 +9863,7 @@ function vDB(p){
       </div>
       <p class="nn" style="margin-top:6px">＋−ボタンかマウスホイールで拡大・ドラッグで移動（国の形にマウスを乗せると国名が出ます）。<span style="color:var(--good);font-weight:700">緑</span>＝開設済み／<span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定／青＝2028〜29年度に順次開設。</p>
       <div class="rw" style="margin-top:8px">
-        <select class="sel" id="bsel">${Object.keys(staffAll()).map(k=>`<option>${esc(k)}</option>`).join("")}</select>
+        <select class="sel" id="bsel">${Object.keys(staffAll()).map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join("")}</select>
         <button class="btn" id="breq">この拠点に依頼する</button></div>
       <p class="nn" style="margin-top:5px">※拠点への依頼（引き合い開拓・商談代行）は<b>別途費用</b>（稼働費・成果報酬）が発生します。費用をかけずに始めるなら、左の一覧から<b>「直接連絡」</b>をどうぞ。</p>
       <div id="staffbox" style="margin-top:9px"></div>
@@ -10428,7 +10454,7 @@ function openReport(){
 }
 let tT=null;
 function toast(m){
-  let e=$("#tst");
+  let e=document.getElementById("tst");
   if(!e){e=document.createElement("div");e.id="tst";
     /* pointer-events:none 必須——opacity:0で隠れている間も要素は残るため、無いと画面下部中央のクリックを吸い続ける */
     e.style.cssText="position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:80;background:var(--ink);"+
@@ -13233,19 +13259,19 @@ function costCardHtml(){
               <span><b>${esc(costUserNm(r.code))}</b> <span class="acode" style="font-size:9px">${esc(r.code)}</span>${over?` <span class="p no" style="font-size:8.5px">⚠ライン超え</span>`:""}</span>
               <span class="n" style="font-weight:600">${costFmtY(uy)}<span style="color:var(--ink-3);font-weight:400;font-size:10px">・記録${r.calls}回</span></span></div>
             <div class="mt" style="margin:5px 0 0"><i style="width:${barW}%${over?";background:var(--crit)":(r.usd>0?"":";background:var(--line)")}"></i></div>
-            <div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">AI質問 累計${r.aiQ}回（🌐${r.webQ}）${u?`・主に ${tp?((PROV[tp[0]]&&PROV[tp[0]].short)||tp[0])+"（"+Math.round(tp[1]/u.usd*100)+"%）":"—"}・入力 ${(u.ti/1000).toFixed(0)}K／出力 ${(u.to/1000).toFixed(0)}K tok`:"・外部APIコストの記録なし（内蔵エンジンの応答は外部AI費用¥0）"}</div></button>
+            <div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">AI質問 累計${r.aiQ}回（🌐${r.webQ}）${u?`・主に ${tp?esc((PROV[tp[0]]&&PROV[tp[0]].short)||tp[0])+"（"+Math.round(tp[1]/u.usd*100)+"%）":"—"}・入力 ${(u.ti/1000).toFixed(0)}K／出力 ${(u.to/1000).toFixed(0)}K tok`:"・外部APIコストの記録なし（内蔵エンジンの応答は外部AI費用¥0）"}</div></button>
           ${openRow?`<div style="padding:0 10px 9px;border-top:1px dashed var(--line-2)">
             <table style="width:100%;font-size:10.5px;margin-top:6px"><thead><tr><th style="text-align:left">エンジン</th><th class="num">概算</th></tr></thead><tbody>
-            ${Object.entries(u.byProv).sort((a,b)=>b[1]-a[1]).map(([p2,v])=>`<tr><td>${(PROV[p2]&&PROV[p2].nm)||p2}</td><td class="num n">${costFmtY(costYen(v,fx))}</td></tr>`).join("")}</tbody></table>
+            ${Object.entries(u.byProv).sort((a,b)=>b[1]-a[1]).map(([p2,v])=>`<tr><td>${esc((PROV[p2]&&PROV[p2].nm)||p2)}</td><td class="num n">${costFmtY(costYen(v,fx))}</td></tr>`).join("")}</tbody></table>
             <p class="lbl" style="margin-top:7px">最近の呼び出し（新しい順）</p>
             <div style="font-size:10px;color:var(--ink-2);line-height:1.8;max-height:130px;overflow:auto">
-            ${u.last.slice(-10).reverse().map(e=>`${new Date(e[0]).getMonth()+1}/${new Date(e[0]).getDate()} ${e[8]||"質問"}・${(PROV[e[2]]&&PROV[e[2]].short)||e[2]} <span style="color:var(--ink-3)">${e[4].toLocaleString()}→${e[5].toLocaleString()}tok</span> <b class="n">${costFmtY(costYen(costUsdOf(e),fx))}</b>${e[6]?'<span class="p lo" style="font-size:8px">推計</span>':""}`).join("<br>")}</div></div>`:""}</div>`;}).join("")}</div>`
+            ${u.last.slice(-10).reverse().map(e=>`${new Date(e[0]).getMonth()+1}/${new Date(e[0]).getDate()} ${esc(e[8]||"質問")}・${esc((PROV[e[2]]&&PROV[e[2]].short)||e[2])} <span style="color:var(--ink-3)">${e[4].toLocaleString()}→${e[5].toLocaleString()}tok</span> <b class="n">${costFmtY(costYen(costUsdOf(e),fx))}</b>${e[6]?'<span class="p lo" style="font-size:8px">推計</span>':""}`).join("<br>")}</div></div>`:""}</div>`;}).join("")}</div>`
         :`<p class="nn" style="margin-top:6px">まだ利用がありません。お客様がAI商社マンを使うと、AI質問の回数（全エンジン）と実APIコスト（キー接続時）がここに毎日積み上がります。</p>`}</div>
 
       <div><p class="lbl">エンジン別・日次推移（実記録）</p>
         ${provs.length?`<div class="tw" style="margin-top:6px;max-height:none"><table style="font-size:11px"><thead>
           <tr><th>エンジン</th><th class="num">回</th><th class="num">入力/出力 tok</th><th class="num">概算</th></tr></thead><tbody>
-          ${provs.map(([p2,v])=>`<tr><td>${(PROV[p2]&&PROV[p2].nm)||p2}</td><td class="num n">${v.calls}</td>
+          ${provs.map(([p2,v])=>`<tr><td>${esc((PROV[p2]&&PROV[p2].nm)||p2)}</td><td class="num n">${v.calls}</td>
             <td class="num n" style="font-size:10px">${(v.ti/1000).toFixed(0)}K／${(v.to/1000).toFixed(0)}K</td>
             <td class="num n"><b>${costFmtY(costYen(v.usd,fx))}</b></td></tr>`).join("")}</tbody></table></div>`
         :`<p class="nn" style="margin-top:6px">この期間に実APIの呼び出し記録はありません。接続していないエンジンに金額が付くことはありません。</p>`}
@@ -13431,13 +13457,24 @@ function saveTen(){ if(!SES||SES.t!=="trial")return;
     localStorage.setItem("bc20_ten_"+SES.code,JSON.stringify({v:2,list:slim,idx:TIDX})); window.__tenSaveErr=0; }
   catch(e){ if(!window.__tenSaveErr){ window.__tenSaveErr=1;
       if(typeof toast==="function") toast("⚠ ブラウザの保存容量を超えたため、この変更を保存できませんでした。📦データを持ち出して整理するか、不要な商品・添付を削除してください"); } } }
+/* B1：リードタイムの形（数字・日数・期間の言葉）か */
+function tenLeadIsTime(v){ return /[0-9０-９]|[一二三四五六七八九十百]\s*(日|週|か月|ヶ月|カ月|ケ月|箇月|年)|即納|即日|随時|在庫|受注|発注|出荷|納期|営業日|週間|要相談|未定|\b(days?|weeks?|months?|TBD|ASAP)\b/i.test(String(v)); }
+/* B1：lead に入ってしまったメイン担当者の名前を mainMember へ移す（会社のメンバーの名前と一致し、リードタイムの形でないものだけ）。
+   移した数を TEN_MAIN_MOVED に足す（adapter/fixes/b-lead.js が、読み込みで移した時にその形で保存し直す） */
+let TEN_MAIN_MOVED=0;
+function tenMainMove(list){ try{
+  const a=(SES&&SES.code&&typeof findAcct==="function")?findAcct(SES.code):null;
+  const names=new Set(((a&&a.members)||[]).map(m=>m&&String(m.name||"").trim()).filter(Boolean)); if(!names.size) return;
+  (list||[]).forEach(t=>{ if(!t||typeof t.lead!=="string") return; const v=t.lead.trim(); if(!v||!names.has(v)||tenLeadIsTime(v)) return;
+    if(!t.mainMember) t.mainMember=v; t.lead=""; TEN_MAIN_MOVED++; });
+}catch(e){} }
 function loadTen(){ if(!SES||SES.t!=="trial")return null;
   try{ const j=JSON.parse(localStorage.getItem("bc20_ten_"+SES.code));
     if(j&&j.v===2&&Array.isArray(j.list)){
-      TENS=j.list.filter(t=>t&&(t.src==="upload"||t.src==="sample2")).slice(0,TEN_MAX);
+      TENS=j.list.filter(t=>t&&(t.src==="upload"||t.src==="sample2")).slice(0,TEN_MAX); tenMainMove(TENS);
       TIDX=Math.min(Math.max(0,j.idx||0),Math.max(0,TENS.length-1));
       return TENS[TIDX]||null; }
-    if(j&&(j.src==="upload"||j.src==="sample2")){ TENS=[j]; TIDX=0; return j; }  /* 旧形式からの移行 */
+    if(j&&(j.src==="upload"||j.src==="sample2")){ TENS=[j]; tenMainMove(TENS); TIDX=0; return j; }  /* 旧形式からの移行 */
   }catch(e){}
   return null; }
 function clearTen(){ if(!SES||SES.t!=="trial")return;
@@ -13590,7 +13627,7 @@ function showWelcome(){
 
 /* ── 管理コンソール ── */
 function renderAdmin(){
-  const A=ADB.accounts, tot=k=>A.reduce((s,a)=>s+(a.usage[k]||0),0);
+  const A=ADB.accounts, tot=k=>A.reduce((s,a)=>s+((a.usage&&a.usage[k])||0),0);
   const act=A.filter(a=>a.st==="active"&&a.expires>NOW()).length;
   const mxAi=Math.max(1,...A.map(a=>(a.usage&&a.usage.aiQ)||0));
   const syncOK=(function(){ try{ return typeof syncOn==="function"&&syncOn(); }catch(e){ return false; } })();   /* F5復元時は logic_sync.js 未初期化（TDZ）のため try で守る */
@@ -13629,7 +13666,7 @@ function renderAdmin(){
       <div style="margin-top:10px" ${admIssued?"":"hidden"}>
         ${admIssued?`<div style="padding:12px 14px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)">
           <b style="color:var(--good)">発行しました。</b>このコードをお客様にお渡しください。<br>
-          <span class="acode" style="font-size:20px">${admIssued}</span>
+          <span class="acode" style="font-size:20px">${esc(admIssued)}</span>
           <button class="btn g" style="margin-left:10px;padding:4px 11px" id="ncopy">コードをコピー</button></div>`:""}</div>
     </div>
   </div>
@@ -13650,23 +13687,23 @@ function renderAdmin(){
       <th>コード</th><th>会社・担当</th><th>状態</th><th>期限</th><th>🌐Web</th>
       <th class="num">ログイン</th><th class="num">解析</th><th class="num">AI質問</th><th>最終利用</th><th></th>
     </tr></thead><tbody>
-    ${A.map(a=>{const u=a.usage;
+    ${A.map(a=>{const u=a.usage||{};
       const stc=a.st!=="active"?'<span class="p no">無効</span>'
         :a.expires<NOW()?'<span class="p mid">期限切れ</span>':'<span class="p hi">有効</span>';
       const mems=(a.members||[]).length;
-      return `<tr data-st="${a.st!=="active"?"disabled":a.expires<NOW()?"expired":"active"}" data-role="${a.role||""}" data-q="${esc(String(a.code+" "+a.co+" "+(a.who||"")).toLowerCase())}">
-      <td><span class="acode">${a.code}</span><br><span style="font-size:9.5px;color:var(--ink-3)">発行 ${fdate(a.created)}</span></td>
+      return `<tr data-st="${a.st!=="active"?"disabled":a.expires<NOW()?"expired":"active"}" data-role="${esc(a.role||"")}" data-q="${esc(String(a.code+" "+a.co+" "+(a.who||"")).toLowerCase())}">
+      <td><span class="acode">${esc(a.code)}</span><br><span style="font-size:9.5px;color:var(--ink-3)">発行 ${fdate(a.created)}</span></td>
       <td><b>${esc(a.co)}</b>${a.role==="fwd"?' <span class="p on" style="font-size:8.5px">🚚 物流</span>':""}<br>
         <span style="font-size:10px;color:var(--ink-3)">${esc(a.who||"—")}${mems?`　<span class="p or" style="font-size:8.5px;padding:1px 6px" title="やりとり画面から招待されたメンバー（リアルタイム反映）">👥 ${mems}名</span>`:""}</span></td>
       <td>${stc}</td>
       <td class="n">${fdate(a.expires)}<br><span style="font-size:10px;color:var(--ink-3)">${a.expires>NOW()?"残り"+dleft(a)+"日":"—"}</span></td>
       <td>${a.web!==false?'<span class="p on">許可</span>':'<span class="p lo">停止</span>'}</td>
-      <td class="num">${u.logins}</td><td class="num">${u.uploads}</td>
-      <td class="num">${u.aiQ}<span style="color:var(--ink-3);font-size:10px">（🌐${u.webQ}）</span><div class="mt" style="margin-top:3px;width:64px;margin-left:auto"><i style="width:${Math.round((u.aiQ||0)/mxAi*100)}%"></i></div></td>
+      <td class="num">${u.logins||0}</td><td class="num">${u.uploads||0}</td>
+      <td class="num">${u.aiQ||0}<span style="color:var(--ink-3);font-size:10px">（🌐${u.webQ||0}）</span><div class="mt" style="margin-top:3px;width:64px;margin-left:auto"><i style="width:${Math.round((u.aiQ||0)/mxAi*100)}%"></i></div></td>
       <td class="n" style="font-size:10.5px;color:var(--ink-3)">${u.lastActive?fdate2(u.lastActive):"未利用"}</td>
       <td><div class="rw" style="gap:4px;flex-wrap:nowrap">
-        <button class="btn g" data-tgl="${a.code}" style="padding:3px 9px;font-size:10.5px">${a.st==="active"?"無効化":"有効化"}</button>
-        <button class="btn g" data-det="${a.code}" style="padding:3px 9px;font-size:10.5px">詳細</button></div></td></tr>`;}).join("")}
+        <button class="btn g" data-tgl="${esc(a.code)}" style="padding:3px 9px;font-size:10.5px">${a.st==="active"?"無効化":"有効化"}</button>
+        <button class="btn g" data-det="${esc(a.code)}" style="padding:3px 9px;font-size:10.5px">詳細</button></div></td></tr>`;}).join("")}
     </tbody></table></div></div>
 
   <div class="c"><h3>トライアル環境のしくみ</h3>
@@ -13701,11 +13738,11 @@ function renderAdmin(){
 }
 function admDetail(code){
   const a=findAcct(code); if(!a) return;
-  const u=a.usage, sc=Object.entries(u.screens||{}).sort((x,y)=>y[1]-x[1]).slice(0,8);
+  const u=a.usage||{}, sc=Object.entries(u.screens||{}).sort((x,y)=>y[1]-x[1]).slice(0,8);
   const mx=Math.max(1,...sc.map(x=>x[1]));
   const IC={login:"🔑",upload:"📄",ai:"💬",web:"🌐",fill:"✍️",screen:"🧭",member:"👥",fwd:"🚚"};
   openDW(`<h3>${esc(a.co)}</h3>
-   <p class="nn" style="margin-bottom:10px"><span class="acode">${a.code}</span>
+   <p class="nn" style="margin-bottom:10px"><span class="acode">${esc(a.code)}</span>
      ${a.st==="active"?'<span class="p hi">有効</span>':'<span class="p no">無効</span>'}
      <span class="p ${a.web!==false?"on":"lo"}">🌐 ${a.web!==false?"許可":"停止"}</span></p>
    <dl style="margin:0">${[["発行日",fdate2(a.created)],
@@ -13714,7 +13751,7 @@ function admDetail(code){
      ["最終利用",u.lastActive?fdate2(u.lastActive):"未利用"]]
      .map(([k,v])=>`<div class="fld"><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
    <div class="g4" style="margin-top:12px;gap:7px">
-     ${[["ログイン",u.logins],["アップロード",u.uploads],["AI質問",u.aiQ],["🌐Web検索",u.webQ]]
+     ${[["ログイン",u.logins||0],["アップロード",u.uploads||0],["AI質問",u.aiQ||0],["🌐Web検索",u.webQ||0]]
        .map(([l,v])=>`<div style="padding:7px 9px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
          <p class="lbl" style="font-size:9px">${l}</p><div class="n" style="font-size:17px;font-weight:300">${v}</div></div>`).join("")}
    </div>
@@ -13730,7 +13767,7 @@ function admDetail(code){
    ${sc.length?`<p class="lbl" style="margin-top:13px">よく見ている画面</p>
      <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">
      ${sc.map(([k,v])=>`<div style="display:grid;grid-template-columns:112px 1fr 22px;gap:7px;align-items:center;font-size:11px">
-       <span>${SCN[k]||k}</span><span class="mt" style="margin:0"><i style="width:${v/mx*100}%"></i></span>
+       <span>${esc(SCN[k]||k)}</span><span class="mt" style="margin:0"><i style="width:${v/mx*100}%"></i></span>
        <span class="n" style="text-align:right;color:var(--ink-3)">${v}</span></div>`).join("")}</div>`:""}
    ${u.events&&u.events.length?`<p class="lbl" style="margin-top:13px">最近の利用（新しい順）</p>
      <div class="tl" style="margin-top:7px">${u.events.slice(0,10).map(([t2,ev,d])=>
@@ -14031,9 +14068,9 @@ function fwdAiBind(){
     ts.disabled=true; out(`<span class="spin"></span> ${esc(fwdEngLabel())} に接続しています…`);
     try{
       const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1,planTier:(FWDPLAN==="pro"?"pro":"std")});
-      out(`<span style="color:var(--good)">✓ AI物流マンは稼働できます（model: ${esc(r.model)}／応答: ${esc(r.txt).slice(0,30)}）</span>`);
+      out(`<span style="color:var(--good)">✓ AI物流マンは稼働できます（model: ${esc(r.model)}／応答: ${esc(String(r.txt).slice(0,30))}）</span>`);
     }catch(e){
-      out(`<span style="color:var(--crit)">✗ 接続できませんでした：${esc(String(e.message)).slice(0,110)}</span>`);
+      out(`<span style="color:var(--crit)">✗ 接続できませんでした：${esc(String(e.message).slice(0,110))}</span>`);
     }
     ts.disabled=false;
   };
@@ -14410,7 +14447,7 @@ async function fwdAsk(v){
       r={a:(typeof ppFormat==="function"?ppFormat(res.txt):esc(res.txt)),
          c:`エンジン：${esc(fwdEngLabel())}（実AI・社内物流データを注入済み）`};
     }catch(e){
-      r=fwdBrain(v); r.c+=`／⚠ 実AIに接続できず内蔵エンジンで回答（${esc(String(e.message)).slice(0,50)}）`;
+      r=fwdBrain(v); r.c+=`／⚠ 実AIに接続できず内蔵エンジンで回答（${esc(String(e.message).slice(0,50))}）`;
     }
   } else r=fwdBrain(v);
   FWDB.chat.push({w:"a",t:r.a+`<div style="margin-top:6px;font-size:9.5px;color:var(--ink-3)">${r.c}</div>`,ts:Date.now()});
@@ -14517,10 +14554,10 @@ function fwdInboxHtml(){
       <th>受信日</th><th>依頼No</th><th>荷主</th><th>区間</th><th>貨物</th><th class="num">見積合計</th><th>状況</th><th></th></tr></thead><tbody>
       ${R.map(r=>`<tr><td class="n">${esc(r.d)}</td><td class="n"><b>${esc(r.id)}</b></td>
         <td>${esc(r.co)}</td><td>${esc(r.pol)} → ${esc(r.cty)}</td>
-        <td style="font-size:11px">${esc(r.item)}<br><span style="color:var(--ink-3);font-size:9.5px">${r.cbm}m³ ${esc(r.mode)}</span>${r.requote?`<br><span class="p or" style="font-size:9px">🔁 再見積（元 ${esc(r.parentId)}）</span>${r.note?`<br><span style="font-size:9.5px;color:var(--ink-2)">要望：${esc(r.note).slice(0,60)}</span>`:""}`:""}</td>
+        <td style="font-size:11px">${esc(r.item)}<br><span style="color:var(--ink-3);font-size:9.5px">${r.cbm}m³ ${esc(r.mode)}</span>${r.requote?`<br><span class="p or" style="font-size:9px">🔁 再見積（元 ${esc(r.parentId)}）</span>${r.note?`<br><span style="font-size:9.5px;color:var(--ink-2)">要望：${esc(String(r.note).slice(0,60))}</span>`:""}`:""}</td>
         <td class="num">${fwdReqCell(r)}${fwdReqRec(r)}</td>
         <td><span class="p ${/仮押さえ/.test(fwdReqStatus(r))?"hi":(r.quote||fwdOkLegs(r).length)?"on":"mid"}">${esc(fwdReqStatus(r))}</span>${(r.legs||[]).some(l=>l.hold)?`<br><span style="font-size:9.5px;color:var(--good)">${(r.legs||[]).filter(l=>l.hold).map(l=>esc(l.cty)).join("・")}</span>`:""}</td>
-        <td><button class="btn g" style="padding:3px 9px;font-size:10.5px" data-fwdq="${r.id}">交渉記録</button></td></tr>`).join("")}
+        <td><button class="btn g" style="padding:3px 9px;font-size:10.5px" data-fwdq="${esc(r.id)}">交渉記録</button></td></tr>`).join("")}
     </tbody></table></div>`
     :`<div style="padding:22px;text-align:center;color:var(--ink-3);font-size:12px;border:1px dashed var(--line);border-radius:var(--r2);margin-top:10px;line-height:1.9">
       まだ依頼がありません。<br><b style="color:var(--ink-2)">荷主アカウント（例：TRIAL-2026）でログイン →「出荷を進める」→「🚚 AI見積を依頼する」</b>と、ここに届きます。</div>`}
@@ -14795,7 +14832,7 @@ async function fwdRateFile(f){
       return fwdRateDone(rates,aiHow(),f.name);
     }
     fail(`この形式（.${esc(ext)}）は未対応です。<b>Excel（.xlsx）・CSV・PDF・画像</b>でお願いします。<br>Googleスプレッドシートは「ファイル→ダウンロード→ .xlsx」で書き出せます。`);
-  }catch(e){ fail(esc(String(e.message)).slice(0,80)); }
+  }catch(e){ fail(esc(String(e.message).slice(0,80))); }
 }
 function fwdBindPage(){
   fwdAiBind();
@@ -15147,13 +15184,13 @@ function fwdSituDel(id){
   const n=fwdReevalPending(); fwdSave(); fwdRender(); toast("削除しました"+(n?`（見積 ${n}件の推奨を再計算）`:""));
 }
 function fwdAggHtml(){
-  const A=fwdLaneAgg(), cos=fwdCos(), multi=A.filter(x=>x.n>1), situReg=(FWDB.situ||[]);
+  const A=fwdLaneAgg(), cos=fwdCos(), multi=A.filter(x=>x.valid>1), situReg=(FWDB.situ||[]);
   const expired=(FWDB.rates||[]).filter(r=>!fwdRateValid(r)).length;
   const rows=A.map(x=>`<tr><td><b>${esc(x.pod)}</b>${x.cty!==x.pod?` <span style="font-size:9.5px;color:var(--ink-3)">${esc(x.cty)}</span>`:""}<br><span class="p ${/LCL/i.test(x.mode)?"on":"or"}" style="font-size:8.5px">${esc(x.mode)}</span></td>
       <td class="num"><b>${x.n}</b>社${x.expired?`<br><span style="font-size:9.5px;color:var(--crit)">期限切れ ${x.expired}本</span>`:""}</td>
       <td class="num">${x.valid?`¥${x.min.toLocaleString()}${x.max!==x.min?"〜¥"+x.max.toLocaleString():""}<span style="font-size:9px;color:var(--ink-3)">${esc(x.unit)}</span>`:"—"}</td>
       <td class="num">${x.valid?`${x.ttMin}${x.ttMax!==x.ttMin?"〜"+x.ttMax:""}日`:"—"}</td>
-      <td>${x.rec?`<b>${esc(x.rec)}</b> <span class="n">¥${x.recTotal.toLocaleString()}</span>${x.n>1?' <span class="p rec" style="font-size:8.5px">推奨</span>':' <span class="p lo" style="font-size:8.5px">1社のみ</span>'}<br><span style="font-size:9.5px;color:var(--ink-2)">${x.recWhy.slice(0,2).map(esc).join("／")}</span>`:`<span class="nn">有効なレートなし</span>`}</td>
+      <td>${x.rec?`<b>${esc(x.rec)}</b> <span class="n">¥${x.recTotal.toLocaleString()}</span>${x.valid>1?' <span class="p rec" style="font-size:8.5px">推奨</span>':' <span class="p lo" style="font-size:8.5px">1社のみ</span>'}<br><span style="font-size:9.5px;color:var(--ink-2)">${x.recWhy.slice(0,2).map(esc).join("／")}</span>`:`<span class="nn">有効なレートなし</span>`}</td>
       <td style="font-size:10px;color:var(--ink-2);max-width:220px">${x.situ.length?x.situ.map(esc).join("<br>"):"—"}</td></tr>`).join("");
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span><span class="nt">この版で新規</span></div>
     <h1>相見積・AI物流マンの推奨</h1>
@@ -15898,14 +15935,16 @@ function ordNewGuard(){
 function ordApprChip(o){
   const st=(o.appr&&o.appr.st)||"未承認";
   const c=st==="承認済み"?"hi":st==="承認待ち"?"or":st==="差戻し"?"no":"lo";
-  return `<span class="p ${c}" style="font-size:9px" title="${o.appr?esc((o.appr.by||"")+" "+(o.appr.at||"")):"監査対応：承認が完了するまで送付できません"}">承認：${st}</span>`;
+  return `<span class="p ${c}" style="font-size:9px" title="${o.appr?esc((o.appr.by||"")+" "+(o.appr.at||"")):"監査対応：承認が完了するまで送付できません"}">承認：${esc(st)}</span>`;
 }
+/* onclick の文字列の中に入れる受注番号（グループCの直し C3。React の版のつなぎ adapter/pages/ops.js も使う） */
+function ordNoJs(s) { return String(s == null ? "" : s).replace(/[\\'\n\r]/g, (c) => ({ "\\": "\\\\", "'": "\\'", "\n": "\\n", "\r": "\\r" })[c]); }
 function ordApprBtns(o){
   const st=(o.appr&&o.appr.st)||"未承認";
   if(st==="承認済み") return `<span style="font-size:9.5px;color:var(--good)">✓ ${esc(o.appr.by||"")}・${esc(o.appr.at||"")}</span>`;
-  if(st==="承認待ち") return `<button class="btn" style="padding:3px 10px;font-size:10px" onclick="ordApprSet('${esc(o.no)}','承認済み')">承認する</button>
-    <button class="btn g" style="padding:3px 9px;font-size:10px" onclick="ordApprSet('${esc(o.no)}','差戻し')">差戻し</button>`;
-  return `<button class="btn g" style="padding:3px 10px;font-size:10px" onclick="ordApprSet('${esc(o.no)}','承認待ち')">承認を依頼</button>`;
+  if(st==="承認待ち") return `<button class="btn" style="padding:3px 10px;font-size:10px" onclick="ordApprSet('${esc(ordNoJs(o.no))}','承認済み')">承認する</button>
+    <button class="btn g" style="padding:3px 9px;font-size:10px" onclick="ordApprSet('${esc(ordNoJs(o.no))}','差戻し')">差戻し</button>`;
+  return `<button class="btn g" style="padding:3px 10px;font-size:10px" onclick="ordApprSet('${esc(ordNoJs(o.no))}','承認待ち')">承認を依頼</button>`;
 }
 
 /* ═══ 画面への注入（renderフック）＋通知バッジの常時更新 ═══ */
@@ -17509,7 +17548,7 @@ if(typeof vOpsDoc==="function"){ const __vOpsDocPO=vOpsDoc;
   vOpsDoc=function(){
     try{ poAttachShip(); if(D&&D.ship&&typeof shipEnsure==="function") shipEnsure();   /* 案件タブ（SHIPS）を初期化し、保存したPO案件を復元 */
       /* 表示中が「想定シナリオ」の案件で、発注書から起票した案件があれば、そちらを表示する（直前まで作業していた案件） */
-      if(SHIPS&&SHIPS[SHIPA]&&!SHIPS[SHIPA].po){ let last=-1; SHIPS.forEach((x,i)=>{ if(x&&x.po) last=i; }); if(last>=0&&typeof shipActivate==="function"){ shipActivate(last); D.ship=SHIPS[last].ship; } }
+      if(SHIPS&&SHIPS[SHIPA]&&!SHIPS[SHIPA].po){ let last=-1; SHIPS.forEach((x,i)=>{ if(x&&x.po) last=i; }); if(last>=0&&typeof shipUse==="function"){ shipUse(last); D.ship=SHIPS[last].ship; }   /* 描き直さずに切り替える（1回で描く。グループCの直し C5） */ }
     }catch(e){}
     const c=(typeof SHIPS!=="undefined"&&SHIPS&&SHIPS[SHIPA])||null;
     if(!(c&&c.po&&D&&D.ship===c.ship)) return poWorkbenchHtml()+__vOpsDocPO()+((typeof fwdCaseReqs==="function"&&typeof fwdHistCardHtml==="function"&&D&&D.ship&&fwdCaseReqs(D.ship).length)?fwdHistCardHtml(D.ship):"");
@@ -17576,8 +17615,8 @@ function poDocHtml(k){
 function openPoDocEdit(k){
   const c=poCase(); if(!c||!c.po){ toast("先に発注書を取り込んでください"); return; } const S=c.ship; k=k||"pi";
   const F=[["buyer","Buyer（宛名）"],["buyerAddr","Buyer address"],["consignee","Consignee"],["notify","Notify party"],["poNo","P/O No."],["date","Date"],["term","Incoterms（例：FOB Yokohama）"],["pay","Payment"],["pol","Port of loading"],["pod","Port of discharge"],["want","Delivery / ETA"],["marks","Marks"],["hs","HS code"],["origin","Country of origin"],["vessel","Vessel / Flight（CI）"],["bl","B/L・AWB No.（CI）"],["remarks","Remarks"]];
-  const grid=(k==="pl"||k==="si")?{cols:["Description","Qty","Cartons","Weight"],rows:S.docRows.plRows,key:"plRows"}:{cols:["Description","Qty","Unit price","Amount"],rows:S.docRows.pi,key:"pi"};
-  const exKey=(k==="pl"||k==="si")?"plEx":"ex"; const ex=S.docRows[exKey]||[];
+  const grid=(k==="pl"||k==="si"||k==="co")?{cols:["Description","Qty","Cartons","Weight"],rows:S.docRows.plRows,key:"plRows"}:{cols:["Description","Qty","Unit price","Amount"],rows:S.docRows.pi,key:"pi"};
+  const exKey=(k==="pl"||k==="si"||k==="co")?"plEx":"ex"; const ex=S.docRows[exKey]||[];
   openDW(`<div class="dwhead"><h3>✎ 書類を編集（${esc({pi:"PI",ci:"CI",pl:"PL",si:"S/I",co:"原産地証明"}[k]||k)}）</h3></div>
    <div class="dwbody" style="overflow:auto;display:block;padding:12px 18px 16px">
    <p class="nn" style="margin:0 0 8px">ここで直した内容は PI／CI／PL／S/I のすべてに反映され、案件（出荷を進める）にも引き継がれます。</p>
@@ -17805,7 +17844,7 @@ vDocs=function(){
   const gen=S?[["PI","Proforma Invoice",true],["CI","Commercial Invoice",true],["PL","Packing List",true],["S/I","Shipping Instruction",!!po]].concat((S.docs||[]).filter(d=>!/^(PI|CI|PL|S\/I)$/.test(d[0])).map(d=>[d[0],d[1]||"",false])):[];
   const received=[];
   (poStore()||[]).forEach(r=>{ if(r&&r.po&&r.po.src) received.push([r.po.src.name||"発注書","発注書（PO）",r.ship.buyer+"（"+r.ship.country+"）",r.po.at||r.at||"",'onclick="opsTab=\'doc\';render()"']); });
-  ((typeof TEN!=="undefined"&&TEN&&TEN.legal&&TEN.legal.docs)||(window.__leg&&window.__leg.docs)||[]).forEach(d=>received.push([d.name,"契約書（"+(d.kind||"")+"）","契約書関連",String(d.ts||"").slice(0,10),'onclick="go(\'legal\')"']));
+  ((typeof TEN!=="undefined"&&TEN&&TEN.legal&&TEN.legal.docs)||(window.__leg&&window.__leg.docs)||[]).forEach(d=>received.push([d.name,(d.kind?"契約書（"+d.kind+"）":"契約書"),"契約書関連",String(d.ts||"").slice(0,10),'onclick="go(\'legal\')"']));
   ((typeof TEN!=="undefined"&&TEN&&TEN.xdocs)||[]).forEach(r=>{ if(r[1]!=="発注書（PO）") received.push([r[0],r[1],r[2],r[3],'onclick="go(\'msg\')"']); });
   (D.docs||[]).forEach(r=>{ if(/商品マスタ|やりとり添付|発注書/.test(String(r[1]))) return; if(!received.some(x=>x[0]===r[0])) received.push([r[0],r[1],r[2],r[3],""]); });
   const src=(typeof srcList==="function")?srcList():[];
@@ -18838,8 +18877,12 @@ function uxCountUp(){
     const tn=el.firstChild; if(!tn||tn.nodeType!==3) return;
     const m=tn.nodeValue.match(/^(\s*[^\d\s-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/); if(!m) return;
     const target=parseFloat(m[2].replace(/,/g,"")); if(!isFinite(target)||target===0) return;
-    const dec=(m[2].split(".")[1]||"").length, comma=m[2].includes(","), orig=tn.nodeValue, t0=performance.now(), dur=520;
-    const step=now=>{ const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3); let v=target*e; let s=dec?v.toFixed(dec):Math.round(v).toString(); if(comma) s=Number(s).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec}); tn.nodeValue=m[1]+s+m[3]; if(p<1) requestAnimationFrame(step); else tn.nodeValue=orig; };
+    const dec=(m[2].split(".")[1]||"").length, comma=m[2].includes(","), t0=performance.now(), dur=520;
+    /* 数え上げの途中で翻訳（i18n）が文字を書き換えたら、書き換えた後の文字を元に数え直す（数字が同じ時だけ。違えば書き換えた文字のまま止める）。
+       控えた日本語で書き直し・最後に戻すと、英・西で「3件」が訳されないまま残る */
+    let pre=m[1], post=m[3], orig=tn.nodeValue, last=orig;
+    const step=now=>{ if(tn.nodeValue!==last){ const m2=String(tn.nodeValue).match(/^(\s*[^\d\s-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/); if(!m2||parseFloat(m2[2].replace(/,/g,""))!==target) return; pre=m2[1]; post=m2[3]; orig=tn.nodeValue; }
+      const p=Math.min(1,(now-t0)/dur), e=1-Math.pow(1-p,3); let v=target*e; let s=dec?v.toFixed(dec):Math.round(v).toString(); if(comma) s=Number(s).toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec}); tn.nodeValue=last=(p<1?pre+s+post:orig); if(p<1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   });
 }
@@ -19353,7 +19396,7 @@ function lwReplyDecorate(){
 function lwReply(mi){
   const m=lwStoreT()[mi]; if(!m||!m.lw) return;
   openDW(`<h3>📱 ${esc(m.lw.src||"LINE")}で返信</h3><p class="nn" style="margin:6px 0 8px">宛先：${esc(m.who)}（${esc(m.lw.src||"LINE")}）。同期サーバー経由で相手のアプリに届きます。</p>
-    <div style="font-size:11.5px;padding:8px 10px;border-left:3px solid var(--line);color:var(--ink-3);margin-bottom:8px;white-space:pre-wrap">${esc(v16Plain(m.body)).slice(0,300)}</div>
+    <div style="font-size:11.5px;padding:8px 10px;border-left:3px solid var(--line);color:var(--ink-3);margin-bottom:8px;white-space:pre-wrap">${esc(Array.from(v16Plain(m.body)).slice(0,300).join(""))}</div>
     <textarea class="sel" id="lwRep" style="width:100%;min-height:90px;box-sizing:border-box" placeholder="返信を入力"></textarea>
     <div class="rw" style="margin-top:10px;gap:8px"><button class="btn" id="lwRepGo">送信</button><button class="btn g" onclick="closeDW()">やめる</button></div>`);
   if(typeof dwChrome==="function") dwChrome();
@@ -23014,7 +23057,7 @@ function bmThreadsPaint(){
 }
 function bmThreadsMount(){
   if(typeof cur==="undefined"||cur!=="db"||document.getElementById("bmThreadsCard")) return;
-  const h=[...document.querySelectorAll("#well .c h3")].find(x=>/新しく追加されたバイヤー/.test(x.textContent)); const card=h&&h.closest(".c"); if(!card) return;
+  const h=[...document.querySelectorAll("#well .c h3")].find(x=>/新しく追加されたバイヤー/.test(bc20JaText(x))); const card=h&&h.closest(".c"); if(!card) return;
   bmInitStatus(); card.insertAdjacentHTML("beforebegin",bmThreadsCardHtml()); bmThreadsPaint();
   const q=document.getElementById("bmQ"); if(q){ let t=0; q.addEventListener("input",()=>{ clearTimeout(t); t=setTimeout(()=>{ BMF.q=q.value; bmThreadsPaint(); },120); }); }
   document.querySelectorAll("#bmStF [data-bmst]").forEach(b=>b.onclick=()=>{ BMF.st=b.dataset.bmst||""; bmThreadsPaint(); });
@@ -25695,7 +25738,7 @@ function v1AdmHtml(){
   const st=(typeof POOLADM!=="undefined"&&POOLADM.st)||null; const v=st&&st.v1; const V=st&&st.v1full; const f=t=>t?new Date(t).toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
   const age=v&&v.at?Math.round((Date.now()-v.at)/864e5):null;
   const src=v?(v.v>=2?`内容ベース v2（基準日 ${esc(v.asof||"-")}・${v.builtBy==="local-cli"?"週次ジョブ":"管理者取込"}・${f(v.at)}）`:`件数のみ v1（基準日 ${esc(v.asof||"-")}）`):"未取込";
-  const runs=(st&&st.v1runs||[]).slice(-5).map(r=>`${f(r.at)} ${esc(r.asof||"")}${r.quick?"（簡易）":""}${r.err?" ⚠API失敗"+r.err:""}`).join("／");
+  const runs=(st&&st.v1runs||[]).slice(-5).map(r=>`${f(r.at)} ${esc(r.asof||"")}${r.quick?"（簡易）":""}${r.err?" ⚠API失敗"+esc(r.err):""}`).join("／");
   const b=V&&V.buyers||{},fb=V&&V.feedbacks||{},pj=V&&V.projects||{},tk=V&&(V.tasks||{}).stats||{},tl=V&&V.timelines||{},mm=V&&V.memos||{};
   return `<div class="c" id="admpoolv1" style="margin-bottom:11px"><div class="rw" style="justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap"><div><h3>🧠 Ver1.0 の内容学習（全社版AI商社マン）<span class="nt">この版で新規</span></h3>
       <p class="nn">貿易クラウド Ver1.0（本番DB）の<b>Buyer議事録（商談記録）・バイヤー台帳・案件・タスク（スケジュール進捗）・週次の進捗サマリー・会議メモ・メッセージ</b>を、<b>個社・個人・商品が特定できない集計値だけ</b>に丸めて週次で取り込みます（本文・社名・担当者名・連絡先は保存しない）。全社版のお客様のAI商社マンだけがこの知識を使い、助言は<b>そのお客様の登録データを最優先</b>にします。</p></div>
@@ -25768,12 +25811,30 @@ function aiMem(){
 function aiMemId(){ return "am"+Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
 function aiMemAdd(src,q,a,c){
   q=l211Plain(q).slice(0,240); a=l211Plain(a).slice(0,480); if(!q||!a) return "";
-  const m=aiMem(); const id=aiMemId();
+  const m=aiMem();
+  /* 同じ質問と回答は1回だけ（出荷を進めるタブは描き直すたびに過去の会話を書き直す＝そのたびに新しい番号で足していた）。既にあればその番号を返す（グループCの直し C4） */
+  const same=m.log.find(x=>x&&x.q===q&&x.a===a); if(same&&same.id) return same.id;
+  const id=aiMemId();
   m.log.push({id,at:Date.now(),d:(typeof TODAYS!=="undefined"?TODAYS:""),src:String(src||"").slice(0,12),q,a,c:l211Plain(c).slice(0,90),fb:0,tp:l211Topics(q).slice(0,4)});
   if(m.log.length>AIMEM_LOG_MAX) m.log=m.log.slice(-AIMEM_LOG_MAX);
   l211Save(); try{ aiMemCardPaint(); }catch(e){} return id;
 }
 function aiMemFind(id){ const m=aiMem(); return m.log.find(x=>x.id===id)||null; }
+/* 既に重複して溜まった記憶（同じ質問と回答が別の番号で何度も）を1つにまとめる。読み込み（表示データの作り直し）のたびに自己修復（グループCの直し C4） */
+function aiMemDedupe(t) {
+  const m = t && t.aiMem; if (!m || !Array.isArray(m.log) || m.log.length < 2) return 0;
+  const key = (x) => String(x.q) + "\u0000" + String(x.a), first = new Map();
+  m.log.forEach((x) => { if (!x) return; const k = key(x), f = first.get(k);
+    if (!f || (x.at || 0) < (f.at || 0) || ((x.at || 0) === (f.at || 0) && String(x.id) < String(f.id))) first.set(k, x); });
+  const gone = m.log.filter((x) => x && first.get(key(x)) !== x);
+  if (!gone.length) return 0;
+  gone.forEach((x) => { const f = first.get(key(x)); if (x.fb && !f.fb) { f.fb = x.fb; if (x.fix) f.fix = x.fix; } });
+  const ids = new Set(gone.map((x) => x.id).filter(Boolean));
+  m.log = m.log.filter((x) => !x || first.get(key(x)) === x);
+  const del = Array.isArray(m.del) ? m.del.slice() : []; ids.forEach((id) => { if (!del.includes(id)) del.push(id); }); m.del = del.slice(-300);
+  return gone.length;
+}
+if(typeof syncTenant==="function"){ const __sy211m=syncTenant; syncTenant=function(){ try{ if(typeof TEN!=="undefined"&&TEN) aiMemDedupe(TEN); }catch(e){} return __sy211m.apply(this,arguments); }; }
 function aiMemTeach(txt,q,mid){
   txt=String(txt||"").trim().slice(0,300); if(!txt) return null;
   const m=aiMem(); const e={id:aiMemId(),at:Date.now(),d:(typeof TODAYS!=="undefined"?TODAYS:""),txt,q:l211Plain(q).slice(0,120),tp:l211Topics(txt+" "+(q||"")).slice(0,4)};
@@ -26063,7 +26124,9 @@ function l211UnionMem(dt,st){
   const taught=uni(a.taught,b.taught).sort((x,y)=>(y.at||0)-(x.at||0)).slice(0,AIMEM_TAUGHT_MAX);
   (b.log||[]).forEach(x=>{ const y=log.find(z=>z.id===x.id); if(y&&x.fb&&!y.fb){ y.fb=x.fb; if(x.fix) y.fix=x.fix; ch=true; } });
   const dl=[...del].slice(-300); if(dl.length!==(a.del||[]).length) ch=true;
-  if(ch) dt.aiMem={log,taught,del:dl}; return ch;
+  if(ch) dt.aiMem={log,taught,del:dl};
+  try{ if(aiMemDedupe(dt)) ch=true; }catch(e){}   /* 両端末の記録を足した後も、同じ質問と回答は1つに（グループCの直し C4） */
+  return ch;
 }
 function l211UnionShip(dt,st){
   const A=dt.shipCases||[], B=st.shipCases||[]; if(!B.length) return false; const nos=new Set(A.map(c=>c&&c.ship&&c.ship.no)); const add=B.filter(c=>c&&c.ship&&!nos.has(c.ship.no)); if(!add.length) return false; dt.shipCases=A.concat(add); return true;
@@ -27295,7 +27358,7 @@ thI18n([
    ・各メンバーの「⋮」→「メイン担当者に変更」「メンバーから外す」（赤）
    ・会社への招待（管理ポータル「ユーザー招待」）：メールアドレスを最大20件まとめて貼り付け（カンマ・スペース・改行で区切り）
    ・ユーザー一覧：名前・メール・部署・役職で検索、最終ログイン日時。プロジェクト一覧：「参加」の印と「参加しているプロジェクトのみ」
-   2.0 での対応：「やりとり」のメンバー欄を同じ並び・同じ操作に／まとめて招待（最大20人）／商品ごとのメイン担当（TEN.lead）／一覧の検索／商品カードの「参加」 */
+   2.0 での対応：「やりとり」のメンバー欄を同じ並び・同じ操作に／まとめて招待（最大20人）／商品ごとのメイン担当（TEN.mainMember。v21.6 は TEN.lead に入れていたが、リードタイムと同じ項目だったので分けた）／一覧の検索／商品カードの「参加」 */
 (function(){ try{ const st=document.createElement("style"); st.textContent=`
 .tm-seg2{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:10px}
 .tm-seg2 button{border:0;background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;padding:5px 14px;cursor:pointer}
@@ -27331,12 +27394,12 @@ thI18n([
 /* ── 共通：いまの商品・メイン担当 ── */
 function tmCurTen(){ try{ return (typeof TEN!=="undefined"&&TEN&&(TEN.src==="upload"||TEN.src==="sample2"))?TEN:null; }catch(e){ return null; } }
 function tmTenByUid(uid){ return ((typeof TENS!=="undefined"&&TENS)||[]).find(t=>t&&t.uid===uid)||null; }
-function tmLeadName(t){ const a=tmAcct(); if(!t||!a) return ""; const L=tmList(a).filter(m=>tmStOf(m)!=="stop"&&tmHas(m,t.uid)); if(t.lead&&L.some(m=>m.name===t.lead)) return t.lead; return ""; }
+function tmLeadName(t){ const a=tmAcct(); if(!t||!a) return ""; const L=tmList(a).filter(m=>tmStOf(m)!=="stop"&&tmHas(m,t.uid)); if(t.mainMember&&L.some(m=>m.name===t.mainMember)) return t.mainMember; return ""; }
 function tmSetLead(name,uid){ const a=tmAcct(), t=uid?tmTenByUid(uid):tmCurTen(), isRep=!!name&&name===tmRep(a), m=isRep?null:tmFind(name); if(!a||!t||(!m&&!isRep)) return; if(!tmCan()){ toast("メイン担当の変更は管理者が行います"); return; }
   if(!t.uid&&typeof v185Stamp==="function") v185Stamp(t);
   if(m&&!tmHas(m,t.uid)){ m.assign=(m.assign||[]).filter(x=>x!==TM_NONE&&x!==TM_ALL).concat([t.uid]); tmTouch(m); tmSaveAcct(); tmPut(); }
-  t.lead=isRep?"":name; try{ saveTen(); }catch(e){} tmLog("メイン担当:"+name); toast(`${name} さんを「${String(t.item||"この商品").slice(0,24)}」のメイン担当にしました`); tmRepaint(); }
-function tmPmRemove(name,uid){ const t=uid?tmTenByUid(uid):tmCurTen(); if(!t) return; if(t.lead===name){ t.lead=""; try{ saveTen(); }catch(e){} } tmToggleOn(name,t.uid,false); }
+  t.mainMember=isRep?"":name; try{ saveTen(); }catch(e){} tmLog("メイン担当:"+name); toast(`${name} さんを「${String(t.item||"この商品").slice(0,24)}」のメイン担当にしました`); tmRepaint(); }
+function tmPmRemove(name,uid){ const t=uid?tmTenByUid(uid):tmCurTen(); if(!t) return; if(t.mainMember===name){ t.mainMember=""; try{ saveTen(); }catch(e){} } tmToggleOn(name,t.uid,false); }
 
 /* ── まとめて招待（Ver.1 のユーザー招待と同じく最大20人）：1行に1人「氏名 メール」／メールだけでも可（@ の前を氏名に） ── */
 function tmParseBulk(txt){ const out=[], seen=new Set(), re=/[^\s<>,;、，；:：()（）「」]+@[^\s<>,;、，；:：()（）「」]+\.[^\s<>,;、，；:：()（）「」]+/g, sep=/[\s<>()（）,，、:：「」"'“”]+/g;
@@ -27504,7 +27567,7 @@ var __tb216=teamBind;
 teamBind=function(){ __tb216.apply(this,arguments);
   const qi=document.getElementById("tmQ"); if(qi) qi.oninput=()=>{ const q=(qi.value||"").trim().toLowerCase(); document.querySelectorAll(".tm-card[data-q]").forEach(c=>{ c.style.display=!q||c.dataset.q.includes(q)?"":"none"; }); };
   document.querySelectorAll("[data-tmlead]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); tmSetLead(b.dataset.tmlead,b.dataset.tmid); });
-  document.querySelectorAll("[data-tmun]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const t=tmTenByUid(b.dataset.tmid); if(t&&t.lead===b.dataset.tmun){ t.lead=""; try{ saveTen(); }catch(x){} } tmToggleOn(b.dataset.tmun,b.dataset.tmid,false); });
+  document.querySelectorAll("[data-tmun]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const t=tmTenByUid(b.dataset.tmid); if(t&&t.mainMember===b.dataset.tmun){ t.mainMember=""; try{ saveTen(); }catch(x){} } tmToggleOn(b.dataset.tmun,b.dataset.tmid,false); });
 };
 
 /* ── 登録済みの商品カード：自分が参加している商品に「参加」（Ver.1 のプロジェクト一覧と同じ）・「参加している商品のみ」 ── */
@@ -32437,5 +32500,274 @@ try{ if(typeof I18N!=="undefined"&&I18N.pat){ const mon=(s,x)=>String(s).replace
   I18N.pat.unshift({re:/^毎週月曜にまとめて反映／前回 (.+?)・次回 (.+)$/,en:(m)=>"Updated every Monday / last "+mon(m[1],"(Mon)")+" · next "+mon(m[2],"(Mon)"),
       zh:(m)=>"每周一统一更新／上次 "+mon(m[1],"（周一）")+"・下次 "+mon(m[2],"（周一）"),es:(m)=>"Cada lunes / anterior "+mon(m[1],"(lun)")+" · próxima "+mon(m[2],"(lun)")},
     {re:/^毎週月曜更新・次回 (.+)$/,en:(m)=>"Updated Mondays · next "+mon(m[1],"(Mon)"),zh:(m)=>"每周一更新・下次 "+mon(m[1],"（周一）"),es:(m)=>"Cada lunes · próxima "+mon(m[1],"(lun)")}); } }catch(e){}
+
+/* ═══ v21.27（2026-09-30）新しい構成で直してあった旧画面の不具合を、公開版にも入れる
+   経緯：新しい構成（bc20-platform）の作業で見つけた旧画面の不具合は、2026-09-27 から新しい構成の組み立ての時だけ直していた
+     （apps/web/legacy/adapter/fixes。「公開中の版には入れない」決まり）。9/30 に利用者の了承で公開版にも入れる（「Yes, please fix them as v21.27.」）。
+   入れ方：文字の差し替え 82 件は fixes_v2127.py（組み立ての rd() で当てる。元の logic*.js は変えない）。動いている時に足す分がこのファイル
+     （新しい構成の adapter/fixes の a-db.js・b-i18n.js・b-lead.js・c-dict.js と同じ中身。関数の名前 bc20JaText・bc20HttpUrl は差し替えた文字が呼ぶ）。
+   入れたもの：A1〜A4・A5（名寄せの「重複N組」）・B1〜B7・C1〜C7・D1〜D4・L（お知らせ）
+   入れないもの：A5 の追加日（v21.26 で「前の週の月〜日」に直した）・A6（外部の取得を新しい構成のサーバー経由に）・D5（新しい構成のログイン・AI 設定の案内）・
+     D6（新しい構成の AI の状態の読み直し）・b1-approvals（新しい構成の API の橋）
+   ※新しい構成が公開版の v21.27 を取り込む時は、このファイルは入れない（adapter/fixes に同じものがある） */
+
+/* ── 新しい構成 adapter/fixes/a-db.js ── */
+/* ═══ まとまり A：バイヤーDB・拠点の不具合の直し（動いている時に足す分。組み立ての時の差し替えは a-db.cjs） ═══ */
+/* 要素の文字を、翻訳する前の日本語でつないで返す（英・中・西では描画の直後に辞書・AI翻訳の層が文字のかたまりを置き換えるため、
+   日本語の見出しで要素を探す処理は訳す前の文字を見る。A2：「📨 やり取り中のBuyer」を差し込む場所の見出し） */
+function bc20JaText(el){
+  if(!el) return "";
+  let s=""; const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+  while(w.nextNode()){
+    const n=w.currentNode; let v=n.nodeValue;
+    try{ if(typeof I18N!=="undefined"&&I18N){
+      if(I18N.elIns&&I18N.elIns.indexOf(n)>=0) continue;           /* 段落の翻訳が足した文字（元の日本語には無い） */
+      if(I18N.orig&&I18N.orig.has(n)) v=I18N.orig.get(n); } }catch(e){}
+    try{ if(typeof AI18N!=="undefined"&&AI18N&&AI18N.map&&AI18N.map.has(n)){ const rec=AI18N.map.get(n); if(rec&&rec.t===n.nodeValue) v=rec.o; } }catch(e){}
+    s+=v;
+  }
+  return s;
+}
+/* A2 の続き：「📨 やり取り中のBuyer」のカード（英・中・西でも出るようになった）の文字の訳。
+   旧画面の辞書（logic_i18n_el6.js の v19.4）には、このカードの説明文と、やり取りが無い時の文の訳があるが、太字（<b>）を含む文なのに
+   文字列単位の表（I18N_ROWS2）に入っていて当たらなかった → 同じ訳を段落単位の表（I18N_EL）にも入れる（文言は旧画面の辞書のまま）。
+   件数・時刻の入る文字（未読・絞り込みのボタン・往復・返信・宛先・判定した人と時刻）は型で訳す（語は旧画面の辞書の訳を使う）。
+   どれもこのカードにしか無い形（「N通」「📨 返信N件」だけは、同じスレッドを一覧で答える AI商社マンの即答＝bmAsk の表にもあり、そこも同じく訳される） */
+(function(){
+  try{
+    if(typeof I18N==="undefined"||typeof I18N_EL==="undefined"||typeof I18N_ROWS2==="undefined") return;
+    const tpl=document.createElement("template");
+    ["直接連絡でやり取りしているBuyerの一覧です。","まだやり取り中のBuyerはいません。"].forEach(head=>{
+      const r=I18N_ROWS2.find(x=>x&&typeof x[0]==="string"&&x[0].indexOf(head)===0&&x[0].indexOf("<b>")>=0); if(!r) return;
+      tpl.innerHTML=r[0]; const k=String(tpl.content.textContent||"").replace(/\s+/g," ").trim(); if(!k) return;
+      ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&!I18N_EL[l][k]) I18N_EL[l][k]=r[i+1]; });
+    });
+    const w=(d,s)=>d[s]||s;
+    I18N.pat.unshift(
+      {re:/^📨 未読 (\d+)件$/,en:"📨 $1 unread",zh:"📨 未读 $1 条",es:"📨 $1 sin leer"},
+      {re:/^📨 返信(\d+)件$/,en:(m)=>"📨 "+m[1]+(m[1]==="1"?" reply":" replies"),zh:"📨 回复 $1 条",es:(m)=>"📨 "+m[1]+(m[1]==="1"?" respuesta":" respuestas")},
+      {re:/^(すべて|コンタクト中|商談中|サンプル出荷|見積提示|契約交渉|取引中|失注)（(\d+)）$/,en:(m,d)=>w(d,m[1])+" ("+m[2]+")",zh:(m,d)=>w(d,m[1])+"（"+m[2]+"）",es:(m,d)=>w(d,m[1])+" ("+m[2]+")"},
+      {re:/^(\d+)通$/,en:(m)=>m[1]+(m[1]==="1"?" msg":" msgs"),zh:"$1 条",es:"$1 msj."},
+      {re:/^返信 (\d+)$/,en:(m)=>m[1]+(m[1]==="1"?" reply":" replies"),zh:"回复 $1",es:(m)=>m[1]+(m[1]==="1"?" respuesta":" respuestas")},
+      {re:/^ID (\S+)・宛先 未開示$/,en:(m,d)=>"ID "+m[1]+" · "+w(d,"宛先 未開示"),zh:(m,d)=>"ID "+m[1]+"・"+w(d,"宛先 未開示"),es:(m,d)=>"ID "+m[1]+" · "+w(d,"宛先 未開示")},
+      {re:/^(AI（ルール）|AI商社マン|手動) (\d{2}-\d{2} \d{2}:\d{2})$/,en:(m,d)=>(m[1]==="手動"?"Manual":w(d,m[1]))+" "+m[2],zh:(m,d)=>(m[1]==="手動"?"手动":w(d,m[1]))+" "+m[2],es:(m,d)=>(m[1]==="手動"?"Manual":w(d,m[1]))+" "+m[2]},
+    );
+  }catch(e){}
+})();
+/* リンクにしてよい URL か（http・https だけ。旧画面の logic_v186.js の v186Url と同じ形＝空白を含まない http(s):// の URL）。A4 */
+function bc20HttpUrl(u){ return /^https?:\/\/\S+$/i.test(String(u==null?"":u)); }
+/* A5：名寄せのボタンの「重複N組」を、一覧を描き直すたびに今の数へ（統合・追加・削除の後に一覧を描き直す rDB の後で合わせる。
+   ボタンは描画の後処理＝logic_v15.js が作る。文字は同じ組み立て。翻訳は、書き換えた文字にも描画の時と同じく掛かる） */
+if(typeof rDB==="function"){ const __rDBa=rDB; rDB=function(){ const r=__rDBa.apply(this,arguments); try{ bc20MergeBtnSync(); }catch(e){} return r; }; }
+function bc20MergeBtnSync(){
+  const b=document.getElementById("mbMergeBtn"); if(!b||typeof mbDupGroups!=="function") return;
+  const dup=mbDupGroups().length, t=`🧩 名寄せ${dup?`（重複${dup}組）`:""}`;
+  if(bc20JaText(b)!==t) b.textContent=t;
+}
+
+/* ── 新しい構成 adapter/fixes/b-i18n.js ── */
+/* ═══ 旧画面の不具合の直し（まとまり B：商品情報を登録）：動いている時に足す分＝表示言語の辞書（英・中・西） ═══
+   B4：ヒアリング中の画面（商品情報を登録 › AI商社マンと埋める）のボタン・見出し・説明・一覧・回答欄が辞書に無く、英・中・西でも日本語のままだった。
+       画面の文字を全部洗い出して足す（tmp の確かめ：場面 up-fill-* を英・中・西で開き、かな・漢字が残る文字のかたまり・属性を集めた）。
+       ・文字のかたまり（ボタン・見出し・項目名・用途・チップ・placeholder・title）＝ I18N.dict
+       ・段落（<b> を含む説明文）＝ I18N_EL（logic_i18n2.js と同じく、日本語の HTML の文字（空白を1つにまとめたもの）が鍵。訳は同じタグの並び）
+       ・数字・名前を含む定型文（「N / M 項目」「残り N項目」「…が必要」「… から Nシート・M個の表を解析しました。」など）＝ I18N.pat
+       会話の吹き出し（AI商社マンの質問・返事）は、辞書の対象外（接続AIの翻訳の層＝logic_v18i18n.js が訳す）のまま。
+       ただし吹き出しの中でも、1つの文字のかたまりになっている項目名・用途・例・「残り N項目・充足度 P%」は、旧画面の決まり（ai18nDictBB）どおり辞書で訳される。
+   B6：資料なしで始めた商品の、充足度のカードの新しい一文。
+   logic_i18n2.js は読み込みの時に1回だけ I18N_ROWS2 などを辞書へ移すので、ここでは辞書に直接足す（既にある訳は変えない＝tmI18n と同じ）。 */
+(function(){
+  try{
+    if(typeof I18N==="undefined"||!I18N.dict) return;
+    const L3=["en","zh","es"];
+    const add=rows=>rows.forEach(r=>L3.forEach((l,i)=>{ const d=I18N.dict[l]; if(d&&r[i+1]&&!d[r[0]]) d[r[0]]=r[i+1]; }));
+    const addEl=rows=>{ if(typeof I18N_EL==="undefined") return; const tpl=document.createElement("template");
+      rows.forEach(r=>{ tpl.innerHTML=r[0]; const k=String(tpl.content.textContent||"").replace(/\s+/g," ").trim(); if(!k) return;
+        L3.forEach((l,i)=>{ if(I18N_EL[l]&&r[i+1]&&!I18N_EL[l][k]) I18N_EL[l][k]=r[i+1]; }); }); };
+    /* 「A・B・Cが必要」の A・B・C を、ヒアリングの項目名（NEED）で区切る（項目名そのものに「・」を含むものがあるので、長い名前から当てる） */
+    const needNames=(s,d)=>{ if(typeof NEED==="undefined") return null; const names=NEED.map(n=>n.n).sort((a,b)=>b.length-a.length); const out=[]; let rest=String(s);
+      while(rest){ const n=names.find(x=>rest.startsWith(x)); if(!n) return null; out.push(d[n]||n); rest=rest.slice(n.length); if(rest.startsWith("・")) rest=rest.slice(1); else if(rest) return null; }
+      return out.length?out:null; };
+    const one=(n,s,p)=>n==="1"?s:p;
+
+    add([
+      /* 見出し・ボタン */
+      ["あとで埋める（デモを見る）","Fill in later (view the demo)","稍后补全（查看演示）","Completar más tarde (ver la demo)"],
+      ["貿易クラウドの充足度","Trade Cloud completeness","贸易云完整度","Completitud de Trade Cloud"],
+      ["規制判定・関税","Regulations & duties","法规判定・关税","Normativa y aranceles"],
+      ["見積・受注書","Quotes & order forms","报价・订单","Cotizaciones y pedidos"],
+      ["運賃見積・梱包","Freight quotes & packing","运费报价・包装","Flete y embalaje"],
+      ["商談準備・AI提案","Meeting prep & AI proposals","商谈准备・AI建议","Preparación comercial y propuestas IA"],
+      ["動きます","Ready","已可使用","Listo"],
+      ["AI商社マンと埋める","Fill in with the AI Trade Agent","与AI商社专员一起补全","Completar con el Agente comercial IA"],
+      ["資料から取り込めたもの","Imported from your documents","已从资料中读取的内容","Obtenido de sus documentos"],
+      ["実際にファイルの中身を読んで抽出しています。","Extracted by actually reading the file contents.","通过实际读取文件内容提取。","Extraído leyendo el contenido real de los archivos."],
+      ["まだ取り込めた項目がありません","Nothing has been imported yet","尚未读取到任何项目","Todavía no se ha obtenido ningún dato"],
+      ["まだ足りないもの","Still missing","仍缺少的信息","Lo que aún falta"],
+      ["重要な順に伺います。","We'll ask in order of importance.","将按重要程度依次询问。","Le preguntaremos por orden de importancia."],
+      ["すべて揃いました。","Everything is complete.","已全部齐全。","Ya está todo completo."],
+      ["必須","Required","必填","Obligatorio"],["重要","Important","重要","Importante"],["任意","Optional","可选","Opcional"],
+      /* ヒアリングの項目名（logic_fill.js の NEED。辞書に既にあるもの＝英文社名・英文商品名・HSコード・価格表・寸法・重量・取引条件・進出希望国 は既存の訳） */
+      ["会社名","Company name","公司名称","Nombre de la empresa"],
+      ["商品名","Product name","商品名称","Nombre del producto"],
+      ["商材カテゴリ","Product category","商品类别","Categoría del producto"],
+      ["品番","Item number","货号","Referencia"],
+      ["最小発注数量（MOQ）","Minimum order quantity (MOQ)","最小起订量（MOQ）","Pedido mínimo (MOQ)"],
+      ["リードタイム","Lead time","交货期","Plazo de entrega"],
+      ["パレット・コンテナ入数","Units per pallet / container","每托盘・集装箱装载数","Cantidad por palé / contenedor"],
+      ["成分表・材質表","Ingredients / materials list","成分表・材质表","Composición / materiales"],
+      ["商品の強み","Product strengths","商品优势","Fortalezas del producto"],
+      ["認証・規格","Certifications & standards","认证・标准","Certificaciones y normas"],
+      ["産地・製造国","Origin / country of manufacture","产地・制造国","Origen / país de fabricación"],
+      ["支払条件","Payment terms","付款条件","Condiciones de pago"],
+      ["仕出港","Port of loading","装运港","Puerto de carga"],
+      ["賞味期限・保証期間","Shelf life / warranty","保质期・保修期","Vida útil / garantía"],
+      /* ヒアリングの項目の用途（NEED の use） */
+      ["インボイス・原産地証明の輸出者名","Exporter name on invoices and certificates of origin","发票・原产地证明上的出口商名称","Nombre del exportador en facturas y certificados de origen"],
+      ["インボイス・B/Lの英文表記","English name on invoices and B/Ls","发票・提单上的英文名称","Nombre en inglés en facturas y B/L"],
+      ["全画面の基準","The basis for every page","所有页面的基准","La base de todas las páginas"],
+      ["インボイス・パッキングリストの品名","Product name on invoices and packing lists","发票・装箱单上的品名","Nombre del producto en facturas y listas de empaque"],
+      ["規制調査の対象範囲","Scope of regulatory research","法规调查的范围","Alcance de la investigación normativa"],
+      ["受注・在庫の識別","Identifying orders and stock","订单・库存的识别","Identificación de pedidos y existencias"],
+      ["関税率・必要書類の自動判定","Automatic duty-rate and required-document check","自动判定关税率・所需单证","Determinación automática de aranceles y documentos"],
+      ["見積書・受注書の自動作成","Automatic quotes and order forms","自动制作报价单・订单","Cotizaciones y pedidos automáticos"],
+      ["商談での即答・失注の予防","Instant answers in meetings; fewer lost deals","商谈中即时回答・防止丢单","Respuestas inmediatas y menos ventas perdidas"],
+      ["納期回答・出荷計画","Delivery-date answers and shipping plans","交期答复・出货计划","Plazos de entrega y plan de envíos"],
+      ["運賃見積・梱包明細・コンテナ計算","Freight quotes, packing details and container planning","运费报价・装箱明细・集装箱计算","Cotización de flete, detalle de embalaje y cálculo de contenedores"],
+      ["FCL/LCLの判断・輸送費の試算","FCL/LCL decision and freight cost estimate","FCL/LCL判断・运费试算","Decisión FCL/LCL y estimación del flete"],
+      ["各国規制への適合判定","Compliance with each country's regulations","各国法规符合性判定","Cumplimiento de la normativa de cada país"],
+      ["商談準備・AIの提案の根拠","Meeting prep and evidence for AI proposals","商谈准备・AI建议的依据","Preparación comercial y base de las propuestas de la IA"],
+      ["参入可否の判定","Market-entry feasibility","能否进入市场的判定","Viabilidad de entrada al mercado"],
+      ["原産地証明・EPAの適用判定","Certificate of origin and EPA eligibility","原产地证明・EPA适用判定","Certificado de origen y aplicación de EPA"],
+      ["見積書の条件欄・費用分担","Terms on quotes and cost sharing","报价单条件栏・费用分担","Condiciones de la cotización y reparto de costes"],
+      ["入金管理・与信","Payment tracking and credit","收款管理・信用","Gestión de cobros y crédito"],
+      ["運賃見積の起点","Starting point for freight quotes","运费报价的起点","Punto de partida de la cotización de flete"],
+      ["商談での必須確認事項","A must-confirm item in meetings","商谈中必须确认的事项","Dato imprescindible en las negociaciones"],
+      ["規制調査・海外拠点への依頼","Regulatory research and requests to overseas bases","法规调查・委托海外据点","Investigación normativa y solicitudes a las bases"],
+      /* 回答欄：選択肢（チップ。押した時に送る値は data-chip の日本語のまま）・ボタン */
+      ["まだ決めていない","Not decided yet","尚未决定","Aún sin decidir"],
+      ["すべて反映する","Apply all","全部反映","Aplicar todo"],
+      ["1件目だけ反映する","Apply only the first","只反映第1件","Aplicar solo el primero"],
+      ["反映しない（ゼロから入力）","Don't apply (start from scratch)","不反映（从零开始输入）","No aplicar (empezar de cero)"],
+      ["反映して進める","Apply and continue","反映并继续","Aplicar y continuar"],
+      ["あとで決める","Decide later","稍后决定","Decidir más tarde"],
+      ["この案を採用","Use this suggestion","采用此方案","Usar esta propuesta"],
+      ["自分で入力する","I'll enter it myself","自己输入","Lo escribo yo"],
+      ["このまま登録する","Register as is","按原样登记","Registrar tal cual"],
+      ["入力し直す","Enter again","重新输入","Volver a escribir"],
+      ["AIに英訳してもらう","Have the AI translate it into English","让AI译成英文","Que la IA lo traduzca al inglés"],
+      ["選び終わった","Done selecting","选好了","Selección lista"],
+      ["資料を追加","Add documents","添加资料","Añadir documentos"],
+      ["URLから","From a URL","从URL添加","Desde una URL"],
+      ["わからない（あとで）","Don't know (later)","不知道（稍后）","No lo sé (después)"],
+      ["1つ以上選んでください","Please select at least one.","请至少选择一项。","Seleccione al menos una opción."],
+      ["ここに入力","Type here","在此输入","Escriba aquí"],
+      ["太字","Bold","粗体","Negrita"],["斜体","Italic","斜体","Cursiva"],["箇条書き","Bulleted list","项目符号","Viñetas"],
+      ["関連資料を追加で読み込ませる（Excel/Word/PowerPoint/PDF/画像/Zip。この欄へのドラッグ＆ドロップでも可）","Load more related documents (Excel/Word/PowerPoint/PDF/images/Zip; you can also drag & drop them onto this box)","追加读取相关资料（Excel/Word/PowerPoint/PDF/图片/Zip，也可拖放到此栏）","Cargar más documentos relacionados (Excel/Word/PowerPoint/PDF/imágenes/Zip; también puede arrastrarlos a este cuadro)"],
+      ["Google Drive／OneDrive／Googleドキュメント／Webページ（商品ページ・会社HP等）のURLから資料を追加（チャット欄にURLを貼るだけでもOK）","Add documents from a Google Drive / OneDrive / Google Docs / web page URL (product page, company website, etc.); you can also just paste the URL into the chat box","从Google Drive／OneDrive／Google文档／网页（商品页面・公司官网等）的URL添加资料（也可直接把URL粘贴到聊天栏）","Añadir documentos desde una URL de Google Drive / OneDrive / Google Docs / página web (página del producto, web de la empresa, etc.); también puede pegar la URL en el chat"],
+      ["クリックで全文を表示","Click to show the full text","点击显示全文","Haga clic para ver el texto completo"],
+      /* 回答の例（NEED の ex。回答欄の placeholder と、吹き出しの「例：…」に出る） */
+      ["例：株式会社みどり製茶","e.g. Midori Seicha Co., Ltd.","例：绿制茶株式会社","p. ej.: Midori Seicha Co., Ltd."],
+      ["例：MIDORI SEICHA Co., Ltd.","e.g. MIDORI SEICHA Co., Ltd.","例：MIDORI SEICHA Co., Ltd.","p. ej.: MIDORI SEICHA Co., Ltd."],
+      ["例：有機抹茶パウダー 100g","e.g. Organic matcha powder 100 g","例：有机抹茶粉 100g","p. ej.: Matcha orgánico en polvo 100 g"],
+      ["例：Organic Matcha Powder 100g","e.g. Organic Matcha Powder 100g","例：Organic Matcha Powder 100g","p. ej.: Organic Matcha Powder 100g"],
+      ["例：MD-MAT-100","e.g. MD-MAT-100","例：MD-MAT-100","p. ej.: MD-MAT-100"],
+      ["例：0902.10","e.g. 0902.10","例：0902.10","p. ej.: 0902.10"],
+      ["例：〜499個 US$15.80／500〜1,999個 US$14.50／2,000個〜 US$13.20","e.g. up to 499 pcs US$15.80 / 500–1,999 pcs US$14.50 / 2,000+ pcs US$13.20","例：~499个 US$15.80／500~1,999个 US$14.50／2,000个~ US$13.20","p. ej.: hasta 499 uds. US$15.80 / 500–1,999 uds. US$14.50 / desde 2,000 uds. US$13.20"],
+      ["例：500袋","e.g. 500 bags","例：500袋","p. ej.: 500 bolsas"],
+      ["例：受注後 21日","e.g. 21 days after the order","例：接单后21天","p. ej.: 21 días tras el pedido"],
+      ["例：単品 110×45×175mm・128g／外装 400×300×250mm・3.05kg・20入","e.g. Unit 110×45×175 mm · 128 g / Outer carton 400×300×250 mm · 3.05 kg · 20 pcs","例：单品 110×45×175mm・128g／外箱 400×300×250mm・3.05kg・20个装","p. ej.: Unidad 110×45×175 mm · 128 g / Caja exterior 400×300×250 mm · 3.05 kg · 20 uds."],
+      ["例：外装40ケース／パレット、20ftで18パレット","e.g. 40 cartons per pallet; 18 pallets per 20 ft container","例：每托盘40箱，20英尺集装箱装18托盘","p. ej.: 40 cajas por palé; 18 palés por contenedor de 20 pies"],
+      ["例：原材料・栄養成分・アレルゲン／全成分INCI／材質・RoHS・REACH","e.g. Ingredients · nutrition facts · allergens / full INCI list / materials · RoHS · REACH","例：原材料・营养成分・过敏原／全成分INCI／材质・RoHS・REACH","p. ej.: Ingredientes · información nutricional · alérgenos / lista INCI completa / materiales · RoHS · REACH"],
+      ["例：粒径5μm（競合15〜30μm）／有機JAS取得／残留農薬250項目 検出せず","e.g. 5 μm particle size (competitors 15–30 μm) / Organic JAS certified / 250 pesticide residues not detected","例：粒径5μm（竞品15~30μm）／已获有机JAS认证／250项农药残留未检出","p. ej.: Partícula de 5 μm (competencia: 15–30 μm) / Certificación JAS orgánica / 250 residuos de plaguicidas no detectados"],
+      ["例：有機JAS／HACCP／ISO 22000","e.g. Organic JAS / HACCP / ISO 22000","例：有机JAS／HACCP／ISO 22000","p. ej.: JAS orgánico / HACCP / ISO 22000"],
+      ["例：静岡県掛川市","e.g. Kakegawa, Shizuoka","例：静冈县挂川市","p. ej.: Kakegawa (Shizuoka)"],
+      ["例：製造日から12ヶ月","e.g. 12 months from the production date","例：自生产日起12个月","p. ej.: 12 meses desde la fecha de fabricación"],
+      /* 全項目が揃った後・AI の分析中 */
+      ["ダッシュボードを見る","View the dashboard","查看仪表盘","Ver el panel"],
+      ["商品情報を確認する","Check the product information","确认商品信息","Revisar la información del producto"],
+      ["AIに資料を読み直させる（追加ヒアリング）","Have the AI re-read the documents (follow-up questions)","让AI重新阅读资料（追加询问）","Que la IA vuelva a leer los documentos (preguntas adicionales)"],
+      ["AIにもう一度読み直させる","Have the AI re-read them once more","让AI再读一遍","Que la IA los lea otra vez"],
+      ["接続中のAIが資料を分析しています…（数秒〜十数秒）","The connected AI is analyzing the documents… (a few seconds to a dozen or so)","已连接的AI正在分析资料…（几秒到十几秒）","La IA conectada está analizando los documentos… (de unos segundos a poco más de diez)"],
+      /* B6：資料なしで始めた商品の、充足度のカードの一文 */
+      ["資料なしで始めた商品です。質問に答えるたびに充足度が上がります。","This product was started without documents. Completeness rises with each answer.","此商品是在没有资料的情况下开始登记的。每回答一个问题，完整度都会提高。","Este producto se empezó sin documentos. La completitud sube con cada respuesta."],
+    ]);
+
+    addEl([
+      ["<b>この画面でやっていること：</b>アップロードされた資料をAIが読み、<b>足りない情報を1つずつ伺っています。</b>ここが埋まるほど、他の画面が正確に動きます。",
+       "<b>What this page does:</b> the AI reads the documents you uploaded and <b>asks for the missing information one item at a time.</b> The more you fill in, the more accurately the other pages work.",
+       "<b>本页在做什么：</b>AI读取您上传的资料，<b>逐项询问缺少的信息。</b>补全得越多，其他页面就越准确。",
+       "<b>Qué hace esta página:</b> la IA lee los documentos que subió y <b>le pide los datos que faltan, uno por uno.</b> Cuanto más complete, con más precisión funcionarán las demás páginas."],
+      /* 飛ばし方は、その言語で実際に効くもの（「わからない（あとで）」のボタン・英語の unknown・中国語の 不明）を案内する */
+      ["分からない項目は「不明」「あとで」で飛ばせます。<b>質問や修正依頼もそのまま入力OK</b>（例：「NETとGrossどちら？」「商品名を〇〇に変更して」）— AI商社マンが対応してから続きを聞きます。",
+       "Skip anything you don't know with “Don't know (later)” or by typing “unknown”. <b>You can also type questions or corrections</b> (e.g. “NET or gross?”, “Change the product name to ○○”) — the AI Trade Agent handles them, then continues.",
+       "不清楚的项目可以点“不知道（稍后）”或输入“不明”跳过。<b>也可以直接输入提问或修改请求</b>（例：“是NET还是Gross？”“把商品名改为〇〇”）— AI商社专员处理后会继续提问。",
+       "Puede saltar lo que no sepa con «No lo sé (después)». <b>También puede escribir preguntas o correcciones</b> (p. ej., «¿NET o bruto?», «Cambia el nombre del producto a ○○»): el Agente comercial IA las atiende y luego continúa."],
+      ["🤖 管理者がAIエンジン（ChatGPT／Gemini／Claude／Perplexity）を接続すると、AIが資料全体を読み直し、この商材固有の確認事項を<b>追加でヒアリング</b>します。",
+       "🤖 When an administrator connects an AI engine (ChatGPT / Gemini / Claude / Perplexity), the AI re-reads all the documents and asks <b>follow-up questions</b> about points specific to this product.",
+       "🤖 管理员连接AI引擎（ChatGPT／Gemini／Claude／Perplexity）后，AI会重新阅读全部资料，并就该商品特有的确认事项<b>追加询问</b>。",
+       "🤖 Cuando un administrador conecta un motor de IA (ChatGPT / Gemini / Claude / Perplexity), la IA relee todos los documentos y hace <b>preguntas adicionales</b> sobre aspectos propios de este producto."],
+    ]);
+
+    I18N.pat.push(
+      {re:/^(.+) から (\d+)シート・(\d+)個の表を解析しました。$/,
+       en:m=>"Analyzed "+m[2]+one(m[2]," sheet"," sheets")+" and "+m[3]+one(m[3]," table"," tables")+" in "+m[1]+".",
+       zh:"已从 $1 解析 $2 个工作表・$3 个表格。",
+       es:m=>"Se analizaron "+m[2]+one(m[2]," hoja"," hojas")+" y "+m[3]+one(m[3]," tabla"," tablas")+" de "+m[1]+"."},
+      {re:/^(\d+) \/ (\d+) 項目$/,en:"$1 / $2 items",zh:"$1 / $2 项",es:"$1 / $2 campos"},
+      {re:/^残り (\d+)項目$/,en:m=>m[1]+one(m[1]," item left"," items left"),zh:"剩余 $1 项",es:m=>one(m[1],"Queda 1 campo","Quedan "+m[1]+" campos")},
+      {re:/^残り (\d+)項目・充足度 (\d+)%$/,en:m=>m[1]+one(m[1]," item left"," items left")+" · completeness "+m[2]+"%",zh:"剩余 $1 项・完整度 $2%",es:m=>one(m[1],"Queda 1 campo","Quedan "+m[1]+" campos")+" · completitud "+m[2]+"%"},
+      {re:/^充足度 (\d+)%$/,en:"Completeness $1%",zh:"完整度 $1%",es:"Completitud $1%"},
+      {re:/^(.+)が必要$/,en:(m,d)=>{ const L=needNames(m[1],d); return L?"Needs: "+L.join(" · "):null; },
+       zh:(m,d)=>{ const L=needNames(m[1],d); return L?"需要"+L.join("・"):null; },
+       es:(m,d)=>{ const L=needNames(m[1],d); return L?"Falta: "+L.join(" · "):null; }},
+      {re:/^(\d+)行を取り込み$/,en:m=>m[1]+one(m[1]," row imported"," rows imported"),zh:"已读取$1行",es:m=>m[1]+one(m[1]," fila importada"," filas importadas")},
+      {re:/^(.+) ほか(\d+)件$/,en:"$1 + $2 more",zh:"$1 等另外$2项",es:"$1 y $2 más"},
+      {re:/^(\d{4}\.\d{2}) を採用$/,en:"Use $1",zh:"采用 $1",es:"Usar $1"},
+      {re:/^T\/T (\d+)日$/,en:"T/T $1 days",zh:"T/T $1天",es:"T/T $1 días"},
+      /* 回答欄の placeholder：「例：…（Enterで送信・…）」の例の部分も辞書で訳す */
+      {re:/^([\s\S]+)（Enterで送信・Shift\+Enterで改行。ファイルはここにドラッグ＆ドロップOK）$/,
+       en:(m,d)=>(d[m[1]]||m[1])+" (Enter to send · Shift+Enter for a new line · drag & drop files here)",
+       zh:(m,d)=>(d[m[1]]||m[1])+"（Enter发送・Shift+Enter换行・可将文件拖放到此处）",
+       es:(m,d)=>(d[m[1]]||m[1])+" (Enter para enviar · Mayús+Enter para nueva línea · arrastre archivos aquí)"}
+    );
+  }catch(e){ try{ console.warn("bc20 fixes b-i18n",e); }catch(e2){} }
+})();
+
+/* ── 新しい構成 adapter/fixes/b-lead.js ── */
+/* ═══ 旧画面の不具合の直し（まとまり B：やりとり・メンバー）：動いている時に足す分 ═══
+   B1：v21.6 はメイン担当者の名前を、商品のリードタイムと同じ項目（TEN.lead）に入れていた。メイン担当者は TEN.mainMember に分けた（adapter/fixes/b-msg.cjs）。
+       既存のデータで lead に担当者の名前が入っているものは、読み込み（loadTen）の中で mainMember へ移す（logic_auth.js の tenMainMove）。
+       ここでは、読み込みで移した商品があれば、その形で保存し直す（同期でサーバーの商品のデータ＝/api/v1 の master.lead も直る）。
+       変更の時刻（_fm）は付かない：読み込みの控え（logic_v213sync.js の v213FmBaseAll）は移した後の形なので、保存しても「変わった項目」にならない
+       （時刻を付けると、別の端末で後から入れた本物のリードタイムを上書きしてしまう）。読み込みの途中ではなく、読み込みが終わった後に保存する。 */
+(function(){
+  try{
+    if(typeof loadTen!=="function"||typeof tenMainMove!=="function"||typeof TEN_MAIN_MOVED==="undefined") return;
+    let pending=0;
+    const later=()=>{ if(pending) return; pending=1;
+      setTimeout(()=>{ pending=0; try{ if(typeof SES!=="undefined"&&SES&&SES.t==="trial"&&typeof saveTen==="function") saveTen(); }catch(e){} },0); };
+    /* 再読み込み（F5）の最初の読み込み（logic_auth.js の authBoot。この包み込みより前に走る）で移した分 */
+    if(TEN_MAIN_MOVED) later();
+    const lt0=loadTen;
+    loadTen=function(){ const n0=TEN_MAIN_MOVED; const r=lt0.apply(this,arguments); try{ if(TEN_MAIN_MOVED>n0) later(); }catch(e){} return r; };
+  }catch(e){ try{ console.warn("bc20 fixes b-lead",e); }catch(e2){} }
+})();
+
+/* ── 新しい構成 adapter/fixes/c-dict.js ── */
+/* ═══ グループC の直しで足した文言の辞書（英・中・西）。旧画面の辞書（logic_i18n.js の I18N.dict）に足す ═══
+   翻訳は描いた時に旧画面の MutationObserver が辞書を引く（旧画面の版・React の版とも同じ）。すでにある項目は変えない。
+   ・C7 社内規制DB の引き出し：ボタンの箱の説明と「🌐 規制データベースを表示する」（絵文字の後ろの文字で引く） */
+(function(){
+  try{
+    if(typeof I18N==="undefined"||!I18N||!I18N.dict) return;
+    const add=(ja,en,zh,es)=>{ [["en",en],["zh",zh],["es",es]].forEach(([l,v])=>{ const d=I18N.dict[l]; if(d&&v&&!d[ja]) d[ja]=v; }); };
+    add("開いただけでは社内ポータルに接続しません。ボタンを押すと、この枠の中に表示します。",
+      "Opening this panel does not connect to the internal portal. Press the button to show it in this frame.",
+      "仅打开此面板不会连接内部门户。点击按钮后，将在此框中显示。",
+      "Abrir este panel no conecta con el portal interno. Pulse el botón para mostrarlo en este marco.");
+    add("規制データベースを表示する", "Show the regulatory database", "显示法规数据库", "Mostrar la base de datos normativa");
+  }catch(e){}
+})();
 
 </script>
