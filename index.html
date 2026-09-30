@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="b7b6a4c38e4d";
+const BC20_BUILD="0f40501d17a0";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -4135,7 +4135,7 @@ async function fillIngestEntries(entries,label,srcKind){
     throw new Error((srcKind||"資料一式")+"の中に読み取れる資料が見つかりませんでした（対応：Excel／CSV／Word／PowerPoint／PDF／画像／テキスト）"+
       ((z.skipped||[]).length?"。対象外："+(z.skipped||[]).slice(0,3).join("・").slice(0,110):"")+
       ((z.skipped||[]).some(s2=>/\.pdf|\.png|\.jpe?g/i.test(String(s2)))?"※PDF・画像はAIエンジン接続時に読み取れます（管理コンソールで設定）":""));
-  fillSay("ai",`${esc(srcKind||"資料一式")}内の<b>${okF.length+aiF.length}ファイル</b>を読み込みました（${esc(okF.concat(aiF).slice(0,4).map(x=>String(x.name).split("/").pop()).join("・")).slice(0,130)}${okF.length+aiF.length>4?" ほか":""}${aiF.length?`／PDF・画像${aiF.length}件はAIが読取`:""}${(z.skipped||[]).length?`／対象外${z.skipped.length}件`:""}）。内容を反映します…`);
+  fillSay("ai",`${esc(srcKind||"資料一式")}内の<b>${okF.length+aiF.length}ファイル</b>を読み込みました（${escCut(okF.concat(aiF).slice(0,4).map(x=>String(x.name).split("/").pop()).join("・"),130)}${okF.length+aiF.length>4?" ほか":""}${aiF.length?`／PDF・画像${aiF.length}件はAIが読取`:""}${(z.skipped||[]).length?`／対象外${z.skipped.length}件`:""}）。内容を反映します…`);
   render();
   /* ① 決定論（表・ラベルの直読み） */
   let ch=[];
@@ -4167,7 +4167,7 @@ async function fillAttach(f){
     fillSay("ai","Zipの中身をまとめて読み取っています…（複数ファイルを1つの資料一式として統合します）");
     render();
     try{ await fillIngestEntries(await zipEntriesSorted(f),f.name,"Zip"); }
-    catch(e){ fillSay("ai","Zipを読み取れませんでした："+esc(String(e&&e.message)).slice(0,140)); render(); }
+    catch(e){ fillSay("ai","Zipを読み取れませんでした："+escCut(String(e&&e.message),140)); render(); }
     return;
   }
   const canAI=llmCanFile(ext), office=/^(xlsx|xlsm|csv|txt|docx|pptx)$/.test(ext);
@@ -4209,7 +4209,7 @@ async function fillAttach(f){
     if(typeof logU==="function") logU("upload","ヒアリング中に追加:"+f.name);
     if(FILL.cur&&has(TEN[FILL.cur.k])) fillNext(); else render();
   }catch(e){
-    fillSay("ai",`読み取れませんでした（${esc(String(e.message)).slice(0,60)}）。別の形式でお試しください。`);
+    fillSay("ai",`読み取れませんでした（${escCut(String(e.message),60)}）。別の形式でお試しください。`);
     render();
   }
 }
@@ -4286,7 +4286,7 @@ function hsAdviseFlow(v){
     render();
   }).catch(e=>{
     applyAnswer(TEN,"hs","不明");
-    fillSay("ai",`（AI判別に接続できませんでした：${esc(String(e.message)).slice(0,50)}）<br>
+    fillSay("ai",`（AI判別に接続できませんでした：${escCut(String(e.message),50)}）<br>
       商品名から<b>${esc(TEN.hs)}</b>と推定して進めます。正式には税関の事前教示で確定できます。`);
     syncTenant(); fillNext();
   });
@@ -4426,7 +4426,7 @@ fillAnswer=function(v){
             <div class="ci"><b>最終決定はお客様です。</b>この案でよければ「この案を採用」を、修正したい場合はそのまま正しい表記をご入力ください。</div>`,
             {ask:FILL.cur});
           render();
-        }).catch(e=>{ skipCurrent(`（AI提案を作れませんでした：${esc(String(e.message)).slice(0,40)}）<br>承知しました。<b>${FILL.cur.n}</b>は後回しにします。STANDAGEの担当からあらためて確認します。`); });
+        }).catch(e=>{ skipCurrent(`（AI提案を作れませんでした：${escCut(String(e.message),40)}）<br>承知しました。<b>${FILL.cur.n}</b>は後回しにします。STANDAGEの担当からあらためて確認します。`); });
         return;
       }
       skipCurrent(); return;
@@ -4509,7 +4509,7 @@ fillAnswer=function(v){
         clean();
         /* AI判定に失敗：事故を避け、そのまま登録はしない */
         if(QUESTION_RE.test(vs)||EDIT_RE.test(vs)){
-          fillSay("ai",`（AIエンジンに接続できませんでした：${esc(String(e.message)).slice(0,40)}）<br>
+          fillSay("ai",`（AIエンジンに接続できませんでした：${escCut(String(e.message),40)}）<br>
             ご依頼の内容はSTANDAGEの担当が確認します。いったん<b>${FILL.cur.n}</b>の値のみご入力いただくか、「あとで」で飛ばしてください。`,{ask:FILL.cur});
           render(); return;
         }
@@ -5140,7 +5140,7 @@ async function deckSiteImgs(url){
     ]);
     if(typeof logU==="function") logU("ai","公式サイト画像候補:"+host);
   }catch(e){
-    say(`公式サイトを読み込めませんでした（${esc(String(e.message)).slice(0,60)}）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。`);
+    say(`公式サイトを読み込めませんでした（${escCut(String(e.message),60)}）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。`);
   }
 }
 /* ═══ Web画像取得 v2：自動挿入を廃止し「候補提示→お客様確認→AI最終判定」方式 ═══
@@ -5210,7 +5210,7 @@ JSONのみ：{"exact":[この商品・この会社そのものの可能性が高
        arr:G.generic.map(c=>Object.assign({as:"ph",generic:1},c)),empty:"候補なし"}
     ]);
   }catch(e){
-    say(`検索できませんでした（${esc(String(e.message)).slice(0,50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
+    say(`検索できませんでした（${escCut(String(e.message),50)}）。claude.aiのプレビュー上では外部通信が遮断されます——<b>配布HTML・公開URL</b>でお試しください。`);
   }
 }
 /* ═══ 公式サイトで資料を強化：コピー・特徴・ラインアップ・使い方をAIが取込み、
@@ -5322,7 +5322,7 @@ async function deckEnrich(){
       (setLogo?'<br>ロゴを公式サイトから設定':'')+
       '<br><span style="font-size:10px;color:var(--ink-3)">次の生成から資料に反映されます。内容は「AI商社マンと仕上げる」でいつでも修正できます。</span></div>');
   }catch(e){
-    say('取り込めませんでした（'+esc(String(e.message)).slice(0,60)+'）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。');
+    say('取り込めませんでした（'+escCut(String(e.message),60)+'）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。');
   }
 }
 
@@ -5889,7 +5889,7 @@ async function deckMake(lang){
       <span style="font-size:10px;color:var(--ink-3)">Googleスライドにする場合：Googleドライブにアップロード → 右クリック →「アプリで開く」→ Googleスライド。claude.aiのプレビュー上ではダウンロードが動かないため、配布HTML／公開URLでお使いください。</span>`);
     if(typeof logU==="function") logU("ai","営業資料生成:"+lang);
   }catch(e){
-    say(`✗ 生成に失敗しました：${esc(String(e.message)).slice(0,80)}`);
+    say(`✗ 生成に失敗しました：${escCut(String(e.message),80)}`);
   }
 }
 /* ── 完成度チェック＆伴走ヒアリング ── */
@@ -6156,7 +6156,7 @@ ${siteTxt?`=== 公式サイト抜粋（${siteUrl}） ===\n${siteTxt}`:"（公式
         $("#wzUsage").value=j.usage.filter(Boolean).slice(0,4).join("\n"); filled.push("使い方");
       } else if(!$("#wzUsage").value.trim()) blank.push("使い方");
       say2(`✓ 案を入れました（${[...new Set(filled)].join("・")||"なし"}）。${blank.length?`<br><b>確認できなかった項目：${[...new Set(blank)].join("・")}</b>——誤情報を避けるため空欄のままです。お手元の情報でご入力ください。`:""}<br><b>内容を確認・修正して保存</b>してください（最終決定はお客様です）。`);
-    }catch(e){ say2("AI提案を作れませんでした："+esc(String(e.message)).slice(0,60)); }
+    }catch(e){ say2("AI提案を作れませんでした："+escCut(String(e.message),60)); }
     wai.disabled=false;
   };
   $("#wzSave").onclick=()=>{
@@ -7058,7 +7058,7 @@ function sendMsg(){
       put(r.a,r.c);
       if(typeof logU==="function") logU("ai","やりとり:"+v.slice(0,30));
     }catch(e){
-      put("処理できませんでした："+esc(String(e.message)).slice(0,80),"");
+      put("処理できませんでした："+escCut(String(e.message),80),"");
     }
   })();
 }
@@ -9187,7 +9187,7 @@ function vShipBody(){
             ${i<=shipStep&&opn?`
               <div style="font-size:10.5px;color:var(--ink-2);margin-top:3px;line-height:1.65">${shipStepDigest(i,D.ship)}</div>
               ${s.art?`<div class="art" id="stepart${i}" style="margin-top:7px"><div class="ah"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>${s.art.h}</div><div class="ab" style="overflow-x:auto">${s.art.b}</div></div>`:""}
-              ${md&&md.note?`<div style="font-size:10px;color:var(--or-deep);margin-top:3px">✎ 指示：${esc(md.note).slice(0,70)}</div>`:""}
+              ${md&&md.note?`<div style="font-size:10px;color:var(--or-deep);margin-top:3px">✎ 指示：${escCut(md.note,70)}</div>`:""}
               ${i===shipStep?`<button class="btn g" style="margin-top:5px;padding:3px 10px;font-size:10.5px" onclick="openStepEdit(${i})">✎ このステップを編集</button>`
                 :`<div style="font-size:9.5px;color:var(--ink-3);margin-top:3px">🔒 確定済み・変更不可</div>`}`
               :i<shipStep&&md&&md.note?`<div style="font-size:9.5px;color:var(--ink-3);margin-top:2px">✎ 指示あり（▼で表示）</div>`:""}
@@ -9439,7 +9439,7 @@ async function dealFromMinutes(text,att){
     set("dfWhy",j.why); set("dfOwner",j.owner); set("dfNote",j.note);
     say('✓ 反映しました。<b>内容をご確認・修正のうえ「記録する」</b>を押してください（議事録に無い項目は空欄のままです）。');
     if(typeof logU==="function") logU("ai","議事録から商談記録を抽出");
-  }catch(e){ say("整理できませんでした："+esc(String(e.message)).slice(0,60)); }
+  }catch(e){ say("整理できませんでした："+escCut(String(e.message),60)); }
 }
 function dealAdviseLocal(rec){
   const tips=[];
@@ -11593,7 +11593,7 @@ function openDashAI(){
     const q=(qi.value||"").trim(); if(!q){ qi.focus(); return; }
     const out=$("#daiOut"); out.innerHTML=`<p class="nn" style="margin-top:9px"><span class="spin"></span> AI商社マンが集計しています…（10〜40秒）</p>`;
     try{ DREP=await dashRepAsk(q); out.innerHTML=dashRepHtml(DREP); }
-    catch(e){ out.innerHTML=`<p class="nn" style="margin-top:9px;color:var(--crit)">分析できませんでした：${esc(String(e.message)).slice(0,90)}</p>`; }
+    catch(e){ out.innerHTML=`<p class="nn" style="margin-top:9px;color:var(--crit)">分析できませんでした：${escCut(String(e.message),90)}</p>`; }
   };
   if(qi) qi.onkeydown=e=>{ if(e.key==="Enter"&&go2&&!go2.disabled) go2.onclick(); };
 }
@@ -12188,9 +12188,9 @@ async function todayRunIngest(entries,label){
   const at=$("#tdatt"); if(at) at.textContent="✓ 添付 "+((TDRUN._n=(TDRUN._n||0)+okFiles.length))+"件"; tdSave();
   const skipped=(z.skipped||[]).length;
   const aiRead=(z.files||[]).filter(f=>!f.chars&&/AI読取/.test(f.kind||"")).length;
-  const nmPart=[esc(okFiles.map(f=>String(f.name).split("/").pop()).slice(0,4).join("・")).slice(0,120)+(okFiles.length>4?" ほか":""),
+  const nmPart=[escCut(okFiles.map(f=>String(f.name).split("/").pop()).slice(0,4).join("・"),120)+(okFiles.length>4?" ほか":""),
     aiRead?`PDF・画像${aiRead}件はAIが読取`:""].filter(Boolean).join("／");
-  let h=`✅ <b>${okFiles.length+aiRead}件</b>の資料を読み込みました（${nmPart}）${reg?`。<b>取り込んだ情報一覧にも登録済み</b>`:""}${skipped?`。<br>読めなかったファイル <b>${skipped}件</b>（例：${esc(String((z.skipped||[])[0]||"").split("/").pop()).slice(0,90)}）`:""}。`;
+  let h=`✅ <b>${okFiles.length+aiRead}件</b>の資料を読み込みました（${nmPart}）${reg?`。<b>取り込んだ情報一覧にも登録済み</b>`:""}${skipped?`。<br>読めなかったファイル <b>${skipped}件</b>（例：${escCut(String((z.skipped||[])[0]||"").split("/").pop(),90)}）`:""}。`;
   if(typeof ppReady==="function"&&ppReady()){
     try{
       const sum=await todayRunAsk(`いま添付した資料（${label}）の内容を確認し、このタスクにどう使えるか・次の一歩を短く教えてください。`,false);
@@ -12819,7 +12819,7 @@ brain=function(q,opts){
       /* 全エンジン失敗：物流費質問はレートDBの正直回答を優先してから内蔵へ */
       const so=typeof shipRateAsk==="function"?shipRateAsk(q0,false):null;
       const r=so||await Promise.resolve(__brainB4pplx(q0));
-      r.c+=`／⚠ ${esc(llmLabel())}接続不可（${esc(String(e.message)).slice(0,80)}）→ ${so?"社内物流レートDB":"内蔵エンジン"}で回答`;
+      r.c+=`／⚠ ${esc(llmLabel())}接続不可（${escCut(String(e.message),80)}）→ ${so?"社内物流レートDB":"内蔵エンジン"}で回答`;
       return r;
     }
   })();
@@ -12878,7 +12878,7 @@ function llmExtraStart(){
     llmExtraNext();
   }).catch(e=>{
     FILL.xq=[];
-    fillSay("ai",`（AIエンジンでの追加分析は接続できずスキップしました：${esc(String(e.message)).slice(0,70)}）`);
+    fillSay("ai",`（AIエンジンでの追加分析は接続できずスキップしました：${escCut(String(e.message),70)}）`);
     llmExtraFinish();
   });
 }
@@ -12984,7 +12984,7 @@ function llmExtraTake(val){
     clean(); FILL._xbz=0;
     /* 判定に失敗：質問・修正依頼らしき入力を回答として無断記録しない */
     if(QUESTION_RE.test(val)||EDIT_RE.test(val)){
-      fillSay("ai",`（AIエンジンに接続できず、いまご質問への回答を用意できませんでした：${esc(String(e.message)).slice(0,40)}）<br>
+      fillSay("ai",`（AIエンジンに接続できず、いまご質問への回答を用意できませんでした：${escCut(String(e.message),40)}）<br>
         この内容はまだ記録していません。お手数ですが<b>もう一度お送りください</b>。<br>
         <div class="ci">${pos}「${esc(cu.qPlain)}」への回答は「不明」でも構いません。</div>`,{ask:cu});
       render(); return;
@@ -13071,8 +13071,8 @@ function ppBind(){
     const keepAct=LLM.act[k], keepOn=LLM.on;
     LLM.act[k]=true; LLM.on=true;
     try{ const r=await llmAsk("接続テストです。「接続OK」とだけ日本語で答えてください。",300,{noWeb:1,prov:k,model:llmModelOf(k)});
-      res(`✓ ${esc(PROV[k].nm)}：接続できました（model: ${esc(r.model)}／応答: ${esc(r.txt).slice(0,30)}）。✓を入れて「保存」すると有効になります。`,true); }
-    catch(e){ res(`✗ ${esc(PROV[k].nm)}：接続できませんでした：`+esc(String(e.message)).slice(0,140),false); }
+      res(`✓ ${esc(PROV[k].nm)}：接続できました（model: ${esc(r.model)}／応答: ${escCut(r.txt,30)}）。✓を入れて「保存」すると有効になります。`,true); }
+    catch(e){ res(`✗ ${esc(PROV[k].nm)}：接続できませんでした：`+escCut(String(e.message),140),false); }
     LLM.act[k]=keepAct; LLM.on=keepOn;
   });
 }
@@ -14048,14 +14048,16 @@ function fwdAiCard(){
     </div>
     <p class="nn" id="fwdaires" style="margin-top:5px"></p>
     <p class="nn" style="margin-top:5px">
-    ${conn?"":"APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します（キーがお客様の端末に渡ることはありません）。接続までは、Excel・CSVのローカル解析と定型見積で動きます。<br><span style='color:var(--warn)'>💡 管理画面で接続済みなのに「未接続」と出る場合：</span>接続設定は<b>ブラウザ・URLごと</b>に保存されます。管理者が接続したのと<b>同じURL・同じブラウザ</b>でご利用のうえ、「🔄 接続状態を再確認」を押してください（別タブで接続した直後は自動でも同期されます）。"}
+    ${conn?"":"APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します。ほかの端末でこのアカウントの実AIを使うには、管理者がアカウント一覧の<b>「📱 実AI」を「共有中」</b>にします（キーを含む設定は暗号化して届き、この端末のブラウザの中でだけ使います）。それまでは、Excel・CSVのローカル解析と定型見積で動きます。<br><span style='color:var(--warn)'>💡 管理画面で接続済みなのに「未接続」と出る場合：</span>管理者に、このアカウントを<b>「共有中」</b>にするよう依頼し、切り替わった後に「🔄 接続状態を再確認」を押してください（管理者と同じブラウザで開いている時は、押すだけで読み直します）。"}
     ${conn&&FWDPLAN==="lite"?`<span style="color:var(--warn)">ライトプランのため実AIは停止中です（PDF読み取り・AI応答文はスタンダード以上で有効）。</span>`:""}</p>
   </div>`;
 }
 function fwdAiBind(){
   document.querySelectorAll("[data-fwdplan]").forEach(b=>b.addEventListener("click",()=>fwdSetPlan(b.dataset.fwdplan)));
   const rs=$("#fwdresync");
-  if(rs) rs.onclick=()=>{
+  if(rs) rs.onclick=async()=>{
+    /* v21.28：アカウントごとの共有の設定（管理者が「📱 実AI」を「共有中」にしたもの）も取りに行く。前はこの端末の控えを読み直すだけだった */
+    try{ if(typeof llmSharePull==="function") await llmSharePull(true); }catch(e){}
     if(typeof llmReload==="function") llmReload();
     fwdRender();
     toast("接続状態を確認しました：🤖 "+fwdEngLabel());
@@ -16669,7 +16671,7 @@ function aiLevelCard(){
         ${c.next?`<div class="g2next"><span>次の一手</span><button class="btn" onclick="${goCall(c)}">${esc(c.next.t)} →</button></div>`
                 :`<p class="g2full">✓ この分野は満点です</p>`}</div></details>`).join("");
   const f2=t=>{ const dd=new Date(t); return `${dd.getMonth()+1}/${dd.getDate()}`; };
-  const log=L.events.length?L.events.map(e=>`<span title="${esc(String(e[2]||""))}">${GROW_EVIC[e[1]]||"•"} ${f2(e[0])} ${esc(String(e[2]||e[1]||"")).slice(0,26)}</span>`).join("")
+  const log=L.events.length?L.events.map(e=>`<span title="${esc(String(e[2]||""))}">${GROW_EVIC[e[1]]||"•"} ${f2(e[0])} ${escCut(String(e[2]||e[1]||""),26)}</span>`).join("")
     :`<span>まだ記録はありません。質問・資料の取り込み・商談記録のたびに、ここに積み上がります。</span>`;
   return `<div class="c grow" style="margin-bottom:11px">
     <div class="growhd">
@@ -23729,7 +23731,7 @@ async function rsWizardResearch(btn){
       .forEach(([id,v,nm])=>{ if(!$("#"+id)) return; (put(id,v)||$("#"+id).value.trim()?filled:blank).push(nm); });
     const ua=$("#wzUsage"); if(ua){ if((f.usage||[]).length&&!ua.value.trim()){ ua.value=f.usage.slice(0,4).join("\n"); filled.push("使い方"); } else if(!ua.value.trim()) blank.push("使い方"); }
     say(`<div style="font-weight:700">✓ 案を入れました（${[...new Set(filled)].join("・")||"なし"}）${blank.length?`<br><span style="color:var(--warn)">確認できなかった項目：${[...new Set(blank)].join("・")}</span>——誤情報を避けるため空欄のままです`:""}<br>内容を確認・修正して「保存して資料に反映」を押してください（最終決定はお客様です）。</div>`+rsFactsHtml(f)+rsEvidHtml(R));
-  }catch(e){ say("AI提案を作れませんでした："+esc(String(e&&e.message||e)).slice(0,90)); }
+  }catch(e){ say("AI提案を作れませんでした："+escCut(String(e&&e.message||e),90)); }
   btn.disabled=false;
 }
 if(typeof deckWizard==="function"){ const __dw198=deckWizard; deckWizard=async function(){ const r=await __dw198.apply(this,arguments); try{ const b=$("#dkwai"); if(b) b.onclick=()=>rsWizardResearch(b); }catch(e){} return r; }; }
@@ -23799,7 +23801,7 @@ async function deckSiteImgs2(url){
     ].filter(Boolean));
     if(typeof logU==="function") logU("ai","公式サイト画像候補:"+host+"（"+R.pages.length+"ページ）");
   }catch(e){
-    say(`公式サイトを読み込めませんでした（${esc(String(e.message)).slice(0,60)}）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。`);
+    say(`公式サイトを読み込めませんでした（${escCut(String(e.message),60)}）。claude.aiプレビュー上では外部通信が遮断されます——配布HTML・公開URLでお試しください。`);
   }
 }
 if(typeof deckSiteImgs==="function"){ deckSiteImgs=deckSiteImgs2; }
@@ -32769,5 +32771,49 @@ function bc20MergeBtnSync(){
     add("規制データベースを表示する", "Show the regulatory database", "显示法规数据库", "Mostrar la base de datos normativa");
   }catch(e){}
 })();
+
+/* ═══ v21.28（2026-09-30）
+   ① 「エスケープしてから先頭 N 字で切る」の残り 25 か所（エラー文・資料名・指示・成長の記録・接続テストの応答など）
+      原因：esc(文字).slice(0,N) は、&amp; などに置き換えた後の文字を切るので、途中で切れた「&am」「&l」がそのまま文字として出る（v21.27 で直した B3・D3 と同じ型）。
+      直し：元の文字を N 字（文字単位＝絵文字も割らない）で切ってからエスケープする escCut（組み立ての差し替え fixes_v2128.py で各所を escCut に）
+   ② 物流会社の画面の AI の案内（logic_fwd.js）が v16.3・v17.4 のアカウントごとの共有と合っていなかった
+      「キーがお客様の端末に渡ることはありません」→ 共有中のアカウントには暗号化して届き、その端末のブラウザで使う。
+      「接続設定はブラウザ・URLごと」→ 管理者がアカウント一覧の「📱 実AI」を「共有中」にする。
+      「🔄 接続状態を再確認」は、この端末の控えを読み直すだけで共有の設定を取りに行かなかった → 共有の設定も取りに行く（llmSharePull(true)）
+   ③ 新しい会社を登録している間（集中モード newco）、上部左の会社の札に前に表示していた会社（例：オートリンク貿易株式会社 中古車／PJ #NEW）が出ていた
+      原因：札は buildNav が表示中の商品（D.co・D.cat・D.pj）から描く。集中モードは表示中の商品をそのまま残して登録欄だけを出すので、札は前の会社のまま
+      （上部のセレクトは v18.13 で「🏢 新しい会社を登録中…」にしていたが、札とデモ版の左下の「デモ環境／会社名」は変えていなかった）。
+      直し：新しい会社の集中モードの間は、札を「新しい会社を登録中／登録後に会社名を表示」に、デモ版の左下も同じく。集中モードが終われば元に戻す */
+
+function escCut(v,n){ return esc(Array.from(String(v)).slice(0,n).join("")); }
+
+/* ③ 上部左の会社の札（#tenant）とデモ版の左下（#sft） */
+function v2128FocusNew(){ try{ const f=(typeof V1811!=="undefined"&&V1811)?V1811.focus:null;
+  return !!(f&&f.k==="newco"&&typeof cur!=="undefined"&&cur==="up"&&!(typeof FILL!=="undefined"&&FILL&&FILL.on)); }catch(e){ return false; } }
+function v2128CoChip(){
+  const el=document.getElementById("tenant"); if(!el) return;
+  const mark=el.querySelector("[data-v2128c]");
+  if(v2128FocusNew()){
+    if(!mark) el.innerHTML=`<span class="av" data-v2128c style="background:var(--sunk);color:var(--ink-3)">＋</span><span><b>新しい会社を登録中</b><span>登録後に会社名を表示</span></span>`;
+    const ft=document.getElementById("sft"); if(ft&&!ft.querySelector("[data-v2128c]")&&/^デモ環境／/.test(ft.textContent)) ft.innerHTML=`<span data-v2128c>デモ環境／新しい会社を登録中</span><br>Copyright © 2026, STANDAGE, Inc.`;
+  } else if(mark){ try{ buildNav(); }catch(e){} }
+}
+if(typeof buildNav==="function"){ const __bn2128=buildNav; buildNav=function(){ const r=__bn2128.apply(this,arguments); try{ v2128CoChip(); }catch(e){} return r; }; }
+if(typeof render==="function"){ const __r2128=render; render=function(){ const r=__r2128.apply(this,arguments); try{ v2128CoChip(); }catch(e){} return r; }; }
+
+/* 英・中・西 */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+ ["新しい会社を登録中","Registering a new company","正在登记新公司","Registrando una empresa nueva"],
+ ["登録後に会社名を表示","Name shown after registering","登记后显示公司名","Nombre tras el registro"],
+ ["デモ環境／新しい会社を登録中","Demo environment / registering a new company","演示环境／正在登记新公司","Entorno de demostración / registrando una empresa nueva"],
+ ["🔄 接続状態を再確認","🔄 Recheck connection","🔄 重新确认连接状态","🔄 Volver a comprobar la conexión"],
+ ["接続状態を再確認","Recheck connection","重新确认连接状态","Volver a comprobar la conexión"]
+]); }catch(e){}
+/* ② 物流会社の AI の案内（<b> と <br>・<span> を含むので段落の辞書 I18N_EL。鍵は文字だけにしたもの） */
+const V2128_FWDAI="APIキーは<b>STANDAGE管理者が管理コンソールで接続</b>します。ほかの端末でこのアカウントの実AIを使うには、管理者がアカウント一覧の<b>「📱 実AI」を「共有中」</b>にします（キーを含む設定は暗号化して届き、この端末のブラウザの中でだけ使います）。それまでは、Excel・CSVのローカル解析と定型見積で動きます。<br><span style='color:var(--warn)'>💡 管理画面で接続済みなのに「未接続」と出る場合：</span>管理者に、このアカウントを<b>「共有中」</b>にするよう依頼し、切り替わった後に「🔄 接続状態を再確認」を押してください（管理者と同じブラウザで開いている時は、押すだけで読み直します）。";
+try{ if(typeof I18N_EL!=="undefined"){ const tpl=document.createElement("template"); tpl.innerHTML=V2128_FWDAI; const k=String(tpl.content.textContent||"").replace(/\s+/g," ").trim();
+  I18N_EL.en[k]="The API key is <b>connected by the STANDAGE administrator in the admin console</b>. To use the real AI with this account on other devices, the administrator sets <b>“📱 Real AI” to “Shared”</b> in the account list (the settings, including the key, arrive encrypted and are used only inside this device's browser). Until then, it works with local Excel/CSV analysis and standard quotes.<br><span>💡 If it shows “Not connected” although the admin console is connected: </span>ask the administrator to set this account to <b>“Shared”</b>, then press “🔄 Recheck connection” once it has been switched (in the administrator's own browser, pressing it simply reloads the settings).";
+  I18N_EL.zh[k]="API密钥由<b>STANDAGE管理员在管理控制台连接</b>。要在其他设备上用此账号使用真实AI，管理员需在账号列表中把<b>“📱 真实AI”设为“共享中”</b>（含密钥的设置会加密送达，只在本设备的浏览器中使用）。在此之前，将以Excel・CSV本地解析和标准报价运行。<br><span>💡 管理界面已连接却显示“未连接”时：</span>请管理员把此账号设为<b>“共享中”</b>，切换后点击“🔄 重新确认连接状态”（与管理员在同一浏览器中打开时，点击即可重新读取）。";
+  I18N_EL.es[k]="La clave API la <b>conecta el administrador de STANDAGE en la consola de administración</b>. Para usar la IA real con esta cuenta en otros dispositivos, el administrador pone <b>“📱 IA real” en “Compartido”</b> en la lista de cuentas (la configuración, con la clave, llega cifrada y solo se usa dentro del navegador de este dispositivo). Mientras tanto, funciona con el análisis local de Excel/CSV y cotizaciones estándar.<br><span>💡 Si aparece “No conectado” aunque la consola de administración está conectada: </span>pida al administrador que ponga esta cuenta en <b>“Compartido”</b> y, una vez cambiada, pulse “🔄 Volver a comprobar la conexión” (en el propio navegador del administrador, basta con pulsarlo para volver a leer la configuración)."; } }catch(e){}
 
 </script>
