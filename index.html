@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="0e803ee2481a";
+const BC20_BUILD="4f02448c8a11";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -31986,5 +31986,99 @@ if(typeof fobRenderAI==="function"){ const __fra22=fobRenderAI;
       if(b){ b.removeAttribute("onclick"); b.onclick=()=>fob22Apply(i); b.title="この金額を価格表に入れて開きます（保存して反映で確定）"; } }); }catch(e){}
     return r; };
 }
+
+/* ═══ v21.23（2026-09-30）資料の「HSコード」が4桁だけ・空白入りだと、読み取りが止まって空の商品になる不具合を直す
+   影響：項目／内容の形の資料（Excel・CSV＝buildTenant、Word・PowerPoint・添付の読み取り＝tenantFromTextGrids）で、
+     「HSコード｜0902」のように4桁だけ、「2106 90」のように空白で区切って、「第0902項」のように書くと、読み取りの途中で例外になり、
+     取り込み（logic.js の take）が例外を握りつぶして blankTenant＝空の商品になっていた（案内なし）
+   原因：HS の行は「4桁の数字があれば 0902.10 の形もある」と決めて kv.hs.match(/\d{4}[.．-]?\d{2}/)[0] を読んでいた → 無いと null[0] で TypeError
+   直し：HS の値の読み方を hs23Read にまとめ、2つの関数は元の文をそのまま写して HS の行だけ置き換える（ほかの行は logic_xlsx.js・logic_files.js と同じ）
+     ・6桁（0902.10・090210・0902-10・0902．10）→ これまでと同じ文字・確定
+     ・全角の数字・記号（０９０２．１０）→ 確定（これまでは読めず、カテゴリの既定の推定＝食品は 2106.90 になっていた）
+     ・空白で区切った6桁（2106 90）→ 2106.90・確定
+     ・4桁だけ（0902・第0902項）→ 4桁のまま「推定」＋注記「資料記載の4桁（6桁の細分は要確定）」＝AIの読み取り（mergeTen）・商品一覧の表と同じ扱い
+     ・どれでもない（5桁など）→ これまでどおり本文から推定（pickHS） */
+
+function hs23Read(v,allTxt,cat){
+  const raw=String(v==null?"":v);
+  if(raw&&/\d{4}/.test(raw)){ const m=raw.match(/\d{4}[.．-]?\d{2}/); if(m) return {hs:m[0].replace(/[．-]/,"."),ok:true}; }   /* これまでと同じ */
+  if(raw){
+    let s=raw; try{ s=raw.normalize("NFKC"); }catch(e){}
+    if(s!==raw){ const m=s.match(/\d{4}[.-]?\d{2}/); if(m) return {hs:m[0].replace(/-/,"."),ok:true}; }     /* 全角（０９０２．１０） */
+    const sp=s.match(/(^|\D)(\d{4})\s+(\d{2})(?!\d)/); if(sp) return {hs:sp[2]+"."+sp[3],ok:true};       /* 空白で区切った6桁（2106 90） */
+    const m4=s.match(/(^|\D)(\d{4})(?!\d)/); if(m4) return {hs:m4[2],ok:false,note:"資料記載の4桁（6桁の細分は要確定）"};   /* 4桁だけ */
+  }
+  return pickHS(allTxt,cat);
+}
+
+/* 解析結果 → テナント（logic_xlsx.js の buildTenant。HS の行と最後の注記だけ違う） */
+buildTenant=async function(file){
+  let sheets;
+  if(/\.(xlsx|xlsm)$/i.test(file.name)) sheets=await readWorkbook(file);
+  else if(/\.(csv|txt)$/i.test(file.name)) sheets=parseCSV(typeof zipTextDec==="function"?zipTextDec(new Uint8Array(await file.arrayBuffer())):await file.text());   /* Shift-JIS のCSV（日本語Excel既定）も文字化けさせない */
+  else throw new Error("unsupported");
+  const allTxt=sheets.map(s=>s.grid.map(r=>(r||[]).join(" ")).join("\n")).join("\n");
+  const kv=findKV(sheets), cat=detectCat(allTxt);
+  const tabs=[]; sheets.forEach(sh=>findTables(sh.grid).forEach(t=>tabs.push({...t,sheet:sh.name})));
+  const pick=k=>{const c=tabs.filter(t=>classify(t)===k);
+    return c.sort((a,b)=>b.rows.length*b.cols.length-a.rows.length*a.cols.length)[0]||null;};
+  const pt=pick("price"), dt=pick("dim"), ct=pick("comp");
+  const HSR=hs23Read(kv.hs,allTxt,cat);   /* v21.23：4桁だけ・空白入り・全角でも止まらない */
+  const strengths=findStrengths(sheets);
+  const co=kv.co||findCompany(sheets,allTxt)||coFromFilename(file.name);  /* v18.5b */
+  const t={
+    src:"upload", file:file.name, sheets:sheets.map(s=>s.name),
+    cat:{food:"食品",cosme:"化粧品",parts:"工業部品",daily:"日用雑貨",car:"中古車",
+      liquor:"酒類",apparel:"アパレル",medical:"医療・衛生用品"}[cat]||"", catKey:cat,
+    co:(co||"").trim(), coEn:kv.coEn||"", item:kv.item||"", itemEn:kv.itemEn||"",
+    sku:kv.sku||"", origin:kv.origin||"", cert:kv.cert||"", shelf:kv.shelf||"",
+    store:kv.store||"", msrp:kv.msrp||"", term:kv.term||"", pay:kv.pay||"",
+    pol:kv.pol||"", lead:kv.lead||"", moq:kv.moq||"", ctn:kv.ctn||"",
+    hs:HSR.hs, hsGuess:!HSR.ok,
+    priceCols:pt?pt.cols:[], priceRows:pt?pt.rows:[],
+    dimCols:dt?dt.cols:[], dimRows:dt?dt.rows:[],
+    compCols:ct?ct.cols:[], compRows:ct?ct.rows:[],
+    compTitle:cat==="parts"?"材質・素材表":cat==="cosme"?"全成分表（INCI）"
+      :cat==="daily"?"材質・素材表":cat==="car"?"車両情報表":cat==="apparel"?"素材・仕様表"
+      :cat==="medical"?"構成・規格表":cat==="liquor"?"成分・スペック表":"成分表",
+    strengths, targets:[], nSheets:sheets.length, nTables:tabs.length
+  };
+  if(!t.moq&&pt){ const i=pt.cols.findIndex(c=>/moq|最小|最低/i.test(norm(c)));
+    if(i>=0&&pt.rows[0]&&pt.rows[0][i]) t.moq=pt.rows.map(r=>r[i]).filter(Boolean)[0]; }
+  if(!t.lead&&pt){ const i=pt.cols.findIndex(c=>/リードタイム|納期|lead/i.test(norm(c)));
+    if(i>=0&&pt.rows[0]&&pt.rows[0][i]) t.lead=pt.rows.map(r=>r[i]).filter(Boolean)[0]; }
+  /* v18.5：商品一覧表（1行＝1商品）・質問票（項目／回答）を構造化して反映 */
+  applyStructured(t,productTableToFields(tabs),qaTableToFields(tabs));
+  if(HSR.note&&t.hs===HSR.hs&&t.hsGuess) t._hsNote=[[HSR.hs,HSR.note]];   /* v21.23：資料記載の4桁は、AIの読み取り（mergeTen）・商品一覧の表と同じ注記 */
+  return t;
+};
+
+/* 本文・表 → テナント（logic_files.js の tenantFromTextGrids。HS の行と最後の注記だけ違う） */
+tenantFromTextGrids=function(text,grids,filename,pages){
+  const lineGrid=text.split(/\n/).map(l=>l.split(/[：:\t┃|]/).map(s=>s.trim()));
+  const sheets=[{name:"本文",grid:lineGrid}].concat(grids.map((g,i)=>({name:"表"+(i+1),grid:g})));
+  const allTxt=text+"\n"+grids.map(g=>g.map(r=>r.join(" ")).join("\n")).join("\n");
+  const kv=findKV(sheets), cat=detectCat(allTxt);
+  const tabs=[]; grids.forEach(g=>findTables(g).forEach(t=>tabs.push(t)));
+  const pick=k=>{const c=tabs.filter(t=>classify(t)===k);
+    return c.sort((a,b)=>b.rows.length*b.cols.length-a.rows.length*a.cols.length)[0]||null;};
+  const pt=pick("price"),dt=pick("dim"),ct=pick("comp");
+  const HSR=hs23Read(kv.hs,allTxt,cat);   /* v21.23：4桁だけ・空白入り・全角でも止まらない */
+  const t={src:"upload",file:filename,sheets:sheets.map(s=>s.name),
+    cat:{food:"食品",cosme:"化粧品",parts:"工業部品",daily:"日用雑貨",car:"中古車",
+      liquor:"酒類",apparel:"アパレル",medical:"医療・衛生用品"}[cat]||"",catKey:cat,
+    co:(kv.co||findCompany(sheets,allTxt)||(typeof coFromFilename==="function"?coFromFilename(filename):"")||"").trim(),coEn:kv.coEn||"",item:kv.item||"",itemEn:kv.itemEn||"",
+    sku:kv.sku||"",origin:kv.origin||"",cert:kv.cert||"",shelf:kv.shelf||"",store:kv.store||"",
+    msrp:kv.msrp||"",term:kv.term||"",pay:kv.pay||"",pol:kv.pol||"",lead:kv.lead||"",moq:kv.moq||"",
+    ctn:kv.ctn||"",hs:HSR.hs,hsGuess:!HSR.ok,
+    priceCols:pt?pt.cols:[],priceRows:pt?pt.rows:[],dimCols:dt?dt.cols:[],dimRows:dt?dt.rows:[],
+    compCols:ct?ct.cols:[],compRows:ct?ct.rows:[],
+    compTitle:cat==="parts"?"材質・素材表":cat==="cosme"?"全成分表（INCI）":"成分表・材質表",
+    strengths:findStrengths(sheets),targets:[],nSheets:pages||1,nTables:tabs.length};
+  /* v18.5：Word／PowerPoint内の商品一覧表・質問票も構造化（AI接続時はAI抽出が上書き） */
+  if(typeof applyStructured==="function") applyStructured(t,productTableToFields(tabs),qaTableToFields(tabs));
+  if(HSR.note&&t.hs===HSR.hs&&t.hsGuess) t._hsNote=[[HSR.hs,HSR.note]];   /* v21.23：資料記載の4桁は、AIの読み取り（mergeTen）・商品一覧の表と同じ注記 */
+  return t;
+};
 
 </script>
