@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="ad6a43b9458e";
+const BC20_BUILD="c0327f20365e";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -32372,5 +32372,70 @@ ux25Css();
 try{ if(document.readyState!=="loading") setTimeout(()=>{ ux25CssLast(); try{ ux17Tabs(); }catch(e){} ux25After(); },0);
   else document.addEventListener("DOMContentLoaded",()=>{ ux25CssLast(); ux25After(); }); }catch(e){}
 addEventListener("resize",()=>{ try{ ux25Tables(); }catch(e){} });
+
+/* ═══ v21.26（2026-09-30）バイヤーDB・拠点「新しく追加されたバイヤー」の追加日が未来の日付になる
+   報告：9/30（水）に開くと、追加日が 10/4・10/2・10/3 と、まだ来ていない日付で並んでいた
+   原因：bnNew（logic_buyers.js）は今週の分の追加日を「今週の月曜＋0〜6日」の乱数で決めていた。週の途中に開くと、まだ来ていない曜日の
+     日付が付く（水曜なら今週の分の約 4/7 が木〜日＝未来）。並びも NEW を先にするだけで日付の順ではなかった。
+     画面の説明（毎週月曜更新・前回／次回の月曜）と AI への説明（本番DBの新規登録を毎週月曜にまとめて反映）とも合っていなかった。
+     ※新しい構成（bc20-platform）では 9/27 に見つけて直してあった（adapter/fixes/a-db.cjs の A5）が、公開中の版には入れない決まりだった。
+       A5 は「月曜から今日まで」の中で日付を決めるので、同じバイヤーの日付が毎日ずれる。ここでは次のやり方にする
+   直し
+   ① 月曜 M にまとめて追加した分は、M の前の7日間（前の週の月〜日）に登録された分として日付を決める → 今日より後の日付は出ない・
+      週の途中で日付が変わらない・月曜の更新で次の分に入れ替わる。乱数の引き方の回数は変えない（ほかの項目は同じ見本のまま）
+   ② 新しい順（NEW が先・その中も日付の降順）
+   ③ 列の名前を「追加日」→「登録日」、説明を「毎週月曜に、前の週に登録されたバイヤーをまとめて追加します（NEW＝今週の追加分）」に（英・中・西も）
+   ④ 表の並べ替え（uxSort）は「9/27」の月の数だけで比べていた → 列のセルがすべて data-k（年月日の数）を持つ時はそれで比べる。登録日の列に付ける
+   ⑤ 同じカードの中国語で「前回 9/28（月）」の（月）が残っていた → （周一） */
+
+function bn26Day(n){ return new Date(BN_EPOCH.getFullYear(),BN_EPOCH.getMonth(),BN_EPOCH.getDate()+n); }   /* 起点の月曜から n 日目（日付で数える） */
+bnNew=function(now){
+  const W=bnWeek(now), out=[];
+  [W,W-1].forEach(w=>{ if(w<0) return;
+    const n=bnAdds(w); let cum=0; for(let k=0;k<w;k++) cum+=bnAdds(k);
+    const r=bnRnd(500+w);
+    for(let j=0;j<n;j++){
+      const b=bnGen(100000+cum+j);
+      const d=bn26Day(w*7-7+Math.floor(r()*7));   /* w 週目の月曜に追加した分＝その前の7日間に登録 */
+      out.push({...b,deals:0,lv:j%9===0?"高":j%3===0?"中":"−",days:0,isNew:w===W,
+        added:`${d.getMonth()+1}/${d.getDate()}`,addedK:d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate()});
+    }});
+  return out.sort((a,b)=>((b.isNew?1:0)-(a.isNew?1:0))||(b.addedK-a.addedK));
+};
+
+const BN26_NOTE="毎週月曜に、前の週に登録されたバイヤーをまとめて追加します（NEW＝今週の追加分）。名称・連絡先は<b>正式契約後に開示</b>されます。";
+if(typeof vDB==="function"){ const __vdb26=vDB; vDB=function(p){ let h=__vdb26.apply(this,arguments);
+  try{
+    h=h.replace("直近2週間の追加分です。名称・連絡先は<b>正式契約後に開示</b>されます。",BN26_NOTE);
+    const at=h.indexOf("<th>追加日</th>"); if(at<0) return h;
+    h=h.slice(0,at)+"<th>登録日</th>"+h.slice(at+"<th>追加日</th>".length);
+    /* 登録日のセルに並べ替え用の data-k（表は bnNew() の先頭10件と同じ順） */
+    const cell='<td class="n" style="color:var(--ink-3)">'; let i=at;
+    bnNew().slice(0,10).forEach(b=>{ const k=h.indexOf(cell+b.added,i); if(k<0) return;
+      const rep=`<td class="n" data-k="${b.addedK}" style="color:var(--ink-3)">`; h=h.slice(0,k)+rep+h.slice(k+cell.length); i=k+rep.length; });
+  }catch(e){}
+  return h; }; }
+
+if(typeof uxSort==="function"){ const __us26=uxSort; uxSort=function(th){
+  try{ const t=th.closest("table"), tb=t&&t.tBodies[0], idx=[...th.parentNode.cells].indexOf(th);
+    if(tb&&idx>=0&&tb.rows.length&&[...tb.rows].every(r=>r.cells[idx]&&r.cells[idx].dataset.k!=null)){
+      const dir=th.dataset.dir==="asc"?"desc":"asc"; [...th.parentNode.cells].forEach(c=>{ delete c.dataset.dir; }); th.dataset.dir=dir;
+      [...tb.rows].map((r,i)=>({r,i,k:+r.cells[idx].dataset.k||0})).sort((a,b)=>((a.k-b.k)||(a.i-b.i))*(dir==="asc"?1:-1)).forEach(x=>tb.appendChild(x.r));
+      if(typeof toast==="function") toast(`「${th.textContent.trim().slice(0,12)}」で${dir==="asc"?"昇順":"降順"}に並べ替えました`);
+      return;
+    } }catch(e){}
+  return __us26.apply(this,arguments); }; }
+
+/* 英・中・西：列の名前は文字の辞書、説明の文は段落の辞書（<b> を含むので I18N_EL。鍵は文字だけにしたもの） */
+try{ if(typeof dk3I18n==="function") dk3I18n([["登録日","Registered","登记日","Fecha de registro"]]); }catch(e){}
+try{ if(typeof I18N_EL!=="undefined"){ const k=BN26_NOTE.replace(/<[^>]+>/g,"");
+  I18N_EL.en[k]="Every Monday, buyers registered during the previous week are added in one batch (NEW = this week's batch). Names and contact details are <b>disclosed after a formal contract</b>.";
+  I18N_EL.zh[k]="每周一统一添加上一周登记的买家（NEW＝本周新增）。名称・联系方式将在<b>正式签约后公开</b>。";
+  I18N_EL.es[k]="Cada lunes se añaden en bloque los compradores registrados la semana anterior (NEW = lote de esta semana). Nombres y contactos se <b>revelan tras el contrato formal</b>."; } }catch(e){}
+/* 中国語の「前回 9/28（月）」の（月）は「月」と読める → （周一）。英・西は今までと同じ */
+try{ if(typeof I18N!=="undefined"&&I18N.pat){ const mon=(s,x)=>String(s).replace(/（月）/g,x);
+  I18N.pat.unshift({re:/^毎週月曜にまとめて反映／前回 (.+?)・次回 (.+)$/,en:(m)=>"Updated every Monday / last "+mon(m[1],"(Mon)")+" · next "+mon(m[2],"(Mon)"),
+      zh:(m)=>"每周一统一更新／上次 "+mon(m[1],"（周一）")+"・下次 "+mon(m[2],"（周一）"),es:(m)=>"Cada lunes / anterior "+mon(m[1],"(lun)")+" · próxima "+mon(m[2],"(lun)")},
+    {re:/^毎週月曜更新・次回 (.+)$/,en:(m)=>"Updated Mondays · next "+mon(m[1],"(Mon)"),zh:(m)=>"每周一更新・下次 "+mon(m[1],"（周一）"),es:(m)=>"Cada lunes · próxima "+mon(m[1],"(lun)")}); } }catch(e){}
 
 </script>
