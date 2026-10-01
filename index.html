@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="0f40501d17a0";
+const BC20_BUILD="22245d0a907f";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -13926,6 +13926,8 @@ function authBoot(){
     if(!a||a.st!=="active"||a.expires<NOW()) SES=null;
   }
   if(SES&&SES.t==="admin"&&!PID) cur="adm";
+  /* v21.29：最後の操作から3時間を過ぎていれば、このタブのセッションは使わずログイン画面へ（理由はログイン画面に出す） */
+  if(SES&&typeof v2129Expired==="function"&&v2129Expired(SES)){ try{ sessionStorage.removeItem(SKEY); sessionStorage.setItem("bc20_autolo","1"); }catch(e){} SES=null; }
   if(!SES) showLogin(); else enterApp();
 }
 authBoot();
@@ -26792,7 +26794,7 @@ function tmAssignHtml(m,T,noun,rmBtn){
   const hit=as.map(id=>T.find(t=>t.id===id)).filter(Boolean);
   return hit.length?hit.map(t=>`<span class="tm-chip">${esc(t.label)}${rmBtn?`<button type="button" title="担当から外す" data-tmun="${esc(m.name)}" data-tmid="${esc(t.id)}">×</button>`:""}</span>`).join(""):`<span class="tm-chip">${as.length}件（この端末に無い${noun}）</span>`; }
 function tmDate(t){ if(!t) return "—"; const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
-function tmUrl(){ try{ if(/github\.io$/.test(location.hostname)) return location.origin+location.pathname; }catch(e){} return "https://kenta19870526.github.io/boueki-cloud-trial/"; }
+function tmUrl(){ try{ if(/github\.io$|(^|\.)digitrad\.trade$/.test(location.hostname)) return location.origin+location.pathname; }catch(e){} return "https://kenta19870526.github.io/boueki-cloud-trial/"; }
 function tmSaveAcct(){ try{ if(typeof v213SaveADB==="function") v213SaveADB(); else asave(); }catch(e){} }
 function tmPut(){ clearTimeout(V215.memPutT); V215.memPutT=setTimeout(()=>{ try{ if(typeof v213MembersPut==="function") v213MembersPut().then(()=>{ V215.regAt=0; }); }catch(e){} },250); }
 function tmTouch(m){ m._m=Date.now(); }
@@ -32815,5 +32817,100 @@ try{ if(typeof I18N_EL!=="undefined"){ const tpl=document.createElement("templat
   I18N_EL.en[k]="The API key is <b>connected by the STANDAGE administrator in the admin console</b>. To use the real AI with this account on other devices, the administrator sets <b>“📱 Real AI” to “Shared”</b> in the account list (the settings, including the key, arrive encrypted and are used only inside this device's browser). Until then, it works with local Excel/CSV analysis and standard quotes.<br><span>💡 If it shows “Not connected” although the admin console is connected: </span>ask the administrator to set this account to <b>“Shared”</b>, then press “🔄 Recheck connection” once it has been switched (in the administrator's own browser, pressing it simply reloads the settings).";
   I18N_EL.zh[k]="API密钥由<b>STANDAGE管理员在管理控制台连接</b>。要在其他设备上用此账号使用真实AI，管理员需在账号列表中把<b>“📱 真实AI”设为“共享中”</b>（含密钥的设置会加密送达，只在本设备的浏览器中使用）。在此之前，将以Excel・CSV本地解析和标准报价运行。<br><span>💡 管理界面已连接却显示“未连接”时：</span>请管理员把此账号设为<b>“共享中”</b>，切换后点击“🔄 重新确认连接状态”（与管理员在同一浏览器中打开时，点击即可重新读取）。";
   I18N_EL.es[k]="La clave API la <b>conecta el administrador de STANDAGE en la consola de administración</b>. Para usar la IA real con esta cuenta en otros dispositivos, el administrador pone <b>“📱 IA real” en “Compartido”</b> en la lista de cuentas (la configuración, con la clave, llega cifrada y solo se usa dentro del navegador de este dispositivo). Mientras tanto, funciona con el análisis local de Excel/CSV y cotizaciones estándar.<br><span>💡 Si aparece “No conectado” aunque la consola de administración está conectada: </span>pida al administrador que ponga esta cuenta en <b>“Compartido”</b> y, una vez cambiada, pulse “🔄 Volver a comprobar la conexión” (en el propio navegador del administrador, basta con pulsarlo para volver a leer la configuración)."; } }catch(e){}
+
+/* ═══ v21.29（2026-10-01）お客様の要望：② 前回の画面から始める ③ 3時間操作がなければ自動でログアウト（① URL の準備）
+   ② 原因：ログインの後に開く画面は、商品に足りない項目があれば「商品情報を登録」（v21.15 から必ず「何をしますか？」が出る）。
+      見ていた画面の控え（logic_fwdq.js の navSave）は sessionStorage＝タブを閉じる・ブラウザを閉じると消えるので、PC を閉じた後・ログアウトの後のログインでは使われない。
+      直し：控えをアカウント（コード＋お名前）ごとに localStorage にも残し、そのタブに控えが無い時はそれを使う（画面・貿易実務のタブ・タスクのタブ・物流会社の画面）。
+      物流会社は fwdEnter が画面を必ず受信箱にしていた（控えも受信箱で上書き）→ 入る前に控えを読み、入った後に戻す。
+      別のアカウントの控えは使わない。商品は今までどおり前回選んでいた商品（loadTen の idx）。
+   ③ 最後の操作から3時間たつと、保存を送ってから自動でログアウトする（ログアウトのボタンと同じ処理）。5分前に知らせ、画面を操作すれば延長。
+      PC を閉じていた間も数える（開いた時・次の操作の時・再読み込みの時に確かめる。期限を過ぎた後の最初の操作では延長しない）。同じアカウントのほかのタブの操作も数える。
+      ログインし直すと、ログイン画面に理由を出す。管理者・物流会社のアカウントも同じ。デモ版（ログイン無し）では何もしない。
+   ① メンバー招待のリンク（tmUrl）は、github.io に加えて digitrad.trade のアドレスで開いている時も、そのアドレスを使う（アドレスを移した時にそのまま使えるように） */
+
+/* ③ 何もしていない時間（期限と知らせの時刻は、下の関数の中の数字で持つ。authBoot から、このファイルが読み込まれる前に呼ばれるため） */
+function v2129ActKey(s){ try{ s=s||((typeof SES!=="undefined")?SES:null); if(!s) return "";
+  return "bc20_act_"+encodeURIComponent(s.t==="admin"?"admin":(String(s.code||"")+"|"+String(s.who||""))); }catch(e){ return ""; } }
+function v2129Last(s){ try{ const k=v2129ActKey(s); return k?(+localStorage.getItem(k)||0):0; }catch(e){ return 0; } }
+function v2129Expired(s){ const t=v2129Last(s); return t>0&&Date.now()-t>=3*3600*1000; }
+function v2129Touch(s){ try{ const k=v2129ActKey(s); if(k) localStorage.setItem(k,String(Date.now())); }catch(e){} }
+function v2129In(){ try{ return typeof SES!=="undefined"&&!!SES&&!document.body.classList.contains("locked"); }catch(e){ return false; } }
+function v2129Logout(){
+  if(window.__v2129out) return; window.__v2129out=1;
+  try{ sessionStorage.setItem("bc20_autolo","1"); }catch(e){}
+  const b=document.getElementById("lgout");
+  if(b) b.click();   /* 同期の保存を送ってからログアウト（logic_sync.js）。同期が無い時は控えを消して読み直す（logic_auth.js） */
+  else { try{ sessionStorage.removeItem("bc20_ses_v1"); }catch(e){} location.reload(); }
+}
+function v2129Warn(on){
+  let w=document.getElementById("v2129warn");
+  if(!on){ if(w) w.remove(); return; }
+  if(w) return;
+  w=document.createElement("div"); w.id="v2129warn"; w.setAttribute("role","alert");
+  w.style.cssText="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:9999;max-width:min(560px,calc(100vw - 32px));background:var(--surface);border:1.5px solid var(--or);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap";
+  w.innerHTML=`<span style="font-size:15px;line-height:1.6;flex:1;min-width:200px">しばらく操作がありません。あと約5分で、安全のため自動でログアウトします。</span><button class="btn" type="button" id="v2129keep">操作を続ける</button>`;
+  document.body.appendChild(w);
+  document.getElementById("v2129keep").onclick=()=>{ v2129Touch(); v2129Warn(false); };
+}
+function v2129Check(){
+  if(!v2129In()) { v2129Warn(false); return; }
+  const t=v2129Last(); if(!t){ v2129Touch(); return; }
+  const idle=Date.now()-t;
+  if(idle>=3*3600*1000){ v2129Warn(false); v2129Logout(); return; }
+  v2129Warn(idle>=3*3600*1000-5*60*1000);
+}
+(function(){
+  if(typeof SES==="undefined") return;   /* デモ版 */
+  let lastW=0;
+  const act=()=>{ if(!v2129In()) return; if(v2129Expired()){ v2129Logout(); return; }   /* 期限を過ぎた後の最初の操作では延長しない */
+    const n=Date.now(); if(n-lastW<15000&&!document.getElementById("v2129warn")) return; lastW=n; v2129Touch(); v2129Warn(false); };
+  ["pointerdown","keydown","wheel","touchstart","input"].forEach(ev=>document.addEventListener(ev,act,{capture:true,passive:true}));
+  let mv=0; document.addEventListener("mousemove",()=>{ const n=Date.now(); if(n-mv>60000){ mv=n; act(); } },{passive:true});
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) v2129Check(); });
+  addEventListener("focus",v2129Check); addEventListener("pageshow",v2129Check);
+  addEventListener("storage",e=>{ try{ if(e.key&&e.key===v2129ActKey()) v2129Check(); }catch(x){} });
+  setInterval(v2129Check,30000);
+  if(v2129In()) v2129Touch();   /* 再読み込み（期限の前）＝操作 */
+})();
+if(typeof enterApp==="function"){ const __ea2129=enterApp; enterApp=function(){ v2129Touch(); window.__v2129out=0; return __ea2129.apply(this,arguments); }; }
+/* ログイン画面：自動でログアウトした時は理由を出す */
+function v2129LoginNote(){
+  let f=null; try{ f=sessionStorage.getItem("bc20_autolo"); }catch(e){} if(!f) return;
+  const c=document.querySelector("#lgv .lgc"); if(!c||document.getElementById("v2129note")) return;
+  const p=document.createElement("p"); p.id="v2129note"; p.style.cssText="margin:12px 0 0;padding:10px 12px;border-radius:8px;background:var(--or-soft);border:1px solid var(--or);font-size:14px;line-height:1.6";
+  p.textContent="3時間操作がなかったため、安全のため自動でログアウトしました。もう一度ログインしてください。";
+  const first=c.firstElementChild; if(first) first.insertAdjacentElement("afterend",p); else c.appendChild(p);
+  try{ sessionStorage.removeItem("bc20_autolo"); }catch(e){}
+}
+if(typeof showLogin==="function"){ const __sl2129=showLogin; showLogin=function(){ const r=__sl2129.apply(this,arguments); try{ v2129LoginNote(); }catch(e){} return r; }; }
+try{ v2129LoginNote(); }catch(e){}
+
+/* ② 見ていた画面の控えをアカウントごとに localStorage にも（ブラウザ・PC を閉じた後やログアウトの後のログインでも使う） */
+function v2129NavKey(){ try{ if(typeof SES==="undefined"||!SES||SES.t!=="trial") return ""; return "bc20_navl_"+encodeURIComponent(String(SES.code||"")+"|"+String(SES.who||"")); }catch(e){ return ""; } }
+if(typeof navSave==="function"&&typeof navLoad==="function"){
+  const __ns2129=navSave;
+  navSave=function(){ const r=__ns2129.apply(this,arguments);
+    try{ const k=v2129NavKey(); if(!k) return r; const o=JSON.parse(sessionStorage.getItem("bc20_nav")||"null"); if(!o) return r;
+      o.acct=k; o.at=Date.now(); const s=JSON.stringify(o); sessionStorage.setItem("bc20_nav",s); localStorage.setItem(k,s); }catch(e){}
+    return r; };
+  navLoad=function(){ let o=null; try{ o=JSON.parse(sessionStorage.getItem("bc20_nav")||"null"); }catch(e){}
+    const k=v2129NavKey();
+    if(o&&k&&o.acct&&o.acct!==k) o=null;   /* 同じタブで別のアカウントの控え */
+    if(!o&&k){ try{ o=JSON.parse(localStorage.getItem(k)||"null"); }catch(e){} }
+    return o; };
+}
+/* 物流会社：fwdEnter は画面を必ず受信箱（finbox）にして描き、その描画で控えも受信箱に上書きされる → 入る前に控えを読み、入った後に戻す */
+if(typeof fwdEnter==="function"&&typeof navLoad==="function"){ const __fe2129=fwdEnter;
+  fwdEnter=function(){ let o=null; try{ o=navLoad(); }catch(e){} const r=__fe2129.apply(this,arguments);
+    try{ if(o&&o.fwdCur&&typeof fwdCur!=="undefined"&&o.fwdCur!==fwdCur){ fwdCur=o.fwdCur; if(typeof fwdNav==="function") fwdNav(); fwdRender(); } }catch(e){}
+    return r; }; }
+
+/* 英・中・西 */
+try{ if(typeof dk3I18n==="function") dk3I18n([
+ ["しばらく操作がありません。あと約5分で、安全のため自動でログアウトします。","No activity for a while. For security, you will be logged out automatically in about 5 minutes.","已有一段时间没有操作。为了安全，约5分钟后将自动退出登录。","Sin actividad durante un tiempo. Por seguridad, se cerrará la sesión automáticamente en unos 5 minutos."],
+ ["操作を続ける","Keep working","继续操作","Seguir trabajando"],
+ ["3時間操作がなかったため、安全のため自動でログアウトしました。もう一度ログインしてください。","You were logged out automatically for security after 3 hours without activity. Please log in again.","由于3小时没有操作，为了安全已自动退出登录。请重新登录。","Se cerró la sesión automáticamente por seguridad tras 3 horas sin actividad. Vuelva a iniciar sesión."]
+]); }catch(e){}
 
 </script>
