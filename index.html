@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="c7ae43fe6cf0";
+const BC20_BUILD="76f420d5a715";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -36070,7 +36070,9 @@ function v33SrcKind(h){ h=String(h||"");
   if(/規制調査（概算/.test(h)) return {k:"regdb",b:"規制データベース（概算）",ok:0};
   if(/会社リサーチ/.test(h)) return {k:"fact",b:(typeof v33AqMode==="function"&&v33AqMode("co")!=="a")?"✓ 会社リサーチ（貴社の担当者が承認）":"会社リサーチ（公式サイト・Web）",ok:(typeof v33AqMode==="function"&&v33AqMode("co")!=="a")?1:0};
   if(/担当者が教えた/.test(h)) return {k:"taught",b:"貴社の担当者が教えた内容",ok:0};
-  if(/全社|モード|Ver1\.0|Ver2\.0/.test(h)) return {k:"pool",b:"STANDAGE の全社の傾向（匿名の集計）",ok:0};
+  /* 「AI商社マンのモード：個社版」は貴社の設定（全社の集計ではない）。全社版・Ver1.0/2.0 の節だけを全社の傾向に */
+  if(/モード：個社版/.test(h)) return {k:"data",b:"貴社の設定（個社版）",ok:0};
+  if(/全社|Ver1\.0|Ver2\.0/.test(h)) return {k:"pool",b:"STANDAGE の全社の傾向（匿名の集計）",ok:0};
   if(/物流会社が登録|レート表|相見積/.test(h)) return {k:"fwd",b:"物流会社の登録データ",ok:0};
   return {k:"data",b:"貴社の登録データ",ok:0}; }
 const V33ANS_RULE=`
@@ -36137,8 +36139,10 @@ if(typeof llmAsk==="function"){ const __la33g=llmAsk; llmAsk=function(q,maxTok,o
   return __la33g.call(this,q,maxTok,opts); }; }
 /* 候補：商品名・社名（英文）と、営業資料の訳（短い語）から */
 function v33GlCands(){ const have=new Set(v33GlList().map(g=>String(g.ja))); const C=[]; const add=(ja,lang,tr,src)=>{ ja=String(ja||"").trim(); tr=String(tr||"").trim(); if(!ja||!tr||ja===tr||have.has(ja)||ja.length>30||tr.length>60||!/[ぁ-ゖァ-ヺ一-龯]/.test(ja)) return; if(/[ぁ-ゖァ-ヺ]/.test(tr)) return; const k=ja+"|"+lang; if(C.some(c=>c.k===k)) return; C.push({k,ja,lang,tr,src}); };
-  try{ ((typeof TENS!=="undefined"&&TENS)||[]).forEach(t=>{ if(!t) return; add(t.item,"en",t.itemEn,"英文商品名"); add(t.co,"en",t.coEn,"英文社名"); }); }catch(e){}
-  try{ ((typeof TENS!=="undefined"&&TENS)||[]).forEach(t=>{ const tr=t&&t.deck3&&t.deck3.tr; if(!tr) return; const src=(typeof dk3DataSrc==="function")?dk3DataSrc(t):null; if(!src) return;
+  /* 登録済みの商品（TENS）と、表示中の商品（TEN：デモ版・サンプルは TENS に入らない） */
+  const LT=((typeof TENS!=="undefined"&&TENS)||[]).slice(); try{ if(typeof TEN!=="undefined"&&TEN&&!LT.includes(TEN)) LT.push(TEN); }catch(e){}
+  try{ LT.forEach(t=>{ if(!t) return; add(t.item,"en",t.itemEn,"英文商品名"); add(t.co,"en",t.coEn,"英文社名"); }); }catch(e){}
+  try{ LT.forEach(t=>{ const tr=t&&t.deck3&&t.deck3.tr; if(!tr) return; const src=(typeof dk3DataSrc==="function")?dk3DataSrc(t):null; if(!src) return;
     Object.keys(tr).forEach(lang=>{ const d=tr[lang]&&tr[lang].d; if(!d) return; const walk=(a,b)=>{ if(typeof a==="string"){ if(typeof b==="string"&&a.length<=16) add(a,lang,b,"営業資料の訳"); return; } if(Array.isArray(a)) a.forEach((x,i)=>walk(x,Array.isArray(b)?b[i]:undefined)); else if(a&&typeof a==="object") Object.keys(a).forEach(k=>walk(a[k],b&&typeof b==="object"?b[k]:undefined)); }; walk(src,d); }); }); }catch(e){}
   return C.slice(0,40); }
 function v33GlAdd(o){ const ja=String(o.ja||"").trim(); if(!ja) return null; const ex=v33GlList().find(g=>g.ja===ja); const p={ja};
@@ -36259,25 +36263,25 @@ var RQP_L={
     sentNote:"期限までは、直してもう一度提出できます。",req:"必須",need:"必須の項目に入力してください",files:"ファイル",addf:"ファイルを追加",drop:"またはここにドラッグ",fmax:"1件 10MB まで・最大 {n} 件",rmf:"削除",
     name:"お名前",co:"会社名",note:"そのほかのご連絡（任意）",priv:"入力した内容とファイルは暗号化して送られ、依頼元だけが読めます。",
     none:"このリンクの依頼は見つかりません。リンクが正しいか、依頼元にご確認ください。",closed:"この依頼は締め切られました。",expired:"この依頼の回答期限が過ぎました。必要な場合は依頼元にご連絡ください。",
-    err:"送れませんでした。通信の状態を確認して、もう一度お試しください。",bad:"リンクが正しくありません（最後まで貼り付けられているかご確認ください）。",big:"ファイルが大きすぎます（10MB まで）",
+    err:"送れませんでした。通信の状態を確認して、もう一度お試しください。",bad:"リンクが正しくありません（最後まで貼り付けられているかご確認ください）。",big:"ファイルが大きすぎます（10MB まで）",lerr:"依頼を読み込めませんでした。通信の状態を確認して、ページを再読み込みしてください。",fcnt:"ファイルは1つの依頼に{n}件までです。",abig:"回答が長すぎます。長い文章はファイルにして添付してください。",acnt:"保存の回数が上限に達しました。依頼元にご連絡ください。",already:"すでに提出済みです。直した内容は「もう一度提出する」で送ってください。",fgone:"そのファイルはすでに削除されています。",
     upl:"送っています…",st_draft:"途中保存",st_sent:"提出済み",pv:"試しの画面です（実際には送られません）",pw:"Powered by BOEKI CLOUD 2.0"},
   en:{lang:"Language",from:"Request from",due:"Please reply by",left:"{n} days left",today:"Due today",save:"Save draft",send:"Submit",resend:"Submit again",saved:"Saved. You can continue from this link.",sent:"Submitted. Thank you.",
     sentNote:"You can edit and submit again until the deadline.",req:"Required",need:"Please fill in the required fields.",files:"Files",addf:"Add files",drop:"or drag them here",fmax:"Up to 10 MB each, {n} files max",rmf:"Remove",
     name:"Your name",co:"Company",note:"Anything else? (optional)",priv:"Your answers and files are encrypted before sending; only the requester can read them.",
     none:"This request could not be found. Please check the link or contact the requester.",closed:"This request has been closed.",expired:"The reply deadline has passed. Please contact the requester if needed.",
-    err:"Could not send. Please check your connection and try again.",bad:"This link is incomplete. Please make sure you copied the whole link.",big:"File too large (10 MB max)",
+    err:"Could not send. Please check your connection and try again.",bad:"This link is incomplete. Please make sure you copied the whole link.",big:"File too large (10 MB max)",lerr:"Could not load this request. Please check your connection and reload the page.",fcnt:"Up to {n} files per request.",abig:"Your answer is too long. Please attach long text as a file.",acnt:"The save limit has been reached. Please contact the requester.",already:"Already submitted. To send changes, use \u201cSubmit again\u201d.",fgone:"That file has already been removed.",
     upl:"Sending…",st_draft:"Draft",st_sent:"Submitted",pv:"Preview only (nothing is sent)",pw:"Powered by BOEKI CLOUD 2.0"},
   zh:{lang:"语言",from:"请求方",due:"回复期限",left:"还剩{n}天",today:"今天截止",save:"保存草稿",send:"提交",resend:"再次提交",saved:"已保存。可通过此链接继续填写。",sent:"已提交，谢谢。",
     sentNote:"截止日前可以修改后再次提交。",req:"必填",need:"请填写必填项目。",files:"文件",addf:"添加文件",drop:"或拖放到此处",fmax:"每个文件不超过10MB，最多{n}个",rmf:"删除",
     name:"您的姓名",co:"公司名称",note:"其他事项（选填）",priv:"您填写的内容和文件会加密后发送，只有请求方能够阅读。",
     none:"找不到该请求。请确认链接或联系请求方。",closed:"该请求已截止。",expired:"回复期限已过。如有需要，请联系请求方。",
-    err:"发送失败。请检查网络后重试。",bad:"链接不完整，请确认已复制完整链接。",big:"文件过大（不超过10MB）",
+    err:"发送失败。请检查网络后重试。",bad:"链接不完整，请确认已复制完整链接。",big:"文件过大（不超过10MB）",lerr:"无法加载该请求。请检查网络后刷新页面。",fcnt:"每个请求最多{n}个文件。",abig:"回复内容过长，请将较长的文字作为文件附加。",acnt:"保存次数已达上限，请联系请求方。",already:"已经提交。修改后请点击\u201c再次提交\u201d。",fgone:"该文件已被删除。",
     upl:"正在发送…",st_draft:"草稿",st_sent:"已提交",pv:"预览（不会实际发送）",pw:"Powered by BOEKI CLOUD 2.0"},
   es:{lang:"Idioma",from:"Solicitud de",due:"Responder antes del",left:"Quedan {n} días",today:"Vence hoy",save:"Guardar borrador",send:"Enviar",resend:"Enviar de nuevo",saved:"Guardado. Puede continuar desde este enlace.",sent:"Enviado. Muchas gracias.",
     sentNote:"Puede corregir y volver a enviar hasta la fecha límite.",req:"Obligatorio",need:"Complete los campos obligatorios.",files:"Archivos",addf:"Añadir archivos",drop:"o arrástrelos aquí",fmax:"Hasta 10 MB cada uno, máximo {n}",rmf:"Quitar",
     name:"Su nombre",co:"Empresa",note:"¿Algo más? (opcional)",priv:"Sus respuestas y archivos se cifran antes de enviarse; solo el solicitante puede leerlos.",
     none:"No se encontró esta solicitud. Revise el enlace o contacte al solicitante.",closed:"Esta solicitud está cerrada.",expired:"La fecha límite ya pasó. Contacte al solicitante si es necesario.",
-    err:"No se pudo enviar. Revise su conexión e inténtelo de nuevo.",bad:"El enlace está incompleto. Asegúrese de copiarlo completo.",big:"Archivo demasiado grande (máx. 10 MB)",
+    err:"No se pudo enviar. Revise su conexión e inténtelo de nuevo.",bad:"El enlace está incompleto. Asegúrese de copiarlo completo.",big:"Archivo demasiado grande (máx. 10 MB)",lerr:"No se pudo cargar la solicitud. Revise su conexión y vuelva a cargar la página.",fcnt:"Máximo {n} archivos por solicitud.",abig:"La respuesta es demasiado larga. Adjunte los textos largos como archivo.",acnt:"Se alcanzó el límite de guardados. Contacte al solicitante.",already:"Ya se envió. Para enviar cambios, use \u00abEnviar de nuevo\u00bb.",fgone:"Ese archivo ya se quitó.",
     upl:"Enviando…",st_draft:"Borrador",st_sent:"Enviado",pv:"Vista previa (no se envía nada)",pw:"Powered by BOEKI CLOUD 2.0"}
 };
 var RQP={
@@ -36317,9 +36321,12 @@ var RQP={
     if(!document.getElementById("rqpcss")){ const st=document.createElement("style"); st.id="rqpcss"; st.textContent=RQP.css; document.head.appendChild(st); }
     el.classList.add("rqp");
     const T=(k,n)=>RQP.t(S.lg,k,n), E=RQP.esc;
-    const fail=(k)=>{ el.innerHTML=`<div class="rqp-w"><div class="rqp-c"><p class="rqp-msg ng">${E(T(k))}</p></div><p class="rqp-brand">${E(T("pw"))}</p></div>`; };
-    let r; try{ r=await io.get(); }catch(e){ S.lg=opt.lang||RQP.navLang(); fail("err"); return; }
-    if(!r||!r.ok){ S.lg=opt.lang||RQP.navLang(); fail((r&&r.reason)||"none"); return; }
+    /* サーバーの断り（reason）を相手の言語の文に。記号の無い断りは、日本語の相手にだけサーバーの文を出す */
+    const EM=(x)=>{ const k={none:"none",closed:"closed",expired:"expired",sent:"already",abig:"abig",acnt:"acnt",fbig:"big",fcnt:"fcnt",fgone:"fgone"}[x&&x.reason];
+      if(k) return T(k,10); if(S.lg==="ja"&&x&&x.msg) return String(x.msg); return T("err"); };
+    const fail=(k)=>{ try{ if(!opt.preview) document.documentElement.lang=S.lg; }catch(e){} el.innerHTML=`<div class="rqp-w"><div class="rqp-c"><p class="rqp-msg ng">${E(T(k))}</p></div><p class="rqp-brand">${E(T("pw"))}</p></div>`; };
+    let r; try{ r=await io.get(); }catch(e){ S.lg=opt.lang||RQP.savedLang()||RQP.navLang(); fail("lerr"); return; }
+    if(!r||!r.ok){ S.lg=opt.lang||RQP.savedLang()||RQP.navLang(); const rk=r&&r.reason; fail(rk==="none"||rk==="closed"||rk==="expired"||rk==="bad"?rk:r?"none":"lerr"); return; }
     S.req=r.req; S.ans=r.ans||null; S.state=r.state||""; S.files=r.files||[];
     S.lg=opt.lang||RQP.savedLang()||S.req.lang||RQP.navLang();
     const draw=()=>{
@@ -36359,21 +36366,21 @@ var RQP={
         el.querySelector("#rqpfb").onclick=()=>fi.click(); fi.onchange=()=>addFiles([...fi.files]);
         fz.addEventListener("dragover",e=>{ e.preventDefault(); fz.classList.add("on"); }); fz.addEventListener("dragleave",()=>fz.classList.remove("on"));
         fz.addEventListener("drop",e=>{ e.preventDefault(); fz.classList.remove("on"); addFiles([...(e.dataTransfer&&e.dataTransfer.files||[])]); });
-        el.querySelectorAll("[data-rmf]").forEach(b=>b.onclick=async()=>{ if(S.busy) return; S.busy=true; try{ const x=await io.fdel(b.dataset.rmf); if(x&&x.ok) S.files=S.files.filter(f=>f.id!==b.dataset.rmf); else S.msg=["ng",(x&&x.msg)||T("err")]; }catch(e){ S.msg=["ng",T("err")]; } S.busy=false; keep(); draw(); }); }
+        el.querySelectorAll("[data-rmf]").forEach(b=>b.onclick=async()=>{ if(S.busy) return; S.busy=true; try{ const x=await io.fdel(b.dataset.rmf); if(x&&x.ok) S.files=S.files.filter(f=>f.id!==b.dataset.rmf); else S.msg=["ng",EM(x)]; }catch(e){ S.msg=["ng",T("err")]; } S.busy=false; keep(); draw(); }); }
     };
     const keep=()=>{ const f=el.querySelector("#rqpf"); if(!f) return; const a={}; f.querySelectorAll("[data-k]").forEach(x=>{ a[x.dataset.k]=x.value; });
       S.ans=Object.assign({},S.ans||{},{a,name:(f.querySelector("#rqp_name")||{}).value||"",co:(f.querySelector("#rqp_co")||{}).value||"",note:(f.querySelector("#rqp_note")||{}).value||""}); };
     const addFiles=async(list)=>{ keep(); const max=(S.req.files&&S.req.files.max)||5;
-      for(const f of list){ if(S.files.length>=max) break; if(f.size>10*1024*1024){ S.msg=["ng",T("big")+"："+f.name]; continue; }
+      for(const f of list){ if(S.files.length>=max){ S.msg=["ng",T("fcnt",max)]; break; } if(f.size>10*1024*1024){ S.msg=["ng",T("big")+(S.lg==="ja"||S.lg==="zh"?"：":": ")+f.name]; continue; }
         S.msg=["ok",T("upl")]; draw();
-        try{ const x=await io.fput(f); if(x&&x.ok) S.files.push({id:x.id,size:f.size,m:{name:f.name,type:f.type,size:f.size}}); else S.msg=["ng",(x&&x.msg)||T("err")]; }catch(e){ S.msg=["ng",T("err")]; } }
+        try{ const x=await io.fput(f); if(x&&x.ok) S.files.push({id:x.id,size:f.size,m:{name:f.name,type:f.type,size:f.size}}); else { S.msg=["ng",EM(x)]; if(x&&(x.reason==="closed"||x.reason==="expired"||x.reason==="fcnt")) break; } }catch(e){ S.msg=["ng",T("err")]; } }
       if(S.msg&&S.msg[1]===T("upl")) S.msg=null; draw(); };
     const go=async(state)=>{ if(S.busy) return; keep(); const f=el.querySelector("#rqpf"); let bad=false;
       f.querySelectorAll("[data-k]").forEach(x=>{ const q=(S.req.q||[]).find(y=>y.k===x.dataset.k); const no=state==="sent"&&q&&q.req&&!String(x.value||"").trim(); x.classList.toggle("rqp-bad",!!no); x.setAttribute("aria-invalid",no?"true":"false"); if(no&&!bad){ bad=true; x.focus(); } });
       if(bad){ S.msg=["ng",T("need")]; const m=el.querySelector(".rqp-msg"); if(m) m.textContent=T("need"); else { draw(); } return; }
       S.busy=true; const b1=el.querySelector("#rqpsend"), b2=el.querySelector("#rqpsave"); if(b1) b1.disabled=true; if(b2) b2.disabled=true;
       try{ const x=await io.ans(Object.assign({},S.ans,{lang:S.lg,files:S.files.map(f=>({fid:f.id,name:f.m&&f.m.name,size:f.m&&f.m.size,type:f.m&&f.m.type})),at:Date.now()}),state);
-        if(x&&x.ok){ S.state=state; S.msg=["ok",state==="sent"?T("sent"):T("saved")]; } else S.msg=["ng",(x&&x.msg)||T("err")]; }
+        if(x&&x.ok){ S.state=state; S.msg=["ok",state==="sent"?T("sent"):T("saved")]; } else S.msg=["ng",EM(x)]; }
       catch(e){ S.msg=["ng",T("err")]; }
       S.busy=false; draw(); try{ el.scrollIntoView({block:"end"}); }catch(e){} };
     draw();
@@ -36684,15 +36691,17 @@ if(typeof k30Bulk==="function"){ const __kb33=k30Bulk; k30Bulk=function(){ const
 const V33TR_KIND={ten:"商品",myb:"バイヤー",v30:"",doc:"ドキュメント",memo:"会議メモ",task:"タスク",gl:"用語",rq:"依頼ページ"};
 const V33AU_ACT={del:"削除（ゴミ箱へ）",restore:"元に戻す",purge:"完全に削除",bulk:"一括変更",undo:"一括変更を取り消し",aq_ok:"確認待ちを承認",aq_edit:"確認待ちを直して承認",aq_ng:"確認待ちを却下",send_ack:"確認して送信（黄）",quote_send:"見積書を送付",gl_add:"用語を登録",rate_ok:"レートを確認して登録",rq_new:"依頼ページを作成",rq_rem:"催促",rq_close:"依頼を締め切り",na_set:"次の行動を設定"};
 var V33TRV={tab:"tr"};
+/* 項目名の頭（「タグ：」「ドキュメント：」など）は表示の言語に（保存は日本語のまま＝どの言語で消しても同じ記録） */
+function v33TrName(s){ s=String(s||""); const m=/^([^：]{1,24})：([\s\S]*)$/.exec(s); if(!m) return s; const L=(typeof I18N!=="undefined"&&I18N&&I18N.lang)||"ja"; if(L==="ja") return s; return v33T(m[1])+(L==="zh"?"：":": ")+m[2]; }
 function vTrash33(p){ const E=v33Esc, T=v33T; const L=v33TrashList(), U=v33List("ul").sort((a,b)=>(b._c||0)-(a._c||0)), A=v33List("au").sort((a,b)=>(b._c||0)-(a._c||0));
   const head=(typeof ph==="function")?ph(p,"削除したものは30日ここに残り、元に戻せます。まとめて変えた操作も、ここから取り消せます。",""):"";
   const tab=(k,n,c)=>`<button class="v33tab" type="button" role="tab" aria-selected="${V33TRV.tab===k}" data-trtab="${k}">${E(T(n))}<span class="v33cnt">${c}</span></button>`;
   let body="";
-  if(V33TRV.tab==="tr") body=L.length?`<ul class="v33list">${L.map(e=>`<li class="v33li"><div class="v33li-m"><b>${E(e.name)}</b><span class="v33mute">${E(T(V33TR_KIND[e.kind]||""))} ・ ${E(e._cby||e._by||"")} ・ ${E(v33DT(e._c))}</span></div>
+  if(V33TRV.tab==="tr") body=L.length?`<ul class="v33list">${L.map(e=>`<li class="v33li"><div class="v33li-m"><b>${E(v33TrName(e.name))}</b><span class="v33mute">${(()=>{ const kl=e.kind==="v30"?(V33TR_V30[(e.data&&e.data.sec)||""]||""):(V33TR_KIND[e.kind]||""); return [kl?T(kl):"",e._cby||e._by||"",v33DT(e._c)].filter(Boolean).map(E).join(" ・ "); })()}</span></div>
       <span class="v33lv v33lv-${v33TrashLeft(e)<=5?"warn":"mute"}">${E(T("あと"+v33TrashLeft(e)+"日"))}</span><button class="btn" type="button" data-trback="${E(e.id)}">${E(T("元に戻す"))}</button><button class="btn g" type="button" data-trpurge="${E(e.id)}">${E(T("完全に削除"))}</button></li>`).join("")}</ul>
       <div class="v33row-end"><button class="btn g v33danger-g" type="button" id="v33tremp">${E(T("ゴミ箱を空にする"))}</button></div>`:`<p class="v33empty">${E(T("ゴミ箱は空です"))}</p>`;
   else if(V33TRV.tab==="ul") body=U.length?`<ul class="v33list">${U.map(e=>`<li class="v33li"><div class="v33li-m"><b>${E(T(e.label))}</b><span class="v33mute">${e.n?E(v33N(e.n))+" ・ ":""}${E(e._cby||"")} ・ ${E(v33DT(e._c))}</span></div><button class="btn" type="button" data-ulundo="${E(e.id)}">${E(T("元に戻す"))}</button></li>`).join("")}</ul>`:`<p class="v33empty">${E(T("一括変更の記録はありません"))}</p>`;
-  else body=A.length?`<div class="v33row-end"><button class="btn g" type="button" id="v33aucsv">${E(T("CSV で書き出す"))}</button></div><div class="v33tw"><table class="v33t"><thead><tr><th>${E(T("日時"))}</th><th>${E(T("誰が"))}</th><th>${E(T("操作"))}</th><th>${E(T("内容"))}</th></tr></thead><tbody>${A.slice(0,200).map(a=>`<tr><td class="v33nowrap">${E(v33DT(a._c))}</td><td>${E(a.who||"")}</td><td>${E(T(V33AU_ACT[a.act]||a.act))}</td><td>${E(a.what||"")}${a.x?` <span class="v33mute">${E(a.x)}</span>`:""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="v33empty">${E(T("操作の記録はまだありません"))}</p>`;
+  else body=A.length?`<div class="v33row-end"><button class="btn g" type="button" id="v33aucsv">${E(T("CSV で書き出す"))}</button></div><div class="v33tw"><table class="v33t"><thead><tr><th>${E(T("日時"))}</th><th>${E(T("誰が"))}</th><th>${E(T("操作"))}</th><th>${E(T("内容"))}</th></tr></thead><tbody>${A.slice(0,200).map(a=>`<tr><td class="v33nowrap">${E(v33DT(a._c))}</td><td>${E(a.who||"")}</td><td>${E(T(V33AU_ACT[a.act]||a.act))}</td><td>${E(v33TrName(a.what||""))}${a.x?` <span class="v33mute">${E(a.x)}</span>`:""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="v33empty">${E(T("操作の記録はまだありません"))}</p>`;
   return head+`<div class="c"><div class="v33tabs" role="tablist">${tab("tr","ゴミ箱",L.length)}${tab("ul","一括変更",U.length)}${tab("au","操作の記録",A.length)}</div>${v33Demo()?`<p class="v33p v33mute">${E(T("デモ版では、このタブを閉じると消えます。"))}</p>`:""}<div class="v33tabp">${body}</div></div>`; }
 function v33TrashBind(){ const re=()=>{ try{ render(); }catch(e){} };
   document.querySelectorAll("[data-trtab]").forEach(b=>b.onclick=()=>{ V33TRV.tab=b.dataset.trtab; re(); });
@@ -37120,7 +37129,7 @@ const V33SP_IC={cap:'<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H
   fcase:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',fai:'<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M9 13v2"/><path d="M15 13v2"/>'};
 function v33SpTabs(){ const bar=document.getElementById("tabbar"); if(!bar) return; const mode=(typeof ux17Mode==="function")?ux17Mode():"user"; if(mode!=="user"&&mode!=="fwd") return;
   const L=(typeof I18N!=="undefined"&&I18N&&I18N.lang)||"ja"; const N=V33SP_TABS[L]||V33SP_TABS.ja; const ids=mode==="fwd"?["finbox","fcase","fai","menu"]:["cap","appr","reply","ai","menu"];
-  const active=mode==="fwd"?((typeof fwdCur!=="undefined")?fwdCur:""):((typeof cur!=="undefined")?(cur==="inbox"?(V33IXV.f==="reply"?"reply":"appr"):cur):"");
+  const active=mode==="fwd"?((typeof fwdCur!=="undefined")?fwdCur:""):((typeof cur!=="undefined")?(cur==="inbox"?(V33IXV.f==="reply"?"reply":V33IXV.f==="appr"?"appr":""):cur):"");
   bar.innerHTML=ids.map(id=>`<button class="tb${active===id?" on":""}" data-tb="${id}" data-v33tab="${id}" ${active===id?'aria-current="page"':""}><span class="tbi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${V33SP_IC[id]}</svg></span><span class="tbl">${v33Esc(N[id])}</span></button>`).join("");
   bar.querySelectorAll("[data-tb]").forEach(b=>b.onclick=()=>{ const id=b.dataset.tb; try{
     if(id==="menu"){ document.body.classList.toggle("snav"); return; }
@@ -37167,8 +37176,10 @@ const V33_PAGES=[
   {id:"trash",nm:"ゴミ箱",grp:"チーム",after:"team",free:1,ic:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>'}];
 (function(){ try{ if(typeof PAGES==="undefined"||!Array.isArray(PAGES)) return;
   V33_PAGES.forEach(pg=>{ if(PAGES.some(p=>p.id===pg.id)) return; const e={id:pg.id,ly:"",nm:pg.nm,grp:pg.grp,grp0:pg.grp,ic:pg.ic,free:pg.free?1:0};
-    let i=pg.before?PAGES.findIndex(p=>p.id===pg.before):pg.after?PAGES.findIndex(p=>p.id===pg.after)+1:-1; if(i<0) i=PAGES.length; PAGES.splice(i,0,e);
-    try{ if(typeof UX32_NAV!=="undefined"){ const g=UX32_NAV.find(x=>x[0]===pg.grp); if(g&&!g[1].includes(pg.id)){ const L=g[1]; const j=pg.before?L.indexOf(pg.before):pg.after?L.indexOf(pg.after)+1:L.length; L.splice(j<0?L.length:j,0,pg.id); } } }catch(x){} }); }catch(e){} })();
+    /* 目印の画面が無い版（デモ版には「メンバー・担当」が無い）では、同じ群の最後に（以前は先頭に入っていた） */
+    let i=-1; if(pg.before) i=PAGES.findIndex(p=>p.id===pg.before); else if(pg.after){ const j=PAGES.findIndex(p=>p.id===pg.after); if(j>=0) i=j+1; }
+    if(i<0){ let k=-1; PAGES.forEach((p,n)=>{ if(p.grp===pg.grp) k=n; }); i=k>=0?k+1:PAGES.length; } PAGES.splice(i,0,e);
+    try{ if(typeof UX32_NAV!=="undefined"){ const g=UX32_NAV.find(x=>x[0]===pg.grp); if(g&&!g[1].includes(pg.id)){ const L=g[1]; const j0=pg.before?L.indexOf(pg.before):pg.after?L.indexOf(pg.after):-1; L.splice(j0<0?L.length:(pg.before?j0:j0+1),0,pg.id); } } }catch(x){} }); }catch(e){} })();
 /* 描画のあとの結び付け */
 if(typeof render==="function"){ const __r33u=render; render=function(){ const r=__r33u.apply(this,arguments);
   try{ if(typeof cur!=="undefined"){ if(cur==="inbox") v33InboxBind(); else if(cur==="trash") v33TrashBind(); else if(cur==="rqp") v33RqBind(); else if(cur==="gloss") v33GlBind(); } }catch(e){ console.warn("v33 bind",e); }
@@ -37371,6 +37382,7 @@ v30I18n([
  ["規制の調査（AI。貴社が反映した分は担当者の確認済み）","Regulation research (AI; parts you applied were checked by your staff)","法规调查（AI；贵公司已反映的部分经负责人确认）","Investigación de normativa (IA; lo que aplicó fue revisado por su personal)"],
  ["規制データベース（概算）","Regulation database (estimate)","法规数据库（概算）","Base de datos de normativa (estimación)"],["✓ 会社リサーチ（貴社の担当者が承認）","✓ Company research (approved by your staff)","✓ 公司调研（贵公司负责人已批准）","✓ Investigación de la empresa (aprobada por su personal)"],
  ["会社リサーチ（公式サイト・Web）","Company research (official site, web)","公司调研（官网・网络）","Investigación de la empresa (sitio oficial, web)"],["貴社の担当者が教えた内容","Taught by your staff","贵公司负责人告诉的内容","Enseñado por su personal"],
+ ["貴社の設定（個社版）","Your settings (company-only mode)","贵公司的设置（单独公司版）","Configuración de su empresa (modo solo empresa)"],
  ["STANDAGE の全社の傾向（匿名の集計）","STANDAGE company-wide trends (anonymous totals)","STANDAGE 全公司趋势（匿名汇总）","Tendencias generales de STANDAGE (totales anónimos)"],["物流会社の登録データ","Forwarder's registered data","物流公司的登记数据","Datos registrados del transitario"],["貴社の登録データ","Your registered data","贵公司的登记数据","Sus datos registrados"],
  ["判断できません","Cannot determine","无法判断","No se puede determinar"],["登録データ・Web・統計に根拠が無いため、推測で答えていません。下の情報があれば答えられます。","There's no basis in your data, the web or statistics, so the AI didn't guess. It can answer with the information below.","由于登记数据・网络・统计中没有依据，因此没有凭推测回答。有下面的信息就能回答。","No hay base en sus datos, la web ni las estadísticas, así que la IA no ha supuesto. Podrá responder con la información siguiente."],
  ["商品情報を確かめる","Check product information","确认商品信息","Revisar la información del producto"],["資料を登録する","Register documents","登记资料","Registrar documentos"],["確認済みを含む","Includes verified","包含已确认","Incluye verificados"],
