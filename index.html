@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="be2a2eeb01fd";
+const BC20_BUILD="d11e303cd528";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -33160,7 +33160,7 @@ const B30_F=[["co","会社名"],["person","担当者名"],["dept","部署"],["em
 .b30grid dt{color:var(--ink-3);font-size:var(--fs-xs,13px)} .b30grid dd{margin:0;word-break:break-word}
 .b30log{display:flex;gap:9px;padding:9px 0;border-bottom:1px dashed var(--line-2)}
 .b30log .ic{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);font-size:14px}
-.b30log .bd{flex:1;min-width:0;font-size:var(--fs-sm,14px);line-height:1.6} .b30log .mt{font-size:var(--fs-xs,12px);color:var(--ink-3)}
+.b30log .bd{flex:1;min-width:0;font-size:var(--fs-sm,14px);line-height:1.6} .b30log .mt{font-size:var(--fs-xs,12px);color:var(--ink-3);height:auto;border-radius:0;background:none;overflow:visible;margin-top:0}   /* v21.31：全体の .mt（メーター：高さ5px・overflow:hidden）を打ち消す。見出しの行（種類・日付・書いた人）が潰れていた */
 .b30form{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px} .b30form .full{grid-column:1/-1}
 .b30form label{display:block;font-size:var(--fs-xs,13px);color:var(--ink-3);margin-bottom:3px}
 .b30form input,.b30form select,.b30form textarea{width:100%;box-sizing:border-box}
@@ -33573,11 +33573,14 @@ function d30Guess(name,mime){ const n=String(name||"").toLowerCase();
   /* ファイル名は「_」でつながることが多い（例：SDS_matcha.pdf）ので、\b ではなく「英字以外」を区切りにする */
   const R=[[/(^|[^a-z])(sds|msds)([^a-z]|$)|safety ?data/,"SDS"],[/契約|contract|agreement|(^|[^a-z])nda([^a-z]|$)|覚書|合意書/,"契約書"],[/proforma|(^|[^a-z])pi([^a-z]|$)|見積|quotation|quote|offer/,"見積書"],[/invoice|請求|(^|[^a-z])ci([^a-z]|$)|インボイス/,"請求書・インボイス"],
     [/purchase ?order|(^|[^a-z])po([^a-z]|$)|発注|注文書/,"発注書"],[/packing|パッキング|(^|[^a-z])pl([^a-z]|$)/,"パッキングリスト"],[/b[\/_\- ]?l([^a-z]|$)|bill of lading|airway|awb|船荷|shipping/,"船積書類（B/L 等）"],
-    [/origin|原産地|(^|[^a-z])co[\s_\-.]?form|(^|[^a-z])c\/o([^a-z]|$)/,"原産地証明"],[/certificate|証明|認証|haccp|(^|[^a-z])iso|fssc|halal|ハラル|有機|organic|(^|[^a-z])jas([^a-z]|$)|kosher/,"証明書・認証"],[/analysis|分析|検査|test ?report|成績書|(^|[^a-z])coa([^a-z]|$)|残留/,"検査・分析成績書"],
+    [/origin|原産地|(^|[^a-z])co[\s_\-.]?form|(^|[^a-z])c\/o([^a-z]|$)/,"原産地証明"],[/certificate|(^|[^a-z])certs?([^a-z]|$)|証明|認証|認定|haccp|(^|[^a-z])iso|fssc|halal|ハラル|kosher/,"証明書・認証"],[/analysis|分析|検査|test ?report|成績書|(^|[^a-z])coa([^a-z]|$)|残留/,"検査・分析成績書"],
     [/spec|規格|仕様|specification/,"規格書・仕様書"],[/ingredient|成分|nutrition|栄養|配合|composition/,"成分表"],[/price|価格|プライス|単価/,"価格表"],
     [/catalog|カタログ|brochure|営業資料|presentation|deck|pitch|提案/,"カタログ・営業資料"],[/label|ラベル|package|パッケージ|artwork/,"ラベル・パッケージ"],[/議事録|minutes|memo|メモ|notes/,"議事録・メモ"]];
   for(const [re,t] of R) if(re.test(n)) return t;
   if(/^image\//.test(String(mime||""))||/\.(png|jpe?g|gif|webp|heic|bmp|svg)$/.test(n)) return "商品写真・画像";
+  /* v21.31：「有機」「organic」は商品名にも入る（有機抹茶_規格書.pdf・organic_price_list.xlsx）ので種類の手がかりにしない。
+     「JAS」だけはほかの種類に当てはまらない時に「証明書・認証」（有機JAS.pdf など） */
+  if(/(^|[^a-z])jas([^a-z]|$)/.test(n)) return "証明書・認証";
   return "そのほか"; }
 function d30Ext(n){ return (String(n||"").toLowerCase().match(/\.([a-z0-9]+)$/)||[])[1]||""; }
 function d30Icon(d){ const e=d30Ext(d.n); if(d.link) return "🔗"; if(/^(png|jpe?g|gif|webp|svg|heic|bmp)$/.test(e)) return "🖼"; if(e==="pdf") return "📕"; if(/^(xlsx|xlsm|xls|csv)$/.test(e)) return "📗"; if(/^(docx|doc)$/.test(e)) return "📘"; if(/^(pptx|ppt)$/.test(e)) return "📙"; if(e==="zip") return "🗜"; return "📄"; }
@@ -34261,13 +34264,14 @@ function a30T(v){ if(typeof v==="number") return v; const t=Date.parse(String(v|
 function a30Collect(R){ const out={appr:[],reply:[],meet:[],sample:[],quote:[],won:[],lost:[],nb:[],task:[],memo:[]}; const cur=v30Ten();
   const tens=cur?v30Tens().filter(t=>(t.co||"")===(cur.co||"")):[null];
   tens.forEach(t=>{ const item=t?t.item:((typeof D!=="undefined"&&D&&D.item)||"");
-    const ths=t?b30Ths(t):[]; ths.forEach(th=>{ const my=/^MY-/.test(String(th.id||""))?(t.myBuyers||[]).find(b=>b&&b.id===th.id):null; const nm=(my&&my.co)||`${th.cty||""}の${th.biz||""}（ID ${th.id}）`; (th.msgs||[]).forEach(m=>{ const at=+m.at||0; if(!a30In(at,R)) return;
+    const t0=t||((typeof TEN!=="undefined"&&TEN)?TEN:null);   /* v21.31：デモの業種サンプル（v30Ten が無い）は表示中の商品（TEN）を見る */
+    const ths=b30Ths(t0); ths.forEach(th=>{ const my=/^MY-/.test(String(th.id||""))?b30MyList(t).find(b=>b&&b.id===th.id):null; const nm=(my&&my.co)||`${th.cty||""}の${th.biz||""}（ID ${th.id}）`; (th.msgs||[]).forEach(m=>{ const at=+m.at||0; if(!a30In(at,R)) return;
       if(m.w==="me") out.appr.push({at,who:m.who||"",b:nm,how:"メール（直接連絡）",txt:String(m.subj||l30Plain(m.body)).slice(0,60),item});
       else if(m.w==="by") out.reply.push({at,who:"",b:nm,how:"メール（直接連絡）",txt:String(m.subj||l30Plain(m.body)).slice(0,60),item}); }); });
     const fbs=(t===cur||!t)?((typeof D!=="undefined"&&D&&D.fb)||[]):(t.fbx||[]);
     fbs.forEach(f=>{ const at=a30T(f.d); if(!a30In(at,R)) return; const o={at,who:f.owner||"",b:f.b||"",how:f.ch||"",txt:[f.st,f.price&&("希望価格 "+f.price),f.lot&&("数量 "+f.lot)].filter(Boolean).join("・"),item:f.item||item,react:f.react||"",st:f.st||"",f};
       out.meet.push(o); if(f.st==="サンプル発送") out.sample.push(o); if(f.st==="見積提示") out.quote.push(o); if(f.st==="受注") out.won.push(o); if(f.st==="失注") out.lost.push(Object.assign({},o,{txt:"断られた理由："+(f.why||"—")})); });
-    (t&&Array.isArray(t.myBuyers)?t.myBuyers:[]).forEach(b=>{ const at=a30T(b.added); if(a30In(at,R)) out.nb.push({at,who:"",b:b.co||"",how:"登録",txt:[b.cty,b.biz].filter(Boolean).join("・"),item}); });
+    b30MyList(t).forEach(b=>{ const at=a30T(b.added); if(a30In(at,R)) out.nb.push({at,who:"",b:b.co||"",how:"登録",txt:[b.cty,b.biz].filter(Boolean).join("・"),item}); });
   });
   const names={}; try{ b30Collect().forEach(r=>{ names[r.key]=r.name; }); }catch(e){}
   v30List("bl").forEach(l=>{ const at=+l.at||+l._c||0; if(!a30In(at,R)||!names[l.bk]) return; const o={at,who:l._cby||"",b:names[l.bk],how:({mail:"メール",call:"電話",meet:"面談・商談",sample:"サンプル送付",quote:"見積送付",memo:"メモ",file:"ファイル"})[l.type]||"そのほか",txt:String(l.body||"").slice(0,60)};
@@ -35042,6 +35046,103 @@ v30I18nEl([
   "每行写一个任务。行末有日期（例：<b>10/15</b> 或 <b>2026-10-15</b>）时作为截止日期，以“！”开头的行设为优先级“高”。",
   "Escriba una tarea por línea. Una fecha al final de la línea (p. ej., <b>10/15</b> o <b>2026-10-15</b>) será la fecha límite, y las líneas que empiezan con «!» tendrán prioridad alta."],
  ["<b>記録の時系列</b>（AIエンジン未接続のため、記録をそのまま並べています）","<b>Timeline of records</b> (No AI engine is connected, so the records are listed as they are)","<b>记录时间线</b>（因未连接AI引擎，按原样列出记录）","<b>Cronología de registros</b> (No hay motor de IA conectado, así que se listan los registros tal cual)"],
+]);
+
+/* ═══ v21.31（2026-10-02）v21.30 の公開後に見つけた不具合と使いにくさ ═══
+   ① バイヤーのアクティビティログ・商談記録へのコメント・タスクのやりとりで、見出しの行（種類・日付・書いた人）が潰れて読めない
+      → 原因は全体の CSS の .mt（メーター：高さ5px・overflow:hidden）と名前がぶつかったこと。logic_v2130buyer.js の .b30log .mt で打ち消した
+   ② ドキュメントの種類の自動判定：「有機」「organic」を含むだけで「証明書・認証」になる（有機抹茶_規格書.pdf など）→ logic_v2130docs.js の d30Guess で直した
+   ③ サブ担当者：「やりとり」の右の列（標準では出ない）のメンバー欄の「⋮」からしか決められない
+      → 「メンバー・担当」の「商品ごとの担当」で決められるように（ここ）。記録は今までと同じ商品の subLead（メンバー欄の「サブ」の印と同じ）
+   ④ バイヤーDB・拠点「相手を探す」の表：枠より表が広いと（画面幅 1440px 以下）右端の「直接連絡」「拠点に依頼」が横スクロールの先に隠れる
+      → そのときだけ、操作のボタンをバイヤー名の下へ移す（ここ）。広い画面は今までどおり右の列
+   ⑤ デモの業種サンプルで、追加したバイヤーが活動レポートの「新しいバイヤー」に数えられない → logic_v2130rep.js の a30Collect で直した */
+
+/* ── ③ 商品ごとの担当：サブ担当者 ── */
+function tm31Subs(t){ return (t&&Array.isArray(t.subLead))?t.subLead:[]; }
+function tm31SetSub(name,uid,on){ const t=uid?tmTenByUid(uid):tmCurTen(); if(!t||!name) return; if(!tmCan()){ toast("担当の割り当ては管理者が行います"); return; }
+  const L=tm31Subs(t).slice(), i=L.indexOf(name); if(on&&i<0) L.push(name); if(!on&&i>=0) L.splice(i,1); t.subLead=L;
+  try{ saveTen(); }catch(e){} try{ tmLog((on?"サブ担当:":"サブ担当を外す:")+name); }catch(e){}
+  toast(on?name+" さんをサブ担当者にしました":name+" さんをサブ担当者から外しました"); tmRepaint(); }
+/* 「メンバー・担当」はトライアル版だけ（デモ版には無い） */
+if(typeof tmProdHtml==="function"&&typeof teamBind==="function"){
+tmProdHtml=function(a,T,L,can,noun){
+  if(!T.length) return `<p class="nn" style="margin-top:12px">まだ${noun}がありません。${noun==="商品"?"「商品情報を登録」で商品を登録すると":"荷主から見積依頼が届くと"}、ここで担当を割り当てられます。</p>`;
+  const act=L.filter(m=>tmStOf(m)!=="stop"), fwd=tmIsFwd(a);
+  const lead0=fwd?"":`<p class="nn" style="margin-top:10px">${can?"★＝メイン担当者、「サブ」＝サブ担当者です。名前の横の ★・サブ・× で変えられます。":"★＝メイン担当者、「サブ」＝サブ担当者です。"}</p>`;
+  return lead0+`<div class="tm-list">${T.map(t=>{ const ten=fwd?null:tmTenByUid(t.id), lead=ten?tmLeadName(ten):"", subs=ten?tm31Subs(ten):[];
+    const rank=m=>m.name===lead?0:subs.includes(m.name)?1:2;
+    const on=act.filter(m=>tmHas(m,t.id)).sort((x,y)=>rank(x)-rank(y)), off=act.filter(m=>!tmHas(m,t.id));
+    return `<div class="tm-prod"><h4>${esc(t.label)}</h4><div class="tm-chips">${on.length?on.map(m=>{ const isL=m.name===lead, isS=!isL&&subs.includes(m.name);
+      return `<span class="tm-chip${tmAllOf(m)?" all":""}${isS?" tm31s":""}" title="${tmAllOf(m)?"すべての"+noun+"の担当":""}">${isL?"★ ":""}${esc(m.name)}${isL?'<span class="tm31l">（メイン）</span>':""}${isS?'<span class="tm31l">（サブ）</span>':""}`
+        +(can&&!fwd&&!isL?`<button type="button" title="メイン担当者に変更" data-tmlead="${esc(m.name)}" data-tmid="${esc(t.id)}">★</button>`:"")
+        +(can&&ten&&!isL?`<button type="button" class="tm31sb" aria-pressed="${isS}" title="${isS?"サブ担当者から外す":"サブ担当者にする"}" data-tm31sub="${esc(m.name)}" data-tmid="${esc(t.id)}">サブ</button>`:"")
+        +(can?`<button type="button" title="担当から外す" data-tmun="${esc(m.name)}" data-tmid="${esc(t.id)}">×</button>`:"")+`</span>`; }).join(""):'<span class="nn">担当はまだいません</span>'}
+      ${can&&off.length?`<select class="sel" data-tmadd="${esc(t.id)}" style="font-size:12px;padding:3px 6px"><option value="">＋ 担当を追加</option>${off.map(m=>`<option value="${esc(m.name)}">${esc(m.name)}</option>`).join("")}</select>`:""}</div></div>`; }).join("")}</div>`; };
+const __tb2131=teamBind;
+teamBind=function(){ __tb2131.apply(this,arguments);
+  document.querySelectorAll("[data-tm31sub]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); tm31SetSub(b.dataset.tm31sub,b.dataset.tmid,b.getAttribute("aria-pressed")!=="true"); }); };
+}
+/* メイン担当にしたら、その商品のサブ担当からは外す／担当から外したら、サブ担当からも外す（メンバー欄の「⋮」でも同じ）。
+   メイン担当は v21.27 から TEN.mainMember（TEN.lead はリードタイム）なので tmLeadName で読む */
+if(typeof tmSetLead==="function"){ const __tsl2131=tmSetLead; tmSetLead=function(name,uid){ const r=__tsl2131.apply(this,arguments);
+  try{ const t=uid?tmTenByUid(uid):tmCurTen(); if(t&&name&&tmLeadName(t)===name&&tm31Subs(t).includes(name)){ t.subLead=tm31Subs(t).filter(x=>x!==name); saveTen(); tmRepaint(); } }catch(e){} return r; }; }
+if(typeof tmToggleOn==="function"){ const __tto2131=tmToggleOn; tmToggleOn=function(name,id,on){
+  if(!on){ try{ const t=tmTenByUid(id); if(t&&tmCan()&&tm31Subs(t).includes(name)){ t.subLead=tm31Subs(t).filter(x=>x!==name); saveTen(); } }catch(e){} }
+  return __tto2131.apply(this,arguments); }; }
+/* 登録済みの商品カードの「担当：」にもサブを出す */
+if(typeof tmDecorateProducts==="function"){ const __tdp2131=tmDecorateProducts; tmDecorateProducts=function(){ const r=__tdp2131.apply(this,arguments);
+  try{ const box=document.getElementById("regprod"), TS=(typeof TENS!=="undefined"&&TENS)||[]; if(box) box.querySelectorAll("[data-tsw]").forEach(c=>{ const t=TS[+c.dataset.tsw], b=c.querySelector(".tm-badge"); if(!t||!b||b.dataset.tm31) return;
+    const subs=tm31Subs(t); if(!subs.length) return; b.dataset.tm31="1";
+    b.textContent=b.textContent.replace(/^(担当：)(.*?)(＋全体担当\d+名)?$/,(all,p,names,tail)=>p+String(names||"").split("・").map(n=>n&&subs.includes(n)?n+"（サブ）":n).join("・")+(tail||"")); }); }catch(e){}
+  return r; }; }
+
+/* ── ④ バイヤーDB・拠点「相手を探す」：表が枠より広いときは、操作のボタンをバイヤー名の下へ ── */
+function db31Fold(on){ const W=document.getElementById("dbbw"); if(!W) return;
+  W.querySelectorAll("#dbb > tr").forEach(tr=>{ const c=tr.cells; if(!c||c.length<2) return; const a=c[0], z=c[c.length-1]; let box=a.querySelector(":scope > .db31a");
+    if(on){ if(!z.childNodes.length) return; if(!box){ box=document.createElement("div"); box.className="db31a"; box.addEventListener("click",e=>e.stopPropagation()); a.appendChild(box); } while(z.firstChild) box.appendChild(z.firstChild); }
+    else if(box){ while(box.firstChild) z.appendChild(box.firstChild); box.remove(); } });
+  W.classList.toggle("db31n",!!on); }
+function db31Fit(){ const W=document.getElementById("dbbw"); if(!W) return; const tb=W.querySelector("table"); if(!tb) return;
+  if(W.classList.contains("db31n")) db31Fold(false);
+  if(W.scrollWidth>W.clientWidth) db31Fold(true);   /* 1px でもはみ出すと横のスクロールバーが出る */
+  W.dataset.db31w=String(W.clientWidth); }
+let __db31T=null, __db31RO=null;
+function db31Schedule(){ clearTimeout(__db31T); __db31T=setTimeout(()=>{ try{ db31Fit(); }catch(e){} },60); }
+function db31Watch(){ const W=document.getElementById("dbbw"); if(!W) return;
+  try{ if(__db31RO) __db31RO.disconnect(); if("ResizeObserver" in window){ __db31RO=new ResizeObserver(()=>{ const w=document.getElementById("dbbw"); if(w&&w.dataset.db31w!==String(w.clientWidth)) db31Schedule(); }); __db31RO.observe(W); } }catch(e){}
+  try{ db31Fit(); }catch(e){} setTimeout(db31Schedule,300); setTimeout(db31Schedule,1200); }   /* 文字・アイコンの読み込みで幅が後から 1px 変わることがある */
+if(typeof rDB==="function"){ const __rDB2131=rDB; rDB=function(){ const r=__rDB2131.apply(this,arguments); try{ db31Watch(); }catch(e){} return r; }; }
+window.addEventListener("resize",db31Schedule);
+
+(function(){ try{ if(document.getElementById("v2131css")) return; const s=document.createElement("style"); s.id="v2131css"; s.textContent=`
+.tm-chip .tm31sb{border:1px solid var(--line);border-radius:999px;padding:0 7px;margin-left:2px;font-size:11.5px;line-height:1.5;color:var(--ink-3);background:var(--surface)}
+.tm-chip .tm31sb[aria-pressed="true"]{background:var(--bl);border-color:var(--bl);color:#fff}
+.tm-chip .tm31sb:focus-visible{outline:2px solid var(--or);outline-offset:1px}
+.tm-chip.tm31s{border-color:var(--bl)} .tm-chip .tm31l{color:var(--ink-3)}
+#dbbw.db31n thead th:last-child,#dbbw.db31n #dbb > tr > td:last-child:not(:first-child){display:none}
+#dbbw.db31n th,#dbbw.db31n td{padding-left:8px;padding-right:8px} #dbbw.db31n td:first-child{min-width:140px}
+#dbbw .db31a{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:6px;white-space:normal}
+#dbbw .db31a .btn{margin:0!important}`; document.head.appendChild(s); }catch(e){} })();
+
+/* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.31")) S30_NEWS.unshift(["2026-10","v21.31","見やすさと使いやすさの改善",
+  ["バイヤーのアクティビティログ・商談記録へのコメント・タスクのやりとりで、見出し（種類・日付・書いた人）が読めるように",
+   "「メンバー・担当」の「商品ごとの担当」で、サブ担当者を決められるように",
+   "バイヤーDB・拠点の一覧で、画面の幅が狭くても「直接連絡」「拠点に依頼」が切れずに見えるように",
+   "ドキュメントの種類の自動判定で、「有機」を含むだけのファイル名を「証明書・認証」にしないように"]]); }catch(e){}
+
+/* ── 表示言語（英・中・西） ── */
+v30I18n([
+ ["★＝メイン担当者、「サブ」＝サブ担当者です。名前の横の ★・サブ・× で変えられます。","★ = main owner, “Sub” = sub owner. Change them with ★, Sub and × next to each name.","★＝主要负责人，“副”＝副负责人。可用名字旁的 ★・副・× 更改。","★ = responsable principal, «Sec.» = responsable secundario. Cámbielos con ★, Sec. y × junto a cada nombre."],
+ ["★＝メイン担当者、「サブ」＝サブ担当者です。","★ = main owner, “Sub” = sub owner.","★＝主要负责人，“副”＝副负责人。","★ = responsable principal, «Sec.» = responsable secundario."],
+ ["（メイン）","(main)","（主要）","(principal)"],["（サブ）","(sub)","（副）","(sec.)"],
+ ["サブ担当者にする","Make sub owner","设为副负责人","Hacer responsable secundario"],["担当から外す","Remove from assignment","取消负责","Quitar de la asignación"],
+ ["見やすさと使いやすさの改善","Readability and usability improvements","易读性与易用性改进","Mejoras de legibilidad y usabilidad"],
+ ["バイヤーのアクティビティログ・商談記録へのコメント・タスクのやりとりで、見出し（種類・日付・書いた人）が読めるように","Headings (type, date, author) are now readable in buyer activity logs, comments on meeting records and task conversations","买家活动记录、商谈记录评论和任务往来的标题（类型・日期・作者）现在可以正常阅读","Los encabezados (tipo, fecha, autor) ya se leen en el registro de actividad del comprador, los comentarios de las reuniones y las conversaciones de tareas"],
+ ["「メンバー・担当」の「商品ごとの担当」で、サブ担当者を決められるように","Sub owners can now be set in “Members & assignments” › “Assignments by product”","可在“成员・负责人”的“按商品的负责人”中设定副负责人","Ahora se puede asignar el responsable secundario en «Miembros y asignaciones» › «Asignaciones por producto»"],
+ ["バイヤーDB・拠点の一覧で、画面の幅が狭くても「直接連絡」「拠点に依頼」が切れずに見えるように","In the Buyer DB & bases list, “Contact directly” and “Ask a base” are no longer cut off on narrower screens","在买家DB・据点列表中，屏幕较窄时“直接联系”“委托据点”也不会被截断","En la lista de la BD de compradores y bases, «Contactar directamente» y «Solicitar a una base» ya no se cortan en pantallas estrechas"],
+ ["ドキュメントの種類の自動判定で、「有機」を含むだけのファイル名を「証明書・認証」にしないように","Automatic document typing no longer marks a file as “Certificate” just because its name contains “organic”","文档类型自动判断不再仅因文件名含“有机”就归为“证书・认证”","La clasificación automática de documentos ya no marca un archivo como «Certificado» solo porque su nombre contiene «orgánico»"]
 ]);
 
 </script>
