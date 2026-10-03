@@ -1,4 +1,6 @@
 <meta charset="utf-8">
+<script>try{history.scrollRestoration="manual"}catch(e){}</script>
+<style>html{overflow-anchor:none}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>貿易クラウド 2.0 トライアル</title>
 
@@ -1023,7 +1025,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="6ae09a3faae1";
+const BC20_BUILD="70e4ec69fcab";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -18089,7 +18091,7 @@ if(typeof fwdEnter==="function"){ const __fwdEnterNav=fwdEnter;
   fwdEnter=function(){ const o=navLoad(); if(o&&o.fwdCur&&typeof fwdCur!=="undefined") fwdCur=o.fwdCur; __fwdEnterNav.apply(this,arguments); }; }
 if(typeof fwdRender==="function"){ const __fwdRenderNav=fwdRender; fwdRender=function(){ const r=__fwdRenderNav.apply(this,arguments); navSave(); return r; }; }
 /* デモ版（ログイン無し）：起動描画の直後に復元。トライアル版のF5（セッション復元）も authBoot() がこのファイルより先に走るため、ここで復元する */
-try{ const o=navLoad();
+try{ const o=navLoad(); try{ window.__bc20NavBoot=o; }catch(e){}   /* v21.35：読み込みの最後（logic_v2135.js）で、後の版で足した画面にも戻す */
   /* 物流会社モードのF5：見ていた画面（相見積・レート管理など）に戻す */
   if(typeof FWDON!=="undefined"&&FWDON&&o&&o.fwdCur&&typeof fwdCur!=="undefined"&&o.fwdCur!==fwdCur){ fwdCur=o.fwdCur; if(typeof fwdNav==="function") fwdNav(); if(typeof fwdRender==="function") fwdRender(); }
   const trialRestored=(typeof enterApp==="function"&&typeof SES!=="undefined"&&SES&&SES.t==="trial"&&SES.role!=="fwd"&&!document.body.classList.contains("locked"));
@@ -35230,11 +35232,8 @@ if(typeof i18nSet==="function"){ const __is32=i18nSet; i18nSet=function(){ const
 /* ── ③ 画面の上を薄く ── */
 /* 案内帯：はじめの2歩の間（資料の登録・足りない情報）とサンプルの時だけ。帯の中の AI の札（成長レベル）は出さない＝AI の入口は右下の1つ */
 if(typeof updateGuide==="function"){ const __ug32=updateGuide; updateGuide=function(){ const r=__ug32.apply(this,arguments);
-  try{ const g=document.getElementById("guide"); if(!g||g.hidden) return r;
-    const st=(typeof guideState==="function")?guideState():null; const sample=!!(typeof TEN!=="undefined"&&TEN&&(TEN.src==="sample"||TEN.src==="sample2"))||(typeof TEN!=="undefined"&&!TEN&&typeof PID!=="undefined"&&PID);
-    if(st&&st.n>=3&&!sample&&ux32Mode()==="user"){ g.hidden=true; return r; }
-    g.querySelectorAll("#gai,.btn.gai").forEach(x=>x.remove());
-  }catch(e){} return r; }; }
+  /* v21.35：準備が終わった後も案内帯を出し、帯の中の AI商社マンの札（成長レベル→AI商社マンの画面）も出す（v21.32 の「帯を隠す・札を外す」はやめた） */
+  return r; }; }
 /* 見出し：PC は「AIに質問」を出さない（右下の1つに）・ボタンが5つ以上なら3つ＋「その他の操作」・上部バーと同じ商品の札は重ねない */
 function ux32Header(root){
   try{ const w=root||document.getElementById("well"); if(!w) return; const ph=w.querySelector(".ph"); if(!ph) return;
@@ -37743,5 +37742,102 @@ if(typeof v30I18n==="function") v30I18n([
    P(/^「(.+)」に当たる書類は見つかりませんでした。預けてある書類は次のとおりです。$/,"No file matching “$1” was found. These are the stored files:","没有找到与“$1”相符的文件。已保存的文件如下：","No se encontró ningún archivo para «$1». Estos son los archivos guardados:"),
    P(/^依頼ページは (\d+)件です。$/,"There are $1 request page(s).","共有 $1 个请求页面。","Hay $1 página(s) de solicitud.")];
   L.slice().reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){} })();
+
+/* ═══ v21.35（2026-10-03）お客様の報告：① ダッシュボード以外の画面で再読み込み（F5）すると、必ずダッシュボードに戻る
+                                     ② 画面の上の段（AI商社マンの成長レベルの札＝押すと AI商社マンの画面）が無い。再読み込みの直後に一瞬だけ出て消える
+   ① 原因：再読み込みで見ていた画面に戻す処理（logic_fwdq.js の最後）は、読み込みの途中で1回だけ走る。その時点では後の版で足した画面
+      （受信箱・販売先国の選定・用語集・依頼ページ・会議メモ・ドキュメント・メンバー・ゴミ箱の8画面）がまだ表に無く、戻せなかった。
+      画面はログインの直後に決まる画面（商品が揃っていればダッシュボード、足りなければ「商品情報を登録」と「何をしますか？」）のままになり、
+      次の描画で控えもその画面に上書きされていた（ダッシュボード・商品情報・やりとりなど初めからある画面は戻っていた）。
+      物流会社の「案件」「依頼ページ」（v21.33）「メンバー」（v21.5）は、描く処理が途中で返して控えを残さず、受信箱などに戻っていた。
+      直し：控えは読み込みの途中で預かり（fixes_v2135.py）、全部の画面が揃った読み込みの最後に、その画面へ戻す。
+            見ていた位置（縦のスクロール）も、画面を離れる時に控えて戻す（自分で操作したら止める・8秒まで・やりとりは最新のメッセージのまま）。
+            ログインの後の画面（v21.29 の前回の画面から）は今までどおり。管理者は今までどおり管理コンソール。
+      位置について分かったこと：ブラウザの自動の戻しと、画面全体のスクロールの位置合わせ（overflow-anchor）が、描き直し（中身を丸ごと入れ替える）のたびに
+      別の箇所へずらしていた（AI商社マンの画面は、再読み込みでも同期の取り込みでも一番下へ。v21.34 でも同じ）→ どちらも head の先頭で止める（fixes_v2135.py）
+   ② 原因：v21.32 の「画面の上を薄く」で、案内帯を「はじめの2歩」の間とサンプルの時だけにし、帯の中の AI商社マンの札も外していた。
+      読み込みの前半の描画（v21.32 の層より前）では帯と札が出て、後半の描き直しで消えるため、一瞬だけ見えていた。
+      直し：準備が終わった後も案内帯を出し、帯の中の AI商社マンの札も出す（fixes_v2135.py で v21.32 の決まりを外す。スマホは今までどおり下のタブ） */
+
+/* 今の画面（物流会社は「f:」＋物流会社の画面） */
+function v35PageKey(){ try{ if(typeof FWDON!=="undefined"&&FWDON) return "f:"+(typeof fwdCur!=="undefined"?String(fwdCur):""); return typeof cur!=="undefined"?String(cur):""; }catch(e){ return ""; } }
+/* 見ていた位置：画面を離れる時（再読み込み・閉じる・ログアウト）に、このタブの控えへ縦の位置を足す。使うのは再読み込みの直後だけ */
+addEventListener("pagehide",()=>{ try{ const o=JSON.parse(sessionStorage.getItem("bc20_nav")||"null"); if(!o) return;
+  o.y=Math.max(0,Math.round(window.scrollY||(document.scrollingElement||document.documentElement).scrollTop||0)); o.yp=v35PageKey();
+  sessionStorage.setItem("bc20_nav",JSON.stringify(o)); }catch(e){} });
+/* 位置はこのアプリが戻す。ブラウザの自動の戻しは、読み込みが終わった後に別の箇所へ飛ぶことがある（AI商社マンの画面で一番下へ。v21.34 でも同じ）。
+   止める設定は読み込みの最初（head の先頭。fixes_v2135.py）で入れる＝ここで入れても間に合わない。ここは念のため */
+try{ if(history&&"scrollRestoration" in history) history.scrollRestoration="manual"; }catch(e){}
+
+function v35ScrollBack(o){
+  try{ const y=Math.round(+o.y||0), key=String(o.yp||""); if(y<8||!key||key!==v35PageKey()||key==="msg") return;   /* やりとりは最新のメッセージへ（v21.19） */
+    const t0=Date.now(); let stop=false;
+    /* 自分で操作したら（ホイール・タッチ・キー・クリック）止める。描き直しの途中で高さが足りずに上へ戻された分は、次の回で戻す */
+    const EV=["wheel","touchstart","keydown","pointerdown","mousedown"];
+    const halt=()=>{ if(stop) return; stop=true; EV.forEach(ev=>removeEventListener(ev,halt,true)); };
+    EV.forEach(ev=>addEventListener(ev,halt,{capture:true,passive:true}));
+    const apply=()=>{ if(stop) return; if(Date.now()-t0>8000||v35PageKey()!==key){ halt(); return; }
+      const s=document.scrollingElement||document.documentElement; if(Math.abs((s.scrollTop||0)-y)<=2) return;
+      try{ window.scrollTo({top:y,left:0,behavior:"instant"}); }catch(e){ s.scrollTop=y; } };
+    [0,120,400,900,1600,2500,3600,5000,7000].forEach(ms=>setTimeout(apply,ms));
+  }catch(e){}
+}
+/* 物流会社：後の版で足した画面（案件・依頼ページ＝v21.33、メンバー＝v21.5）は、描く処理が途中で返すため、見ていた画面の控えが残らなかった
+   （再読み込みで受信箱などに戻っていた）→ いちばん外側で、描くたびに控える */
+if(typeof fwdRender==="function"&&typeof navSave==="function"){ const __fr35=fwdRender; fwdRender=function(){ const r=__fr35.apply(this,arguments); try{ navSave(); }catch(e){} return r; }; }
+/* 読み込みの最後：預かった控え（logic_fwdq.js の最後で、上書きされる前に読んだもの）の画面へ戻す */
+function v35Restore(){
+  let o=null; try{ o=window.__bc20NavBoot||null; window.__bc20NavBoot=null; }catch(e){}
+  if(!o||typeof o!=="object") return;
+  try{
+    if(typeof SES!=="undefined"){   /* トライアル版：再読み込みでログインが戻った時だけ（ログイン画面・管理者は対象外） */
+      if(!SES||SES.t!=="trial"||document.body.classList.contains("locked")) return;
+      const k=(typeof v2129NavKey==="function")?v2129NavKey():""; if(o.acct&&k&&o.acct!==k) return; }   /* 別のアカウントの控えは使わない */
+    const fwd=(typeof FWDON!=="undefined"&&FWDON);
+    if(fwd){
+      /* 読み込みの途中（logic_fwdq.js の最後）で戻した時は、後の版の画面（案件・依頼ページ・メンバー）がまだ描けず受信箱の中身だったので、ここで描き直す */
+      if(o.fwd&&o.fwdCur&&typeof fwdCur!=="undefined"){ fwdCur=o.fwdCur; if(typeof fwdNav==="function") fwdNav(); if(typeof fwdRender==="function") fwdRender(); }
+    } else if(!o.fwd&&o.cur&&typeof cur!=="undefined"&&o.cur!==cur&&typeof navRestoreCur==="function"&&navRestoreCur(o)){
+      /* 途中の描画が「商品情報を登録」だった時の集中モード・「何をしますか？」は、別の画面に戻るので解く（go と同じ） */
+      if(cur!=="up"&&typeof V1811!=="undefined"&&V1811){ V1811.focus=null; V1811.mode=null; try{ if(typeof v1811Close==="function") v1811Close(); }catch(e){} }
+      if(typeof buildNav==="function") buildNav(); if(typeof render==="function") render();
+    }
+    v35ScrollBack(o);
+  }catch(e){ try{ console.warn("v21.35 再読み込みの画面の復元",e); }catch(x){} }
+}
+
+/* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.35")) S30_NEWS.unshift(["2026-10","v21.35","再読み込みしても見ていた画面のまま・画面の上の案内帯をいつも表示",
+  ["再読み込み（F5）の後も、見ていた画面とスクロールの位置に戻る（受信箱・販売先国の選定・用語集・依頼ページ・会議メモ・ドキュメント・メンバー・ゴミ箱では、ダッシュボードなどに戻っていた。物流会社の案件・依頼ページ・メンバーも同じ）",
+   "準備が終わった後も、画面の上の案内帯と AI商社マンの成長レベルの札（押すと AI商社マンの画面）を表示",
+   "AI商社マンの画面などで、描き直し（同期の取り込みなど）のたびに表示の位置が一番下へずれないように"]]); }catch(e){}
+/* ── 表示言語（英・中・西）：v21.35 と、訳が無かった v21.34 のお知らせ ── */
+try{ if(typeof v30I18n==="function") v30I18n([
+ ["再読み込みしても見ていた画面のまま・画面の上の案内帯をいつも表示","Reloading keeps the screen you were viewing; the guide bar at the top is always shown","刷新后仍停留在原来的画面，顶部的引导栏始终显示","Al recargar se mantiene la pantalla que veía; la barra de guía superior se muestra siempre"],
+ ["再読み込み（F5）の後も、見ていた画面とスクロールの位置に戻る（受信箱・販売先国の選定・用語集・依頼ページ・会議メモ・ドキュメント・メンバー・ゴミ箱では、ダッシュボードなどに戻っていた。物流会社の案件・依頼ページ・メンバーも同じ）",
+  "After reloading (F5), you return to the screen and scroll position you were viewing (Inbox, Target country selection, Glossary, Request pages, Meeting notes, Documents, Members and Trash used to go back to the dashboard or another screen; the same for Cases, Request pages and Members in the logistics company account)",
+  "刷新（F5）后，会回到原来的画面和滚动位置（收件箱、目标国选定、术语表、委托页面、会议记录、文档、成员、回收站以前会回到仪表板等画面；物流公司账户的案件、委托页面、成员也一样）",
+  "Tras recargar (F5) vuelve a la pantalla y la posición de desplazamiento que veía (Bandeja de entrada, Selección de país destino, Glosario, Páginas de solicitud, Notas de reunión, Documentos, Miembros y Papelera volvían al panel u otra pantalla; lo mismo para Casos, Páginas de solicitud y Miembros en la cuenta de la empresa logística)"],
+ ["準備が終わった後も、画面の上の案内帯と AI商社マンの成長レベルの札（押すと AI商社マンの画面）を表示",
+  "The guide bar at the top and the AI Trade Agent growth level badge (click to open the AI Trade Agent screen) stay visible after setup is complete",
+  "准备完成后，顶部的引导栏和AI商社专员的成长等级标签（点击打开AI商社专员画面）也会显示",
+  "La barra de guía superior y la insignia de nivel del agente IA (pulse para abrir la pantalla del agente IA) siguen visibles tras completar la configuración"],
+ ["AI商社マンの画面などで、描き直し（同期の取り込みなど）のたびに表示の位置が一番下へずれないように",
+  "On the AI Trade Agent screen and others, the view no longer jumps to the bottom each time the screen is redrawn (for example after syncing)",
+  "在AI商社专员等画面，每次重新绘制（如同步导入后）时显示位置不再跳到最底部",
+  "En la pantalla del agente IA y otras, la vista ya no salta al final cada vez que se vuelve a dibujar (por ejemplo, tras sincronizar)"],
+ ["AI商社マンに届く情報を増やし、見つかった不具合を直しました","More information now reaches the AI Trade Agent, and the bugs we found are fixed","AI商社专员可参考的信息更多了，并修复了发现的问题","El agente IA recibe más información y se corrigieron los errores encontrados"],
+ ["次の行動・商談記録のメモとコメント・未完了のタスク・ドキュメント・書類の提出依頼・依頼ページ・用語集も AI商社マンが参照",
+  "The AI Trade Agent also refers to next actions, meeting-record notes and comments, open tasks, documents, document submission requests, request pages and the glossary",
+  "AI商社专员也会参考下一步行动、商谈记录的备注与评论、未完成的任务、文档、文件提交请求、委托页面和术语表",
+  "El agente IA también consulta las próximas acciones, las notas y comentarios de reuniones, las tareas pendientes, los documentos, las solicitudes de documentos, las páginas de solicitud y el glosario"],
+ ["「自分だけ」のメモは、ほかのメンバーの AI に渡さない","“Only me” notes are not passed to other members’ AI","“仅自己”的备忘不会提供给其他成员的AI","Las notas «Solo yo» no se pasan a la IA de otros miembros"],
+ ["資料の「会社名（英語）」「商品名（英語）」を読み取る","Reads “Company name (English)” and “Product name (English)” from your files","读取资料中的“公司名称（英文）”“商品名称（英文）”","Lee «Nombre de la empresa (inglés)» y «Nombre del producto (inglés)» de sus archivos"],
+ ["受信箱に書類の提出依頼を表示・交渉ステータスのお知らせは「返信」に入れない","Document submission requests appear in the Inbox; negotiation-status notices no longer go to “Replies”","收件箱会显示文件提交请求；谈判状态的通知不再放入“回复”","Las solicitudes de documentos aparecen en la Bandeja de entrada; los avisos de estado de negociación ya no van a «Respuestas»"],
+ ["成長レベルと全社版の集計に、バイヤーへの記録・ドキュメントなどを反映","The growth level and the company-wide statistics now include buyer records, documents and more","成长等级和全公司版统计会反映对买家的记录、文档等","El nivel de crecimiento y las estadísticas de toda la empresa incluyen ahora los registros de compradores, documentos y más"]
+]); }catch(e){}
+
+/* いちばん最後の層なので、ここで戻す（後の版で足した画面も揃っている） */
+v35Restore();
 
 </script>
