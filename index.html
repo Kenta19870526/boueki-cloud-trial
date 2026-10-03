@@ -1023,7 +1023,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="76f420d5a715";
+const BC20_BUILD="6ae09a3faae1";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -2857,7 +2857,7 @@ function tenantToD(t){
       e:addDays(TODAYS,14+i*7),st:(t.regKB&&t.regKB[c]&&t.regKB[c].appliedTxt)?"完了":(i===0?"対応中":"未着手"),who:"STANDAGE／FS",ref:"進出希望国",kids:[]})));
   d.today=s.missing.slice(0,3).map(m=>[m.n+"を登録する",m.use+"に使われます。","or"]);
   if(!d.today.length) d.today=[["バイヤーへの接触を開始","規制調査が終わった国から始めます。","or"],
-    ["商談記録を貯める","2年で42件が目標です。","bl"],["初回の見積を出す","AIが下書きを作ります。","bl"]];
+    ["商談記録を貯める","42件ほど貯まると、国別・価格帯別の分析ができます。","bl"],["初回の見積を出す","AIが下書きを作ります。","bl"]];
   d.plan30=s.missing.slice(0,4).map((m,i)=>[addDays(TODAYS,3+i*5).slice(5).replace("-","月")+"日まで",
     m.n+"を登録する",m.use,i===0?"o":""]);
   /* AI提案から作成されたタスクを反映（永続） */
@@ -2891,7 +2891,7 @@ function tenantToD(t){
   d.dashNote=s.missing.length
     ?`いまの充足度は<b>${s.pct}%</b>です。あと<b>${s.missing.length}項目</b>を埋めると、
       規制判定・書類の自動作成・運賃見積・商談準備のすべてが動きます。`
-    :(d.dashNote||`必要な情報はすべて揃っています。ここからは<b>商談の記録を貯める段階</b>です。2年で42件が目標です。`);   /* 商談記録がある場合はその要約を優先 */
+    :(d.dashNote||`必要な情報はすべて揃っています。ここからは<b>商談の記録を貯める段階</b>です。42件ほど貯まると、国別・価格帯別の分析ができます。`);   /* 商談記録がある場合はその要約を優先 */
   d.aiq=buildAiq(t,s);
   d.ship=buildShip(d,t);
   /* 出荷ステップ1で編集した受注内容（TEN.shipEdit）を再生成後の案件に上書き（同期・リロードで消えない） */
@@ -2965,7 +2965,7 @@ function buildAiq(t,s){
       ・見積書・請求書・梱包明細の自動作成<br>
       ・フォワーダーへの運賃見積の依頼<br>
       ・商談で聞かれることの想定問答<br><br>
-      <b>これから貯めること</b><br>バイヤーの反応（2年で42件）。ここが貯まると「どの国のどの相手に、いくらで売れるか」が分かります。`,
+      <b>これから貯めること</b><br>バイヤーの反応（目安42件）。ここが貯まると「どの国のどの相手に、いくらで売れるか」が分かります。`,
     c:`根拠：必要項目 ${NEED.length}件すべて登録済み`});
   return out;
 }
@@ -8711,7 +8711,7 @@ function vDash(p){
   <div class="g4" style="margin-bottom:11px">
     <div class="c"><p class="lbl">バイヤーの声を集めた数</p><div class="kv n">${K.fbDone}<small>/ ${K.fbGoal}件</small></div>
       <div class="mt"><i style="width:${Math.round(K.fbDone/K.fbGoal*100)}%"></i></div>
-      <div class="kd">2年間で42件以上というお約束に対し ${Math.round(K.fbDone/K.fbGoal*100)}%（${D.month}ヶ月目）</div></div>
+      <div class="kd">分析の目安（42件）に対し ${Math.round(K.fbDone/K.fbGoal*100)}%（${D.month}ヶ月目）</div></div>
     <div class="c"><p class="lbl">やりとりが続いている相手</p><div class="kv n">${K.buyers}<small>社</small></div>
       <div class="kd">うち手応えのある相手 <b class="n">${K.hot}社</b>／${K.countries}か国</div></div>
     <div class="c"><p class="lbl">見積を出している案件</p><div class="kv n">${K.quotes}<small>件</small></div>
@@ -8754,7 +8754,7 @@ function vDash(p){
           <span style="text-align:right;color:var(--ink-3);font-size:10.5px">${i&&F[i-1][1]?Math.round(f[1]/F[i-1][1]*100)+"%":"—"}</span>
         </div>`).join("")}
       </div>
-      ${F[1][1]?`<p class="nn" style="margin-top:9px">商談したうち反応を記録できたのは${Math.round(F[2][1]/F[1][1]*100)}%。<b>ここを上げるほど、2年後に残る財産が増えます。</b></p>`:`<p class="nn" style="margin-top:9px">STANDAGEの担当がバイヤーへの接触を始めると、ここが左から順に動き出します。<b>目標は2年で42件の商談記録です。</b></p>`}</div>
+      ${F[1][1]?`<p class="nn" style="margin-top:9px">商談したうち反応を記録できたのは${Math.round(F[2][1]/F[1][1]*100)}%。<b>ここを上げるほど、会社に残る財産が増えます。</b></p>`:`<p class="nn" style="margin-top:9px">STANDAGEの担当がバイヤーへの接触を始めると、ここが左から順に動き出します。<b>商談の記録が42件ほど貯まると、国別・価格帯別の分析ができます。</b></p>`}</div>
     <div class="c"><h3>どの国で手応えがあるか</h3>
       <p class="nn">現地に自社の担当がいる国は<span style="color:var(--or);font-weight:700">オレンジ</span>です。</p>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
@@ -9297,7 +9297,7 @@ function vDeal(p){
       </div></div>
     ${D.fb.length?"":`<div style="padding:18px;text-align:center;color:var(--ink-3);font-size:12px;
       border:1px dashed var(--line);border-radius:var(--r2);margin-top:10px">まだ商談の記録がありません。<br>
-      <b style="color:var(--ink-2)">ここに貯まる42件が、2年後にAIを動かす燃料になります。</b><br>
+      <b style="color:var(--ink-2)">ここに貯まる記録が、AIの提案を確かにする燃料になります。</b><br>
       <button class="btn" style="margin-top:9px" onclick="openDealForm()">＋ 最初の商談を記録する</button></div>`}
     <div class="tw" style="margin-top:10px" ${D.fb.length?"":"hidden"}><table><thead><tr>
       <th>日付</th><th>相手</th><th>国</th><th>商品</th><th>希望価格</th><th class="num">数量</th><th>反応</th><th>状況</th><th>担当</th>
@@ -11312,7 +11312,7 @@ function vDash(p){
     <div class="c ddc" onclick="dashDrill('fb')" title="クリックで内訳（商談記録の一覧・編集）">
       <p class="lbl">バイヤーの声を集めた数</p><div class="kv n">${K.fbDone}<small>${A.per?"件":"/ "+K.fbGoal+"件"}</small></div>
       ${A.per?`<div class="kd">期間内の商談記録</div>`:`<div class="mt"><i style="width:${Math.min(100,Math.round(K.fbDone/Math.max(1,K.fbGoal)*100))}%"></i></div>
-      <div class="kd">${us.length>1?`目標42件×${us.length}商材に対し`:"2年間で42件以上というお約束に対し"} ${Math.round(K.fbDone/Math.max(1,K.fbGoal)*100)}%</div>`}
+      <div class="kd">${us.length>1?`分析の目安（42件×${us.length}商材）に対し`:"分析の目安（42件）に対し"} ${Math.round(K.fbDone/Math.max(1,K.fbGoal)*100)}%</div>`}
       <span class="ddhint">🔍 クリックで内訳・編集 ▸</span></div>
     <div class="c ddc" onclick="dashDrill('buyers')" title="クリックで内訳（相手の一覧・編集）">
       <p class="lbl">やりとりが続いている相手</p><div class="kv n">${K.buyers}<small>社</small></div>
@@ -16584,7 +16584,7 @@ function aiLevelFor(d,t){
   /* ③ 商談フィードバックからの学び：2年42商談コミットが満点条件。反応「高」・受注で加点 */
   const fb=(K.fbDone!==undefined&&K.fbDone!==null)?+K.fbDone:cnt(d.fb), hot=+K.hot||0, won=+K.won||0;
   const c3={k:"fb",nm:"商談フィードバックからの学び",ic:"🤝",w:25,pct:Math.min(100,Math.round(growN(fb,GROW_FB_GOAL)*0.85+(won?15:hot?8:0))),
-    detail:`商談記録 ${fb}／${GROW_FB_GOAL}件（おまかせ貿易の2年コミット）／反応「高」${hot}件／受注 ${won}件`,
+    detail:`商談記録 ${fb}件（分析の目安 ${GROW_FB_GOAL}件）／反応「高」${hot}件／受注 ${won}件`,
     how:"海外バイヤーの反応・断られた理由・価格感を学ぶほど、次の提案と売り先の当たりが良くなります。",
     next:fb<GROW_FB_GOAL?{t:"商談フィードバックを記録する",go:"deal"}:null};
   /* ④ 対話による学習：質問数と使った画面の幅 */
@@ -18256,7 +18256,7 @@ function kbKpi(){
   const fun=(dd.funnel||[]).map(x=>`${x[0]} ${x[1]}`).join("→"); const lost=(dd.lost||[]).slice(0,4).map(x=>`${x[0]} ${x[1]}件`).join("、");
   const byc=(dd.byc||[]).slice(0,6).map(x=>`${x[0]} ${x[1]}件`).join("、"); const hot=(dd.hotList||[]).slice(0,5).map(x=>`${x[0]}（${x[1]}）${x[2]}%`).join("、");
   const more=fb.length>8?fb.slice(8,20).map(f=>`${f.d} ${f.b}（${f.c}）${f.st||""}${f.react?"・反応"+f.react:""}`).join("／"):"";
-  return `## 商談KPI（この商品）\n商談記録 ${K.fbDone!=null?K.fbDone:fb.length}件／目標 ${K.fbGoal||42}件（おまかせ貿易 2年コミット）／バイヤー数 ${K.buyers||"-"}／反応「高」${K.hot||0}／見積提示 ${K.quotes||0}／受注 ${K.won||0}${fun?"\nファネル："+fun:""}${lost?"\n失注理由："+lost:""}${byc?"\n国別商談数："+byc:""}${hot?"\n脈あり度："+hot:""}${more?"\n9件目以降の商談記録（要約）："+more:""}`;
+  return `## 商談KPI（この商品）\n商談記録 ${K.fbDone!=null?K.fbDone:fb.length}件／分析の目安 ${K.fbGoal||42}件／バイヤー数 ${K.buyers||"-"}／反応「高」${K.hot||0}／見積提示 ${K.quotes||0}／受注 ${K.won||0}${fun?"\nファネル："+fun:""}${lost?"\n失注理由："+lost:""}${byc?"\n国別商談数："+byc:""}${hot?"\n脈あり度："+hot:""}${more?"\n9件目以降の商談記録（要約）："+more:""}`;
 }
 function kbPlan(){
   const dd=(typeof D!=="undefined"&&D)||{}; const td=(dd.today||[]).slice(0,4).map(x=>"・"+x[0]+"（"+x[1]+"）").join("\n"); const p=(dd.plan30||[]).slice(0,4).map(x=>"・"+x[0]+" "+x[1]).join("\n");
@@ -37581,6 +37581,167 @@ v30I18n([
    Object.assign({re:/^(ステータスをまとめて変更|タグをまとめて付ける|社内担当者をまとめて変更|次の行動をまとめて設定|タグの統合|バイヤーの取り込み|タスクのまとめて作成)（(\d+)件）$/},F((m,d,l)=>T(m[1],d)+" ("+m[2]+")")),
    Object.assign({re:/^「(.+)」を元に戻しました$/},F((m,d,l)=>({en:"Restored "+q(l,T(m[1],d)),zh:"已恢复"+q(l,T(m[1],d)),es:"Se restauró "+q(l,T(m[1],d))})[l]))
   ];
+  L.slice().reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){} })();
+
+/* ═══ v21.34 はじめてガイドの順の通し点検（2026-10-03）で見つけた不具合と、AI商社マンに届いていなかった情報 ═══
+   不具合
+   ・資料の「会社名（英語）」「商品名（英語）」を読まない（会社名・商品名の行に当たって捨てていた）→ 英語の項目名は英文社名・英文商品名へ
+   ・中身の無い札（品番が無い時の商品名の横など）が小さなオレンジの帯で出る → 空の札は出さない
+   ・依頼ページの回答（バイヤーを選ばずに作った依頼）が題名・日付の無いメモになり、一覧で題名が出ず AI にも届かない → 依頼ごとに1つのメモに
+   ・「自分だけ」のメモが、ほかのメンバーの AI に渡っていた（一覧には出ない）→ 渡さない
+   ・受信箱の「返信」に、AI が交渉ステータスを更新したお知らせが並び、ベルも鳴る（返事ではない）→ まとめ（1日1回）へ
+   ・書類の提出依頼が受信箱に出ない（期限が日時の数値なのに「年-月-日」の文字として読んでいた）
+   AI商社マンに届いていなかった情報（AI に渡す資料に「## 」の節で足す＝根拠の番号が付く）
+   ・バイヤーごとの次の行動／商談記録のメモとコメント／未完了のタスク（期限の近い順・最新のコメント）／ドキュメントと書類の提出依頼／依頼ページの状況／会社の用語集
+   ・バイヤー一覧の節を「## 」に（最近の記録2件）・会議メモは新しい10件まで（6件で切れていた）
+   ・AI 未接続（内蔵エンジン）でも「次回の会議」「預けた書類」「次の行動」「依頼ページ」に答える
+   ・成長レベル：バイヤーのログ・商談へのコメント・依頼ページの回答・次の行動の完了・書類の提出依頼の完了・タスクのコメント・ドキュメント・用語集を数える
+   ・全社版の匿名の集計：上の件数（種類ごとの数だけ・名前や本文は入れない）を products[0].x.act に（サーバー v2.13 の許可リストにも追加） */
+function v34Cut(s,n){ s=String(s==null?"":s).replace(/\s+/g," ").trim(); return s.length>n?s.slice(0,n)+"…":s; }
+function v34Day(t){ try{ return (typeof v33Day==="function")?v33Day(+t):new Date(+t).toLocaleDateString("ja-JP"); }catch(e){ return ""; } }
+function v34Me(){ try{ return (typeof v33Me==="function")?v33Me():((typeof SES!=="undefined"&&SES&&SES.who)||""); }catch(e){ return ""; } }
+/* ── 見た目：中身の無い札は出さない ── */
+(function(){ try{ if(document.getElementById("v34css")) return; const st=document.createElement("style"); st.id="v34css"; st.textContent=".p:empty,.pill:empty{display:none!important}"; document.head.appendChild(st); }catch(e){} })();
+/* ── 資料の読み取り：英語の項目名（会社名（英語）・商品名（英文）・English name・Company name など）── */
+const V34_EN=/英語|英文|英名|英表記|english/i;
+if(typeof findKV==="function"&&typeof LBL!=="undefined"&&typeof norm==="function"){
+  findKV=function(sheets){ const got={};
+    (sheets||[]).forEach(sh=>(sh.grid||[]).forEach(row=>{
+      if(!row||!row.length) return;
+      if(row.filter(x=>x&&String(x).trim()).length>=3) return;
+      const raw=String(row[0]==null?"":row[0]); const a=norm(raw); if(!a||a.length>16) return;
+      const b=(row.slice(1).find(x=>x&&String(x).trim())||"").toString().trim(); if(!b) return;
+      /* 英語の項目名：会社なら英文社名、それ以外は英文商品名（会社名・商品名の行には入れない）。値に英字が無ければ使わない */
+      if(V34_EN.test(raw)||/^(company|product|brand)(name)?$/i.test(a)){ const isCo=/会社|社名|企業|メーカー|製造者|company/i.test(raw); const k=isCo?"coEn":"itemEn"; if(!got[k]&&/[A-Za-z]/.test(b)) got[k]=b; return; }
+      const hit=l=>{ const L=norm(l); return a===L||a.startsWith(L)||(a.length<=10&&a.endsWith(L)); };
+      for(const k in LBL){ if(!got[k]&&LBL[k].some(hit)){ got[k]=b; break; } }
+    }));
+    return got; };
+}
+/* ── 依頼ページの回答：バイヤーを選ばずに作った依頼は、依頼ごとに1つのメモ（題名・日付つき）にまとめる ── */
+if(typeof V33AQ!=="undefined"&&V33AQ.apply&&V33AQ.apply.rqlog){ const __rql34=V33AQ.apply.rqlog;
+  V33AQ.apply.rqlog=function(tg,v){ if(tg&&tg.bk) return __rql34.apply(this,arguments);
+    try{ if(typeof memoStore!=="function") return __rql34.apply(this,arguments); const s=memoStore(); const id="mrq_"+String(tg.rq||"x").slice(0,16); const line=(tg.label||"回答")+"："+v;
+      let m=s.find(x=>x&&x.id===id); const rq=(typeof v33One==="function")?v33One("rq",tg.rq):null;
+      if(m){ m.body=String(m.body||"")+"\n・"+line; m.at=Date.now(); }
+      else { m={id,t:"依頼ページの回答："+((rq&&(rq.toCo||rq.toName))||tg.who||"相手")+"（"+((rq&&rq.title)||"依頼")+"）",d:(typeof TODAYS!=="undefined"?String(TODAYS):""),body:"【依頼ページの回答】"+(tg.who?"回答者 "+tg.who+"\n":"")+"・"+line,at:Date.now(),by:v34Me(),pin:0}; s.unshift(m); }
+      if(typeof v16Persist==="function") v16Persist(); else if(typeof saveTen==="function") saveTen(); return true; }catch(e){ return __rql34.apply(this,arguments); } }; }
+/* ── 受信箱：AI の交渉ステータスの更新は「返信」ではない（まとめへ）・書類の提出依頼（期限が数値）も並べる ── */
+const V34_STAT=/交渉ステータス/;
+if(typeof v33NtIsEx==="function"){ const __ex34=v33NtIsEx; v33NtIsEx=function(n){ if(n&&n.cat==="msg"&&V34_STAT.test(String(n.t||""))) return false; return __ex34.apply(this,arguments); }; }
+if(typeof v33InboxItems==="function"){ const __ix34=v33InboxItems;
+  v33InboxItems=function(){ let out=__ix34.apply(this,arguments).filter(x=>!(x&&x.k==="reply"&&V34_STAT.test(String(x.t||""))));
+    try{ const T=v33T, ix=v33IxState(), now=Date.now();
+      if(typeof v30List==="function") v30List("dr",x=>!x.done&&typeof x.due==="number"&&x.due>0).forEach(x=>{ const key="dr:"+x.id; if(out.some(o=>o.key===key)) return; const s=ix[key]; if(s&&(s.st==="done"||(s.st==="later"&&now<(s.until||0)))) return;
+        out.push({key,k:"due",t:T("書類の提出依頼")+"："+(x.title||""),sub:x.to?T("依頼先")+" "+x.to:"",due:+x.due,at:0,go:()=>{ try{ go("docs"); }catch(e){} }}); });
+      out.sort((a,b)=>{ const ad=a.due||Infinity, bd=b.due||Infinity; if((a.k==="appr")!==(b.k==="appr")&&!a.due&&!b.due) return a.k==="appr"?-1:1; return ad-bd||(b.at||0)-(a.at||0); }); }catch(e){}
+    return out; }; }
+/* ── 「自分だけ」のメモは AI に渡さない・会議メモは新しい10件まで ── */
+if(typeof kbMemoList==="function"){ kbMemoList=function(){ let L=[]; try{ if(typeof memoStore==="function") L=memoStore().slice(); else { const t=(typeof TEN!=="undefined"&&TEN)||null; const dd=(typeof D!=="undefined"&&D)||{}; L=((t&&t.memos)||dd.memos||[]).slice(); } }catch(e){}
+  return L.filter(m=>m&&!(typeof mm30Hidden==="function"&&mm30Hidden(m))); }; }
+if(typeof kbMemos==="function"){ kbMemos=function(){
+  const L=kbMemoList().sort((a,b)=>String(b.d||"").localeCompare(String(a.d||""))||((b.at||0)-(a.at||0))); if(!L.length) return "";
+  return `## 会議メモ・議事録（${L.length}件・新しい順に最大10件。定例会の決定事項・宿題はここが一次情報）\n`+L.slice(0,10).map(m=>{
+    const s=m.sum||{}; const dec=(s.dec||[]).slice(0,5).join("／"); const todo=(s.todo||[]).slice(0,6).map(x=>x.t+(x.who?"（"+x.who+"）":"")+(x.due?" 期限"+x.due:"")+(x.tasked?" ✓タスク化":"")).join("／");
+    return `・${m.d||""} ${m.t||m.title||"（無題）"}${m.pin?"（ピン留め）":""}${m.priv?"（自分だけ）":""}\n  要約：${(s.txt||String(m.body||"").replace(/\s+/g," ").slice(0,200))||"-"}${dec?"\n  決定事項："+dec:""}${todo?"\n  宿題："+todo:""}`;
+  }).join("\n"); }; }
+/* ── AI に渡す資料に足す節 ── */
+if(typeof b30Ctx==="function"){ b30Ctx=function(){ try{ const L=b30Collect(); if(!L.length) return ""; const top=L.filter(r=>r.lead!=="失注").sort((a,c)=>c.last-a.last).slice(0,25);
+  return "\n## バイヤー一覧（営業情報）全"+L.length+"社（失注 "+L.filter(r=>r.lead==="失注").length+"社）\n"+top.map(r=>{ const lg=(r.logs||[]).slice().sort((a,c)=>(+c.at||0)-(+a.at||0)).slice(0,2);
+    return `・${r.locked?"(DB)"+r.name:r.name}（${r.cty||"国不明"}）ステータス${r.st}・受注確度${r.prob||"未設定"}・商談${r.rounds}回・最終活動${r.last?v30Day(r.last):"—"}${r.tags&&r.tags.length?"・タグ"+r.tags.map(t30Name).join("/"):""}${lg.length?"\n  最近の記録："+lg.map(l=>v30Day(+l.at||0)+" "+v34Cut(l.body,80)).join("／"):""}`; }).join("\n"); }catch(e){ return ""; } }; }
+function v34CtxNa(){ if(typeof v33List!=="function") return ""; const today=(typeof v33Day0==="function")?v33Day0():Date.now(); const L=v33List("na",x=>!x.done&&x.what).sort((a,b)=>(+a.at||9e15)-(+b.at||9e15)); if(!L.length) return "";
+  return `\n## バイヤーごとの次の行動（${L.length}件・期限の近い順）\n`+L.slice(0,15).map(x=>`・${x.name||"バイヤー"}：${v34Cut(x.what,80)}（${x.at?v34Day(+x.at):"期限なし"}${x.at&&+x.at<today?"・期限切れ":""}）`).join("\n"); }
+function v34CtxDeal(){ const L=((typeof D!=="undefined"&&D&&D.fb)||[]).slice(0,10); const rows=[];
+  L.forEach(f=>{ if(!f) return; const cm=(typeof c30List==="function")?c30List(f):[]; const note=v34Cut(f.note,180); if(!note&&!cm.length) return;
+    rows.push(`・${f.d||""} ${f.b||""}（${f.c||""}）${f.st?"／"+f.st:""}${note?"\n  メモ："+note:""}${cm.length?"\n  コメント："+cm.slice(-3).map(c=>v34Cut(c.body,100)+(c._cby?"（"+c._cby+"）":"")).join("／"):""}`); });
+  return rows.length?`\n## 商談記録のメモとコメント（直近${rows.length}件）\n`+rows.join("\n"):""; }
+function v34CtxTasks(){ let L=[]; try{ L=((typeof k30AllTasks==="function"&&k30AllTasks())||((typeof D!=="undefined"&&D&&D.tasks)||[])); }catch(e){} L=(L||[]).filter(t=>t&&t.n&&!/完了|中止/.test(String(t.st||""))); if(!L.length) return "";
+  const today=(typeof TODAYS!=="undefined")?String(TODAYS):""; const k=t=>String(t.e||"9999-99-99"); const S=L.slice().sort((a,b)=>k(a).localeCompare(k(b))).slice(0,15);
+  return `\n## 未完了のタスク（${L.length}件・期限の近い順に最大15件。利用者が作ったタスクを含む）\n`+S.map(t=>{ let last=null; try{ const cm=(typeof k30CmList==="function")?k30CmList(t):[]; last=cm.length?cm[cm.length-1]:null; }catch(e){}
+    return `・${t.n}（期限${t.e||"-"}${t.e&&today&&String(t.e)<today?"・期限切れ":""}・${t.st||"未着手"}・担当${t.who||"-"}${t.pri?"・優先度"+t.pri:""}）${last?"\n  最新のコメント："+v34Cut(last.body,100):""}`; }).join("\n"); }
+function v34CtxDocs(){ let s="", L=[]; try{ L=(typeof d30All==="function"?d30All():[]).filter(d=>d&&!d.del); }catch(e){}
+  if(L.length) s+=`\n## ドキュメント（${L.length}件・新しい順。中身ではなく、何がいつ預けられたか）\n`+L.slice(0,15).map(d=>`・${d.n}（${d.type||"種類なし"}${d.at?"・"+v34Day(d.at):""}${d.who?"・"+d.who:""}${d.src&&d.src!=="ドキュメント"?"・"+d.src:""}${d.refNm?"・"+v34Cut(d.refNm,30):""}${d.scope==="in"?"・社内のみ":""}）`).join("\n");
+  let R=[]; try{ R=(typeof v30List==="function")?v30List("dr"):[]; }catch(e){}
+  if(R.length) s+=`\n## 書類の提出依頼（${R.length}件）\n`+R.slice(0,10).map(r=>{ const it=(r.items||[]); const got=it.filter(x=>x.doc).length; return `・${r.title||"書類の提出のお願い"}（${r.done?"そろった":"提出 "+got+"/"+it.length}${r.due?"・期限"+v34Day(+r.due):""}${r.to?"・依頼先 "+r.to:""}）：${it.map(x=>(x.type||"書類")+(x.doc?"✓":"")).join("、")}`; }).join("\n");
+  return s; }
+const V34_RQST={wait:"未回答",draft:"相手が途中保存",sent:"提出済み",exp:"期限切れ",closed:"締め切り"};
+function v34CtxRq(){ let L=[]; try{ L=(typeof v33List==="function")?v33List("rq"):[]; }catch(e){} if(!L.length) return "";
+  return `\n## 依頼ページ（${L.length}件・相手にリンクで聞いていること）\n`+L.slice(0,10).map(x=>{ const st=(typeof v33RqState==="function")?v33RqState(x):""; return `・${x.toCo||x.toName||"相手"}：${x.title||"依頼"}（${V34_RQST[st]||st||"-"}・期限${x.exp?v34Day(+x.exp):"-"}${x.imported?"・回答は承認待ちまたは承認済み":""}）`; }).join("\n"); }
+function v34CtxGl(){ let L=[]; try{ L=(typeof v33GlList==="function")?v33GlList():[]; }catch(e){} if(!L.length) return "";
+  return `\n## 会社の用語集（${L.length}語。外国語で書くときはこの訳を使い、「使わない訳」は使わない）\n`+L.slice(0,30).map(g=>`・${g.ja}${g.dnt?"（訳さない）":""}：${["en","zh","es","ko"].filter(k=>g[k]).map(k=>k+" "+g[k]).join("／")||"-"}${g.ng?"（使わない訳："+g.ng+"）":""}`).join("\n"); }
+const V34_CTX=[v34CtxNa,v34CtxDeal,v34CtxTasks,v34CtxDocs,v34CtxRq,v34CtxGl];
+if(typeof ppContext==="function"){ const __pc34=ppContext; ppContext=function(){ const s=__pc34.apply(this,arguments); let add=""; V34_CTX.forEach(f=>{ try{ add+=f()||""; }catch(e){} }); return s+add; }; }
+/* ── AI 未接続（内蔵エンジン）でも答える：次回の会議・預けた書類・次の行動・依頼ページ ── */
+function v34Ask(q){ const s=String(q||""); if(!s) return null; if(typeof ppReady==="function"&&ppReady()) return null; const E=(typeof v33Esc==="function")?v33Esc:(x=>String(x));
+  if(/(次回の会議|次の会議|会議の予定|定例(会)?は(いつ|何日)|ミーティング(は|の予定))/.test(s)){ const L=(typeof mt30List==="function")?mt30List():[];
+    if(!L.length) return {a:"登録されている次回の会議はありません。「会議メモ・議事録」の「次回の会議を登録」から登録できます。"};
+    return {a:"登録されている会議は "+L.length+"件です。<br>"+L.slice(0,5).map(m=>"・<b>"+E(typeof mt30When==="function"?mt30When(m.at):v34Day(m.at))+"</b> "+E(m.title||"会議")+(m.agenda?"（議題："+E(v34Cut(m.agenda,60))+"）":"")+(m.url?"・会議のリンクあり":"")).join("<br>")}; }
+  if(/(ドキュメント|アップロードした(資料|ファイル|書類)|預けた(資料|ファイル|書類)|規格書|SDS|証明書のファイル)/i.test(s)&&/(どこ|一覧|ある|見せ|探|どれ|何が)/.test(s)){ let L=[]; try{ L=d30All().filter(d=>d&&!d.del); }catch(e){}
+    const kw=(s.match(/(規格書|SDS|証明書|成分表|写真|契約書|見積|請求書|インボイス)/i)||[])[1]; const M=kw?L.filter(d=>(d.n+" "+(d.type||"")).toLowerCase().includes(kw.toLowerCase())):L;
+    if(!L.length) return {a:"「ドキュメント」にはまだ書類がありません。「出荷・書類 › ドキュメント」の「アップロード」から預けられます。"};
+    return {a:(kw&&!M.length?"「"+E(kw)+"」に当たる書類は見つかりませんでした。預けてある書類は次のとおりです。<br>":"「出荷・書類 › ドキュメント」に預けてあります（"+(M.length||L.length)+"件）。<br>")+(M.length?M:L).slice(0,8).map(d=>"・<b>"+E(d.n)+"</b>（"+E(d.type||"種類なし")+(d.at?"・"+E(v34Day(d.at)):"")+(d.who?"・"+E(d.who):"")+"）").join("<br>")}; }
+  if(/(次の行動|次にやること|次に(何|なに)を)/.test(s)&&/(バイヤー|相手|フォロー|商談|Lotus|社|Ltd|LLC|Inc)/i.test(s)){ const L=(typeof v33List==="function")?v33List("na",x=>!x.done&&x.what).sort((a,b)=>(+a.at||9e15)-(+b.at||9e15)):[];
+    const hit=L.filter(x=>x.name&&s.toLowerCase().includes(String(x.name).toLowerCase().split(/\s+/)[0]));
+    if(!L.length) return {a:"バイヤーの次の行動はまだ登録されていません。「商談・バイヤー」のバイヤー一覧で、相手ごとに「次の行動」と期限を決められます。"};
+    return {a:"バイヤーの次の行動（期限の近い順）です。<br>"+(hit.length?hit:L).slice(0,8).map(x=>"・<b>"+E(x.name||"バイヤー")+"</b>："+E(x.what)+"（"+(x.at?E(v34Day(+x.at)):"期限なし")+"）").join("<br>")}; }
+  if(/依頼ページ/.test(s)){ const L=(typeof v33List==="function")?v33List("rq"):[]; if(!L.length) return {a:"依頼ページはまだありません。「商談・やりとり › 依頼ページ」の「＋ 新しい依頼」から作れます。"};
+    return {a:"依頼ページは "+L.length+"件です。<br>"+L.slice(0,8).map(x=>{ const st=(typeof v33RqState==="function")?v33RqState(x):""; return "・<b>"+E(x.toCo||x.toName||"相手")+"</b>："+E(x.title||"依頼")+"（"+E(V34_RQST[st]||st||"-")+"・期限 "+(x.exp?E(v34Day(+x.exp)):"-")+"）"; }).join("<br>")}; }
+  return null; }
+if(typeof brain==="function"){ const __br34=brain; brain=function(q,opts){ try{ const q0=(opts&&opts.raw)||q; const r=v34Ask(q0); if(r) return r; }catch(e){} return __br34.apply(this,arguments); }; }
+/* ── 成長レベル：v21.30 以降の活動も数える ── */
+function v34Act(){ const o={bl:{},docs:0,dtp:{},dr:0,drDone:0,mt:0,na:0,naOd:0,naDone:0,rq:0,rqAns:0,gl:0,fc:0,tc:0}; const inc=(m,k)=>{ k=String(k||"other").slice(0,12); m[k]=(m[k]||0)+1; };
+  try{ v30List("bl").forEach(l=>inc(o.bl,l.type||"other")); }catch(e){}
+  try{ v30List("docs").forEach(d=>{ o.docs++; inc(o.dtp,(d.type||"other").slice(0,12)); }); }catch(e){}
+  try{ v30List("dr").forEach(r=>{ o.dr++; if(r.done) o.drDone++; }); }catch(e){} try{ o.mt=v30List("mt").length; }catch(e){}
+  try{ const today=(typeof v33Day0==="function")?v33Day0():Date.now(); v33List("na").forEach(x=>{ if(x.done) o.naDone++; else if(x.what){ o.na++; if(+x.at&&+x.at<today) o.naOd++; } }); }catch(e){}
+  try{ v33List("rq").forEach(x=>{ o.rq++; if(x.ansState==="sent"||x.imported) o.rqAns++; }); }catch(e){} try{ o.gl=v33GlList().length; }catch(e){}
+  try{ o.fc=v30List("fc").length; }catch(e){} try{ o.tc=v30List("tc").length; }catch(e){} return o; }
+if(typeof aiLevelFor==="function"&&typeof GROW_STAGES!=="undefined"){ const __lvl34=aiLevelFor;
+  aiLevelFor=function(d,t){ const L=__lvl34.apply(this,arguments); try{ const X=v34Act(); const cat=k=>(L.cats||[]).find(c=>c.k===k); const bl=Object.values(X.bl).reduce((a,n)=>a+n,0);
+      const c3=cat("fb"); if(c3&&(bl||X.fc||X.rqAns)){ c3.pct=Math.min(100,c3.pct+Math.min(12,bl*2+X.fc+X.rqAns*2)); c3.detail+=`／バイヤーへの記録 ${bl}件・商談へのコメント ${X.fc}件${X.rqAns?"・依頼ページの回答 "+X.rqAns+"件":""}`; }
+      const c5=cat("practice"); if(c5&&(X.naDone||X.drDone||X.tc)){ c5.pct=Math.min(100,c5.pct+Math.min(10,X.naDone*2+X.drDone*3+X.tc)); c5.detail+=`／次の行動の完了 ${X.naDone}件・書類の提出依頼の完了 ${X.drDone}件・タスクのコメント ${X.tc}件`; }
+      const c6=cat("data"); if(c6&&(X.docs||X.gl)){ c6.pct=Math.min(100,c6.pct+Math.min(10,X.docs*2+Math.ceil(X.gl/3))); c6.detail+=`／ドキュメント ${X.docs}件・用語集 ${X.gl}語`; }
+      const pct=Math.max(0,Math.min(100,Math.round(L.cats.reduce((a,c)=>a+c.pct*c.w/100,0)))); let lvIdx=0; GROW_STAGES.forEach((s,i)=>{ if(pct>=s[0]) lvIdx=i; });
+      L.pct=pct; L.lv=lvIdx+1; L.lvIdx=lvIdx; L.stage=GROW_STAGES[lvIdx][1]; L.nextStage=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][1]:null; L.nextTh=GROW_STAGES[lvIdx+1]?GROW_STAGES[lvIdx+1][0]:null; L.to=Math.max(0,(typeof GROW_PRO!=="undefined"?GROW_PRO:90)-pct); L.pro=pct>=(typeof GROW_PRO!=="undefined"?GROW_PRO:90);
+    }catch(e){} return L; }; }
+/* ── 全社版の匿名の集計：アカウント全体の件数（種類ごとの数だけ）を最初の商品の x.act に ── */
+if(typeof poolDigest==="function"){ const __pd34=poolDigest; poolDigest=function(){ const o=__pd34.apply(this,arguments); try{ if(o&&o.products&&o.products[0]){ const p=o.products[0]; p.x=Object.assign({},p.x||{},{act:v34Act()}); } }catch(e){} return o; }; }
+if(typeof l211Compile==="function"){ const __lc34=l211Compile; l211Compile=function(digests){ const R=__lc34.apply(this,arguments); try{
+    const A={bl:{},docs:0,dtp:{},dr:0,drDone:0,mt:0,na:0,naOd:0,naDone:0,rq:0,rqAns:0,gl:0,fc:0,tc:0}; let cos=0;
+    (digests||[]).forEach(z=>{ const dg=z&&z.d||z||{}; const p=(dg.products||[]).find(x=>x&&x.x&&x.x.act); if(!p) return; const a=p.x.act; cos++;
+      Object.entries(a.bl||{}).forEach(([k,n])=>A.bl[k]=(A.bl[k]||0)+(+n||0)); Object.entries(a.dtp||{}).forEach(([k,n])=>A.dtp[k]=(A.dtp[k]||0)+(+n||0));
+      ["docs","dr","drDone","mt","na","naOd","naDone","rq","rqAns","gl","fc","tc"].forEach(k=>A[k]+=(+a[k]||0)); });
+    if(cos&&R&&Array.isArray(R.lines)){ const BL={call:"電話",mail:"メール",meet:"面談",sample:"サンプル",quote:"見積",visit:"訪問",other:"その他"}; const top=(o,n)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,n);
+      R.lines.push(`Ver2.0 の活動（${cos}社・延べ）：バイヤーへの記録 ${top(A.bl,7).map(([k,n])=>(BL[k]||k)+" "+n).join("・")||"0"}／預けた書類 ${A.docs}件${Object.keys(A.dtp).length?"（"+top(A.dtp,5).map(([k,n])=>k+" "+n).join("・")+"）":""}／書類の提出依頼 ${A.dr}件（そろった ${A.drDone}）／会議 ${A.mt}件／次の行動 ${A.na}件（期限切れ ${A.naOd}・完了 ${A.naDone}）／依頼ページ ${A.rq}件（回答 ${A.rqAns}）／用語集 ${A.gl}語`); } }catch(e){} return R; }; }
+/* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.34")) S30_NEWS.unshift(["2026-10","v21.34","AI商社マンに届く情報を増やし、見つかった不具合を直しました",
+  ["次の行動・商談記録のメモとコメント・未完了のタスク・ドキュメント・書類の提出依頼・依頼ページ・用語集も AI商社マンが参照","「自分だけ」のメモは、ほかのメンバーの AI に渡さない","資料の「会社名（英語）」「商品名（英語）」を読み取る","受信箱に書類の提出依頼を表示・交渉ステータスのお知らせは「返信」に入れない","成長レベルと全社版の集計に、バイヤーへの記録・ドキュメントなどを反映"]]); }catch(e){}
+
+/* ═══ v21.34 表示言語（英・中・西）：「分析の目安」の言い方・AI 未接続のときの答え ═══ */
+if(typeof v30I18n==="function") v30I18n([
+ ["ここを上げるほど、会社に残る財産が増えます。","The higher this is, the more knowledge your company keeps.","这个比例越高，公司留下的资产越多。","Cuanto más alto, más conocimiento conserva su empresa."],
+ ["商談の記録が42件ほど貯まると、国別・価格帯別の分析ができます。","Once about 42 meeting records are collected, you can analyze by country and price range.","商谈记录积累到约42件后，就能按国家和价格带进行分析。","Con unos 42 registros de reuniones podrá analizar por país y rango de precios."],
+ ["ここに貯まる記録が、AIの提案を確かにする燃料になります。","The records collected here make the AI’s suggestions more reliable.","这里积累的记录会让AI的建议更可靠。","Los registros acumulados aquí hacen más fiables las sugerencias de la IA."],
+ ["42件ほど貯まると、国別・価格帯別の分析ができます。","Once about 42 are collected, you can analyze by country and price range.","积累到约42件后，就能按国家和价格带进行分析。","Con unos 42 podrá analizar por país y rango de precios."],
+ ["<b>AIからのひとこと</b><br>必要な情報はすべて揃っています。ここからは<b>商談の記録を貯める段階</b>です。42件ほど貯まると、国別・価格帯別の分析ができます。",
+  "<b>A word from the AI</b><br>All required information is in place. From here it is the <b>stage of accumulating meeting records</b>. Once about 42 are collected, you can analyze by country and price range.",
+  "<b>AI的一句话</b><br>所需信息已全部齐备。接下来是<b>积累商谈记录的阶段</b>。积累到约42件后，就能按国家和价格带进行分析。",
+  "<b>Nota de la IA</b><br>Toda la información necesaria está lista. Ahora toca <b>acumular registros de reuniones</b>. Con unos 42 podrá analizar por país y rango de precios."],
+ ["登録されている次回の会議はありません。「会議メモ・議事録」の「次回の会議を登録」から登録できます。","No upcoming meeting is registered. You can add one from “Register next meeting” in Meeting notes.","没有登记的下次会议。可在“会议记录”的“登记下次会议”中登记。","No hay próxima reunión registrada. Puede añadirla en «Registrar próxima reunión» de Actas."],
+ ["「ドキュメント」にはまだ書類がありません。「出荷・書類 › ドキュメント」の「アップロード」から預けられます。","There are no files in Documents yet. Upload them from Shipping & documents › Documents.","“文档”中还没有文件。可在“出货·单证 › 文档”中上传。","Aún no hay archivos en Documentos. Súbalos en Envíos y documentos › Documentos."],
+ ["バイヤーの次の行動はまだ登録されていません。「商談・バイヤー」のバイヤー一覧で、相手ごとに「次の行動」と期限を決められます。","No next actions are set for buyers yet. Set a next action and due date for each buyer in the buyer list.","尚未登记买家的下一步。可在买家列表中为每位买家设定下一步和期限。","Aún no hay próximas acciones. Defina una próxima acción y fecha para cada comprador en la lista de compradores."],
+ ["バイヤーの次の行動（期限の近い順）です。","Next actions for buyers (soonest first):","买家的下一步（按期限排序）：","Próximas acciones de compradores (las más próximas primero):"],
+ ["依頼ページはまだありません。「商談・やりとり › 依頼ページ」の「＋ 新しい依頼」から作れます。","There are no request pages yet. Create one from “＋ New request” in Deals & messages › Request pages.","还没有请求页面。可在“商谈·沟通 › 请求页面”的“＋ 新请求”中创建。","Aún no hay páginas de solicitud. Cree una con «＋ Nueva solicitud» en Negocios y mensajes › Páginas de solicitud."],
+ ["未回答","No answer yet","未回复","Sin respuesta"],["相手が途中保存","Draft saved by recipient","对方已暂存","Borrador guardado por el destinatario"],["締め切り","Closed","已截止","Cerrada"],["期限なし","No due date","无期限","Sin fecha límite"],["種類なし","No type","无类型","Sin tipo"]
+]);
+(function(){ try{ if(typeof I18N==="undefined"||!Array.isArray(I18N.pat)) return; const P=(re,en,zh,es)=>({re,en,zh,es});
+  const L=[P(/^分析の目安（42件）に対し (\d+)%（(\d+)ヶ月目）$/,"vs. the analysis guideline (42 records): $1% (month $2)","相对于分析参考值（42件）：$1%（第$2个月）","vs. referencia de análisis (42 registros): $1% (mes $2)"),
+   P(/^分析の目安（42件）に対し (\d+)%$/,"vs. the analysis guideline (42 records): $1%","相对于分析参考值（42件）：$1%","vs. referencia de análisis (42 registros): $1%"),
+   P(/^分析の目安（42件×(\d+)商材）に対し (\d+)%$/,"vs. the analysis guideline (42 × $1 products): $2%","相对于分析参考值（42件×$1个商品）：$2%","vs. referencia de análisis (42 × $1 productos): $2%"),
+   P(/^登録されている会議は (\d+)件です。$/,"$1 meeting(s) are registered.","已登记 $1 个会议。","Hay $1 reunión(es) registradas."),
+   P(/^「出荷・書類 › ドキュメント」に預けてあります（(\d+)件）。$/,"Stored in Shipping & documents › Documents ($1).","已保存在“出货·单证 › 文档”（$1件）。","Guardado en Envíos y documentos › Documentos ($1)."),
+   P(/^「(.+)」に当たる書類は見つかりませんでした。預けてある書類は次のとおりです。$/,"No file matching “$1” was found. These are the stored files:","没有找到与“$1”相符的文件。已保存的文件如下：","No se encontró ningún archivo para «$1». Estos son los archivos guardados:"),
+   P(/^依頼ページは (\d+)件です。$/,"There are $1 request page(s).","共有 $1 个请求页面。","Hay $1 página(s) de solicitud.")];
   L.slice().reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){} })();
 
 </script>
