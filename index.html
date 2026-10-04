@@ -1025,7 +1025,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="70e4ec69fcab";
+const BC20_BUILD="42c6f3b2bcba";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -37837,7 +37837,325 @@ try{ if(typeof v30I18n==="function") v30I18n([
  ["成長レベルと全社版の集計に、バイヤーへの記録・ドキュメントなどを反映","The growth level and the company-wide statistics now include buyer records, documents and more","成长等级和全公司版统计会反映对买家的记录、文档等","El nivel de crecimiento y las estadísticas de toda la empresa incluyen ahora los registros de compradores, documentos y más"]
 ]); }catch(e){}
 
-/* いちばん最後の層なので、ここで戻す（後の版で足した画面も揃っている） */
-v35Restore();
+/* 戻すのは読み込みのいちばん最後（logic_zz_boot.js。v21.36 から）＝後の版で足す画面・描画の包みが揃ってから */
+
+/* ═══ v21.36（2026-10-03）お客様の報告：はじめての「販売先国の選定」で「AI商社マンにおまかせ」を押すと、AI商社マンが考え始めたばかりなのに、
+       推奨の3か国（シンガポール・UAE・タイ）がそのまま出て紛らわしい。考え中のカードも「今日やることを調査しています」と出ていた
+   ① 原因：おまかせ・分析（ctyRun）は、先に内蔵ロジックの採点で推奨3か国を決めて保存・描画し、その後で接続AIに最終判断を頼んでいた。
+      AI が考えている間も「分析済み・未確定（推奨 …）」・推奨の札・表・国ごとの理由・「この3か国で確定」のボタン（押せた）が出ていた。
+      途中の結果は保存・同期もされ、考え中に再読み込みすると、AI の判断の無い結果が「分析済み」として残った。
+      直し：AI の判断が出るまで、推奨の国・表・確定のボタンは出さない（①の札は「分析中」・②の欄は「分析しています」）。
+            結果は AI の判断が出てからまとめて保存・表示する。AI が答えない・未接続の時は、今までどおり内蔵ロジックの採点を「内蔵ロジック」として出す。
+            再分析の間も、前の結果は隠す（終わると新しい結果に入れ替わる）。
+   ② 原因：考え中のカードの作業名（aiThinkLabel）は、依頼文の言葉で決めている。販売先国の依頼文には登録データ（ppContext）を入れていて、
+      その中の「## 今日やること・30日計画」に当たっていた。ほかの依頼文でも、登録データの中の言葉に当たりうる（「商品の強み」の提案も「今日やること」になっていた）。
+      直し：依頼文から登録データの部分を除いてから作業名を決める。販売先国の分析・国別の詳細レポート・今日やること・タスクの実行には専用の作業名 */
+const V36={cty:""};
+
+/* ── ① 販売先国の分析：AI の判断が出てから、まとめて保存・表示 ── */
+if(typeof ctyRun==="function"){
+  ctyRun=async function(quick){
+    const s=ctyStore(); if(window.__ctyBusy) return;
+    if(quick||!s.cands.length){ s.cands=ctyAutoCands(); s.auto=quick?1:0; }
+    if(!s.cands.length){ toast("候補国を1か国以上追加してください"); return; }
+    const online=(typeof ppReady==="function"&&ppReady());
+    window.__ctyBusy=1; V36.cty=online?"ai":"local"; delete s.busy; try{ render(); }catch(e){}
+    try{
+      const rec=ctyAnalyzeLocal(s.cands);
+      let ai=null, err="";
+      if(online){ try{ ai=await ctyAnalyzeAI(rec); }catch(e){ err=String(e&&e.message||e).slice(0,90); } }
+      s.rec=rec; s.top=rec.slice(0,3).map(r=>r.c); s.ai=null; s.aiErr=err; s.at=ctyNow(); s.chosen=[];
+      if(ai){ s.ai=ai; if(ai.top3.length===3) s.top=ai.top3; rec.forEach(r=>{ const p=ai.per[r.c]; if(p){ if(p.why) r.why=p.why; if(p.risk) r.risk=p.risk; if(p.next) r.next=p.next; if(p.comp) r.comp=p.comp; } }); }
+      ctySave(); try{ if(typeof logU==="function") logU("ai","販売先国の分析:"+s.cands.length+"か国"); }catch(e){}
+    } finally { window.__ctyBusy=0; V36.cty=""; delete s.busy; try{ render(); }catch(e){} }
+  };
+}
+/* 分析中の画面：前の結果・推奨の札・確定のボタンを隠し、①の札と②の欄を「分析中」に（国別の詳細レポートの画面はそのまま） */
+const V36_CTY_EMPTY=`<div class="c"><h3>② 分析結果と推奨3か国</h3><p class="nn">候補を決めて「分析」を押すと、ここに国ごとの評価（4つの観点）・推奨3か国・理由・リスク・最初の一歩が出ます。PPTXレポートも出力できます。</p></div>`;
+function v36CtyWaitCard(n,online){
+  return `<div class="c" id="v36ctywait" role="status" aria-live="polite"><h3>② 分析結果と推奨3か国</h3>
+    <p class="nn" style="margin-top:6px"><span class="spin"></span> ${online?"AI商社マンが、候補の国を4つの観点（規制・競合・市場性・STANDAGE拠点）で比べ、商品の特性に照らして最終判断しています。":"候補の国を4つの観点（規制・競合・市場性・STANDAGE拠点）で採点しています。"}</p>
+    <p class="nn">${online?"推奨の3か国と理由は、判断が終わってからここに出します（通常10〜60秒）。別の画面に移っても分析は続きます。":"終わるとここに出ます。"}</p></div>`;
+}
+if(typeof vCty==="function"){ const __vc36=vCty; vCty=function(p){
+  if(!(window.__ctyBusy&&V36.cty)) return __vc36.apply(this,arguments);
+  try{ if(typeof CTY_VIEW!=="undefined"&&CTY_VIEW&&CTY_VIEW.c) return __vc36.apply(this,arguments); }catch(e){}
+  const s=ctyStore(); const keep={rec:s.rec,top:s.top,ai:s.ai,aiErr:s.aiErr,chosen:s.chosen};
+  s.rec=null; s.top=[]; s.ai=null; s.aiErr=""; s.chosen=[];
+  let h=""; try{ h=String(__vc36.apply(this,arguments)); } finally { Object.assign(s,keep); }
+  h=h.replace(`<span class="p lo">未着手</span>`,`<span class="p or" id="v36ctypill">分析中…（推奨3か国は AI商社マンの判断の後に出ます）</span>`);
+  const i=h.indexOf(V36_CTY_EMPTY); if(i>=0) h=h.slice(0,i)+v36CtyWaitCard((s.cands||[]).length,V36.cty==="ai")+h.slice(i+V36_CTY_EMPTY.length);
+  return h; }; }
+
+/* ── ② 考え中のカードの作業名：依頼文から登録データ（ppContext）を除いてから決める ── */
+function v36StripCtx(q){
+  q=String(q||""); if(q.length<400||typeof ppContext!=="function") return q;
+  let c=""; try{ c=String(ppContext()||""); }catch(e){ return q; } if(c.length<200) return q;
+  const head=c.slice(0,160); const i=q.indexOf(head); if(i<0) return q;
+  let k=head.length; const max=Math.min(c.length,q.length-i); while(k<max&&q.charCodeAt(i+k)===c.charCodeAt(k)) k++;   /* 呼ぶ側は先頭から切って入れる（6000字など） */
+  return q.slice(0,i)+"（登録データ）"+q.slice(i+k);
+}
+if(typeof aiThinkLabel==="function"){ const __atl36=aiThinkLabel; aiThinkLabel=function(q,opts){
+  try{ if(opts&&opts.label) return String(opts.label); }catch(e){}
+  let s=String(q||""); try{ s=v36StripCtx(s); }catch(e){}
+  if(/の販売先国を、候補\d+か国から3か国に絞り込む/.test(s)) return "販売先国の候補を4つの観点で比べ、推奨3か国を選んでいます";
+  if(/「国別戦略レポート」/.test(s)) return "国別の詳細レポートを調べています";
+  if(/【今日やるべきこと】/.test(s)) return "今日やることを調査しています";
+  if(/^=== 実行中のタスク ===/.test(s)) return "タスクの次の一歩を考えています";
+  return __atl36.call(this,s,opts); }; }
+
+/* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.36")) S30_NEWS.unshift(["2026-10","v21.36","販売先国の選定：推奨の3か国は AI商社マンの判断の後に表示",
+  ["「AI商社マンにおまかせ」「分析」の間は、推奨の国・表・確定のボタンを出さず「分析中」と表示（AI が考え始めた時点で推奨の国が出ていた）",
+   "AI が考えている間のカードに、販売先国の分析など、いま行っている作業の名前を正しく表示"]]); }catch(e){}
+/* ── 表示言語（英・中・西） ── */
+try{ if(typeof v30I18n==="function") v30I18n([
+ ["分析中…（推奨3か国は AI商社マンの判断の後に出ます）","Analyzing… (the 3 recommended countries appear after the AI Trade Agent decides)","分析中…（推荐的3个国家将在AI商社专员判断后显示）","Analizando… (los 3 países recomendados aparecen cuando el agente IA decida)"],
+ ["AI商社マンが、候補の国を4つの観点（規制・競合・市場性・STANDAGE拠点）で比べ、商品の特性に照らして最終判断しています。","The AI Trade Agent is comparing the candidate countries from four angles (regulations, competition, market potential, STANDAGE bases) and making the final call based on your product.","AI商社专员正在从4个角度（法规、竞争、市场性、STANDAGE据点）比较候选国家，并结合商品特点做出最终判断。","El agente IA está comparando los países candidatos desde cuatro ángulos (normativa, competencia, potencial de mercado, bases de STANDAGE) y decidiendo según su producto."],
+ ["推奨の3か国と理由は、判断が終わってからここに出します（通常10〜60秒）。別の画面に移っても分析は続きます。","The 3 recommended countries and the reasons will appear here once the decision is made (usually 10–60 seconds). The analysis continues even if you move to another screen.","判断完成后，推荐的3个国家及理由将显示在这里（通常10〜60秒）。切换到其他画面也会继续分析。","Los 3 países recomendados y los motivos aparecerán aquí cuando termine (normalmente 10–60 segundos). El análisis continúa aunque cambie de pantalla."],
+ ["候補の国を4つの観点（規制・競合・市場性・STANDAGE拠点）で採点しています。","Scoring the candidate countries from four angles (regulations, competition, market potential, STANDAGE bases).","正在从4个角度（法规、竞争、市场性、STANDAGE据点）为候选国家打分。","Puntuando los países candidatos desde cuatro ángulos (normativa, competencia, potencial de mercado, bases de STANDAGE)."],
+ ["終わるとここに出ます。","The results will appear here when done.","完成后将显示在这里。","Los resultados aparecerán aquí al terminar."],
+ ["販売先国の候補を4つの観点で比べ、推奨3か国を選んでいます","Comparing candidate countries from four angles and choosing the top 3","正在从4个角度比较候选国家并选出推荐的3个国家","Comparando los países candidatos desde cuatro ángulos y eligiendo los 3 mejores"],
+ ["国別の詳細レポートを調べています","Researching the country report","正在调查国别详细报告","Investigando el informe del país"],
+ ["内容を確認して、もう一度お試しください（AIエンジンの接続や混雑の影響のことがあります）","Please check the content and try again (the AI engine connection or congestion may be the cause)","请检查内容后重试（可能是AI引擎的连接或拥堵造成的）","Revise el contenido e inténtelo de nuevo (puede deberse a la conexión o a la saturación del motor de IA)"],
+ ["② 分析結果と推奨3か国","② Analysis results and the 3 recommended countries","② 分析结果与推荐的3个国家","② Resultados del análisis y los 3 países recomendados"],
+ ["タスクの次の一歩を考えています","Working out the next step for the task","正在思考任务的下一步","Pensando el siguiente paso de la tarea"],
+ ["販売先国の選定：推奨の3か国は AI商社マンの判断の後に表示","Target market selection: the 3 recommended countries now appear after the AI Trade Agent decides","目标国选定：推荐的3个国家在AI商社专员判断后显示","Selección de país destino: los 3 países recomendados se muestran cuando el agente IA decide"],
+ ["「AI商社マンにおまかせ」「分析」の間は、推奨の国・表・確定のボタンを出さず「分析中」と表示（AI が考え始めた時点で推奨の国が出ていた）","While “Leave it to the AI Trade Agent” or an analysis is running, the recommended countries, the table and the confirm button stay hidden and “Analyzing” is shown (recommendations used to appear as soon as the AI started thinking)","在“交给AI商社专员”或分析进行中，不显示推荐国家、表格和确认按钮，而是显示“分析中”（以前AI刚开始思考就显示了推荐国家）","Mientras se ejecuta «Dejarlo al agente IA» o un análisis, se ocultan los países recomendados, la tabla y el botón de confirmar y se muestra «Analizando» (antes aparecían en cuanto la IA empezaba a pensar)"],
+ ["AI が考えている間のカードに、販売先国の分析など、いま行っている作業の名前を正しく表示","The “AI is thinking” card now shows the correct name of the current task, such as the target market analysis","AI思考中的卡片会正确显示当前进行的工作名称（如目标国分析）","La tarjeta «La IA está pensando» muestra correctamente la tarea en curso, como el análisis de país destino"]
+]); }catch(e){}
+
+/* ═══ v21.37（2026-10-04）日本・韓国・シンガポール・中国・アメリカの企業価値 TOP10 の SaaS（計50社）の UI/UX の共通点で、画面を「引き算」で洗練
+   調査：bc20-platform/tmp/ux-bench3/{jp,kr,sg,cn,us}.md（指示書 BRIEF.md）。直す前の実測：tmp/ux-audit-v2136/・tmp/qa37/lensT-trial_v2136_html-*.json
+   5か国で共通していたこと（社数・出典は各ファイル）：
+   ① 塗りの主ボタンは1画面に1つ（日 6/6社・米 8社・中は決まりに明記・韓 9/11画面）→ 貿易クラウドは5画面で2〜3つ
+   ② 線や影ではなく、余白と地の色で区切る（日 SmartHR「罫線は最終手段」、米は刷新で6社がカードの影と枠線をやめた）→ カードに線＋影
+   ③ 文字の太さは2段が基本（日 4/4社・中・米は2〜4段で見出しを太く）→ 文字の 15〜56% が太字（補助のボタン・表の中・説明文・札・目次）
+   ④ 本文の大きさは据え置く（米の刷新14件で「変えない」が最多。貿易クラウドの本文15〜16px は日韓中米の製品より大きい＝下げない）。半端な大きさは作らない
+   ⑤ 読み物は1行を短く・行間を広く（米 Adobe 和文1行40字・行間170%、中 読む領域800〜860px・行間1.6、日 本文の最大幅 1,120〜1,184px）
+   ⑥ 既定で畳む（日「3件＋残りn件」6社・中11製品・韓6社）。ただし大事なものは隠さない（米 Microsoft は隠したツールバーを戻した・Datadog は乗せないと見えない置き方を戒める）
+   ⑦ ダッシュボードの数字は少なく、0は薄く（日 総合1＋内訳4・0件は薄く1件以上だけ太く／中 2〜7個／韓 1〜6個）
+   ⑧ エラーは「何が・なぜ・次に」で、自動で消さない（日6社。成功の知らせは5〜6秒で消す）
+   ⑨ 行の操作は「静かに」（米 Datadog の Quiet states：ふだんは文字だけ、乗せた時・選んだ時だけボタンの見た目）
+   ⑩ 余白は外側ほど広く、内側ほど狭く（日 区画の間24〜48・面の内側16〜24px、米 パネルの内側24px）
+   ⑪ 製品の画面に絵文字を使わない（アイコンは線＝米9社・星6社・日4社。星で絵文字は1社の挨拶の1つだけ）。AI には専用の印（米5社・中）
+   直したこと（全画面・荷主 PC／スマホ・管理者・物流会社に効く CSS と、描画の後の小さな整え）：上の①〜⑩の順に下に書く */
+const V37={todayAll:0,fltOpen:0};
+function v37Esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]); }
+function v37T(s){ try{ return typeof v30T==="function"?v30T(s):s; }catch(e){ return s; } }
+
+/* ── 見た目の決まり（CSS）。v21.25・v21.32・v21.33 の層の後ろに置き直す ── */
+function v37Css(){
+  if(document.getElementById("ux2137css")) return;
+  const s=document.createElement("style"); s.id="ux2137css"; s.textContent=`
+/* ② 面：カードの影をなくす（線は今の薄い線のまま。強調の色の枠＝今日の挨拶などはそのまま）。影は浮く面（ポップアップ・引き出し・右パネル）だけ */
+#well .c,#pn .c,#well .c.ddc{box-shadow:none!important}
+/* ③ 太さ：見出し（h1〜h3）と数字は 700。主ボタン 700・補助のボタン 500。表の中・説明文・札の強調は 500。案内の文・目次は 400 */
+#well .btn.g,#pn .btn.g,#guide .btn.g,.bar .btn.g,#well .btn.v37sec{font-weight:500!important}
+#well td b,#well td strong,#well td.first,#well th,#well .nn b,#well .p,#well .lbl,#well .kd b,#well .tl .ti b,#well .tdh b,#well .std b,
+#well .dk3-gi b,#well .th-ttl b,.ph .cando b,#well .q,#well .v186tile .v,#well .src{font-weight:500!important}
+#uxsec .uxsc{font-weight:400!important} #uxsec .uxsc.on,#uxsec .uxsc[aria-current]{font-weight:500!important}
+#well .ddhint{font-weight:400!important}
+/* ④ 文字の大きさ：半端な段（13.5／14.5／15.5px）を整数に。本文の大きさは変えない */
+:root{--rm-b:14px;--rm-d:15px;--rm-e:16px}
+@media (max-width:820px){:root{--fs-sm:15px;--rm-c:15px;--rm-d:15px;--rm-e:16px}}
+.v33f legend,.v33aq-s,.v33ck-sum,.v33refs,.v33cant span,.v33capb span{font-size:14px!important}
+#uxsec .uxsc{font-size:14px!important}.v33lv{font-size:13px!important}.dk16cv>span,.dk16none{font-size:13px!important}
+/* ⑤ 読み物：説明の文は1行 約45字・行間 1.75（表や一覧の中の短い注記は対象外）。AI の回答も行間を広く */
+#well .c>p.nn,#well .c>div>p.nn,#well p.std,#pn .c>p.nn{max-width:46em;line-height:1.75}
+#well .m.a .bb,#pn .m.a .bb{line-height:1.75}
+/* ⑥ 題名の下の説明（リード文）は PC でも1行（押すと全文）。案内帯は PC で1行に収める */
+@media (min-width:821px){.ph .cando.nnc:not(.open){-webkit-line-clamp:1!important}}
+@media (min-width:1100px){#guide{flex-wrap:nowrap!important;column-gap:12px}#guide .gmsg{min-width:0!important;flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#guide .btn,#guide .gst{flex:none!important;white-space:nowrap!important}}
+/* ⑥ 既定で畳んだもの */
+.v37hide{display:none!important}
+.v37more{margin:2px 0 12px;width:100%;justify-content:center}
+.v37flt{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;padding:10px 12px;border-radius:var(--r2,8px);background:var(--surface-2)}
+.v37flt[hidden]{display:none!important}
+.v37fltb[aria-expanded="true"]{border-color:var(--or)!important;color:var(--or-deep)!important}
+/* ⑦ 数字の0は薄く */
+#well .kv.v37zero,#well .kv.v37zero small{color:var(--ink-3)!important}
+/* ① 主ボタンを補助の見た目に（1画面に1つだけ残す） */
+.btn.v37sec{background:var(--surface)!important;background-image:none!important;color:var(--ink)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+.btn.v37sec:hover{border-color:var(--or)!important}
+/* ⑨ 行の中の小さな操作（✎・🗑 などの1〜2文字のボタン）は、ふだんは枠も地も無し。乗せた時・キーで選んだ時だけボタンの見た目 */
+.btn.g.v37q{border-color:transparent!important;background:transparent!important}
+.btn.g.v37q:hover,.btn.g.v37q:focus-visible{border-color:var(--line)!important;background:var(--surface)!important}
+/* ⑪ ボタンと見出しの先頭の絵文字は出さない（🤖＝AI の印は残す。絵文字だけのボタンはそのまま） */
+.v37emo{display:none!important}
+/* ⑧ エラーの知らせは閉じるまで残す */
+#tst.v37err{pointer-events:auto!important;display:flex;align-items:center;gap:10px;text-align:left}
+#tst .v37x{flex:none;border:0;background:transparent;color:inherit;font:inherit;font-size:18px;line-height:1;cursor:pointer;padding:2px 4px;opacity:.85}
+#tst .v37x:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+/* ⑩ 余白：PC のカードの内側を 20/24px、カードとカードの間を 16px に（スマホは今のまま） */
+@media (min-width:821px){#well .c{padding:20px 24px}#well .c.ddc{padding:16px 20px}#well .g4>.c{padding:16px 20px}}
+@media (min-width:821px){#well [style*="margin-bottom:11px"]{margin-bottom:16px!important}#well .g2,#well .g3,#well .g4{gap:16px}}
+`;
+  document.head.appendChild(s);
+}
+function v37CssLast(){ try{ const s=document.getElementById("ux2137css"); if(s&&s!==document.head.lastElementChild) document.head.appendChild(s); }catch(e){} }
+if(typeof ux25CssLast==="function"){ const __l37=ux25CssLast; ux25CssLast=function(){ __l37.apply(this,arguments); v37CssLast(); }; }
+
+/* ④ 文字の大きさ：v19 の「小さい文字の底上げ」（ux19Floor）に、半端な大きさ（12.5・13.5・14.5px など）を整数に丸めることを足す（同じ走査の中で）。
+   スマホの下限 12.5px も 13px に。バッジ・アバター・数字の丸（幅 24px 以下の飾り）は今までどおり据え置き */
+if(typeof ux19Floor==="function"){
+  ux19Floor=function(){
+    try{
+      const mob=innerWidth<=820;
+      const minC=mob?13:12, minS=11;
+      const roots=[["#well",minC],["#pn",minC],["#welv",minC],["#v1811ov",minC],["#lgv",minC],["#guide",minC],[".side",minS],[".bar",minS],["#tabbar",minS],["#uxsec",minS],["#barmenu",minS],["#uxpal",minS]];
+      let n=0;
+      roots.forEach(([sel,min])=>{ document.querySelectorAll(sel).forEach(root=>{ root.querySelectorAll("*").forEach(el=>{
+        if(el.__fl19===min||!el.childNodes.length||/^(SVG|PATH|SCRIPT|STYLE|TEXTAREA|INPUT|SELECT|OPTION)$/i.test(el.tagName)) return;
+        let hasText=false; for(const c of el.childNodes){ if(c.nodeType===3&&c.nodeValue.trim()){ hasText=true; break; } } if(!hasText) return;
+        const cs=getComputedStyle(el); const fs=parseFloat(cs.fontSize); if(!(fs>0)) return;
+        let t=fs<min?min:fs; if(t%1!==0) t=Math.round(t);
+        if(t===fs) return;
+        const cls=String(el.className||"");
+        const badge=el.tagName==="I"||/(^|\s)(av|tbn|bdg|gst|dot|lyn|stno|tdno|no)(\s|$)/.test(cls)||(el.offsetWidth<=24&&el.offsetHeight<=24&&/grid|flex/.test(cs.display));
+        if(badge) return;
+        el.style.setProperty("font-size",t+"px","important"); el.__fl19=min; n++; }); }); });
+      return n;
+    }catch(e){ return 0; }
+  };
+}
+/* ── 描画の後の整え ── */
+function v37Vis(e){ try{ const s=getComputedStyle(e); if(s.display==="none"||s.visibility==="hidden") return false; const r=e.getBoundingClientRect(); return r.width>0&&r.height>0; }catch(x){ return false; } }
+function v37InFirst(e){ const r=e.getBoundingClientRect(); return r.top<innerHeight&&r.bottom>0; }
+function v37Filled(e){ try{ const s=getComputedStyle(e); if(s.backgroundImage&&s.backgroundImage!=="none") return true; const m=String(s.backgroundColor).match(/[\d.]+/g); if(!m) return false; const [r,g,b,a]=m.map(Number); if(a===0) return false; return !(r>235&&g>235&&b>235); }catch(x){ return false; } }
+/* ① 1画面目の塗りの主ボタンを1つに：見出しの区画（.ph）の主ボタンは、本文にも主ボタンがある時だけ補助に。残りは先に出てくる1つだけ残す */
+function v37OnePrimary(){
+  const w=document.getElementById("well"); if(!w) return;
+  w.querySelectorAll(".btn.v37sec").forEach(b=>b.classList.remove("v37sec"));
+  const all=[...w.querySelectorAll(".btn:not(.g)")].filter(b=>!b.closest('[role="tablist"],.v33tabs,.b30sum,.seg,.dk16hc,#v36ctywait')&&v37Vis(b)&&v37InFirst(b)&&v37Filled(b));
+  const L=all.filter(b=>!b.disabled);
+  /* 押せない主ボタン（条件がそろうまで押せない「この候補で分析」など）は、押せる主ボタンがある間は補助の見た目に。そろって押せるようになったら、描き直しで主ボタンに戻る */
+  if(L.length) all.filter(b=>b.disabled).forEach(b=>b.classList.add("v37sec"));
+  if(L.length<=1) return;
+  let keep=L;
+  const inPh=L.filter(b=>b.closest(".ph")), body=L.filter(b=>!b.closest(".ph"));
+  if(inPh.length&&body.length){ inPh.forEach(b=>b.classList.add("v37sec")); keep=body; }
+  keep.slice(1).forEach(b=>b.classList.add("v37sec"));
+}
+/* ⑨ 行の中の小さな操作 */
+function v37Quiet(){
+  document.querySelectorAll("#well .btn.g:not(.v37q),#pn .btn.g:not(.v37q)").forEach(b=>{ const t=(b.textContent||"").replace(/\s+/g,""); if(t&&[...t].length<=2&&(b.title||b.getAttribute("aria-label"))) b.classList.add("v37q"); });
+}
+/* ⑪ ボタン・カードの見出しの先頭の絵文字を隠す（文字はそのまま＝訳と読み上げは変わらない。🤖・✦ は AI の印なので残す） */
+const V37_EMO=/^(\s*)((?:\p{Extended_Pictographic}|[\u2600-\u27BF])(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}|[\u2600-\u27BF])\uFE0F?)*)(\s*)/u;
+function v37FirstText(el){ const tw=document.createTreeWalker(el,NodeFilter.SHOW_TEXT); let n; while((n=tw.nextNode())){ if(n.nodeValue.trim()) return n; } return null; }
+function v37Emoji(){
+  document.querySelectorAll("#well .btn,#pn .btn,#well .c h3,#guide .btn,#well .ph .btn").forEach(el=>{
+    if(el.__v37e===el.textContent) return; el.__v37e=el.textContent;
+    if(el.querySelector(".v37emo")) return;
+    const n=v37FirstText(el); if(!n) return; const m=V37_EMO.exec(n.nodeValue); if(!m) return;
+    const emo=m[2]; if(/🤖|✦/.test(emo)) return;
+    const rest=n.nodeValue.slice(m[0].length); const after=(el.textContent||"").replace(n.nodeValue,rest).trim();
+    if(!after) return;   /* 絵文字だけのボタン（✎・🗑 など）は残す */
+    const sp=document.createElement("span"); sp.className="v37emo"; sp.setAttribute("aria-hidden","true"); sp.textContent=m[1]+emo+m[3];
+    n.nodeValue=rest; n.parentNode.insertBefore(sp,n);
+    el.__v37e=el.textContent;
+  });
+}
+/* ⑦ ダッシュボードの数字：0は薄く */
+function v37Zero(){
+  document.querySelectorAll("#well .kv").forEach(k=>{ let n=""; for(const c of k.childNodes){ if(c.nodeType===3&&c.nodeValue.trim()){ n=c.nodeValue.trim(); break; } } k.classList.toggle("v37zero",/^[¥$€£]?0([.,]0+)?$/.test(n)); });
+}
+/* ⑥ 今日やること：上から3件だけ出し、残りは「残り n 件を表示」（このタブで開いた後は開いたまま） */
+function v37TodayFold(){
+  if(typeof cur==="undefined"||cur!=="today"||V37.todayAll) return;
+  const L=[...document.querySelectorAll("#well .c.ddc")]; if(L.length<=3) return;
+  const rest=L.slice(3); rest.forEach(c=>c.classList.add("v37hide"));
+  const b=document.createElement("button"); b.type="button"; b.className="btn g v37more"; b.id="v37todaymore";
+  b.textContent=v37T("残り"+rest.length+"件を表示"); b.setAttribute("aria-expanded","false");
+  b.onclick=()=>{ V37.todayAll=1; rest.forEach(c=>c.classList.remove("v37hide")); b.remove(); try{ rest[0].querySelector("button,[tabindex]")?.focus({preventScroll:true}); }catch(e){} };
+  L[2].insertAdjacentElement("afterend",b);
+}
+/* ⑥ 商談・バイヤーの一覧：検索と並び順だけ出し、ステータス・受注確度・国・タグ・範囲・失注の除外は「絞り込み」の中へ（使っている絞り込みがあれば開いたまま・数を表示） */
+function v37DealFilters(){
+  const bar=document.querySelector("#well .b30bar"); if(!bar||bar.__v37) return; bar.__v37=1;
+  const ids=["b30st","b30pb","b30cty","b30tg","b30sc"]; const els=ids.map(id=>document.getElementById(id)).filter(e=>e&&bar.contains(e));
+  const nl=document.getElementById("b30nl"); const nlLab=nl&&nl.closest("label");
+  if(!els.length) return;
+  const active=els.filter(e=>e.value&&!(e.id==="b30sc"&&e.value==="co")).length;
+  const box=document.createElement("div"); box.className="v37flt"; box.id="v37flt"; box.setAttribute("role","group"); box.setAttribute("aria-label",v37T("絞り込み"));
+  els.forEach(e=>box.appendChild(e)); if(nlLab) box.appendChild(nlLab);
+  box.hidden=!(V37.fltOpen||active);
+  const btn=document.createElement("button"); btn.type="button"; btn.className="btn g v37fltb"; btn.setAttribute("aria-controls","v37flt");
+  const label=()=>{ btn.textContent=v37T(active?"絞り込み（"+active+"）":"絞り込み")+(box.hidden?" ▾":" ▴"); btn.setAttribute("aria-expanded",String(!box.hidden)); };
+  btn.onclick=()=>{ box.hidden=!box.hidden; V37.fltOpen=box.hidden?0:1; label(); };
+  label();
+  const sort=document.getElementById("b30sort"); (sort&&bar.contains(sort)?sort:bar.lastElementChild).insertAdjacentElement("afterend",btn);
+  bar.insertAdjacentElement("afterend",box);
+}
+if(typeof b30Bind==="function"){ const __bb37=b30Bind; b30Bind=function(){ const r=__bb37.apply(this,arguments); try{ v37DealFilters(); }catch(e){} return r; }; }
+function v37After(){
+  v37CssLast();
+  try{ v37TodayFold(); }catch(e){}
+  try{ v37DealFilters(); }catch(e){}
+  try{ v37Zero(); }catch(e){}
+  try{ v37Quiet(); }catch(e){}
+  try{ v37Emoji(); }catch(e){}
+  try{ v37OnePrimary(); }catch(e){}
+}
+{ const __r37=render; render=function(){ const r=__r37.apply(this,arguments); try{ v37After(); }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr37=fwdRender; fwdRender=function(){ const r=__fr37.apply(this,arguments); try{ v37CssLast(); v37Quiet(); v37Emoji(); v37OnePrimary(); }catch(e){} return r; }; }
+if(typeof renderAdmin==="function"){ const __ra37=renderAdmin; renderAdmin=function(){ const r=__ra37.apply(this,arguments); try{ v37CssLast(); v37Quiet(); }catch(e){} return r; }; }
+
+/* ── 上の案内帯の2段目の文（「充足度 66% — あと8項目で…」）は英中西に訳されていなかった（前から）。案内帯はいつも出すので、表示の言語の文で作る ── */
+if(typeof guideState==="function"){ const __gs37=guideState; guideState=function(){ const st=__gs37.apply(this,arguments);
+  try{ const L=(typeof I18N!=="undefined"&&I18N.lang)||"ja"; if(st&&st.n===2&&L!=="ja"&&typeof TEN!=="undefined"&&TEN&&typeof scoreOf==="function"){
+    const sc=scoreOf(TEN), n=sc.missing.length, pc=sc.pct;
+    const M={en:`Profile <b>${pc}%</b> complete. Fill in <b>${n}</b> more item${n===1?"":"s"} and documents and freight quotes will all work.`,
+             zh:`完成度 <b>${pc}%</b>。再填 <b>${n}</b> 项，单据制作和运费报价等全部功能即可使用。`,
+             es:`Perfil completo al <b>${pc}%</b>. Complete <b>${n}</b> dato${n===1?"":"s"} más y funcionarán los documentos y las cotizaciones de flete.`};
+    if(M[L]) st.msg=M[L]; } }catch(e){} return st; }; }
+/* ── ⑧ エラーの知らせ：閉じるまで残す（「×」で閉じる）。成功・案内の知らせは今までどおり 4.5〜8秒で消える ── */
+const V37_ERR=/できませんでした|失敗しました|失敗です|エラー|取得できません|届きませんでした|つながりません|読み込めません|保存できません|送れませんでした/;
+if(typeof toast==="function"){ const __t37=toast; toast=function(m){ const r=__t37.apply(this,arguments);
+  try{ const e=document.getElementById("tst"); if(!e) return r; const s=String(m==null?"":m);
+    if(V37_ERR.test(s)){ try{ clearTimeout(tT); }catch(x){} e.classList.add("v37err"); e.setAttribute("role","alert");
+      const x=document.createElement("button"); x.type="button"; x.className="v37x"; x.setAttribute("aria-label",v37T("閉じる")); x.textContent="×";
+      x.onclick=()=>{ e.style.opacity="0"; e.classList.remove("v37err"); e.removeAttribute("role"); };
+      e.appendChild(x); }
+    else { e.classList.remove("v37err"); e.removeAttribute("role"); }
+  }catch(x){} return r; }; }
+
+try{ v37Css(); v37CssLast(); }catch(e){}
+
+/* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.37")) S30_NEWS.unshift(["2026-10","v21.37","画面をすっきり：5か国の上位 SaaS 50社の共通点で「引き算」",
+  ["塗りの主ボタンは1画面に1つ・カードの影をなくし線を薄く・太字を減らす（見出しと数字だけ太く）",
+   "説明の文は1行を短く行間を広く・題名の下の説明と上の案内帯は1行に",
+   "今日やることは3件で畳む・商談の一覧の絞り込みは「絞り込み」の中に・0の数字は薄く",
+   "エラーの知らせは閉じるまで残す・行の中の小さな操作（編集・削除）は静かな見た目に",
+   "ボタンと見出しの先頭の絵文字を外す（AI の操作の🤖は AI の印として残す）"]]); }catch(e){}
+/* ── 表示言語（英・中・西） ── */
+try{ if(typeof v30I18n==="function") v30I18n([
+ ["絞り込み","Filters","筛选","Filtros"],
+ ["ブラウザ通知を有効化","Turn on browser notifications","开启浏览器通知","Activar notificaciones del navegador"],["ブラウザ通知を止める","Turn off browser notifications","关闭浏览器通知","Desactivar notificaciones del navegador"],
+ ["🔔 ブラウザ通知を有効化","🔔 Turn on browser notifications","🔔 开启浏览器通知","🔔 Activar notificaciones del navegador"],["🔕 ブラウザ通知を止める","🔕 Turn off browser notifications","🔕 关闭浏览器通知","🔕 Desactivar notificaciones del navegador"],
+ ["ボタンと見出しの先頭の絵文字を外す（AI の操作の🤖は AI の印として残す）","Leading emoji are removed from buttons and headings (🤖 stays on AI actions as the AI marker)","去掉按钮和标题开头的表情符号（AI 操作的🤖作为 AI 标记保留）","Se quitan los emojis iniciales de botones y títulos (🤖 se mantiene en las acciones de IA como marca de IA)"],["閉じる","Close","关闭","Cerrar"],
+ ["画面をすっきり：5か国の上位 SaaS 50社の共通点で「引き算」","A cleaner screen: “less is more,” based on what 50 top SaaS companies in 5 countries have in common","界面更简洁：参考5国50家顶尖SaaS的共同点做“减法”","Una pantalla más limpia: «menos es más», según lo que comparten 50 SaaS líderes de 5 países"],
+ ["塗りの主ボタンは1画面に1つ・カードの影をなくし線を薄く・太字を減らす（見出しと数字だけ太く）","One filled main button per screen, no card shadows and lighter lines, less bold text (only headings and numbers are bold)","每个画面只有一个实心主按钮，卡片去掉阴影、线条更淡，减少粗体（只有标题和数字加粗）","Un solo botón principal relleno por pantalla, tarjetas sin sombra y líneas más suaves, menos negrita (solo títulos y cifras)"],
+ ["説明の文は1行を短く行間を広く・題名の下の説明と上の案内帯は1行に","Shorter lines and more line spacing for descriptions; the lead under the title and the guide bar at the top fit on one line","说明文字每行更短、行距更宽；标题下的说明和顶部引导栏缩为一行","Líneas más cortas y más interlineado en las descripciones; la entradilla bajo el título y la barra de guía superior caben en una línea"],
+ ["今日やることは3件で畳む・商談の一覧の絞り込みは「絞り込み」の中に・0の数字は薄く","Today’s tasks show 3 and fold the rest, the deal list filters live under “Filters,” and zero values are dimmed","今日待办只显示3项其余收起，商谈列表的筛选收进“筛选”，数字0显示为浅色","Las tareas de hoy muestran 3 y pliegan el resto, los filtros de la lista de negocios están en «Filtros» y los ceros se atenúan"],
+ ["エラーの知らせは閉じるまで残す・行の中の小さな操作（編集・削除）は静かな見た目に","Error messages stay until you close them, and small row actions (edit, delete) look quieter","错误提示会保留到手动关闭，行内的小操作（编辑、删除）外观更低调","Los mensajes de error permanecen hasta cerrarlos y las acciones pequeñas de las filas (editar, eliminar) son más discretas"]
+]); }catch(e){}
+/* ⑪ の続き：先頭の絵文字を隠すと、文字の部分が「🏷 タグ管理」→「タグ管理」に分かれ、絵文字つきの見出しで引く訳の辞書に当たらない（英中西で日本語のまま残る）
+   → 絵文字で始まる見出しには、絵文字なしの見出しでも引ける項目を足す（訳の側の先頭の絵文字も外す） */
+(function(){ try{ if(typeof I18N==="undefined"||!I18N.dict) return;
+  const re=/^\s*((?:\p{Extended_Pictographic}|[\u2600-\u27BF])(?:\uFE0F|\u200D(?:\p{Extended_Pictographic}|[\u2600-\u27BF])\uFE0F?)*)\s*/u;
+  Object.keys(I18N.dict).forEach(l=>{ const d=I18N.dict[l]; if(!d||typeof d!=="object") return;
+    Object.keys(d).forEach(k=>{ const m=re.exec(k); if(!m) return; const base=k.slice(m[0].length).trim(); if(!base||d[base]) return; const v=String(d[k]); const mv=re.exec(v); d[base]=mv?v.slice(mv[0].length):v; }); });
+}catch(e){} })();
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^残り(\d+)件を表示$/,en:"Show $1 more",zh:"显示其余 $1 项",es:"Mostrar $1 más"},
+  {re:/^絞り込み（(\d+)）$/,en:"Filters ($1)",zh:"筛选（$1）",es:"Filtros ($1)"}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
+   ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
+try{ if(typeof v35Restore==="function") v35Restore(); }catch(e){ try{ console.warn("再読み込みの画面の復元",e); }catch(x){} }
 
 </script>
