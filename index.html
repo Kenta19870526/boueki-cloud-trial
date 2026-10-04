@@ -1025,7 +1025,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="7f2c094f0b61";
+const BC20_BUILD="4e6ec9e9c1b9";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -38492,6 +38492,8 @@ function v38Css(){ if(document.getElementById("ux2138css")) return; const s=docu
 .v38steps>summary::-webkit-details-marker{display:none}.v38steps>summary::before{content:"▸";font-size:11px;transition:transform .15s}
 .v38steps[open]>summary::before{transform:rotate(90deg)}.v38steps>summary:hover{color:var(--ink-2)}
 .v38steps-b{display:grid;gap:8px;margin-top:4px}.v38steps-b>.ci{margin-top:0;border-top:0;padding-top:0}.v38steps-b>div{margin-top:0!important}
+/* v21.38.1：アプリの中の「相手の画面を試す」（シート）では、下の帯がシートの下の余白（14px）の上で止まり、その下に本文が見えていた → 余白の分だけ下げる。公開の r.html は画面の下にぴったりなので変えない */
+.v33sh-bd .rqp-bar{bottom:-14px}
 /* ② 状態の札 */
 .v38st{cursor:help}.v38st:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
 #v38tip{position:fixed;z-index:400;max-width:320px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--pop);padding:10px 12px;font-size:14px;line-height:1.6;pointer-events:auto}
@@ -38513,6 +38515,9 @@ if(typeof openDW==="function"){ const __dw38=openDW; openDW=function(){ const r=
 try{ v38Css(); v38CssLast(); }catch(e){}
 
 /* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38.1")) S30_NEWS.unshift(["2026-10","v21.38.1","細かな直し：受信箱の知らせ・依頼ページの試しの画面",
+  ["受信箱とベルの「新着メッセージ（名前・共有）」の「共有」「社内のみ」を、英語・中国語・スペイン語でも表示",
+   "依頼ページの「相手の画面を試す」で、下の帯の下に入力欄が少し見えていたのを直しました"]]); }catch(e){}
 try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38")) S30_NEWS.unshift(["2026-10","v21.38","対応待ちが一目で：受信箱を3列に・依頼ページを手順つきに・出荷を縦のタイムラインに",
   ["ダッシュボードの上に「対応待ち」の数字を3つ（確認・承認／返信／期限が今日まで）。押すと受信箱でその分だけを開きます",
    "受信箱を「自分の番／相手の番／下書き・完了」の3列に。相手の返事を待っているものは待った日数つき",
@@ -38600,8 +38605,16 @@ try{ if(typeof v30I18n==="function") v30I18n([
  ["出荷を縦のタイムラインに：段階ごとの日付と日数、選んだ便が希望着荷に間に合わない・3日以上止まっている時は札で知らせます","Shipments use a vertical timeline with dates and days per stage; a label warns you if the chosen sailing misses the requested arrival or a stage has stalled for 3+ days","出货改为纵向时间线：显示各阶段的日期和天数，所选航班赶不上希望到货日或停滞3天以上时用标签提示","Los envíos usan una línea de tiempo vertical con fechas y días por etapa; una etiqueta avisa si el envío elegido no llega a tiempo o una etapa lleva 3+ días detenida"],
  ["AI の回答の「調べた手順」（Web の出典・根拠の一覧・エンジン）は畳んで、本文を先に。根拠の番号を押すと開きます","AI answers show the answer first; “How this was answered” (web sources, the source list, the engine) is folded and opens when you click a source number","AI回答先显示正文，“查询步骤”（网络来源、依据列表、引擎）默认折叠，点击依据编号即可展开","Las respuestas de IA muestran primero el texto; «Cómo se respondió» (fuentes web, lista de fuentes, motor) queda plegado y se abre al pulsar un número de fuente"]
 ]); }catch(e){}
+/* v21.38.1 のお知らせ */
+try{ if(typeof v30I18n==="function") v30I18n([
+ ["細かな直し：受信箱の知らせ・依頼ページの試しの画面","Small fixes: inbox notifications and the request page preview","细节修正：收件箱通知与请求页面预览","Pequeñas correcciones: avisos de la bandeja y vista previa de la página de solicitud"],
+ ["受信箱とベルの「新着メッセージ（名前・共有）」の「共有」「社内のみ」を、英語・中国語・スペイン語でも表示","“Shared” and “Internal only” in “New messages (name · shared)” in the inbox and notifications are now shown in English, Chinese and Spanish too","收件箱和通知中“新消息（姓名・共享）”里的“共享”“仅内部”现在也以英文、中文、西班牙文显示","«Compartido» y «Solo interno» en «Mensajes nuevos (nombre · compartido)» de la bandeja y los avisos ahora también se muestran en inglés, chino y español"],
+ ["依頼ページの「相手の画面を試す」で、下の帯の下に入力欄が少し見えていたのを直しました","In “Preview their screen” for request pages, part of a form field no longer shows below the bottom bar","请求页面的“预览对方画面”中，底部栏下方不再露出部分输入框","En «Ver la pantalla de la otra parte» de las páginas de solicitud, ya no se ve parte de un campo debajo de la barra inferior"]
+]); }catch(e){}
 /* 数や日付が入る文 */
 try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  /* v21.38.1：「新着メッセージ 4件（Wu Chia-Hui・共有）」の「共有」「社内のみ」（前は名前と一緒に日本語のまま） */
+  {re:/^新着メッセージ (\d+)件（(.+)・(共有|社内のみ)）$/,en:m=>m[1]+" new message"+(m[1]==="1"?"":"s")+" ("+m[2]+" · "+(m[3]==="共有"?"shared":"internal only")+")",zh:m=>"新消息 "+m[1]+"条（"+m[2]+"・"+(m[3]==="共有"?"共享":"仅内部")+"）",es:m=>m[1]+(m[1]==="1"?" mensaje nuevo":" mensajes nuevos")+" ("+m[2]+" · "+(m[3]==="共有"?"compartido":"solo interno")+")"},
   {re:/^(\d+)日待ち$/,en:"Waiting $1 d",zh:"已等 $1 天",es:"Esperando $1 d"},
   {re:/^(\d+)日止まっています$/,en:"Stalled for $1 days",zh:"已停滞 $1 天",es:"Detenido hace $1 días"},
   {re:/^受注の確認から (\d+)日目$/,en:"Day $1 since the order was confirmed",zh:"确认订单后第 $1 天",es:"Día $1 desde la confirmación del pedido"},
