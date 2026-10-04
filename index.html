@@ -1025,7 +1025,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="4e6ec9e9c1b9";
+const BC20_BUILD="d4efb3e29b1d";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -38515,9 +38515,6 @@ if(typeof openDW==="function"){ const __dw38=openDW; openDW=function(){ const r=
 try{ v38Css(); v38CssLast(); }catch(e){}
 
 /* ── 新機能と改善 ── */
-try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38.1")) S30_NEWS.unshift(["2026-10","v21.38.1","細かな直し：受信箱の知らせ・依頼ページの試しの画面",
-  ["受信箱とベルの「新着メッセージ（名前・共有）」の「共有」「社内のみ」を、英語・中国語・スペイン語でも表示",
-   "依頼ページの「相手の画面を試す」で、下の帯の下に入力欄が少し見えていたのを直しました"]]); }catch(e){}
 try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38")) S30_NEWS.unshift(["2026-10","v21.38","対応待ちが一目で：受信箱を3列に・依頼ページを手順つきに・出荷を縦のタイムラインに",
   ["ダッシュボードの上に「対応待ち」の数字を3つ（確認・承認／返信／期限が今日まで）。押すと受信箱でその分だけを開きます",
    "受信箱を「自分の番／相手の番／下書き・完了」の3列に。相手の返事を待っているものは待った日数つき",
@@ -38525,6 +38522,10 @@ try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x
    "依頼ページ（相手が開く画面）に手順と「あなたの回答 2/5」。押すボタンは「提出する」の1つに",
    "出荷を縦のタイムラインに：段階ごとの日付と日数、選んだ便が希望着荷に間に合わない・3日以上止まっている時は札で知らせます",
    "AI の回答の「調べた手順」（Web の出典・根拠の一覧・エンジン）は畳んで、本文を先に。根拠の番号を押すと開きます"]]); }catch(e){}
+/* v21.38.1 のお知らせ（v21.38 の後で先頭に入れる＝新しい順） */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38.1")) S30_NEWS.unshift(["2026-10","v21.38.1","細かな直し：受信箱の知らせ・依頼ページの試しの画面",
+  ["受信箱とベルの「新着メッセージ（名前・共有）」の「共有」「社内のみ」を、英語・中国語・スペイン語でも表示",
+   "依頼ページの「相手の画面を試す」で、下の帯の下に入力欄が少し見えていたのを直しました"]]); }catch(e){}
 
 /* ═══ v21.38 の表示言語（英・中・西）：受信箱の3列・対応待ち・出荷のタイムライン・調べた手順・状態の札の辞書・お知らせ ═══ */
 try{ if(typeof v30I18n==="function") v30I18n([
