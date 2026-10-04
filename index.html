@@ -1026,7 +1026,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="637c3a0395d2";
+const BC20_BUILD="1dde134b3bd6";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -38839,7 +38839,11 @@ async function v39SrvCheck(){ const out=document.getElementById("v39srvOut"); if
       <div>${ok(!!r.digestTrigger)} ${esc(v39T("毎朝8時のメール通知"))}</div>
       <div>${ok(!!r.mailWatch)} ${esc(v39T("バイヤーの返信のお知らせ（15分ごと）"))}${r.mailWatch?"":"："+esc(v39T("「📧 メール通知 › 毎朝8時の配信ジョブを設定」を押すと作られます（v2.14）"))}</div>`; }
   catch(e){ out.textContent=v39T("確かめられませんでした：")+String(e&&e.message||e).slice(0,80); } }
-if(typeof syncAdminCardHtml==="function"){ const __sac39=syncAdminCardHtml; syncAdminCardHtml=function(){ let h=__sac39.apply(this,arguments); try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof syncOn==="function"&&syncOn()) h+=v39SrvCardHtml(); }catch(e){} return h; }; }
+/* v21.39.1：カード（#synccard）の「中」の最後に入れる。v21.39 はカードの外（閉じタグの後ろ）に足していたため、
+   2列の並び（.admgrid2）の高さの計算に入らず、高さ100%のカードの下にはみ出して「管理者AIアシスタント」に重なっていた */
+if(typeof syncAdminCardHtml==="function"){ const __sac39=syncAdminCardHtml; syncAdminCardHtml=function(){ let h=__sac39.apply(this,arguments);
+  try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof syncOn==="function"&&syncOn()&&h.indexOf('id="v39srv"')<0){ const i=h.lastIndexOf("</div>"); if(i>=0) h=h.slice(0,i)+v39SrvCardHtml()+h.slice(i); } }catch(e){}
+  return h; }; }
 document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("#v39srvGo"); if(b){ e.preventDefault(); v39SrvCheck(); } });
 
 /* 表示の言語（英中西の辞書は logic_v2139i18n.js） */
