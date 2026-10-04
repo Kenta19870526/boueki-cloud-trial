@@ -1025,7 +1025,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="d4efb3e29b1d";
+const BC20_BUILD="4859c73504cc";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -38442,6 +38442,27 @@ let V38TR=0; function v38TipFollow(){ V38TR=0; const t=document.getElementById("
   if(!el.isConnected||r.bottom<0||r.top>innerHeight||r.width===0){ v38TipHide(true); return; } v38TipShow(el,t.dataset.pin==="1"); }
 addEventListener("scroll",()=>{ if(!V38TR) V38TR=requestAnimationFrame(v38TipFollow); },true); addEventListener("resize",()=>v38TipHide(true));
 
+/* ══ v21.38.2：ダッシュボードの「今日のまとめ」を閉じた後 ══
+   いままで：「今日は閉じる」を押すと、その日はダッシュボードから黙って消えた（受信箱の一番上にはいつも出ていて、日付が変わると戻るが、どこにも書いていなかった）
+   → 閉じた直後に帯「今日のまとめを閉じました（受信箱にはいつも出ます）」＋「元に戻す」「受信箱で見る」（10秒）／閉じた後もダッシュボードに1行「今日のまとめを開く（n件）」 */
+if(typeof v33DigestHtml==="function"){ const __dg382=v33DigestHtml; v33DigestHtml=function(where){
+  try{ if(where==="dash"){ const o=v33NtGet(), d=v33Ymd(Date.now());
+      if(o.dgClosed===d){ const n=v33DigestItems().length; if(!n) return ""; const E=v38Esc, T=v38T;
+        return `<section class="c v38dgmin" aria-label="${E(T("今日のまとめ（閉じています）"))}"><button type="button" class="v38dglink" data-v38dgopen="1"><span class="v38dgl">${E(T("今日のまとめを開く"))}</span><span class="v38dgn">${E(v38P(T(n+"件")))}</span></button></section>`; }
+      return String(__dg382.apply(this,arguments)).replace(/onclick="v33NtSet\(\{dgClosed:'[^']*'\}\);try\{render\(\)\}catch\(e\)\{\}"/,'data-v38dgclose="1"'); } }catch(e){}
+  return __dg382.apply(this,arguments); }; }
+/* 下の帯（v17 の #undobar と同じ見た目）に、ボタンを複数並べる */
+function v38UndoBar(msg,acts,ms){ let bar=document.getElementById("undobar"); if(!bar){ bar=document.createElement("div"); bar.id="undobar"; bar.setAttribute("role","status"); document.body.appendChild(bar); }
+  bar.innerHTML=`<span>${v38Esc(v38T(msg))}</span>`+acts.map((a,i)=>`<button class="btn g" type="button" data-v38ub="${i}">${v38Esc(v38T(a[0]))}</button>`).join(""); bar.hidden=false;
+  bar.querySelectorAll("[data-v38ub]").forEach(b=>b.onclick=()=>{ bar.hidden=true; try{ acts[+b.dataset.v38ub][1](); }catch(e){} });
+  const hide=()=>{ bar.hidden=true; }; try{ clearTimeout(UX17.undoT); UX17.undoT=setTimeout(hide,ms||10000); }catch(e){ setTimeout(hide,ms||10000); } }
+function v38DgFocus(){ setTimeout(()=>{ try{ const c=document.querySelector("#well .v33dg"); if(!c) return; c.scrollIntoView({block:"nearest"}); c.classList.remove("v33flash"); void c.offsetWidth; c.classList.add("v33flash"); }catch(e){} },60); }
+function v38DgOpen(){ v33NtSet({dgClosed:""}); try{ render(); }catch(e){} v38DgFocus(); }
+function v38DgClose(){ v33NtSet({dgClosed:v33Ymd(Date.now())}); try{ render(); }catch(e){}
+  v38UndoBar("今日のまとめを閉じました（受信箱にはいつも出ます）",[["元に戻す",v38DgOpen],["受信箱で見る",()=>{ try{ V33IXV.f=""; V38.col="me"; go("inbox"); scrollTo(0,0); }catch(e){} }]]); }
+document.addEventListener("click",e=>{ const t=e.target&&e.target.closest&&e.target.closest("[data-v38dgclose],[data-v38dgopen]"); if(!t) return; e.preventDefault();
+  if(t.hasAttribute("data-v38dgopen")) v38DgOpen(); else v38DgClose(); });
+
 /* ══ 見た目（v21.37 の層の後ろに置き直す） ══ */
 function v38Css(){ if(document.getElementById("ux2138css")) return; const s=document.createElement("style"); s.id="ux2138css"; s.textContent=`
 /* ① 対応待ち */
@@ -38492,6 +38513,12 @@ function v38Css(){ if(document.getElementById("ux2138css")) return; const s=docu
 .v38steps>summary::-webkit-details-marker{display:none}.v38steps>summary::before{content:"▸";font-size:11px;transition:transform .15s}
 .v38steps[open]>summary::before{transform:rotate(90deg)}.v38steps>summary:hover{color:var(--ink-2)}
 .v38steps-b{display:grid;gap:8px;margin-top:4px}.v38steps-b>.ci{margin-top:0;border-top:0;padding-top:0}.v38steps-b>div{margin-top:0!important}
+/* v21.38.2：閉じた「今日のまとめ」はダッシュボードに1行だけ残す（押すと開き直す）。閉じた直後の帯はスマホで2段に */
+#well .c.v38dgmin{padding:8px 14px!important;background:var(--surface-2);border:1px dashed var(--line);display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.v38dglink{font:inherit;font-size:14px;background:none;border:0;padding:4px 2px;color:var(--v33-bl-t,var(--bl));cursor:pointer;text-decoration:none;font-weight:500}.v38dglink .v38dgl{text-decoration:underline;text-underline-offset:3px}
+.v38dglink:hover{color:var(--ink)}.v38dglink:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+.v38dgn{color:var(--ink-3);font-weight:400}
+@media (max-width:820px){#undobar{width:calc(100vw - 32px);box-sizing:border-box;flex-wrap:wrap;justify-content:flex-end;row-gap:8px}#undobar>span{flex:1 1 100%}}
 /* v21.38.1：アプリの中の「相手の画面を試す」（シート）では、下の帯がシートの下の余白（14px）の上で止まり、その下に本文が見えていた → 余白の分だけ下げる。公開の r.html は画面の下にぴったりなので変えない */
 .v33sh-bd .rqp-bar{bottom:-14px}
 /* ② 状態の札 */
@@ -38526,6 +38553,10 @@ try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x
 try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38.1")) S30_NEWS.unshift(["2026-10","v21.38.1","細かな直し：受信箱の知らせ・依頼ページの試しの画面",
   ["受信箱とベルの「新着メッセージ（名前・共有）」の「共有」「社内のみ」を、英語・中国語・スペイン語でも表示",
    "依頼ページの「相手の画面を試す」で、下の帯の下に入力欄が少し見えていたのを直しました"]]); }catch(e){}
+/* v21.38.2 のお知らせ（v21.38.1 の後で先頭に入れる＝新しい順） */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38.2")) S30_NEWS.unshift(["2026-10","v21.38.2","ダッシュボードの「今日のまとめ」を閉じた後も見つけやすく",
+  ["「今日は閉じる」を押すと、下の帯に「元に戻す」と「受信箱で見る」が出ます",
+   "閉じた後もダッシュボードに「今日のまとめを開く」が1行残り、押すとその場で開き直します（受信箱の一番上にはいつも出ています）"]]); }catch(e){}
 
 /* ═══ v21.38 の表示言語（英・中・西）：受信箱の3列・対応待ち・出荷のタイムライン・調べた手順・状態の札の辞書・お知らせ ═══ */
 try{ if(typeof v30I18n==="function") v30I18n([
@@ -38605,6 +38636,15 @@ try{ if(typeof v30I18n==="function") v30I18n([
  ["依頼ページ（相手が開く画面）に手順と「あなたの回答 2/5」。押すボタンは「提出する」の1つに","Request pages (what the other party opens) now show steps and “Your answers 2/5,” with a single “Submit” button","请求页面（对方打开的画面）显示步骤和“您的回答 2/5”，只需点击“提交”一个按钮","Las páginas de solicitud (lo que abre la otra parte) muestran pasos y «Sus respuestas 2/5», con un único botón «Enviar»"],
  ["出荷を縦のタイムラインに：段階ごとの日付と日数、選んだ便が希望着荷に間に合わない・3日以上止まっている時は札で知らせます","Shipments use a vertical timeline with dates and days per stage; a label warns you if the chosen sailing misses the requested arrival or a stage has stalled for 3+ days","出货改为纵向时间线：显示各阶段的日期和天数，所选航班赶不上希望到货日或停滞3天以上时用标签提示","Los envíos usan una línea de tiempo vertical con fechas y días por etapa; una etiqueta avisa si el envío elegido no llega a tiempo o una etapa lleva 3+ días detenida"],
  ["AI の回答の「調べた手順」（Web の出典・根拠の一覧・エンジン）は畳んで、本文を先に。根拠の番号を押すと開きます","AI answers show the answer first; “How this was answered” (web sources, the source list, the engine) is folded and opens when you click a source number","AI回答先显示正文，“查询步骤”（网络来源、依据列表、引擎）默认折叠，点击依据编号即可展开","Las respuestas de IA muestran primero el texto; «Cómo se respondió» (fuentes web, lista de fuentes, motor) queda plegado y se abre al pulsar un número de fuente"]
+]); }catch(e){}
+/* v21.38.2：閉じた「今日のまとめ」 */
+try{ if(typeof v30I18n==="function") v30I18n([
+ ["今日のまとめ（閉じています）","Today's summary (closed)","今日汇总（已关闭）","Resumen de hoy (cerrado)"],["今日のまとめを開く","Open today's summary","打开今日汇总","Abrir el resumen de hoy"],
+ ["今日のまとめを閉じました（受信箱にはいつも出ます）","Today's summary is closed (it always stays at the top of your inbox)","已关闭今日汇总（收件箱顶部会一直显示）","Se cerró el resumen de hoy (siempre aparece arriba en la bandeja)"],
+ ["受信箱で見る","View in inbox","在收件箱查看","Ver en la bandeja"],["元に戻す","Undo","撤销","Deshacer"],
+ ["ダッシュボードの「今日のまとめ」を閉じた後も見つけやすく","Today's summary on the dashboard is easier to find after you close it","关闭仪表盘的“今日汇总”后也更容易找到","El resumen de hoy del panel es más fácil de encontrar después de cerrarlo"],
+ ["「今日は閉じる」を押すと、下の帯に「元に戻す」と「受信箱で見る」が出ます","When you click “Hide for today,” a bar at the bottom offers “Undo” and “View in inbox”","点击“今天不再显示”后，底部栏会显示“撤销”和“在收件箱查看”","Al pulsar «Ocultar por hoy», una barra inferior ofrece «Deshacer» y «Ver en la bandeja»"],
+ ["閉じた後もダッシュボードに「今日のまとめを開く」が1行残り、押すとその場で開き直します（受信箱の一番上にはいつも出ています）","After closing, a one-line “Open today's summary” link stays on the dashboard and reopens it in place (it always stays at the top of your inbox)","关闭后仪表盘上仍保留一行“打开今日汇总”，点击即可原地重新打开（收件箱顶部会一直显示）","Tras cerrarlo, queda en el panel un enlace de una línea «Abrir el resumen de hoy» que lo vuelve a abrir en el mismo lugar (siempre aparece arriba en la bandeja)"]
 ]); }catch(e){}
 /* v21.38.1 のお知らせ */
 try{ if(typeof v30I18n==="function") v30I18n([
