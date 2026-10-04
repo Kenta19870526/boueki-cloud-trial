@@ -2,6 +2,7 @@
 <script>try{history.scrollRestoration="manual"}catch(e){}</script>
 <style>html{overflow-anchor:none}</style>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'; form-action 'self'">
 <title>貿易クラウド 2.0 トライアル</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1025,7 +1026,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="4859c73504cc";
+const BC20_BUILD="637c3a0395d2";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -6869,11 +6870,11 @@ function mRows(){
           <span><b style="font-size:12px">${esc(m.who)}</b>
             <span style="font-size:10px;color:var(--ink-3)">　${esc(m.org)}</span><br>
             <span style="font-size:10px;color:var(--ink-3)">${esc(m.t)}</span></span></div>
-        <span class="p ${m.scope==="社内のみ"?"lo":"on"}">${m.scope}</span></div>
+        <span class="p ${m.scope==="社内のみ"?"lo":"on"}">${esc(m.scope)}</span></div>
       ${m.quote?`<div style="border-left:3px solid var(--line);padding:5px 0 5px 9px;margin-bottom:7px;font-size:11px;color:var(--ink-3)">
         <b>${esc(m.quote.who)}</b><br>${esc(m.quote.txt)}</div>`:""}
       ${m.mention&&m.mention.length?`<div style="margin-bottom:5px">${m.mention.map(x=>`<span style="color:var(--or-deep);font-weight:700;font-size:11.5px">@${esc(x)}</span>`).join(" ")}</div>`:""}
-      <div style="font-size:12px;line-height:1.75">${T(m.body)}</div>
+      <div style="font-size:12px;line-height:1.75">${T(v39San(m.body))}</div>
       ${typeof msgReactHtml==="function"?msgReactHtml(m,m.__mi):""}
       ${m.file?`<div class="rw" style="gap:7px;margin-top:8px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--bl)" stroke-width="1.9"><path d="M14 3v5h5"/><path d="M19 8v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h8z"/></svg>
@@ -8039,7 +8040,7 @@ let opsRegC="", opsRegI="";
 let SHIPS=null, SHIPA=0;   /* 出荷案件（最大4件同時・タブ切替。各案件が独立のstep/会話を持つ） */   /* ② 規制を調べるの選択状態（再描画でアメリカに戻るバグの修正） */
 const $=s=>document.querySelector(s);
 const well=$("#well");
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const rp=r=>r==="高"?'<span class="p hi">反応 高</span>':r==="中"?'<span class="p mid">反応 中</span>':'<span class="p lo">反応 低</span>';
 const sp=s=>s==="失注"?'<span class="p no">失注</span>':s==="受注"?'<span class="p hi">受注</span>':`<span class="p on">${esc(s)}</span>`;
 
@@ -9627,7 +9628,7 @@ function vOps(p){
     ["ship","3","出荷を進める","物流AI見積・仮押さえ・出荷手続き"],["ord","4","受注・請求・入金","受注書・請求書・入金の管理"],["file","","この案件の書類","作成した書類の一覧"]];
   const head=ph(p,"<b>この画面でできること：</b>送り先の決まりごとを調べ、書類をつくり、物流会社への見積から出荷・入金までを、この1画面の流れで進めます。")+
     `<div class="optabs" role="tablist">${tabs.map(([k,n,t,d])=>
-      `<button class="optab ${opsTab===k?"on":""} ${n?"":"sub"}" role="tab" aria-selected="${opsTab===k}" onclick="opsTab='${k}';render()"><i>${n||"📁"}</i><span><b>${t}</b><small>${d}</small></span></button>`).join("")}</div>`;
+      `<button class="optab ${opsTab===k?"on":""} ${n?"":"sub"}" role="tab" aria-selected="${opsTab===k}" onclick="opsTab='${jsa(k)}';render()"><i>${n||"📁"}</i><span><b>${t}</b><small>${d}</small></span></button>`).join("")}</div>`;
   if(opsTab==="file") return head+vDocs();
   if(opsTab==="ord")  return head+vOrders();
   if(opsTab==="doc")  return head+vOpsDoc();
@@ -11091,7 +11092,7 @@ function dashBar(){
   const prods=scoped.filter(u=>(!DASH.co||u.co===DASH.co)&&(!DASH.cat||u.cat===DASH.cat));
   const skipCo=cos.length<=1;   /* 製造業など1社のみ→会社階層をスキップ */
   const single=all.length<=1&&!depts.length;   /* 登録商品が1件：切替は不要でも「いま何を見ているか」は必ず示す（上部の商品切替はダッシュボードでは隠すため） */
-  const sel=(id,lbl,opts,val,key)=>`<label class="dsl">${lbl}<select class="sel" onchange="dashSet('${key}',this.value)">
+  const sel=(id,lbl,opts,val,key)=>`<label class="dsl">${lbl}<select class="sel" onchange="dashSet('${jsa(key)}',this.value)">
       <option value="">${id}</option>${opts.map(o=>`<option value="${esc(String(o[0]))}"${String(val)===String(o[0])?" selected":""}>${esc(o[1])}</option>`).join("")}</select></label>`;
   const act=all.find(u=>u.act)||all[0]||{};
   const crumb=(DASH.grp||DASH.co||DASH.cat||DASH.pr)
@@ -11123,7 +11124,7 @@ function openDashGroups(){
     <div id="dgList" style="margin-top:9px">${gs.length?gs.map(g2=>`
       <div class="c" style="padding:9px 11px;margin-bottom:7px">
         <div class="rw" style="justify-content:space-between"><b style="font-size:12px">${esc(g2.name)}</b>
-          <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="dashDelGroup('${esc(String(g2.id))}')">削除</button></div>
+          <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="dashDelGroup('${jsa(String(g2.id))}')">削除</button></div>
         <p class="nn" style="margin-top:3px">${g2.cos.length?g2.cos.map(esc).join("・"):"（会社未割当）"}</p></div>`).join("")
       :`<p class="nn">まだグループがありません。</p>`}</div>
     <p class="lbl" style="margin-top:11px">新しいグループを作る</p>
@@ -11160,7 +11161,7 @@ function dashDrill(kind,arg){
         <td style="font-size:11px">${esc(r.c||"—")}</td><td style="font-size:10.5px">${esc(r._item||r.item||"")}</td>
         <td>${r.st==="受注"?'<span class="p hi">受注</span>':r.st==="失注"?'<span class="p no">失注</span>':'<span class="p lo">'+esc(r.st||"—")+"</span>"}</td>
         <td>${esc(r.react||"—")}</td>
-        <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashFbEdit('${esc(r._ref)}',${r._fi})">✎</button></td></tr>`).join("")}
+        <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashFbEdit('${jsa(r._ref)}',${r._fi})">✎</button></td></tr>`).join("")}
       </tbody></table></div>`
     :`<p class="nn" style="margin-top:8px">該当する記録がありません${A.per?"（期間指定を確認してください）":""}。</p>`;
   if(kind==="fb"){
@@ -11176,7 +11177,7 @@ function dashDrill(kind,arg){
         ${list.map(x=>`<tr><td><b style="font-size:11px">${esc(x.b)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">${esc(x.ch||"")}</span></td>
           <td style="font-size:11px">${esc(x.c||"—")}</td><td class="n">${x.n}件</td>
           <td>${x.hot?'<span class="p hi">高×'+x.hot+"</span>":"—"}</td>
-          <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashFbEdit('${esc(x.rows[0]._ref)}',${x.rows[0]._fi})">✎</button></td></tr>`).join("")}
+          <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashFbEdit('${jsa(x.rows[0]._ref)}',${x.rows[0]._fi})">✎</button></td></tr>`).join("")}
         </tbody></table></div>`:`<p class="nn" style="margin-top:8px">商談記録がまだありません。</p>`}${editNote}`);
   }else if(kind==="byc"){
     const rows=A.fb.filter(r=>r.c===arg);
@@ -11205,7 +11206,7 @@ function dashDrill(kind,arg){
           <td class="n" style="font-size:10.5px">${esc(o.unit)}</td>
           <td class="n"><b>${esc(o.total)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">≒${DASH.cur==="JPY"?fmtJPY(j):fmtUSD(u2)}${o.docRate?"（書類レート"+o.docRate+"）":""}</span></td>
           <td class="n" style="font-size:10.5px">${esc(o.dISO||"—")}</td>
-          <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashOrdEdit('${esc(o.no)}')">✎</button></td></tr>`;}).join("")}
+          <td><button class="btn g" style="padding:2px 7px;font-size:10px" onclick="dashOrdEdit('${jsa(o.no)}')">✎</button></td></tr>`;}).join("")}
         </tbody></table></div>
         <p class="nn" style="margin-top:7px">換算：${o2rateNote()}</p>`
       :`<p class="nn" style="margin-top:8px">受注（Invoice発行済みの案件）はまだありません。</p>`}${editNote}`);
@@ -11342,7 +11343,7 @@ function vDash(p){
     <div class="c"><h3>どこまで進んだか</h3>
       <p class="nn">左から右へ、相手に接触してから受注に至るまでの流れです。<b>各段の数字をクリック</b>すると該当する相手が見られます。</p>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
-        ${F.map((f,i)=>`<div class="ddr" role="button" onclick="dashDrill('funnel','${esc(f[0])}')" title="クリックで「${esc(f[0])}」の相手一覧"
+        ${F.map((f,i)=>`<div class="ddr" role="button" onclick="dashDrill('funnel','${jsa(f[0])}')" title="クリックで「${esc(f[0])}」の相手一覧"
           style="display:grid;grid-template-columns:92px minmax(0,1fr) 62px;gap:9px;align-items:center;font-size:11.5px">
           <span>${f[0]}</span>
           <span style="height:23px;border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;
@@ -11357,7 +11358,7 @@ function vDash(p){
     <div class="c"><h3>どの国で手応えがあるか</h3>
       <p class="nn">${A.per?"期間内の商談記録の国別件数です。":"商談記録の件数です。"}<b>国名をクリック</b>すると、その国の相手が見られます。</p>
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:7px">
-        ${A.byc.length?A.byc.map(([c,v],i)=>`<div class="ddr" role="button" onclick="dashDrill('byc','${esc(c)}')" title="クリックで${esc(c)}の相手一覧"
+        ${A.byc.length?A.byc.map(([c,v],i)=>`<div class="ddr" role="button" onclick="dashDrill('byc','${jsa(c)}')" title="クリックで${esc(c)}の相手一覧"
           style="display:grid;grid-template-columns:92px 1fr 40px;gap:8px;align-items:center;font-size:11.5px">
           <span>${esc(c)}</span><span style="height:9px;border-radius:3px;width:${Math.max(6,v/mb*100)}%;
             background:${i<3?"var(--or)":"var(--bl)"}"></span>
@@ -11581,7 +11582,7 @@ function openDashAI(){
     <p class="lbl" style="margin-top:9px">ワンクリック分析</p>
     <div class="rw" style="gap:6px;flex-wrap:wrap;margin-top:4px">
       ${[["conv","📈 ファネル転換率"],["cty","🌏 国別内訳（円）"],["month","📅 月次推移"],["lost","🚫 失注理由（円）"],["owner","👤 担当・拠点別"],["orders","💰 受注サマリー"]]
-        .map(([k,l])=>`<button class="btn g" style="padding:5px 10px;font-size:11px" onclick="dashRepPreset('${k}')">${l}</button>`).join("")}</div>
+        .map(([k,l])=>`<button class="btn g" style="padding:5px 10px;font-size:11px" onclick="dashRepPreset('${jsa(k)}')">${l}</button>`).join("")}</div>
     <p class="lbl" style="margin-top:10px">自由に依頼（AI商社マンが集計）</p>
     <div class="rw" style="margin-top:4px;gap:6px">
       <input class="sel" id="daiQ" placeholder="例：接触日と企業の内訳と、商談実施への転換率の相関を分析して" style="flex:1;min-width:0"
@@ -11938,10 +11939,10 @@ function vToday(p){
         ${steps.map(sp=>`<div class="rw" style="gap:7px;padding:5px 0;border-bottom:1px dashed var(--line-2);justify-content:space-between;flex-wrap:nowrap">
           <label class="rw tds" style="gap:7px;min-width:0;flex-wrap:nowrap;cursor:${sp.auto?"default":"pointer"}">
             ${sp.auto?`<span style="flex:none">${sp.ok?"✅":"⬜"}</span>`
-              :`<input type="checkbox" ${sp.ok?"checked":""} onclick="event.stopPropagation()" onchange="tdStepChk(${i},'${sp.id}',this.checked)" style="flex:none;accent-color:var(--or)">`}
-            <span style="min-width:0;${sp.ok?"color:var(--ink-3);text-decoration:line-through":""}${sp.auto&&sp.go?";cursor:pointer":""}"${sp.auto&&sp.go?` role="button" title="クリックで「${esc(sp.goNm)}」へ" onclick="tdStepGo('${sp.go}','${sp.pre||""}','${sp.fk||""}')"`:""}>${esc(sp.label)}</span>
+              :`<input type="checkbox" ${sp.ok?"checked":""} onclick="event.stopPropagation()" onchange="tdStepChk(${i},'${jsa(sp.id)}',this.checked)" style="flex:none;accent-color:var(--or)">`}
+            <span style="min-width:0;${sp.ok?"color:var(--ink-3);text-decoration:line-through":""}${sp.auto&&sp.go?";cursor:pointer":""}"${sp.auto&&sp.go?` role="button" title="クリックで「${esc(sp.goNm)}」へ" onclick="tdStepGo('${jsa(sp.go)}','${sp.pre||""}','${sp.fk||""}')"`:""}>${esc(sp.label)}</span>
             ${sp.auto?`<span class="p lo" style="flex:none" title="登録データから自動判定。どの画面で進めても、ここに即反映されます">自動</span>`:""}</label>
-          ${sp.go?`<button class="btn g" style="font-size:12px;padding:3px 10px;flex:none" type="button" onclick="tdStepGo('${sp.go}','${sp.pre||""}','${sp.fk||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
+          ${sp.go?`<button class="btn g" style="font-size:12px;padding:3px 10px;flex:none" type="button" onclick="tdStepGo('${jsa(sp.go)}','${sp.pre||""}','${sp.fk||""}')">${esc(sp.goNm)} →</button>`:""}</div>`).join("")}
         <p class="tdh" style="margin:7px 0 0;line-height:1.6">「自動」＝登録データと連動（AIと埋める・営業資料・出荷など、<b>どの画面で進めてもリアルタイムに✅</b>）。チェックボックスはこの商品に保存されます。</p></div>`:""}
       <span class="ddhint">🤖 クリックでAI商社マンと実行（チャット・ファイル添付OK） ▸</span></div>`;}).join("")}
   </div>`:`<div class="c" style="margin-bottom:11px;text-align:center;padding:20px"><p class="nn">この商品の「今日やること」はまだありません。${online?"上の「🔄 いま再調査する」からAI調査を実行できます。":"商品情報を充実させると基本提案が表示されます。"}</p></div>`}
@@ -13755,7 +13756,7 @@ function admDetail(code){
    <div class="g4" style="margin-top:12px;gap:7px">
      ${[["ログイン",u.logins||0],["アップロード",u.uploads||0],["AI質問",u.aiQ||0],["🌐Web検索",u.webQ||0]]
        .map(([l,v])=>`<div style="padding:7px 9px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
-         <p class="lbl" style="font-size:9px">${l}</p><div class="n" style="font-size:17px;font-weight:300">${v}</div></div>`).join("")}
+         <p class="lbl" style="font-size:9px">${l}</p><div class="n" style="font-size:17px;font-weight:300">${esc(v)}</div></div>`).join("")}
    </div>
    ${(a.members&&a.members.length)?`<p class="lbl" style="margin-top:13px">招待メンバー（やりとり画面から招待・リアルタイム反映）</p>
      <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
@@ -13770,7 +13771,7 @@ function admDetail(code){
      <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px">
      ${sc.map(([k,v])=>`<div style="display:grid;grid-template-columns:112px 1fr 22px;gap:7px;align-items:center;font-size:11px">
        <span>${esc(SCN[k]||k)}</span><span class="mt" style="margin:0"><i style="width:${v/mx*100}%"></i></span>
-       <span class="n" style="text-align:right;color:var(--ink-3)">${v}</span></div>`).join("")}</div>`:""}
+       <span class="n" style="text-align:right;color:var(--ink-3)">${esc(v)}</span></div>`).join("")}</div>`:""}
    ${u.events&&u.events.length?`<p class="lbl" style="margin-top:13px">最近の利用（新しい順）</p>
      <div class="tl" style="margin-top:7px">${u.events.slice(0,10).map(([t2,ev,d])=>
        `<div class="ti"><time>${fdate2(t2)}</time>${IC[ev]||""} ${esc(d||ev)}</div>`).join("")}</div>`:""}
@@ -14284,13 +14285,13 @@ function openFwdQuote(id){
     ${n>1?fwdRecHtml(r,l):n===1?`<p class="nn" style="margin-top:4px">回答は1社（${esc(selCo)}）のみ。相見積はありません${(l.situ||[]).length?"。情勢メモ："+l.situ.map(esc).join("／"):""}。</p>`:""}
     ${n>1?`<details class="fwdx" ${held?"":"open"}><summary>📊 相見積もり一覧（${n}社）${FWDON?"":"— 自分で選んで仮押さえ・指名再見積ができます"}</summary><div>${fwdCompareHtml(r,l)}</div></details>`:""}
     ${FWDON?"":`<div class="rw" style="margin-top:7px;gap:6px">
-      ${held?`<button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdHoldLeg('${rid}','${esc(l.cty)}',0)">仮押さえを解除</button>`
-            :`<button class="btn" style="padding:4px 12px;font-size:11px" onclick="fwdHoldLeg('${rid}','${esc(l.cty)}',1)">${n>1?esc(selCo)+" で仮押さえ":"この国を仮押さえ"}</button>`}
-      <button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${rid}','${esc(l.cty)}')">🔁 再見積を依頼</button></div>`}</div>`; };
+      ${held?`<button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdHoldLeg('${jsa(rid)}','${jsa(l.cty)}',0)">仮押さえを解除</button>`
+            :`<button class="btn" style="padding:4px 12px;font-size:11px" onclick="fwdHoldLeg('${jsa(rid)}','${jsa(l.cty)}',1)">${n>1?esc(selCo)+" で仮押さえ":"この国を仮押さえ"}</button>`}
+      <button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${jsa(rid)}','${jsa(l.cty)}')">🔁 再見積を依頼</button></div>`}</div>`; };
   const ngCard=l=>`<div class="fwdleg" style="border-style:dashed;border-color:var(--warn)">
       <div class="rw" style="justify-content:space-between;gap:8px;align-items:center"><b style="font-size:12.5px">${esc(l.cty)}</b><span class="p mid" style="font-size:9.5px">レーン未登録</span></div>
       <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">物流会社がレート表を更新すると<b>自動で見積が届きます</b>。お急ぎの場合はSTANDAGE経由の相見積も可能です。</div>
-      ${FWDON?"":`<div class="rw" style="margin-top:7px"><button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${rid}','${esc(l.cty)}')">🔁 この国だけ要望を添えて再依頼</button></div>`}</div>`;
+      ${FWDON?"":`<div class="rw" style="margin-top:7px"><button class="btn g" style="padding:4px 10px;font-size:11px" onclick="fwdRequoteForm('${jsa(rid)}','${jsa(l.cty)}')">🔁 この国だけ要望を添えて再依頼</button></div>`}</div>`;
   const oneCard=q=>`<div class="fwdleg"><div class="rw" style="justify-content:space-between;gap:8px;align-items:center"><b style="font-size:12.5px">${esc(q.lane)}・${esc(q.mode)}・約${q.tt}日</b><span class="tot n">¥${q.total.toLocaleString()}</span></div>
       <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">${brkLine(q)}／有効期限 ${esc(q.valid)}</div></div>`;
   const qHtml=legs?legs.map(l=>l.ok?legCard(l):ngCard(l)).join(""):(r.quote?oneCard(r.quote):`<p class="nn">見積はまだありません。</p>`);
@@ -14300,19 +14301,19 @@ function openFwdQuote(id){
       <span style="width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:8px;font-weight:800;
         background:${m.f==="物"?"var(--bl)":"var(--or)"};color:#fff">${m.f==="物"?"AI物流":"AI商社"}</span>
       <div style="max-width:86%;padding:7px 10px;border-radius:10px;font-size:11.5px;line-height:1.7;
-        background:${m.f==="物"?"var(--bl-soft)":"var(--or-soft)"}">${m.t}</div></div>`).join("");
+        background:${m.f==="物"?"var(--bl-soft)":"var(--or-soft)"}">${v39San(m.t)}</div></div>`).join("");
   openDW(`<div class="dwhead"><h3>🚚 AI見積 ${rid} <span class="p ${/仮押さえ/.test(st)?"hi":any?(legs&&okL.length<legs.length?"mid":"hi"):"mid"}">${esc(st)}</span>${r.requote?` <span class="p or" style="font-size:9px">🔁 再見積</span>`:""}</h3></div>
     <div class="dwbody" style="display:block;overflow-y:auto;padding:12px 18px 16px">
     <div class="rw" style="justify-content:space-between;gap:8px;align-items:flex-start;flex-wrap:wrap">
       <p class="nn" style="margin:0;flex:1 1 260px">${esc(r.co)}／<b>${esc(r.pol)} → ${esc(r.cty)}</b>／${esc(r.item)}・${r.cbm}m³ ${esc(r.mode)}${legs?`／<b>${okL.length}/${legs.length}か国 提案あり</b>${heldN?`・仮押さえ ${heldN}か国`:""}${legs.some(l=>(l.offers||[]).length>1)?`・相見積 ${legs.filter(l=>(l.offers||[]).length>1).map(l=>esc(l.cty)+" "+l.offers.length+"社").join("、")}`:""}`:""}${r.d?`／依頼日 ${esc(r.d)}`:""}</p>
       ${nav}</div>
-    ${r.requote?`<div style="margin-top:8px;padding:8px 11px;border:1px solid var(--or);border-radius:var(--r2);background:var(--or-soft);font-size:11px;line-height:1.7"><b>🔁 再見積の依頼</b>${parent?`（元の依頼 <a href="#" onclick="openFwdQuote('${esc(parent.id)}');return false" style="color:var(--bl)">${esc(parent.id)}</a>）`:""}<br>要望：${esc(r.note||"（記載なし）")}${r.etd?"／希望納期 "+esc(r.etd):""}${r.toCo?"／指名："+esc(r.toCo):""}</div>`:""}
-    ${kids.length?`<p class="nn" style="margin-top:6px">この依頼からの再見積：${kids.map(k=>`<a href="#" onclick="openFwdQuote('${esc(k.id)}');return false" style="color:var(--bl)">${esc(k.id)}（${esc(k.cty)}・${esc(fwdReqStatus(k))}）</a>`).join("／")}</p>`:""}
+    ${r.requote?`<div style="margin-top:8px;padding:8px 11px;border:1px solid var(--or);border-radius:var(--r2);background:var(--or-soft);font-size:11px;line-height:1.7"><b>🔁 再見積の依頼</b>${parent?`（元の依頼 <a href="#" onclick="openFwdQuote('${jsa(parent.id)}');return false" style="color:var(--bl)">${esc(parent.id)}</a>）`:""}<br>要望：${esc(r.note||"（記載なし）")}${r.etd?"／希望納期 "+esc(r.etd):""}${r.toCo?"／指名："+esc(r.toCo):""}</div>`:""}
+    ${kids.length?`<p class="nn" style="margin-top:6px">この依頼からの再見積：${kids.map(k=>`<a href="#" onclick="openFwdQuote('${jsa(k.id)}');return false" style="color:var(--bl)">${esc(k.id)}（${esc(k.cty)}・${esc(fwdReqStatus(k))}）</a>`).join("／")}</p>`:""}
     <p class="lbl" style="margin-top:12px">国ごとの見積${FWDON?"":"（国ごとに仮押さえ・再見積ができます）"}</p>
     ${qHtml}
     <div id="fwdrq"></div>
     <div class="rw" style="margin-top:10px;gap:6px">
-      ${!FWDON&&legs&&okL.length>1&&heldN<okL.length?`<button class="btn g" style="font-size:11px" onclick="fwdHoldAll('${rid}')">提案のあった${okL.length}か国をすべて仮押さえ</button>`:""}
+      ${!FWDON&&legs&&okL.length>1&&heldN<okL.length?`<button class="btn g" style="font-size:11px" onclick="fwdHoldAll('${jsa(rid)}')">提案のあった${okL.length}か国をすべて仮押さえ</button>`:""}
       ${!FWDON&&!legs&&r.quote&&r.status!=="仮押さえ済み"?`<button class="btn" id="fwdHold">この見積で仮押さえ</button>`:""}</div>
     <details class="fwdx" ${any?"":"open"}><summary>💬 AI同士の交渉記録（${(r.msgs||[]).length}件・荷主のAI商社マン × 物流会社のAI物流マン）</summary><div>${chat||'<p class="nn">記録はありません。</p>'}</div></details>
     ${(r.cargo||r.poNo||(r.docs||[]).length)?`<details class="fwdx"><summary>📦 荷主から共有された貨物情報${r.caseNo?"（案件 "+esc(r.caseNo)+"）":""}</summary><div style="font-size:11px;line-height:1.7">${r.cargo?"貨物："+esc(r.cargo)+"<br>":""}${r.poNo?"発注書："+esc(r.poNo)+"／":""}${r.etd?"希望納期："+esc(r.etd)+"／":""}条件：${esc(r.term||"")}${(r.docs||[]).length?"<br>船積書類："+r.docs.map(esc).join("・"):""}</div></details>`:""}
@@ -14466,7 +14467,7 @@ function fwdChatHtml(){
   const chat=(FWDB.chat||[]).map(m=>`
     <div class="m ${m.w==="u"?"u":"a"}">
       <span class="av" style="${m.w==="a"?"background:var(--bl);color:#fff":""}">${m.w==="u"?"物":"AI"}</span>
-      <div class="bb">${m.t}</div></div>`).join("");
+      <div class="bb">${v39San(m.t)}</div></div>`).join("");
   const SUGS=["香港向けの推奨はどの会社？","相見積があるレーンは？","韓国向けのレーンはある？","有効期限が近いレートは？","最近いつレート表をアップロードした？","未対応の依頼は？","インドネシア向けは出せる？"];
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span><span class="nt">この版で新規</span></div>
     <h1>AI物流マンに相談</h1>
@@ -15110,7 +15111,7 @@ function fwdRecHtml(r,l){
   const ai=r.situAI&&r.situAI[l.cty];
   return `<div class="fwdrec"><b>🤖 AI物流マンの推奨：${esc(l.rec)}</b> <span class="n">¥${o.quote.total.toLocaleString()}</span>・約${o.rate.tt}日${l.delay?`（情勢見込み +${l.delay}日）`:""}${other?` <span class="p mid" style="font-size:9px">現在の選択：${esc(l.sel)}</span>`:""}
     <ul>${(l.recWhy||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ul>
-    ${ai?`<div style="margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)">🌐 <b>情勢コメント（AI物流マン・Web検索 ${esc(ai.at||"")}）</b>：${ai.html}${(ai.cits||[]).length?`<div style="font-size:9.5px;color:var(--ink-3)">出典：${ai.cits.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">[${i+1}] ${esc(String(u).replace(/^https?:\/\//,"").slice(0,40))}</a>`).join("　")}</div>`:""}</div>`
+    ${ai?`<div style="margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)">🌐 <b>情勢コメント（AI物流マン・Web検索 ${esc(ai.at||"")}）</b>：${v39San(ai.html)}${(ai.cits||[]).length?`<div style="font-size:9.5px;color:var(--ink-3)">出典：${ai.cits.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener" style="color:var(--bl)">[${i+1}] ${esc(String(u).replace(/^https?:\/\//,"").slice(0,40))}</a>`).join("　")}</div>`:""}</div>`
       :(l.situ||[]).length?`<div style="margin-top:4px;color:var(--ink-2);font-size:10.5px">情勢メモ（内蔵の一般傾向・目安${l.situReg?"＋物流会社の登録":""}）：${l.situ.map(esc).join("／")}</div>`:""}
     <div style="margin-top:4px;font-size:9.5px;color:var(--ink-3)">推奨の考え方：価格${FWD_W.price}・所要日数${FWD_W.tt}・有効期限${FWD_W.valid}点。希望納期に間に合わない案は−${FWD_W.late}、要望と違う形態は−${FWD_W.mode}、逼迫区間は最速案に加点。順位は内蔵ロジック（再現可能）、実勢はAI接続時にWeb検索で補足。</div></div>`;
 }
@@ -15127,8 +15128,8 @@ function fwdCompareHtml(r,l,opt){
       <td class="n" style="font-size:10px">${esc(o.rate.valid)}${o.vd!==null?`<br><span style="font-size:9.5px;color:${o.vd<7?"var(--crit)":"var(--ink-3)"}">あと${o.vd}日</span>`:""}</td>
       <td><span class="scb" title="総合点 ${o.score}"><i style="width:${Math.min(100,o.score)}%"></i></span> <span class="n" style="font-size:10px">${o.score}</span>${o.tags.map(tag).join("")}</td>
       ${ro?"":`<td style="white-space:nowrap">${held
-        ?(isSel?`<span class="nn">仮押さえ中</span>`:`<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fwdRequoteForm('${rid}','${cty}','${esc(o.co)}')">再見積</button>`)
-        :`${isSel?"":`<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fwdPickOffer('${rid}','${cty}','${esc(o.co)}')">選ぶ</button> `}<button class="btn" style="padding:2px 8px;font-size:10px" onclick="fwdPickOffer('${rid}','${cty}','${esc(o.co)}',1)">この会社で仮押さえ</button> <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fwdRequoteForm('${rid}','${cty}','${esc(o.co)}')">再見積</button>`}</td>`}</tr>`; }).join("");
+        ?(isSel?`<span class="nn">仮押さえ中</span>`:`<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fwdRequoteForm('${jsa(rid)}','${jsa(cty)}','${jsa(o.co)}')">再見積</button>`)
+        :`${isSel?"":`<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fwdPickOffer('${jsa(rid)}','${jsa(cty)}','${jsa(o.co)}')">選ぶ</button> `}<button class="btn" style="padding:2px 8px;font-size:10px" onclick="fwdPickOffer('${jsa(rid)}','${jsa(cty)}','${jsa(o.co)}',1)">この会社で仮押さえ</button> <button class="btn g" style="padding:2px 8px;font-size:10px" onclick="fwdRequoteForm('${jsa(rid)}','${jsa(cty)}','${jsa(o.co)}')">再見積</button>`}</td>`}</tr>`; }).join("");
   return `<div class="tw fwdcmp" style="margin-top:6px;max-height:none"><table><thead><tr><th>物流会社</th><th class="num">合計（${r.cbm}m³ ${esc(r.mode||"")}）</th><th class="num">所要</th><th>希望納期${r.etd?`<br><span style="font-weight:400;font-size:9px">${esc(r.etd)}</span>`:""}</th><th>有効期限</th><th>総合点・特徴</th>${ro?"":"<th></th>"}</tr></thead><tbody>${rows}</tbody></table></div>
   ${opt.compact?"":`<p class="nn" style="margin-top:5px">総合点はAI物流マンの内蔵ロジック（価格・所要日数・有効期限・納期適合・情勢）。${ro?"荷主は一覧から自分で会社を選べます。":"「選ぶ」で推奨と違う会社に切り替え、「この会社で仮押さえ」で確定、「再見積」でその会社を指名して条件を変えられます。"}</p>`}`;
 }
@@ -15257,7 +15258,7 @@ if(typeof shipSteps==="function"){ const __shipStepsCmp=shipSteps;
       const legs=r.legs.filter(l=>l.ok&&(l.offers||[]).length);
       ST[2].ai=`貿易クラウド内の物流会社から<b>相見積</b>が届いています（依頼 ${esc(r.id)}）。${legs.map(l=>`${esc(l.cty)}：${l.offers.length}社回答・AI物流マンの推奨は <b>${esc(l.rec)}</b>${l.sel&&l.sel!==l.rec?`（現在の選択 ${esc(l.sel)}）`:""}`).join("／")}。<br>一覧を見て<b>自分で選ぶ</b>こともできます。`;
       ST[2].art={h:"相見積の比較（貿易クラウド内の物流会社・自動取得）",b:legs.map(l=>`<p class="lbl" style="margin-top:6px">${esc(l.cty)}（${esc(l.quote.lane)}）${fwdLegHeld(r,l)?' <span class="p hi" style="font-size:8.5px">✓ 仮押さえ '+esc(l.sel||l.co||"")+'</span>':""}</p>${fwdCompareHtml(r,l,{compact:1})}`).join("")
-        +`<div class="rw" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn" onclick="openFwdQuote('${esc(r.id)}')">一覧から選ぶ・仮押さえ・再見積</button><span class="nn">推奨は価格・所要日数・有効期限・納期・情勢から。納期の可否は希望納期 ${esc(r.etd||"（未指定）")} 基準。</span></div>`};
+        +`<div class="rw" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn" onclick="openFwdQuote('${jsa(r.id)}')">一覧から選ぶ・仮押さえ・再見積</button><span class="nn">推奨は価格・所要日数・有効期限・納期・情勢から。納期の可否は希望納期 ${esc(r.etd||"（未指定）")} 基準。</span></div>`};
     }catch(e){}
     return ST; }; }
 
@@ -15536,7 +15537,7 @@ function openNotif(){
    <details style="margin-top:12px"><summary style="font-size:11px;color:var(--ink-3);cursor:pointer">⚙ 通知の設定</summary>
      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;font-size:11.5px">
        ${NCATS.map(([k,nm])=>`<label class="rw" style="gap:8px"><input type="checkbox" ${notifDB().prefs[k]===false?"":"checked"}
-         onchange="notifPrefToggle('${k}',this.checked)" style="accent-color:var(--or)">${nm}</label>`).join("")}
+         onchange="notifPrefToggle('${jsa(k)}',this.checked)" style="accent-color:var(--or)">${nm}</label>`).join("")}
        <div class="rw" style="gap:8px;margin-top:6px;border-top:1px dashed var(--line);padding-top:9px">
          <button class="btn g" style="font-size:10.5px" onclick="notifBrowserToggle()">${notifDB().browser?"🔕 ブラウザ通知を止める":"🔔 ブラウザ通知を有効化"}</button>
          <button class="btn g" id="a2hsbtn" style="font-size:10.5px" ${__a2hs?"":"hidden"} onclick="pwaInstall()">📲 アプリとして入れる</button></div>
@@ -15876,8 +15877,8 @@ function msgReact(mi,emo){
 }
 function msgReactHtml(m,mi){
   const r=m.reacts||{};
-  const chips=Object.entries(r).map(([e,who])=>`<button class="q" style="padding:1px 8px;font-size:11px" title="${esc(who.join("・"))}" onclick="msgReact(${mi},'${e}')">${e} ${who.length}</button>`).join("");
-  const pal=`<span class="lwpal">${LW_EMO.map(e=>`<button onclick="msgReact(${mi},'${e}')" title="リアクション">${e}</button>`).join("")}</span>`;
+  const chips=Object.entries(r).map(([e,who])=>`<button class="q" style="padding:1px 8px;font-size:11px" title="${esc(who.join("・"))}" onclick="msgReact(${mi},'${jsa(e)}')">${e} ${who.length}</button>`).join("");
+  const pal=`<span class="lwpal">${LW_EMO.map(e=>`<button onclick="msgReact(${mi},'${jsa(e)}')" title="リアクション">${e}</button>`).join("")}</span>`;
   const read=(m.read|0)>0?`<span style="font-size:9px;color:var(--ink-3)" title="このメッセージを開いた人数（デモ環境の実測）">👁 既読 ${m.read}</span>`:"";
   const src=m.src?`<span class="p on" style="font-size:8.5px">📱 ${esc(m.src)}</span>`:"";
   return `<div class="rw lwrx" style="gap:6px;margin-top:4px;align-items:center">${src}${chips}${pal}${read}</div>`;
@@ -16220,8 +16221,8 @@ function openDDP(){
      <p class="lbl" style="margin-bottom:6px">🌍 国別の確定価格（クリックで読込・営業資料とPI/CIに自動反映中）</p>
      <div class="rw" style="gap:6px;flex-wrap:wrap">
        ${px.map(r=>`<span class="rw" style="gap:0;border:1px solid var(--line);border-radius:20px;background:var(--surface);overflow:hidden">
-         <button class="q" style="border:0;border-radius:0;padding:4px 10px" onclick="ddpPxLoad('${esc(r.cty)}')" title="前提：${esc(r.pre)}">${esc(r.cty)}　<b>¥${r.perJpy.toLocaleString()}</b><span style="font-size:9px;color:var(--ink-3)">/${esc(r.unit)}・${esc(r.at)}</span></button>
-         <button class="q" style="border:0;border-radius:0;padding:4px 8px;color:var(--crit)" onclick="ddpPxDel('${esc(r.cty)}')" title="削除">×</button></span>`).join("")}
+         <button class="q" style="border:0;border-radius:0;padding:4px 10px" onclick="ddpPxLoad('${jsa(r.cty)}')" title="前提：${esc(r.pre)}">${esc(r.cty)}　<b>¥${r.perJpy.toLocaleString()}</b><span style="font-size:9px;color:var(--ink-3)">/${esc(r.unit)}・${esc(r.at)}</span></button>
+         <button class="q" style="border:0;border-radius:0;padding:4px 8px;color:var(--crit)" onclick="ddpPxDel('${jsa(r.cty)}')" title="削除">×</button></span>`).join("")}
      </div></div>`:""}
    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 14px">
      <div style="grid-column:1/-1"><p class="lbl">仕向地（国＆都市）— 検索または一覧から</p>
@@ -16448,7 +16449,7 @@ function ddpRender(st){
   const routes=[["air","✈ 航空"],["lcl","🚢 海上LCL"],["fcl","🚢 海上FCL"]];
   out.innerHTML=`
    <div class="rw" style="gap:5px;flex-wrap:wrap;margin-bottom:8px">
-     ${["JPY","USD","EUR","CNY","HKD","SGD","THB","AED"].map(k=>`<button class="btn ${cur===k?"":"g"}" style="padding:3px 9px;font-size:10px" onclick="window.__ddpLast.cur='${k}';ddpRender(window.__ddpLast)">${k}</button>`).join("")}
+     ${["JPY","USD","EUR","CNY","HKD","SGD","THB","AED"].map(k=>`<button class="btn ${cur===k?"":"g"}" style="padding:3px 9px;font-size:10px" onclick="window.__ddpLast.cur='${jsa(k)}';ddpRender(window.__ddpLast)">${k}</button>`).join("")}
      <span style="font-size:9px;color:var(--ink-3);align-self:center">為替：${fx.live?"本日TTM（三菱UFJリサーチ&コンサルティング）":"参照レート "+fx.at+"（当日TTM取得時に自動更新）"}</span></div>
    <div class="g3" style="gap:8px">
      ${routes.map(([k,nm])=>{ const x=c[k], win=k===dec.route;
@@ -16483,7 +16484,7 @@ function ddpRender(st){
      <button class="btn g" onclick="ddpToFb()">商談メモに保存</button></div>
    <div class="doc" style="margin-top:12px"><h4>💬 この試算についてAI商社マンに相談する</h4>
      <div class="rw" style="gap:5px;flex-wrap:wrap;margin-top:7px">
-       ${["この価格は現地の相場で通用しますか？","利益率を上げるならどこを削るべき？","バイヤーへの提示の仕方と交渉の順番は？"].map(q=>`<button class="q" onclick="ddpAsk('${esc(q)}')">${esc(q)}</button>`).join("")}</div>
+       ${["この価格は現地の相場で通用しますか？","利益率を上げるならどこを削るべき？","バイヤーへの提示の仕方と交渉の順番は？"].map(q=>`<button class="q" onclick="ddpAsk('${jsa(q)}')">${esc(q)}</button>`).join("")}</div>
      <div class="rw" style="gap:6px;margin-top:8px">
        <input class="sel" id="ddpQ" placeholder="自由に質問（例：分納にした場合の物流費は？）" style="flex:1;min-width:0"
          onkeydown="if(event.key==='Enter')ddpAsk()">
@@ -17118,7 +17119,7 @@ function fobRenderAI(err){
   out.innerHTML=`
    <div class="doc" style="margin-top:10px"><div class="rw" style="justify-content:space-between;flex-wrap:wrap;gap:6px">
      <h4>🤖 AI商社マンの推奨FOB Japan Price（${L.ai?"接続AI＋Web情勢":"内蔵ルール・統計のみ"}）</h4>
-     <span class="rw" style="gap:4px">${["USD","JPY"].map(k=>`<button class="btn ${L.cur===k?"":"g"}" style="padding:2px 9px;font-size:10px" onclick="window.__fobLast.cur='${k}';fobRenderAI()">${k}</button>`).join("")}</span></div>
+     <span class="rw" style="gap:4px">${["USD","JPY"].map(k=>`<button class="btn ${L.cur===k?"":"g"}" style="padding:2px 9px;font-size:10px" onclick="window.__fobLast.cur='${jsa(k)}';fobRenderAI()">${k}</button>`).join("")}</span></div>
      ${(()=>{ const W=L.web; const facts=W?[W.trend].concat(W.factors||[]).map(s=>String(s||"").trim()).filter(s=>s.length>3):[];
        return facts.length?`<p style="font-size:11px;line-height:1.8;margin-top:6px;padding:7px 10px;background:var(--bl-soft);border-radius:var(--r2)">🌐 <b>情勢・トレンド（Web検索${W.prov?"・"+esc(W.prov):""}）：</b><br>${facts.map(f=>"・"+esc(f)).join("<br>")}${(W.sources||[]).length?`<br><span style="font-size:9.5px;color:var(--ink-3)">出所：${(W.sources||[]).map(esc).join("／")}</span>`:""}</p>`
        :(L.ai?`<p style="font-size:10px;color:var(--ink-3);margin-top:6px">🌐 Web検索では当該品目の具体的な市況情報が確認できませんでした（統計と自社データで提案しています）。</p>`:`<p style="font-size:10px;color:var(--ink-3);margin-top:6px">AI未接続のためWeb情勢は未参照。接続すると市況・為替・規制の最新情報を併せて提案します。</p>`); })()}
@@ -17139,7 +17140,7 @@ function fobRenderAI(err){
    </div>
    <div class="doc" style="margin-top:10px"><h4>💬 この提案についてAI商社マンに相談する</h4>
      <div class="rw" style="gap:5px;flex-wrap:wrap;margin-top:7px">
-       ${["なぜこの価格帯が妥当？","円安がさらに進んだらどう見直す？","上位仕向国ごとに価格を変えるべき？"].map(q=>`<button class="q" onclick="fobAsk('${esc(q)}')">${esc(q)}</button>`).join("")}</div>
+       ${["なぜこの価格帯が妥当？","円安がさらに進んだらどう見直す？","上位仕向国ごとに価格を変えるべき？"].map(q=>`<button class="q" onclick="fobAsk('${jsa(q)}')">${esc(q)}</button>`).join("")}</div>
      <div class="rw" style="gap:6px;margin-top:8px">
        <input class="sel" id="fobQ" placeholder="自由に質問（例：MOQを下げる代わりに単価を上げたい）" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')fobAsk()">
        <button class="btn g" onclick="fobAsk()" style="flex:none">相談する</button></div>
@@ -17523,10 +17524,10 @@ function poGapsHtml(){
   const row=x=>`<div style="padding:7px 0;border-bottom:1px dashed var(--line-2)">
       <div class="rw" style="justify-content:space-between;gap:6px"><b style="font-size:11.5px">${x.ok?"✅":"⚠️"} ${esc(x.label)}</b>${x.ok?`<span style="font-size:10.5px;color:var(--ink-2);max-width:55%;text-align:right;word-break:break-all">${esc(String(x.val).slice(0,60))}</span>`:""}</div>
       ${x.ok?"":`<p style="font-size:10.5px;color:var(--ink-2);margin:2px 0 4px;line-height:1.6">なぜ必要：${esc(x.why)}<br>どこから：${esc(x.how)}</p>
-      ${/^(ship\.|D\.|corp\.)/.test(x.tgt)?`<div class="rw" style="gap:4px"><input class="sel" id="pog_${x.k}" placeholder="ここに入力" style="flex:1;min-width:0;padding:5px 8px;font-size:11.5px"><button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="poFill('${x.k}','${x.tgt}',document.getElementById('pog_${x.k}').value)">反映</button></div>`
+      ${/^(ship\.|D\.|corp\.)/.test(x.tgt)?`<div class="rw" style="gap:4px"><input class="sel" id="pog_${x.k}" placeholder="ここに入力" style="flex:1;min-width:0;padding:5px 8px;font-size:11.5px"><button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="poFill('${jsa(x.k)}','${jsa(x.tgt)}',document.getElementById('pog_${x.k}').value)">反映</button></div>`
         :x.tgt==="doc.pi"?`<button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="openPoDocEdit('pi')">✎ 明細を入力</button>`
         :x.tgt==="dim"?`<button class="btn g" style="padding:4px 9px;font-size:10.5px" onclick="openTableEdit('dim')">✎ 寸法・重量表を編集</button>`:""}`}</div>`;
-  const chat=(c.po.chat||[]).slice(-8).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
+  const chat=(c.po.chat||[]).slice(-8).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):v39San(m.t)}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
   const rs=c.po.research;
   return `<div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between"><h3>足りない情報 <span class="p ${miss.length?"or":"hi"}" style="font-size:9.5px">${miss.length?miss.length+"件":"なし"}</span></h3>
@@ -17543,7 +17544,7 @@ function poGapsHtml(){
   <div class="c">
     <h3>🤖 AI商社マンに相談しながら埋める</h3>
     <div class="chat" id="pochat" style="max-height:260px;margin-top:8px">${chat||`<div class="m a"><div class="bb">この案件の発注書・登録データ・送り先の規制をすべて見ています。「何が足りない？」「原産地証明は必要？」「梱包明細はどう書く？」など、何でも聞いてください。</div></div>`}</div>
-    <div class="qb" style="margin-top:7px">${["何が足りない？","原産地証明は必要？","この国の必要書類は？","梱包明細の書き方は？","荷印はどう決める？"].map(q=>`<button class="q" onclick="poAsk('${q}')">${q}</button>`).join("")}</div>
+    <div class="qb" style="margin-top:7px">${["何が足りない？","原産地証明は必要？","この国の必要書類は？","梱包明細の書き方は？","荷印はどう決める？"].map(q=>`<button class="q" onclick="poAsk('${jsa(q)}')">${q}</button>`).join("")}</div>
     <div class="rw" style="margin-top:7px;gap:6px"><input class="sel" id="poq" placeholder="質問を入力（Enterで送信）" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();poAsk(this.value);this.value='';}"><button class="btn" onclick="const i=document.getElementById('poq');poAsk(i.value);i.value=''">質問</button></div>
   </div>`;
 }
@@ -17633,7 +17634,7 @@ function openPoDocEdit(k){
    <div class="rw" style="margin-top:6px;gap:6px"><button class="btn g" onclick="poGridRow(1)">＋ 行を追加</button><button class="btn g" onclick="poGridRow(-1)">－ 最後の行を削除</button></div>
    <p class="lbl" style="margin-top:10px">追記欄（項目 / 内容）</p>
    <div id="poEx">${ex.map((r,i)=>`<div class="rw" style="gap:5px;margin-top:4px"><input class="sel" data-pex="${i}" data-c="0" value="${esc(r[0])}" style="width:36%"><input class="sel" data-pex="${i}" data-c="1" value="${esc(r[1])}" style="flex:1;min-width:0"></div>`).join("")}</div>
-   <div class="rw" style="margin-top:12px;gap:6px"><button class="btn" onclick="poDocSave('${k}')">保存して反映</button><button class="btn g" onclick="closeDW()">キャンセル</button></div>
+   <div class="rw" style="margin-top:12px;gap:6px"><button class="btn" onclick="poDocSave('${jsa(k)}')">保存して反映</button><button class="btn g" onclick="closeDW()">キャンセル</button></div>
    </div>`);
   const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr"); if(typeof dwChrome==="function") dwChrome();
   window.__poGrid={cols:grid.cols,rows:(grid.rows||[]).map(r=>r.slice()),key:grid.key,exKey};
@@ -17797,12 +17798,12 @@ async function poShareFwd(){
 function openFwdConsult(){
   const c=poCase(); if(!c) return; const S=c.ship; const req=(c.po&&c.po.shared&&typeof FWDB!=="undefined"&&FWDB)?FWDB.reqs.find(r=>r.id===c.po.shared.reqId):null;
   c.po.fwdChat=c.po.fwdChat||[];
-  const chat=c.po.fwdChat.slice(-10).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
+  const chat=c.po.fwdChat.slice(-10).map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><div class="bb">${m.w==="u"?esc(m.t):v39San(m.t)}${m.c?`<div class="ci">${m.c}</div>`:""}</div></div>`).join("");
   openDW(`<div class="dwhead"><h3>🚚 物流会社（AI物流マン）に出荷を相談</h3></div>
    <div class="dwbody" style="display:flex;flex-direction:column;min-height:0">
-   <p class="nn">共有した内容：<b>${esc(S.pol||"—")} → ${esc(S.pod||S.country)}</b>／${esc(S.term)}／${esc(S.cargo)}／希望納期 ${esc(S.want||"—")}／書類 ${(S.docs||[]).map(d=>esc(d[0])).join("・")}${req?`<br>見積依頼 <b>${esc(req.id)}</b>：${esc(req.status)}　<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="openFwdQuote('${esc(req.id)}')">見積内容を見る</button>`:""}</p>${typeof fwdHistCardHtml==="function"?`<div style="margin-top:8px">${fwdHistCardHtml(S)}</div>`:""}
+   <p class="nn">共有した内容：<b>${esc(S.pol||"—")} → ${esc(S.pod||S.country)}</b>／${esc(S.term)}／${esc(S.cargo)}／希望納期 ${esc(S.want||"—")}／書類 ${(S.docs||[]).map(d=>esc(d[0])).join("・")}${req?`<br>見積依頼 <b>${esc(req.id)}</b>：${esc(req.status)}　<button class="btn g" style="padding:2px 8px;font-size:10px" onclick="openFwdQuote('${jsa(req.id)}')">見積内容を見る</button>`:""}</p>${typeof fwdHistCardHtml==="function"?`<div style="margin-top:8px">${fwdHistCardHtml(S)}</div>`:""}
    <div class="chat" id="fwdcchat" style="flex:1;min-height:0;max-height:none;margin-top:8px">${chat||`<div class="m a"><div class="bb">AI物流マンです。共有いただいた貨物情報と登録レートをもとに、運賃・所要日数・ブッキングに必要な書類・締切（CY／CFSカット）についてお答えします。</div></div>`}</div>
-   <div class="qb" style="margin-top:8px">${["運賃と所要日数は？","ブッキングに必要な書類は？","希望納期に間に合う便は？","LCLとFCLどちらがいい？","危険物や温度管理の注意は？"].map(q=>`<button class="q" onclick="poFwdAsk('${q}')">${q}</button>`).join("")}</div>
+   <div class="qb" style="margin-top:8px">${["運賃と所要日数は？","ブッキングに必要な書類は？","希望納期に間に合う便は？","LCLとFCLどちらがいい？","危険物や温度管理の注意は？"].map(q=>`<button class="q" onclick="poFwdAsk('${jsa(q)}')">${q}</button>`).join("")}</div>
    </div>
    <div class="dwfoot"><div class="rw" style="gap:6px"><input class="sel" id="fwdcq" placeholder="AI物流マンへの質問（Enterで送信）" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();poFwdAsk(this.value);this.value='';}"><button class="btn" onclick="const i=document.getElementById('fwdcq');poFwdAsk(i.value);i.value=''">送信</button></div></div>`);
   const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr"); if(typeof dwChrome==="function") dwChrome();
@@ -18023,7 +18024,7 @@ if(typeof shipRateAsk==="function"){ const __shipRateAskQ=shipRateAsk;
 function fwdqDrawerRender(id){
   const box=document.getElementById("fwdqchat"); if(!box) return;
   const r=(typeof FWDB!=="undefined"&&FWDB)?FWDB.reqs.find(x=>x.id===id):null; const hist=(r&&r.chat)||[];
-  box.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join(""):`<p class="nn" style="padding:6px 2px">例：「この見積は相場より高い？」「最適な倉庫はどこ？」「LCLとFCLどちらが得？」「納期を短くするには？」</p>`;
+  box.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):v39San(m.t)}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join(""):`<p class="nn" style="padding:6px 2px">例：「この見積は相場より高い？」「最適な倉庫はどこ？」「LCLとFCLどちらが得？」「納期を短くするには？」</p>`;
   box.scrollTop=box.scrollHeight;
 }
 async function fwdqDrawerAsk(id,q){
@@ -18947,7 +18948,7 @@ function uxPeriod(k){
 }
 if(typeof dashBar==="function"){ const __dashBarUX=dashBar;
   dashBar=function(){ let h=__dashBarUX.apply(this,arguments);
-    try{ const chips=`<span class="uxchips" title="期間をすばやく切り替え">${[["今月","m0"],["先月","m1"],["直近90日","d90"],["今年","y0"]].map(([n,k])=>`<button class="q" onclick="uxPeriod('${k}')">${n}</button>`).join("")}</span>`;
+    try{ const chips=`<span class="uxchips" title="期間をすばやく切り替え">${[["今月","m0"],["先月","m1"],["直近90日","d90"],["今年","y0"]].map(([n,k])=>`<button class="q" onclick="uxPeriod('${jsa(k)}')">${n}</button>`).join("")}</span>`;
       h=h.replace(/(<label class="dsl">期間[\s\S]*?<\/label>)/,"$1"+chips); }catch(e){}
     return h; }; }
 if(typeof dashSet==="function"){ const __dashSetUX=dashSet; dashSet=function(){ UX.force=1; return __dashSetUX.apply(this,arguments); }; }
@@ -19012,7 +19013,7 @@ function ux2SecNav(){
   const items=[]; const seen=new Set();
   cards.forEach((c,i)=>{ const h=c.querySelector("h3"); let t=((h.childNodes[0]&&h.childNodes[0].nodeType===3&&h.childNodes[0].nodeValue.trim())?h.childNodes[0].nodeValue:(h.textContent||"")).replace(/\s+/g," ").replace(/この版で(新規|強化)/g,"").replace(/^[^\p{L}\p{N}]+/u,"").trim(); t=t.replace(/\s*\d+(件|社|本|レーン|商品)\s*$/,""); try{ if(typeof I18N!=="undefined"&&I18N.lang!=="ja"&&typeof i18nStr==="function"){ const tt=i18nStr(t,I18N.dict[I18N.lang]); if(tt) t=tt; } }catch(e){} t=t.slice(0,(typeof I18N!=="undefined"&&I18N.lang!=="ja")?36:22);   /* v18.3：訳してから切り詰める（切り詰め後は辞書に当たらない） */ if(!t||seen.has(t)) return; seen.add(t); if(!c.id) c.id="sec-"+i; items.push({id:c.id,t}); });
   if(items.length<3) return;
-  const bar=document.createElement("div"); bar.id="uxsec"; bar.innerHTML=`<span class="uxsl">このページの内容</span>${items.map(it=>`<button class="uxsc" data-sec="${it.id}">${it.t}</button>`).join("")}`;
+  const bar=document.createElement("div"); bar.id="uxsec"; bar.innerHTML=`<span class="uxsl">このページの内容</span>${items.map(it=>`<button class="uxsc" data-sec="${esc(it.id)}">${esc(it.t)}</button>`).join("")}`;
   well.insertAdjacentElement("afterbegin",bar);
   bar.querySelectorAll("[data-sec]").forEach(b=>b.onclick=()=>{ const el=document.getElementById(b.dataset.sec); if(!el) return; const y=el.getBoundingClientRect().top+scrollY-150; scrollTo({top:Math.max(0,y),behavior:"smooth"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1200); bar.querySelectorAll(".uxsc").forEach(x=>x.classList.toggle("on",x===b)); });
 }
@@ -19079,7 +19080,7 @@ function vMemo(p){
 function memoFormHtml(m){
   const isNew=!m; m=m||{t:"",d:TODAYS,body:"",pin:0};
   return `<div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>${isNew?"新しいメモ":"メモを編集"}</h3>
-      ${isNew?"":`<span class="rw" style="gap:6px"><button class="btn g" style="font-size:11px" onclick="memoPin('${esc(m.id)}')">${m.pin?"📌 ピン留め解除":"📌 ピン留め"}</button><button class="btn g" style="font-size:11px;color:var(--crit);border-color:var(--crit)" onclick="memoDelete('${esc(m.id)}')">🗑 削除</button></span>`}</div>
+      ${isNew?"":`<span class="rw" style="gap:6px"><button class="btn g" style="font-size:11px" onclick="memoPin('${jsa(m.id)}')">${m.pin?"📌 ピン留め解除":"📌 ピン留め"}</button><button class="btn g" style="font-size:11px;color:var(--crit);border-color:var(--crit)" onclick="memoDelete('${jsa(m.id)}')">🗑 削除</button></span>`}</div>
     <div class="g2" style="gap:8px;margin-top:8px">
       <div><p class="lbl">タイトル</p><input class="sel" id="memoT" value="${esc(m.t||"")}" placeholder="例：9月定例会（○○様）" style="width:100%;box-sizing:border-box"></div>
       <div><p class="lbl">日付</p><input type="date" class="sel" id="memoD" value="${esc(m.d||TODAYS)}" style="width:100%;box-sizing:border-box"></div></div>
@@ -19089,7 +19090,7 @@ function memoFormHtml(m){
       <button class="btn" onclick="memoSave()">💾 保存</button>
       <label class="btn g" style="cursor:pointer">📎 議事録ファイル<input type="file" id="memoF" hidden accept=".txt,.vtt,.docx,.md"></label>
       <button class="btn g" onclick="memoSummarize()">🤖 要約して宿題を抽出</button>
-      ${isNew?"":`<button class="btn g" onclick="memoTranslate('${esc(m.id)}')">🌐 翻訳</button>`}
+      ${isNew?"":`<button class="btn g" onclick="memoTranslate('${jsa(m.id)}')">🌐 翻訳</button>`}
       <span class="nn" id="memoSt" style="margin:0"></span></div>
     ${m.sum?memoSumHtml(m):`<p class="nn" style="margin-top:8px">「要約して宿題を抽出」を押すと、決定事項・宿題を整理します（AI接続時はAIが要約、未接続時はキーワードで抽出）。</p>`}
     ${m.tr&&Object.keys(m.tr).length?`<details class="fwdx" style="margin-top:8px"><summary>🌐 翻訳（${Object.keys(m.tr).map(k=>V16_LANGN[k]||k).join("・")}）</summary><div style="font-size:12px;line-height:1.75;white-space:pre-wrap;margin-top:6px">${Object.entries(m.tr).map(([k,v])=>`<b>${V16_LANGN[k]||k}</b><br>${esc(v)}`).join("<br><br>")}</div></details>`:""}`;
@@ -19101,7 +19102,7 @@ function memoSumHtml(m){
     ${(s.dec||[]).length?`<p class="lbl" style="margin-top:8px">決定事項</p><ul style="margin:4px 0 0 18px;padding:0">${s.dec.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
     ${todos.length?`<p class="lbl" style="margin-top:8px">宿題（チェックしてタスクにする）</p>
       <div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">${todos.map((t,i)=>`<label style="display:flex;gap:7px;align-items:flex-start"><input type="checkbox" data-memotodo="${i}" ${t.tasked?"disabled":"checked"} style="margin-top:4px;accent-color:var(--or)"><span>${esc(t.t)}${t.who?` <span class="p lo">${esc(t.who)}</span>`:""}${t.due?` <span class="p lo">${esc(t.due)}</span>`:""}${t.tasked?' <span class="p hi">タスク化済み</span>':""}</span></label>`).join("")}</div>
-      <div class="rw" style="margin-top:8px;gap:6px"><button class="btn" onclick="memoTask('${esc(m.id)}')">✅ 選んだ宿題をタスクにする</button></div>`
+      <div class="rw" style="margin-top:8px;gap:6px"><button class="btn" onclick="memoTask('${jsa(m.id)}')">✅ 選んだ宿題をタスクにする</button></div>`
       :`<p class="nn" style="margin-top:6px">宿題は見つかりませんでした。「〜する」「〜まで」など次の行動が本文にあると抽出できます。</p>`}</div>`;
 }
 function memoRows(){
@@ -19502,7 +19503,7 @@ async function admInboxLoad(){
     <td class="num">${r.unans?`<span class="p no">${r.unans}</span>`:"0"}</td><td class="num">${r.pend?`<span class="p mid">${r.pend}</span>`:"0"}</td><td class="num">${r.od?`<span class="p no">${r.od}</span>`:"0"}</td><td class="num">${r.memos|0}</td>
     <td>${r.mail?'<span class="p hi">有効</span>':'<span class="p lo">—</span>'}${r.api?' <span class="p on" title="自動化向けスナップショットON">API</span>':""}</td>
     <td><div class="rw" style="gap:4px;flex-wrap:nowrap"><input class="sel" data-aprv="${esc(r.code)}" value="${esc(r.a.approver||"")}" placeholder="氏名" style="min-width:110px;padding:3px 7px;font-size:11px"><button class="btn g" data-aprvs="${esc(r.code)}" style="padding:2px 8px;font-size:10px">保存</button></div></td>
-    <td><button class="btn g" style="padding:2px 8px;font-size:10px" onclick="copyTxt('${esc(r.code)}')">コードをコピー</button></td></tr>`).join("")||'<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:16px">荷主アカウントがありません</td></tr>'}</tbody></table></div>
+    <td><button class="btn g" style="padding:2px 8px;font-size:10px" onclick="copyTxt('${jsa(r.code)}')">コードをコピー</button></td></tr>`).join("")||'<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:16px">荷主アカウントがありません</td></tr>'}</tbody></table></div>
    <p class="nn" style="margin-top:6px">未返信＝お客様側の最後のメッセージから24時間以上、STANDAGE・AIの返信がないもの。承認者はサーバーの台帳に保存され、お客様の「承認・公開の設定」の既定値になります。取得 ${new Date().toLocaleTimeString()}</p>`;
   out.querySelectorAll("[data-aprvs]").forEach(b=>b.onclick=async()=>{ const a=findAcct(b.dataset.aprvs); const inp=out.querySelector(`[data-aprv="${b.dataset.aprvs}"]`); if(!a||!inp) return;
     a.approver=(inp.value||"").trim(); asave(); try{ const r=await syncAdminPush(); toast(r&&r.ok?"承認者を保存しました（台帳をサーバーへ送信）":"保存しましたがサーバーへ送れませんでした"); }catch(e){ toast("保存しましたがサーバーへ送れませんでした"); } });
@@ -19521,7 +19522,7 @@ function admV16Bind(){
   if(q("lwStat")) q("lwStat").onclick=async()=>{ const code=q("lwAcc").value; show("lwOut",'<p class="nn">取得中…</p>'); try{ const kid=await admV16Kid(code); const r=await syncCall("lw_status",{pw:pw(),kid}); if(!r.ok){ show("lwOut",err(r.msg)); return; }
       show("lwOut",`<p class="nn">受信 ${r.received|0}件${r.lastAt?"（最終 "+new Date(r.lastAt).toLocaleString()+"）":""}／LINE ${r.line?"接続済み":"未設定"}／WhatsApp ${r.wa?"接続済み":"未設定"}</p>
        <p class="lbl" style="margin-top:6px">Webhook URL（LINE Developers／Meta for Developers に貼り付け）</p>
-       <div class="rw" style="gap:6px"><code style="font-size:10px;word-break:break-all;flex:1">${esc(r.webhook||"（保存すると発行されます）")}</code>${r.webhook?`<button class="btn g" style="font-size:10px;padding:2px 8px" onclick="copyTxt('${esc(r.webhook)}')">コピー</button>`:""}</div>
+       <div class="rw" style="gap:6px"><code style="font-size:10px;word-break:break-all;flex:1">${esc(r.webhook||"（保存すると発行されます）")}</code>${r.webhook?`<button class="btn g" style="font-size:10px;padding:2px 8px" onclick="copyTxt('${jsa(r.webhook)}')">コピー</button>`:""}</div>
        <div class="g2" style="gap:6px;margin-top:8px"><div><p class="lbl">LINE チャネルアクセストークン（送信用・任意）</p><input class="sel" id="lwLine" placeholder="${r.line?"設定済み（変更するときだけ入力）":"長期トークンを貼り付け"}" style="width:100%;box-sizing:border-box"></div>
          <div><p class="lbl">WhatsApp 電話番号ID</p><input class="sel" id="lwWaPh" value="${esc(r.waPhone||"")}" placeholder="Phone number ID" style="width:100%;box-sizing:border-box"></div>
          <div><p class="lbl">WhatsApp アクセストークン（送信用・任意）</p><input class="sel" id="lwWaTok" placeholder="${r.wa?"設定済み（変更するときだけ入力）":"Cloud API のトークン"}" style="width:100%;box-sizing:border-box"></div>
@@ -19533,7 +19534,7 @@ function admV16Bind(){
     }catch(e){ show("lwOut",err(e)); } };
   if(q("tokIssue")) q("tokIssue").onclick=async()=>{ const code=q("tokAcc").value; show("tokOut",'<p class="nn">発行中…</p>'); try{ const kid=await admV16Kid(code); const r=await syncCall("token_issue",{pw:pw(),kid,label:q("tokLabel").value.trim(),code_hint:code.slice(0,3)}); if(!r.ok){ show("tokOut",err(r.msg)); return; }
       const url=SYNC.url+"?op=export&token="+r.token;
-      show("tokOut",`<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)"><b style="color:var(--good)">発行しました（この画面を閉じると再表示できません）</b><br><code style="font-size:11px;word-break:break-all">${esc(r.token)}</code> <button class="btn g" style="font-size:10px;padding:2px 8px" onclick="copyTxt('${esc(r.token)}')">コピー</button>
+      show("tokOut",`<div style="padding:10px 12px;border:1px solid var(--good);background:var(--good-soft);border-radius:var(--r2)"><b style="color:var(--good)">発行しました（この画面を閉じると再表示できません）</b><br><code style="font-size:11px;word-break:break-all">${esc(r.token)}</code> <button class="btn g" style="font-size:10px;padding:2px 8px" onclick="copyTxt('${jsa(r.token)}')">コピー</button>
         <p class="nn" style="margin-top:6px">取得例：<code style="font-size:10px;word-break:break-all">curl -L "${esc(url)}"</code></p><p class="nn">お客様側で「📦 データ一括エクスポート › 自動化向けスナップショット」をONにしたデータだけが返ります。</p></div>`); }catch(e){ show("tokOut",err(e)); } };
   if(q("tokList")) q("tokList").onclick=async()=>{ show("tokOut",'<p class="nn">取得中…</p>'); try{ const r=await syncCall("token_list",{pw:pw()}); if(!r.ok){ show("tokOut",err(r.msg)); return; } const L=r.list||[];
       show("tokOut",L.length?`<div class="tw" style="max-height:none"><table><thead><tr><th>トークン</th><th>アカウント</th><th>用途</th><th>発行</th><th>最終利用</th><th></th></tr></thead><tbody>${L.map(t=>`<tr><td><code style="font-size:10px">${esc(t.mask)}</code></td><td>${esc(t.co||t.kid.slice(0,8))}</td><td>${esc(t.label||"")}</td><td style="font-size:10.5px">${t.created?new Date(t.created).toLocaleDateString():""}</td><td style="font-size:10.5px">${t.last?new Date(t.last).toLocaleString():"未使用"}</td><td><button class="btn g" style="font-size:10px;padding:2px 8px" data-tokrev="${esc(t.id)}">失効</button></td></tr>`).join("")}</tbody></table></div>`:'<p class="nn">発行済みのトークンはありません。</p>');
@@ -20204,7 +20205,7 @@ function fq17CurBox(cty,box){ try{ const cur=document.querySelector(`#pn .fqbox[
 function fq17Render(id,cty,box){
   const r=fq17Req(id); const chat=box&&box.querySelector(".fqchat"); if(!r||!chat) return;
   const hist=(r.chat||[]).filter(m=>(m.cty||"")===(cty||""));
-  chat.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):m.t}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join("")
+  chat.innerHTML=hist.length?hist.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av">${m.w==="u"?"私":"AI"}</span><div class="bb">${m.w==="u"?esc(m.t):v39San(m.t)}${m.c?`<div class="ci">${esc(m.c)}</div>`:""}</div></div>`).join("")
     :`<p class="nn" style="padding:6px 2px">${cty?"例：「相場より高い？」「どの会社を選ぶべき？」「倉庫はどこが良い？」":"例：「合計を下げるには？」「仮押さえの優先順位は？」"}</p>`;
   /* 回答待ちなら待機表示（描き直されても消えない） */
   if(FQ17.pend[id+"|"+(cty||"")]){ const online=(typeof ppReady==="function"&&ppReady()); chat.insertAdjacentHTML("beforeend",`<div class="m a fqwait"><div class="bb"><span class="car"></span> ${online?"AI商社マンが考えています…（通常10〜30秒）":"内蔵エンジンで回答しています…"}</div></div>`); }
@@ -22696,7 +22697,7 @@ async function bmPull(manual){
     let n=0, mx=+t.bmSince||0;
     (r.msgs||[]).forEach(mm=>{ mx=Math.max(mx,+mm.at||0); const th=ths.find(x=>x.key===mm.key); if(!th) return;
       if((th.msgs||[]).some(x=>x.msgId&&x.msgId===mm.msgId)) return;
-      th.msgs.push({w:"by",t:bmTime(mm.at),body:String(mm.body||"").slice(0,8000),from:String(mm.from||""),subj:String(mm.subject||""),msgId:String(mm.msgId||""),real:1,at:+mm.at||Date.now()});
+      th.msgs.push({w:"by",t:bmTime(mm.at),body:String(mm.body||"").slice(0,8000),from:String(mm.from||""),subj:String(mm.subject||""),msgId:String(mm.msgId||""),real:1,vf:String(mm.vf||"").slice(0,8),spoof:mm.spoof?1:0,at:+mm.at||Date.now()});
       th.unread=(th.unread||0)+1; th.wait=0; n++; try{ if(typeof dmNotify==="function") dmNotify(th); }catch(e){} });
     t.bmSince=mx;
     if(n){ if(typeof saveTen==="function") saveTen(); try{ if(typeof updateBell==="function") updateBell(); }catch(e){}
@@ -24425,14 +24426,14 @@ regAIView=function(c,html,ts){
       <div id="regaiO" style="margin-top:9px;font-size:12px;line-height:1.9">${html}</div>
       <div class="rw" style="margin-top:11px;gap:6px">
         ${ts?`<span class="nn">調査日時：${esc(ts)}</span>`:""}
-        <button class="btn g" style="margin-left:auto" onclick="regAIRun('${cq}')">🔄 いま再調査</button>
+        <button class="btn g" style="margin-left:auto" onclick="regAIRun('${jsa(cq)}')">🔄 いま再調査</button>
         <button class="btn g" onclick="openRegdb()">🌐 社内規制DB</button>
         <button class="btn g" onclick="closeDW()">閉じる</button></div>
       ${hasRes?`<div id="regapply" style="margin-top:12px;padding:10px 12px;border:1.5px solid ${applied?"var(--good)":"var(--or)"};border-radius:10px;background:${applied?"var(--good-soft)":"var(--or-soft)"}">
         <div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
           <div style="flex:1;min-width:220px"><b>${applied?"✅ この調査内容はAI商社マンに反映済みです":"内容に問題がなければ、AI商社マンに反映"}</b>
             <p class="nn" style="margin-top:3px">${applied?"AI商社マンの知識（取り込んだ情報一覧・回答の根拠）に登録済み。再調査した場合は、もう一度反映すると最新の内容に置き換わります。":`反映すると：①この調査内容をAI商社マンの知識に登録（取り込んだ情報一覧・回答の根拠）　②「今日やること」の規制調査ステップ${todayN?`（${todayN}件）`:""}を完了に　③タスク「${esc(c)}の規制調査」を完了に`}</p></div>
-          <button class="btn${applied?" g":""}" id="regapplyb" onclick="regApply('${cq}')">${applied?"🔁 最新の内容で反映し直す":"✅ 内容をAI商社マンに反映"}</button></div></div>`:""}
+          <button class="btn${applied?" g":""}" id="regapplyb" onclick="regApply('${jsa(cq)}')">${applied?"🔁 最新の内容で反映し直す":"✅ 内容をAI商社マンに反映"}</button></div></div>`:""}
       <div style="margin-top:14px">
         <h4 style="font-size:13px">💬 この規制についてAI商社マンに聞く・追加調査を依頼する</h4>
         <p class="nn" style="margin-top:2px">難しい項目はそのまま質問してください。追加調査を頼むとWeb検索で確認します。<b>やり取りと追加調査の結果は、AI商社マンの知識として蓄積されます</b>（他の画面での回答にも使われます）。</p>
@@ -24936,7 +24937,7 @@ function vCty(p){
     `<button class="btn" onclick="ctyRun(true)" ${busy?"disabled":""}>🤖 AI商社マンにおまかせ（1クリック）</button>`);
   const cands=`<div class="c" style="margin-bottom:11px"><div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>① 候補国（最大${CTY_MAX}か国）</h3>${ctyPill()}</div>
     <p class="nn">自分で候補を選ぶか、「AI商社マンにおまかせ」で候補選び（通関統計の上位相手国・STANDAGE拠点・バイヤーDB上位）から分析まで一気に進めます。</p>
-    <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap" id="ctycands">${s.cands.length?s.cands.map(c=>`<span class="p on" style="font-size:12px;padding:5px 10px">${esc(c)} <button class="q" style="padding:0 6px;margin-left:4px;border:0;background:transparent" title="外す" onclick="ctyDelCand('${esc(c)}')">✕</button></span>`).join(""):`<span class="nn">まだ候補がありません</span>`}</div>
+    <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap" id="ctycands">${s.cands.length?s.cands.map(c=>`<span class="p on" style="font-size:12px;padding:5px 10px">${esc(c)} <button class="q" style="padding:0 6px;margin-left:4px;border:0;background:transparent" title="外す" onclick="ctyDelCand('${jsa(c)}')">✕</button></span>`).join(""):`<span class="nn">まだ候補がありません</span>`}</div>
     <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap">
       <select class="sel" id="ctysel" style="min-width:180px"><option value="">国を選んで追加…</option>${all.map(c=>`<option>${esc(c)}</option>`).join("")}</select>
       <input class="sel" id="ctyin" placeholder="一覧に無い国名を入力（例：メキシコ）" style="min-width:200px">
@@ -25259,12 +25260,12 @@ function ctyDeepView(c){
   const tile=(k,v)=>`<div style="padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)"><p class="lbl">${k}</p><div style="font-size:14px;font-weight:700;margin-top:3px;line-height:1.4">${esc(v||"—")}</div></div>`;
   const q=/要確認/;
   const head=`<div class="rw" style="gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><button class="btn g" onclick="ctyDeepClose()">← 一覧へ戻る</button>
-    ${(top.filter(x=>x!==c)).slice(0,3).map(x=>`<button class="q" onclick="ctyDeepOpen('${esc(x)}')">${esc(x)} の詳細 →</button>`).join("")}</div>
+    ${(top.filter(x=>x!==c)).slice(0,3).map(x=>`<button class="q" onclick="ctyDeepOpen('${jsa(x)}')">${esc(x)} の詳細 →</button>`).join("")}</div>
     <div class="c" style="margin-bottom:11px;border-color:var(--or)"><div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:flex-start">
       <div style="min-width:260px;flex:1"><p class="lbl" style="color:var(--or-deep)">COUNTRY DEEP-DIVE</p><h2 style="font-size:22px;margin-top:2px">国別戦略：${esc(c)}${ctyEn(c)?` <span style="font-size:13px;color:var(--ink-3)">${esc(ctyEn(c))}</span>`:""}</h2>
         <div class="rw" style="gap:5px;margin-top:6px;flex-wrap:wrap">${sc?`<span class="p or">総合 ${sc.total}</span><span class="p lo">市場性 ${sc.mkt}</span><span class="p lo">規制 ${sc.reg}</span><span class="p lo">競合 ${sc.comp}</span><span class="p lo">拠点 ${sc.base}</span>`:""}${top.includes(c)?`<span class="p or">推奨</span>`:""}${ch.includes(c)?`<span class="p hi">確定</span>`:""}</div>
         ${DP?`<p class="nn" style="margin-top:6px">${DP.local?"内蔵データの骨組み（AI未接続／未調査）":`${esc(DP.eng)} が調査（${DP.web?"🌐 Web検索あり・出典"+(DP.d.sources||[]).length+"件":"Web検索なし・エンジンの知識"}・信頼度 ${DP.conf==="high"?"高":DP.conf==="mid"?"中":"低"}）`}・${esc(DP.at||"")}${DP.err?`・⚠ ${esc(DP.err)}`:""}</p>`:""}</div>
-      <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn" onclick="ctyDeepRun('${esc(c)}',true)" ${busy?"disabled":""}>${DP&&!DP.local?"🔄 AIで再調査（Web検索）":"🤖 AIで詳しく調査（Web検索）"}</button><button class="btn g" onclick="ctyPptxCountry('${esc(c)}')" ${DP?"":"disabled"}>📥 この国のPPTX</button><button class="btn g" onclick="ctyDeepToggle('${esc(c)}')">${ch.includes(c)?"確定から外す":"✅ 確定に含める"}</button></div></div>
+      <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn" onclick="ctyDeepRun('${jsa(c)}',true)" ${busy?"disabled":""}>${DP&&!DP.local?"🔄 AIで再調査（Web検索）":"🤖 AIで詳しく調査（Web検索）"}</button><button class="btn g" onclick="ctyPptxCountry('${jsa(c)}')" ${DP?"":"disabled"}>📥 この国のPPTX</button><button class="btn g" onclick="ctyDeepToggle('${jsa(c)}')">${ch.includes(c)?"確定から外す":"✅ 確定に含める"}</button></div></div>
       ${busy?`<p class="nn" style="margin-top:8px"><span class="spin"></span> AI商社マンが ${esc(c)} を調査しています…（当局・統計・競合・チャネル・価格をWeb検索で確認。30〜120秒）</p>`:""}
       ${!online&&!busy?`<p class="nn" style="margin-top:8px">⚠ AI未接続のため、規制DB・通関統計・バイヤーDB・拠点・一般表の骨組みだけを表示しています。管理者がAIエンジンを接続すると、Web検索で戦略提案資料の粒度に埋まります。</p>`:""}</div>`;
   if(!DP) return head+`<div class="c"><p class="nn">調査結果がまだありません。「🤖 AIで詳しく調査」を押してください。</p></div>`;
@@ -25534,7 +25535,7 @@ function askFabGo(){
 function askFwdPaint(){
   const c=document.getElementById("dwfwdchat"); if(!c||typeof FWDB==="undefined"||!FWDB) return;
   const chat=FWDB.chat||[];
-  c.innerHTML=chat.length?chat.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av" style="${m.w==="a"?"background:var(--bl);color:#fff":""}">${m.w==="u"?"物":"AI"}</span><div class="bb">${m.t}</div></div>`).join("")
+  c.innerHTML=chat.length?chat.map(m=>`<div class="m ${m.w==="u"?"u":"a"}"><span class="av" style="${m.w==="a"?"background:var(--bl);color:#fff":""}">${m.w==="u"?"物":"AI"}</span><div class="bb">${v39San(m.t)}</div></div>`).join("")
     :`<div class="m a"><span class="av" style="background:var(--bl);color:#fff">AI</span><div class="bb">こんにちは。${esc((FWDB.profile&&FWDB.profile.co)||"")}のAI物流マンです。<b>レート表 ${(FWDB.rates||[]).length}レーン・見積依頼 ${(FWDB.reqs||[]).length}件・操作履歴</b>を読み込んでいます。画面を見ながら、そのまま聞いてください。</div></div>`;
   c.scrollTop=c.scrollHeight;
 }
@@ -27273,7 +27274,7 @@ function thRename(k){ thOpen(k); setTimeout(()=>{ const t=document.getElementByI
 function thRefresh(k){ try{ if(typeof cur!=="undefined"&&cur==="msg"&&typeof mRows==="function") mRows(); }catch(e){} try{ const dw=document.getElementById("dw"); if(k&&V215T.open===k&&dw&&dw.dataset.open==="true") thOpen(k,true); }catch(e){} }
 
 /* ── スレッドを開く（右のパネル） ── */
-function thCard(m,root){ const body=(typeof T==="function")?T(m.body):m.body;
+function thCard(m,root){ const body=(typeof T==="function")?T(v39San(m.body)):v39San(m.body);
   return `<div class="th-card${root?" root":""}"><div class="th-who"><b>${esc(m.who||"")}</b> <span>${esc(m.org||"")}　${esc(m.t||thFmt(thTime(m)))}</span></div><div class="th-body">${body}</div>
     ${m.file?`<div class="nn" style="margin-top:5px">📎 ${esc(m.file.n)}（${m.file.kb} KB）</div>`:""}</div>`; }
 function thOpen(k,keepText){
@@ -33074,15 +33075,15 @@ var T30={type:"buyer",sel:new Set(),q:""};
 function t30Manage(type){ if(type) T30.type=type; T30.sel=new Set();
   const L=t30Defs(T30.type,true).filter(t=>!T30.q||String(t.nm).includes(T30.q));
   openDW(`<h3>🏷 タグ管理</h3><p class="nn" style="margin:4px 0 10px">タグは貴社の中だけで使う整理用です（取引先には表示されません）。同じタイプに同じ名前は作れません。使っていないタグだけ削除できます。</p>
-    <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center">${T30_TYPES.map(([k,l])=>`<button class="btn ${T30.type===k?"":"g"}" onclick="T30.type='${k}';t30Manage()">${v30Esc(l)}用</button>`).join("")}
+    <div class="rw" style="gap:6px;flex-wrap:wrap;align-items:center">${T30_TYPES.map(([k,l])=>`<button class="btn ${T30.type===k?"":"g"}" onclick="T30.type='${jsa(k)}';t30Manage()">${v30Esc(l)}用</button>`).join("")}
       <input class="sel" id="t30q" placeholder="タグ名で検索" value="${v30Esc(T30.q)}" style="flex:1 1 140px"></div>
     <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><input class="sel" id="t30new" placeholder="新しいタグ名" style="flex:1 1 160px"><button class="btn" id="t30add">＋ 新規作成</button></div>
     <div class="tw" style="margin-top:10px;max-height:52vh"><table><thead><tr><th style="width:28px"></th><th>タグ名</th><th>タイプ</th><th class="num">使用回数</th><th>有効</th><th>最終更新日</th><th></th></tr></thead><tbody>
       ${L.length?L.map(t=>{ const n=t30Usage(t.id); return `<tr><td><input type="checkbox" data-t30s="${v30Esc(t.id)}"></td><td><b>${v30Esc(t.nm)}</b></td><td>${v30Esc((T30_TYPES.find(x=>x[0]===t.type)||["",""])[1])}</td><td class="num">${n}</td>
         <td>${t.on===0?'<span class="p lo">無効</span>':'<span class="p hi">有効</span>'}</td><td class="n">${v30Esc(v30Day(t._m))}</td>
-        <td style="white-space:nowrap"><button class="btn g" style="padding:2px 8px;font-size:11px" onclick="t30Rename('${v30Esc(t.id)}')">名前を変える</button>
-          <button class="btn g" style="padding:2px 8px;font-size:11px" onclick="t30Toggle('${v30Esc(t.id)}')">${t.on===0?"有効にする":"無効にする"}</button>
-          <button class="btn g" style="padding:2px 8px;font-size:11px" ${n?'disabled title="使用中のタグは削除できません"':""} onclick="t30Delete('${v30Esc(t.id)}')">削除</button></td></tr>`; }).join("")
+        <td style="white-space:nowrap"><button class="btn g" style="padding:2px 8px;font-size:11px" onclick="t30Rename('${jsa(t.id)}')">名前を変える</button>
+          <button class="btn g" style="padding:2px 8px;font-size:11px" onclick="t30Toggle('${jsa(t.id)}')">${t.on===0?"有効にする":"無効にする"}</button>
+          <button class="btn g" style="padding:2px 8px;font-size:11px" ${n?'disabled title="使用中のタグは削除できません"':""} onclick="t30Delete('${jsa(t.id)}')">削除</button></td></tr>`; }).join("")
         :`<tr><td colspan="7" style="text-align:center;color:var(--ink-3);padding:16px">表示するタグがありません。「＋ 新規作成」で作れます</td></tr>`}</tbody></table></div>
     <div class="rw" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn g" onclick="t30Merge()">選んだタグを1つに統合</button><span class="nn" style="margin:0">（同じタイプのタグを2つ以上選ぶと、最初のタグにまとめます）</span></div>`);
   if(typeof dwChrome==="function") dwChrome();
@@ -33250,7 +33251,7 @@ function b30ListHtml(){
   const opt=(v,cur2,lb)=>`<option value="${v30Esc(v)}" ${v===cur2?"selected":""}>${v30Esc(lb||v)}</option>`;
   const chip=(lb,n,on,act)=>`<button type="button" class="${on?"on":""}" onclick="${act}">${v30Esc(lb)} <b>${n}</b></button>`;
   const rows=L.map(r=>`<tr class="clk" data-b30="${v30Esc(r.key)}">
-      <td onclick="event.stopPropagation()"><button type="button" class="b30star ${r.star?"on":""}" title="${r.star?"マークを外す":"マークする（自分の画面だけ）"}" onclick="b30Star('${v30Esc(r.key)}')">${r.star?"★":"☆"}</button></td>
+      <td onclick="event.stopPropagation()"><button type="button" class="b30star ${r.star?"on":""}" title="${r.star?"マークを外す":"マークする（自分の画面だけ）"}" onclick="b30Star('${jsa(r.key)}')">${r.star?"★":"☆"}</button></td>
       <td class="nm"><b>${r.locked?"🔒 ":""}${v30Esc(r.name)}</b><small>${v30Esc([r.person,r.biz].filter(Boolean).join("・")||"—")}</small></td>
       <td>${v30Esc(r.cty||"—")}</td>
       <td><span class="p ${B30_STC[r.st]||"lo"}" title="${r.stManual?"手で設定":"自動："+v30Esc(r.stWhy)}">${v30Esc(r.st)}</span></td>
@@ -33324,15 +33325,15 @@ function b30Open(key,tab){
   B30.open=key; B30.dtab=tab||B30.dtab||"info"; if(!["info","fb","log","hist"].includes(B30.dtab)) B30.dtab="info";
   const sel=(id,opts,curv,lbAuto)=>`<select class="sel" id="${id}" style="min-width:0">${lbAuto!=null?`<option value="">${v30Esc(lbAuto)}</option>`:""}${opts.map(o=>`<option value="${v30Esc(o)}" ${o===curv?"selected":""}>${v30Esc(o)}</option>`).join("")}</select>`;
   const head=`<div class="rw" style="gap:8px;align-items:flex-start;padding-right:70px">
-      <button type="button" class="b30star ${r.star?"on":""}" style="font-size:21px" title="${r.star?"マークを外す":"マークする（自分の画面だけ）"}" onclick="b30Star('${v30Esc(key)}')">${r.star?"★":"☆"}</button>
+      <button type="button" class="b30star ${r.star?"on":""}" style="font-size:21px" title="${r.star?"マークを外す":"マークする（自分の画面だけ）"}" onclick="b30Star('${jsa(key)}')">${r.star?"★":"☆"}</button>
       <div style="min-width:0"><h3 style="margin:0">${r.locked?"🔒 ":""}${v30Esc(r.name)}</h3>
         <p class="nn" style="margin:2px 0 0">${v30Esc([r.cty,r.biz,r.person].filter(Boolean).join("・")||"—")}${r.items.size?`　<span>商品</span>：${v30Esc([...r.items].filter(Boolean).join("、"))}`:""}</p></div></div>
     <div class="rw" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;font-size:var(--fs-xs,13px)">
       <span>ステータス</span>${sel("b30dSt",B30_ST,r.stManual?r.st:"","自動："+r.stAuto)}
       <span>受注確度</span>${sel("b30dPb",B30_PROB,r.x.prob||"",r.probAuto?"自動："+r.probAuto:"未設定")}
-      ${r.lead==="失注"?`<span class="p no">失注</span><button class="btn g" style="padding:3px 9px" onclick="b30Lead('${v30Esc(key)}','有効')">リード有効に戻す</button>`
-        :`<span class="p on">リード有効</span><button class="btn g" style="padding:3px 9px" onclick="b30Lead('${v30Esc(key)}','失注')">失注にする</button>`}</div>`;
-  const tabs=`<div class="b30dtabs" role="tablist">${[["info","インフォメーション"],["fb",`商談記録（${r.rounds}）`],["log",`アクティビティログ（${r.logs.length}）`],["hist","変更履歴"]].map(([k,l])=>`<button type="button" class="${B30.dtab===k?"on":""}" onclick="b30Open('${v30Esc(key)}','${k}')">${v30Esc(l)}</button>`).join("")}</div>`;
+      ${r.lead==="失注"?`<span class="p no">失注</span><button class="btn g" style="padding:3px 9px" onclick="b30Lead('${jsa(key)}','有効')">リード有効に戻す</button>`
+        :`<span class="p on">リード有効</span><button class="btn g" style="padding:3px 9px" onclick="b30Lead('${jsa(key)}','失注')">失注にする</button>`}</div>`;
+  const tabs=`<div class="b30dtabs" role="tablist">${[["info","インフォメーション"],["fb",`商談記録（${r.rounds}）`],["log",`アクティビティログ（${r.logs.length}）`],["hist","変更履歴"]].map(([k,l])=>`<button type="button" class="${B30.dtab===k?"on":""}" onclick="b30Open('${jsa(key)}','${jsa(k)}')">${v30Esc(l)}</button>`).join("")}</div>`;
   let body="";
   if(B30.dtab==="info"){ const x=r.x, b=r.base; const val=f=>x[f]||(f==="email"?r.email:f==="phone"?r.phone:"")||b[f]||(f==="cty"?r.cty:f==="biz"?r.biz:"")||"";
     body=`<dl class="b30grid">${B30_F.filter(([f])=>f!=="co").map(([f,l])=>{ const v=val(f); return `<dt>${v30Esc(l)}</dt><dd>${v?(f==="url"&&/^https?:\/\//.test(v)?`<a href="${v30Esc(v)}" target="_blank" rel="noopener" style="color:var(--bl)">${v30Esc(v)}</a>`:f==="email"?`<a href="mailto:${v30Esc(v)}" style="color:var(--bl)">${v30Esc(v)}</a>`:v30Esc(v).replace(/\n/g,"<br>")):'<span style="color:var(--ink-3)">—</span>'}</dd>`; }).join("")}
@@ -33341,11 +33342,11 @@ function b30Open(key,tab){
       ${r.src==="db"?`<dt>出どころ</dt><dd>バイヤーDB（ID ${v30Esc(r.dbId||"")}）${r.locked?"・名称と連絡先は正式契約後に開示":""}</dd>`:r.src==="my"?`<dt>出どころ</dt><dd>自社で登録${r.base.added?"（"+v30Esc(r.base.added)+"）":""}</dd>`:`<dt>出どころ</dt><dd>商談記録から自動</dd>`}</dl>
       ${r.lead==="失注"?`<div style="margin-top:10px;padding:9px 11px;border:1px solid var(--crit);border-radius:var(--r2);background:var(--crit-soft);font-size:var(--fs-sm,14px)"><b>失注</b>${r.x.lostCat?"：理由 "+v30Esc(r.x.lostCat):""}${r.x.lostAt?"（"+v30Esc(v30Day(r.x.lostAt))+"）":""}${r.x.lostWhy?"<br>"+v30Esc(r.x.lostWhy):""}</div>`:""}
       ${r.my&&r.my.ai?`<p class="nn" style="margin-top:10px">🤖 AI商社マンのチェック：<b>${v30Esc((r.my.ai.fact&&r.my.ai.fact.verdict)||"")}</b> ${v30Esc((r.my.ai.fact&&r.my.ai.fact.note)||"")}</p>`:""}
-      <div class="rw" style="gap:6px;margin-top:12px;flex-wrap:wrap"><button class="btn" onclick="b30Edit('${v30Esc(key)}')">✎ 情報を編集</button>
-        ${r.src!=="db"||!r.locked?"":""}<button class="btn g" onclick="b30Summ('${v30Esc(key)}')">🤖 これまでの経緯をAIで要約</button>
-        <button class="btn g" onclick="b30Report('${v30Esc(key)}')">🖨 レポート（印刷・PDF）</button>
-        ${(r.src==="db"||r.src==="my")?`<button class="btn g" onclick="b30Dm('${v30Esc(key)}')">✉ 直接連絡</button>`:""}
-        ${r.src==="my"||(r.x&&r.x.manual)?`<button class="btn g" onclick="b30Remove('${v30Esc(key)}')">🗑 削除</button>`:""}</div>
+      <div class="rw" style="gap:6px;margin-top:12px;flex-wrap:wrap"><button class="btn" onclick="b30Edit('${jsa(key)}')">✎ 情報を編集</button>
+        ${r.src!=="db"||!r.locked?"":""}<button class="btn g" onclick="b30Summ('${jsa(key)}')">🤖 これまでの経緯をAIで要約</button>
+        <button class="btn g" onclick="b30Report('${jsa(key)}')">🖨 レポート（印刷・PDF）</button>
+        ${(r.src==="db"||r.src==="my")?`<button class="btn g" onclick="b30Dm('${jsa(key)}')">✉ 直接連絡</button>`:""}
+        ${r.src==="my"||(r.x&&r.x.manual)?`<button class="btn g" onclick="b30Remove('${jsa(key)}')">🗑 削除</button>`:""}</div>
       <div id="b30summ"></div>`; }
   else if(B30.dtab==="fb"){ const L=r.fbs.slice().sort((a,c)=>b30Date(c.f.d)-b30Date(a.f.d));
     body=(L.length?L.map(o=>{ const f=o.f; return `<div class="b30log" ${o.i>=0?`style="cursor:pointer" onclick="b30OpenFb(${o.i})"`:""}><div class="ic">🤝</div><div class="bd">
@@ -33354,7 +33355,7 @@ function b30Open(key,tab){
         ${f.spec?`<div class="mt">要望：${v30Esc(f.spec)}</div>`:""}${f.why?`<div style="color:var(--crit)">断られた理由：${v30Esc(f.why)}</div>`:""}
         ${f.note?`<div class="mt">${v30Esc(String(f.note).slice(0,240))}</div>`:""}
         <div class="mt">記録：<span>${v30Esc(f.owner||"")}</span>${o.i<0?"<span>（別の商品の記録）</span>":""}${(()=>{ const n=c30Count(f); return n?`<span>　💬 コメント ${n}件</span>`:""; })()}</div></div></div>`; }).join("")
-      :`<p class="nn">この相手との商談記録はまだありません。</p>`)+`<div class="rw" style="margin-top:12px"><button class="btn" onclick="b30NewFb('${v30Esc(key)}')">＋ この相手との商談を記録する</button></div>`; }
+      :`<p class="nn">この相手との商談記録はまだありません。</p>`)+`<div class="rw" style="margin-top:12px"><button class="btn" onclick="b30NewFb('${jsa(key)}')">＋ この相手との商談を記録する</button></div>`; }
   else if(B30.dtab==="hist"){ const H=v30List("bh",h=>h.bk===key).sort((a,c)=>(+c.at||0)-(+a.at||0));
     body=H.length?`<div class="tw" style="max-height:60vh"><table><thead><tr><th>日時</th><th>変更した人</th><th>変更した項目</th><th>変更前</th><th>変更後</th></tr></thead><tbody>${H.map(h=>`<tr><td class="n" style="white-space:nowrap">${v30Esc(v30DT(h.at))}</td><td>${v30Esc(h._cby||"")}</td><td>${v30Esc(h.fl||h.f)}</td><td style="color:var(--ink-3)">${v30Esc(h.from||"—")}</td><td>${v30Esc(h.to||"—")}</td></tr>`).join("")}</tbody></table></div>`
       :`<p class="nn">まだ変更はありません。ステータス・受注確度・リード・連絡先などを変えると、誰がいつ何を変えたかがここに残ります（Ver.1 の変更履歴と同じ考え方）。</p>`; }
@@ -33369,7 +33370,7 @@ function b30Open(key,tab){
           <div class="mt"><b style="color:var(--ink-2)">${v30Esc(t[2])}</b>　${v30Esc(v30Day(l.at||l._c))}　${v30Esc(l._cby||"")}${l._t&&l._t.body&&l._c&&l._t.body>l._c+1000?"　(編集済み)":""}</div>
           <div>${v30Esc(l.body||"").replace(/\n/g,"<br>")}</div>
           ${l.doc?`<div style="margin-top:4px">${d30Chip(l.doc)}</div>`:""}</div>
-          ${l._cby===me?`<button class="btn g" style="padding:2px 7px;font-size:11px;align-self:flex-start" title="削除" onclick="b30LogDel('${v30Esc(l.id)}','${v30Esc(key)}')">✕</button>`:""}</div>`; }).join(""):`<p class="nn" style="margin-top:8px">まだ記録はありません。電話・メール・面談・サンプル送付など、この相手とのやりとりを1件ずつ残せます（Ver.1 のアクティビティログと同じ使い方）。</p>`}</div>`; }
+          ${l._cby===me?`<button class="btn g" style="padding:2px 7px;font-size:11px;align-self:flex-start" title="削除" onclick="b30LogDel('${jsa(l.id)}','${jsa(key)}')">✕</button>`:""}</div>`; }).join(""):`<p class="nn" style="margin-top:8px">まだ記録はありません。電話・メール・面談・サンプル送付など、この相手とのやりとりを1件ずつ残せます（Ver.1 のアクティビティログと同じ使い方）。</p>`}</div>`; }
   openDW(head+tabs+`<div id="b30body">${body}</div>`);
   if(typeof dwChrome==="function") dwChrome();
   const s1=document.getElementById("b30dSt"); if(s1) s1.onchange=()=>{ b30Hist(key,r.x,{st:s1.value},{st:r.stAuto}); v30Put("bx",key,{st:s1.value}); b30After(key); toast(s1.value?"ステータスを「"+s1.value+"」にしました":"ステータスを自動に戻しました"); };
@@ -33389,7 +33390,7 @@ function b30Lead(key,v){ const r=b30Find(key); if(!r) return;
   openDW(`<h3>失注にする：${v30Esc(r.name)}</h3><p class="nn" style="margin:4px 0 10px">理由を残すと、断られた理由の分析と次の打ち手に使えます。失注にしたバイヤーは、一覧では既定で隠れます（「失注」の絞り込みで見られます・あとで再開もできます）。</p>
     <p class="lbl">理由の区分</p><select class="sel" id="b30lc" style="width:100%;box-sizing:border-box"><option value="">選んでください</option>${cats.map(c=>`<option value="${v30Esc(c)}">${v30Esc(c)}</option>`).join("")}</select>
     <p class="lbl" style="margin-top:8px">くわしい理由（任意）</p><textarea class="sel" id="b30lw" style="width:100%;min-height:64px;box-sizing:border-box" placeholder="例：希望価格 US$8.0 に対し当社 US$10.5。条件の再提示は来期"></textarea>
-    <div class="rw" style="gap:8px;margin-top:12px"><button class="btn" id="b30lgo2">失注にする</button><button class="btn g" onclick="b30Open('${v30Esc(key)}','info')">やめる</button></div>`);
+    <div class="rw" style="gap:8px;margin-top:12px"><button class="btn" id="b30lgo2">失注にする</button><button class="btn g" onclick="b30Open('${jsa(key)}','info')">やめる</button></div>`);
   if(typeof dwChrome==="function") dwChrome();
   document.getElementById("b30lgo2").onclick=()=>{ const c=document.getElementById("b30lc").value; if(!c){ toast("理由の区分を選んでください"); return; } const w=(document.getElementById("b30lw").value||"").trim();
     b30Hist(key,r.x,{lead:"失注",lostCat:c},{lead:r.lead}); v30Put("bx",key,{lead:"失注",lostCat:c,lostWhy:w,lostAt:Date.now()}); toast("失注にしました（理由：" + c + "）"); b30After(key); }; }
@@ -33422,7 +33423,7 @@ function b30Edit(key){
       <div class="full"><label>タグ</label>${t30Picker("b30e_tags","buyer",Array.isArray(x.tags)?x.tags:[])}</div>
       ${inp("note","備考","",true)}</div>
     <datalist id="b30ctyl">${CT.map(c=>`<option value="${v30Esc(c)}">`).join("")}</datalist><datalist id="b30meml">${mem.map(m=>`<option value="${v30Esc(m)}">`).join("")}</datalist>
-    <div class="rw" style="gap:8px;margin-top:12px"><button class="btn" id="b30esv">${r?"保存する":"追加する"}</button><button class="btn g" onclick="${r?`b30Open('${v30Esc(key)}','info')`:"closeDW()"}">やめる</button></div>`);
+    <div class="rw" style="gap:8px;margin-top:12px"><button class="btn" id="b30esv">${r?"保存する":"追加する"}</button><button class="btn g" onclick="${r?`b30Open('${jsa(key)}','info')`:"closeDW()"}">やめる</button></div>`);
   if(typeof dwChrome==="function") dwChrome(); t30PickerBind("b30e_tags","buyer");
   document.getElementById("b30esv").onclick=()=>{
     const g=f=>{ const e=document.getElementById("b30e_"+f); return e?String(e.value||"").trim():""; };
@@ -33649,21 +33650,21 @@ function d30ReqHtml(){ const R=v30List("dr",r=>!r.done||(Date.now()-(+r.doneAt||
         <div class="rw" style="justify-content:space-between;gap:6px;flex-wrap:wrap"><b>${v30Esc(r.title||"書類の提出のお願い")}</b><span class="rw" style="gap:6px">${r.done?'<span class="p hi">完了</span>':late?'<span class="p no">期限切れ</span>':""}<span class="nn" style="margin:0">期限 ${r.due?v30Esc(v30Day(r.due)):"—"}・依頼 ${v30Esc(r._cby||"")}${r.to?"→ "+v30Esc(r.to):""}</span></span></div>
         <div class="mt" style="height:6px;border-radius:4px;background:var(--surface-2);margin:6px 0"><i style="display:block;height:100%;width:${pct}%;background:var(--good);border-radius:4px"></i></div>
         <div style="display:flex;flex-direction:column;gap:4px">${it.map((x,i)=>{ const d=x.doc&&v30One("docs",x.doc); return `<div class="rw" style="gap:8px;flex-wrap:wrap;align-items:center;font-size:var(--fs-sm,14px)">${d?"✅":"⬜"} <b>${v30Esc(x.type||"")}</b>${x.note?`<span class="nn" style="margin:0">${v30Esc(x.note)}</span>`:""}
-          ${d?d30Chip(x.doc):`<label class="btn g" style="padding:2px 9px;cursor:pointer;font-size:12px">📎 提出する<input type="file" hidden data-d30req="${v30Esc(r.id)}" data-d30i="${i}"></label><button class="btn g" style="padding:2px 9px;font-size:12px" onclick="d30ReqPick('${v30Esc(r.id)}',${i})">一覧から選ぶ</button>`}</div>`; }).join("")}</div>
-        <div class="rw" style="gap:6px;margin-top:6px">${r.done?`<button class="btn g" style="padding:2px 9px;font-size:12px" onclick="v30Put('dr','${v30Esc(r.id)}',{done:0});d30Rerender()">完了を取り消す</button>`:`<button class="btn g" style="padding:2px 9px;font-size:12px" onclick="v30Put('dr','${v30Esc(r.id)}',{done:1,doneAt:Date.now()});d30Rerender();toast('完了にしました')">完了にする</button>`}
-          ${r._cby===d30Me()?`<button class="btn g" style="padding:2px 9px;font-size:12px" onclick="if(confirm('この依頼を削除しますか？')){v30Del('dr','${v30Esc(r.id)}');d30Rerender();}">削除</button>`:""}</div></div>`; }).join("")}</div>`; }
+          ${d?d30Chip(x.doc):`<label class="btn g" style="padding:2px 9px;cursor:pointer;font-size:12px">📎 提出する<input type="file" hidden data-d30req="${v30Esc(r.id)}" data-d30i="${i}"></label><button class="btn g" style="padding:2px 9px;font-size:12px" onclick="d30ReqPick('${jsa(r.id)}',${i})">一覧から選ぶ</button>`}</div>`; }).join("")}</div>
+        <div class="rw" style="gap:6px;margin-top:6px">${r.done?`<button class="btn g" style="padding:2px 9px;font-size:12px" onclick="v30Put('dr','${jsa(r.id)}',{done:0});d30Rerender()">完了を取り消す</button>`:`<button class="btn g" style="padding:2px 9px;font-size:12px" onclick="v30Put('dr','${jsa(r.id)}',{done:1,doneAt:Date.now()});d30Rerender();toast('完了にしました')">完了にする</button>`}
+          ${r._cby===d30Me()?`<button class="btn g" style="padding:2px 9px;font-size:12px" onclick="if(confirm('この依頼を削除しますか？')){v30Del('dr','${jsa(r.id)}');d30Rerender();}">削除</button>`:""}</div></div>`; }).join("")}</div>`; }
 function vDocs30(p){ const all=d30All(); const L=d30Filter(all); const types=[...new Set(all.map(d=>d.type).filter(Boolean))], srcs=[...new Set(all.map(d=>d.src).filter(Boolean))], items=[...new Set(all.map(d=>d.item).filter(Boolean))];
   const opt=(v,c,l)=>`<option value="${v30Esc(v)}" ${v===c?"selected":""}>${v30Esc(l||v)}</option>`;
   const cloud=d30CloudOn(), demo=v30Demo();
   const row=d=>{ const sc=D30_SCOPE[d.scope||"all"]||D30_SCOPE.all; const st=d.state==="up"?'<span class="p mid">預けています…</span>':d.state==="err"?'<span class="p no" title="'+v30Esc(d.err||"")+'">預けられませんでした</span>':d.state==="local"?'<span class="p lo" title="同期サーバーにつながっていない時に追加しました">この端末だけ</span>':d.state==="demo"?'<span class="p lo">デモ（保存されません）</span>':"";
     return `<tr data-d30="${v30Esc(d.id)}"><td>${d.legacy?"":`<input type="checkbox" data-d30s="${v30Esc(d.id)}" ${D30.sel.has(d.id)?"checked":""} aria-label="選ぶ">`}</td>
-      <td style="min-width:200px"><span style="margin-right:4px">${d30Icon(d)}</span>${d.legacy?`<b>${v30Esc(d.n)}</b>`:`<a href="#" onclick="event.preventDefault();d30Open('${v30Esc(d.id)}')" style="color:var(--bl);font-weight:700">${v30Esc(d.n)}</a>`}
-        ${d.refNm?`<br><small class="nn" style="margin:0">${v30Esc(d.refNm)}</small>`:""}${d.legacy?`<br><small class="nn" style="margin:0">名前の記録だけ（本体はこの一覧にありません）${d.go?` ・ <a href="#" onclick="event.preventDefault();d30Go('${v30Esc(d.go)}')" style="color:var(--bl)">開く場所へ</a>`:""}</small>`:""}</td>
+      <td style="min-width:200px"><span style="margin-right:4px">${d30Icon(d)}</span>${d.legacy?`<b>${v30Esc(d.n)}</b>`:`<a href="#" onclick="event.preventDefault();d30Open('${jsa(d.id)}')" style="color:var(--bl);font-weight:700">${v30Esc(d.n)}</a>`}
+        ${d.refNm?`<br><small class="nn" style="margin:0">${v30Esc(d.refNm)}</small>`:""}${d.legacy?`<br><small class="nn" style="margin:0">名前の記録だけ（本体はこの一覧にありません）${d.go?` ・ <a href="#" onclick="event.preventDefault();d30Go('${jsa(d.go)}')" style="color:var(--bl)">開く場所へ</a>`:""}</small>`:""}</td>
       <td>${d.legacy?`<span class="p lo">${v30Esc(d.type||"そのほか")}</span>`:`<select class="sel" data-d30t="${v30Esc(d.id)}" style="padding:2px 4px;font-size:12px;max-width:150px">${D30_TYPES.map(t=>opt(t,d.type)).join("")}</select>`}</td>
       <td>${v30Esc(d.src||"—")}</td><td>${v30Esc(d.who||"—")}</td>
       <td>${d.legacy?'<span class="p on">共有</span>':`<select class="sel" data-d30c="${v30Esc(d.id)}" style="padding:2px 4px;font-size:12px" ${d._cby&&d._cby!==d30Me()?"disabled title='公開範囲はアップロードした人が変えられます'":""}>${Object.entries(D30_SCOPE).map(([k,v])=>opt(k,d.scope||"all",v[0])).join("")}</select>`}${d.scope==="me"?' <span class="p or">🔒</span>':""}</td>
       <td class="n" style="white-space:nowrap">${d.at?v30Esc(v30Day(d.at)):"—"}</td><td class="n">${d.link?"リンク":d.size?v30Esc(v30KB(d.size)):d.kb?v30Esc(d.kb+" KB"):"—"}</td>
-      <td style="white-space:nowrap">${st}${d.legacy?"":`${d._cby===d30Me()||!d._cby?` <button class="btn g" style="padding:2px 7px;font-size:11px" title="削除" onclick="d30Del('${v30Esc(d.id)}')">🗑</button>`:""}`}</td></tr>`; };
+      <td style="white-space:nowrap">${st}${d.legacy?"":`${d._cby===d30Me()||!d._cby?` <button class="btn g" style="padding:2px 7px;font-size:11px" title="削除" onclick="d30Del('${jsa(d.id)}')">🗑</button>`:""}`}</td></tr>`; };
   return ph(p,"<b>この画面でできること：</b>契約書・証明書・成分表・写真・発注書・船積書類など、<b>貴社の書類とファイルを1か所に</b>集めます。やりとり・商談記録・バイヤーのログ・メモに添付したファイルも自動でここに並びます。",
       `<label class="btn" style="cursor:pointer">📤 アップロード<input type="file" id="d30up" multiple hidden></label><button class="btn g" onclick="d30LinkNew()">🔗 リンクを登録</button><button class="btn g" onclick="d30ReqNew()">📮 提出を依頼する</button>`)
     +d30ReqHtml()+`<div class="c" id="d30wrap">
@@ -33741,11 +33742,11 @@ function d30ReqSet(rid,i,docId){ const r=v30One("dr",rid); if(!r) return; const 
   const done=it.every(x=>x.doc); v30Put("dr",rid,Object.assign({items:it},done?{done:1,doneAt:Date.now()}:{})); if(done) toast("依頼の書類がすべて揃いました"); d30Rerender(); }
 function d30ReqPick(rid,i){ const L=v30List("docs",d=>d30Visible(d)).sort((a,c)=>(+c.at||0)-(+a.at||0)).slice(0,80);
   openDW(`<h3>一覧から選ぶ</h3><p class="nn" style="margin:4px 0 10px">すでにドキュメントにあるファイルを、この依頼の書類として割り当てます。</p>
-    ${L.length?`<div style="display:flex;flex-direction:column;gap:4px">${L.map(d=>`<button class="btn g" style="text-align:left;justify-content:flex-start" onclick="d30ReqSet('${v30Esc(rid)}',${i},'${v30Esc(d.id)}');closeDW()">${d30Icon(d)} ${v30Esc(d.n)} <span class="nn" style="margin:0 0 0 6px">${v30Esc(d.type||"")}・${v30Esc(v30Day(d.at))}</span></button>`).join("")}</div>`:`<p class="nn">まだファイルがありません。</p>`}`);
+    ${L.length?`<div style="display:flex;flex-direction:column;gap:4px">${L.map(d=>`<button class="btn g" style="text-align:left;justify-content:flex-start" onclick="d30ReqSet('${jsa(rid)}',${i},'${jsa(d.id)}');closeDW()">${d30Icon(d)} ${v30Esc(d.n)} <span class="nn" style="margin:0 0 0 6px">${v30Esc(d.type||"")}・${v30Esc(v30Day(d.at))}</span></button>`).join("")}</div>`:`<p class="nn">まだファイルがありません。</p>`}`);
   if(typeof dwChrome==="function") dwChrome(); }
 /* ほかの画面に出す小さなチップ（押すと開く） */
 function d30Chip(id){ const d=v30One("docs",id); if(!d) return `<span class="b30tag" title="削除されたか、まだ同期されていません">📎 （ファイル）</span>`;
-  return `<a href="#" class="b30tag" style="text-decoration:none;color:var(--bl)" onclick="event.preventDefault();event.stopPropagation();d30Open('${v30Esc(id)}')">${d30Icon(d)} ${v30Esc(d.n)}${d.size?" ("+v30Esc(v30KB(d.size))+")":""}</a>`; }
+  return `<a href="#" class="b30tag" style="text-decoration:none;color:var(--bl)" onclick="event.preventDefault();event.stopPropagation();d30Open('${jsa(id)}')">${d30Icon(d)} ${v30Esc(d.n)}${d.size?" ("+v30Esc(v30KB(d.size))+")":""}</a>`; }
 /* ── ページとして登録 ── */
 (function(){ try{ if(typeof PAGES!=="undefined"&&!PAGES.some(p=>p.id==="docs")){ const i=PAGES.findIndex(p=>p.id==="memo"); PAGES.splice(i>=0?i+1:PAGES.length,0,{id:"docs",ly:"②",nm:"ドキュメント",grp:"業務を回す",nw:1,
   ic:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h8M8 16h5"/>'}); } }catch(e){} })();
@@ -33832,7 +33833,7 @@ function c30DwExtra(i){ const f=(typeof fbRec==="function")?fbRec(i):((typeof D!
     <div style="padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2)"><b style="font-size:var(--fs-sm,14px)">💬 コメント（${L.length}）</b>
       <p class="nn" style="margin:2px 0 6px">この商談の根拠・確認したこと・承認の理由などを残せます（メンバー全員に見えます）。</p>
       <div id="c30l">${L.map(c=>`<div class="b30log"><div class="ic">💬</div><div class="bd"><div class="mt"><b style="color:var(--ink-2)">${v30Esc(c._cby||"")}</b>　${v30Esc(v30DT(c.at||c._c))}</div><div>${v30Esc(c.body||"").replace(/\n/g,"<br>")}</div>${c.doc?`<div style="margin-top:4px">${d30Chip(c.doc)}</div>`:""}</div>
-        ${c._cby===me?`<button class="btn g" style="padding:2px 7px;font-size:11px;align-self:flex-start" onclick="c30Del('${v30Esc(c.id)}',${i})">✕</button>`:""}</div>`).join("")||'<p class="nn">まだコメントはありません。</p>'}</div>
+        ${c._cby===me?`<button class="btn g" style="padding:2px 7px;font-size:11px;align-self:flex-start" onclick="c30Del('${jsa(c.id)}',${i})">✕</button>`:""}</div>`).join("")||'<p class="nn">まだコメントはありません。</p>'}</div>
       <textarea class="sel" id="c30in" placeholder="コメントを書く（例：見積の前提は FOB 東京・初回 500個。単価は承認済みの価格表どおり）" style="width:100%;min-height:58px;box-sizing:border-box;margin-top:6px"></textarea>
       <div class="rw" style="justify-content:space-between;gap:6px;margin-top:6px;flex-wrap:wrap"><span class="rw" style="gap:6px;align-items:center"><label class="btn g" style="padding:4px 10px;cursor:pointer">📎<input type="file" id="c30f" hidden></label><span id="c30fn" class="nn" style="margin:0"></span></span><button class="btn" id="c30go">コメントする</button></div></div></div>`);
   let file=null; const fi=document.getElementById("c30f"); if(fi) fi.onchange=()=>{ file=fi.files&&fi.files[0]; const n=document.getElementById("c30fn"); if(n) n.textContent=file?file.name:""; };
@@ -33957,7 +33958,7 @@ function m30Fill(s){ const d=new Date(); const today=d.getFullYear()+"/"+(d.getM
 function m30TplOpen(){ const L=v30List("tpl").sort((a,c)=>String(a.nm).localeCompare(String(c.nm),"ja"));
   openDW(`<h3>📋 定型文</h3><p class="nn" style="margin:4px 0 10px">よく送る文を保存しておき、押すと入力欄に入ります。<b>{会社名}{商品名}{自分}{今日}</b> は自動で差し込みます（アカウントのメンバーで共有）。</p>
     ${L.length?L.map(t=>`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:8px 10px;margin-bottom:6px"><div class="rw" style="justify-content:space-between;gap:6px;flex-wrap:wrap"><b>${v30Esc(t.nm)}</b><span class="rw" style="gap:4px">
-        <button class="btn" style="padding:2px 9px;font-size:12px" onclick="m30TplUse('${v30Esc(t.id)}')">挿入</button><button class="btn g" style="padding:2px 9px;font-size:12px" onclick="m30TplEdit('${v30Esc(t.id)}')">編集</button><button class="btn g" style="padding:2px 9px;font-size:12px" onclick="if(confirm('この定型文を削除しますか？')){v30Del('tpl','${v30Esc(t.id)}');m30TplOpen();}">削除</button></span></div>
+        <button class="btn" style="padding:2px 9px;font-size:12px" onclick="m30TplUse('${jsa(t.id)}')">挿入</button><button class="btn g" style="padding:2px 9px;font-size:12px" onclick="m30TplEdit('${jsa(t.id)}')">編集</button><button class="btn g" style="padding:2px 9px;font-size:12px" onclick="if(confirm('この定型文を削除しますか？')){v30Del('tpl','${jsa(t.id)}');m30TplOpen();}">削除</button></span></div>
         <div class="nn" style="margin:4px 0 0;white-space:pre-wrap">${v30Esc(String(t.body||"").slice(0,160))}</div></div>`).join("")
       :`<p class="nn">まだ定型文がありません。例から追加できます：</p>${M30_SEED.map((s,i)=>`<button class="btn g" style="margin:0 6px 6px 0" onclick="v30Put('tpl',v30Id('p'),{nm:v30T(M30_SEED[${i}][0]),body:v30T(M30_SEED[${i}][1])});m30TplOpen()">＋ ${v30Esc(s[0])}</button>`).join("")}`}
     <div class="rw" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn g" onclick="m30TplEdit('')">＋ 新しい定型文</button><button class="btn g" onclick="m30TplFromText()">入力中の文を定型文にする</button></div>`);
@@ -33985,7 +33986,7 @@ function mm30Hidden(m){ return !!m&&m.priv&&m.by&&m.by!==mm30Me(); }
 if(typeof memoSorted==="function"){ const __ms30=memoSorted; memoSorted=function(){ return __ms30.apply(this,arguments).filter(m=>!mm30Hidden(m)&&(MM30.tab==="all"||(MM30.tab==="mine"?!!m.priv:!m.priv))); }; }
 if(typeof vMemo==="function"){ const __vm30=vMemo; vMemo=function(p){ let h=__vm30.apply(this,arguments);
   const all=((typeof memoStore==="function")?memoStore():[]).filter(m=>!mm30Hidden(m)); const n=k=>k==="all"?all.length:k==="mine"?all.filter(m=>m.priv).length:all.filter(m=>!m.priv).length;
-  const tabs=`<div class="rw" id="mm30tabs" style="gap:4px;margin-top:8px;flex-wrap:wrap">${[["all","すべて"],["team","チームのメモ"],["mine","自分だけのメモ"]].map(([k,l])=>`<button class="btn ${MM30.tab===k?"":"g"}" style="padding:3px 10px;font-size:12px" onclick="MM30.tab='${k}';render()">${l}（${n(k)}）</button>`).join("")}</div>`;
+  const tabs=`<div class="rw" id="mm30tabs" style="gap:4px;margin-top:8px;flex-wrap:wrap">${[["all","すべて"],["team","チームのメモ"],["mine","自分だけのメモ"]].map(([k,l])=>`<button class="btn ${MM30.tab===k?"":"g"}" style="padding:3px 10px;font-size:12px" onclick="MM30.tab='${jsa(k)}';render()">${l}（${n(k)}）</button>`).join("")}</div>`;
   return h.replace('<p class="nn">ピン留めしたメモが上に来ます。クリックで右側に開きます。</p>','<p class="nn">ピン留めしたメモが上に来ます。クリックで右側に開きます。🔒＝自分だけのメモ。</p>'+tabs); }; }
 if(typeof memoRows==="function"){ const __mr30m=memoRows; memoRows=function(){ const r=__mr30m.apply(this,arguments); try{ const box=document.getElementById("memoList"); const S=(typeof memoStore==="function")?memoStore():[];
     if(box) box.querySelectorAll("[data-memo]").forEach(b=>{ const m=S.find(x=>x.id===b.dataset.memo); if(!m||b.querySelector(".mm30i")) return; const t=b.querySelector("b"); if(!t) return;
@@ -34122,12 +34123,12 @@ function k30Open(key,tenSig){ const R=k30Resolve(key,tenSig); if(!R){ toast("こ
     <div class="rw" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="k30sv">保存する</button>
       ${t.apr&&t.apr.st==="承認待ち"?"":`<button class="btn g" id="k30ap">✅ 承認を依頼</button>`}<button class="btn g" id="k30dl">🗑 削除</button></div>
     ${t.apr?`<div style="margin-top:10px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);font-size:var(--fs-sm,14px)"><b>承認</b>：${v30Esc(t.apr.st)}（承認する人 ${v30Esc(t.apr.to||"")}・依頼 ${v30Esc(t.apr.by||"")}）${t.apr.why?"<br>理由："+v30Esc(t.apr.why):""}
-      ${t.apr.st==="承認待ち"?`<div class="rw" style="gap:6px;margin-top:6px"><button class="btn" onclick="k30AprDo('${v30Esc(key)}','${v30Esc(tenSig||"")}','承認済')">承認する</button><button class="btn g" onclick="k30AprDo('${v30Esc(key)}','${v30Esc(tenSig||"")}','差戻し')">差し戻す</button></div>`:""}</div>`:""}
+      ${t.apr.st==="承認待ち"?`<div class="rw" style="gap:6px;margin-top:6px"><button class="btn" onclick="k30AprDo('${jsa(key)}','${v30Esc(tenSig||"")}','承認済')">承認する</button><button class="btn g" onclick="k30AprDo('${jsa(key)}','${v30Esc(tenSig||"")}','差戻し')">差し戻す</button></div>`:""}</div>`:""}
     <p class="lbl" style="margin-top:14px">子タスク（${kids.length}）</p>
     <div>${kids.map((k,i)=>`<label class="rw" style="gap:8px;padding:4px 0;border-bottom:1px dashed var(--line-2)"><input type="checkbox" data-k30kc="${i}" ${k.st==="完了"?"checked":""} style="accent-color:var(--or)"><span style="flex:1;${k.st==="完了"?"text-decoration:line-through;color:var(--ink-3)":""}">${v30Esc(k.n)}</span><span class="nn" style="margin:0">${v30Esc(String(k.e||"").slice(5))}</span></label>`).join("")||'<p class="nn">まだありません。</p>'}</div>
     ${t.__d?"":`<div class="rw" style="gap:6px;margin-top:6px"><input class="sel" id="k30kn" placeholder="子タスクを追加（例：フォワーダー3社へ見積依頼）" style="flex:1"><input class="sel" type="date" id="k30ke" style="max-width:150px"><button class="btn g" id="k30ka">＋ 追加</button></div>`}
     <p class="lbl" style="margin-top:14px">💬 タスクのやりとり（${L.length}）</p>
-    <div>${L.map(c=>`<div class="b30log"><div class="ic">💬</div><div class="bd"><div class="mt"><b style="color:var(--ink-2)">${v30Esc(c._cby||"")}</b>　${v30Esc(v30DT(c.at||c._c))}</div><div>${v30Esc(c.body||"").replace(/\n/g,"<br>")}</div>${c.doc?`<div style="margin-top:4px">${d30Chip(c.doc)}</div>`:""}</div>${c._cby===me?`<button class="btn g" style="padding:2px 7px;font-size:11px;align-self:flex-start" onclick="k30CmDel('${v30Esc(c.id)}','${v30Esc(key)}','${v30Esc(tenSig||"")}')">✕</button>`:""}</div>`).join("")||'<p class="nn">進み具合・確認したこと・ファイルをここに残せます（Ver.1 のタスクのチャットログと同じ使い方）。</p>'}</div>
+    <div>${L.map(c=>`<div class="b30log"><div class="ic">💬</div><div class="bd"><div class="mt"><b style="color:var(--ink-2)">${v30Esc(c._cby||"")}</b>　${v30Esc(v30DT(c.at||c._c))}</div><div>${v30Esc(c.body||"").replace(/\n/g,"<br>")}</div>${c.doc?`<div style="margin-top:4px">${d30Chip(c.doc)}</div>`:""}</div>${c._cby===me?`<button class="btn g" style="padding:2px 7px;font-size:11px;align-self:flex-start" onclick="k30CmDel('${jsa(c.id)}','${jsa(key)}','${v30Esc(tenSig||"")}')">✕</button>`:""}</div>`).join("")||'<p class="nn">進み具合・確認したこと・ファイルをここに残せます（Ver.1 のタスクのチャットログと同じ使い方）。</p>'}</div>
     <textarea class="sel" id="k30cm" placeholder="コメントを書く" style="width:100%;min-height:52px;box-sizing:border-box;margin-top:6px"></textarea>
     <div class="rw" style="justify-content:space-between;gap:6px;margin-top:6px"><span class="rw" style="gap:6px;align-items:center"><label class="btn g" style="padding:4px 10px;cursor:pointer">📎<input type="file" id="k30cf" hidden></label><span id="k30cfn" class="nn" style="margin:0"></span></span><button class="btn" id="k30cgo">コメントする</button></div>`);
   if(typeof dwChrome==="function") dwChrome();
@@ -34186,7 +34187,7 @@ function k30AprList(){ const all=k30AllTasks()||((typeof D!=="undefined"&&D&&D.t
 function k30AprTab(){ const W=document.getElementById("well"); if(!W||W.querySelector("#k30apr")) return; const tbl=[...W.querySelectorAll("table")].find(t=>/承認が必要なこと/.test(t.textContent)); if(!tbl) return;
   const L=k30AprList(); const me=v30Me(); if(!L.length) return;
   tbl.querySelector("tbody").insertAdjacentHTML("afterbegin",L.map(t=>`<tr id="k30apr"><td><b>${v30Esc(t.n)}</b><br><span class="nn" style="margin:0">依頼者：${v30Esc(t.apr.by||"")}</span></td><td>${v30Esc(t.apr.to||"")}</td><td class="n">${v30Esc(t.e||"")}</td>
-    <td><span class="p ${t.apr.st==="承認済"?"hi":t.apr.st==="差戻し"?"no":"mid"}">${v30Esc(t.apr.st)}</span></td><td><button class="btn g" style="padding:3px 9px;font-size:12px" onclick="k30Open('${v30Esc(k30Key(t))}','${t.__ten?v30Esc(v30TenSig(t.__ten)):""}')">開く</button></td></tr>`).join("")); }
+    <td><span class="p ${t.apr.st==="承認済"?"hi":t.apr.st==="差戻し"?"no":"mid"}">${v30Esc(t.apr.st)}</span></td><td><button class="btn g" style="padding:3px 9px;font-size:12px" onclick="k30Open('${jsa(k30Key(t))}','${t.__ten?v30Esc(v30TenSig(t.__ten)):""}')">開く</button></td></tr>`).join("")); }
 function k30AprDo(key,tenSig,st){ const R=k30Resolve(key,tenSig); if(!R||!R.view.apr) return; const me=v30Me();
   if(R.view.apr.to&&R.view.apr.to!==me&&!(typeof SES!=="undefined"&&SES&&SES.t==="admin")){ if(typeof c30Why==="function") c30Why(`このタスクの承認者は ${R.view.apr.to} です。${me} さんは承認できません。`); return; }
   const why=st==="差戻し"?(prompt("差し戻しの理由（任意）","")||""):""; k30Patch(R,{apr:Object.assign({},R.view.apr,{st,done:me,doneAt:Date.now(),why})}); toast(st==="承認済"?"承認しました":"差し戻しました"); k30Open(key,tenSig); }
@@ -34285,7 +34286,7 @@ function a30Collect(R){ const out={appr:[],reply:[],meet:[],sample:[],quote:[],w
   ((typeof memoStore==="function")?memoStore():[]).forEach(m=>{ const at=a30T(m.d)||+m.at; if(m&&!(m.priv&&m.by&&m.by!==v30Me())&&a30In(at,R)) out.memo.push({at,who:m.by||"",b:"",how:"会議メモ",txt:m.t||""}); });
   Object.keys(out).forEach(k=>out[k].sort((a,c)=>c.at-a.at)); return out; }
 const A30_K=[["appr","アプローチ","こちらから送った連絡（直接連絡・バイヤーDB・メール/電話のログ）"],["reply","返信あり","相手からの返信"],["meet","商談","商談記録・面談のログ"],["sample","サンプル送付","サンプルを送った記録"],["quote","見積","見積の提示・送付"],["won","受注","受注の記録"],["lost","失注","失注の記録"],["nb","新しいバイヤー","新しく登録したバイヤー"],["task","タスク完了","完了にしたタスク"],["memo","会議","会議メモ・議事録"]];
-function a30Tiles(C,clickFn){ return `<div class="a30t">${A30_K.map(([k,l,d])=>`<button type="button" class="a30i" title="${v30Esc(d)}" onclick="${clickFn}('${k}')"><span>${v30Esc(l)}</span><b class="num">${C[k].length}</b></button>`).join("")}</div>`; }
+function a30Tiles(C,clickFn){ return `<div class="a30t">${A30_K.map(([k,l,d])=>`<button type="button" class="a30i" title="${v30Esc(d)}" onclick="${clickFn}('${jsa(k)}')"><span>${v30Esc(l)}</span><b class="num">${C[k].length}</b></button>`).join("")}</div>`; }
 (function(){ try{ if(document.getElementById("a30css")) return; const s=document.createElement("style"); s.id="a30css"; s.textContent=`.a30t{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px} @media(max-width:640px){.a30t{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .a30i{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:7px 10px;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
 .a30i span{font-size:var(--fs-xs,13px);color:var(--ink-3)} .a30i b{font-size:22px;line-height:1.1} .a30i:hover{border-color:var(--bl)}`; document.head.appendChild(s); }catch(e){} })();
@@ -34302,7 +34303,7 @@ function a30Open(focus){ const R=a30Range(A30.per); const C=a30Collect(R); const
   const B=b30Collect(); const nextOf=nm=>{ const r=B.find(x=>x.name===nm); const tk=((typeof D!=="undefined"&&D&&D.tasks)||[]).find(t=>t.st!=="完了"&&t.st!=="中止"&&nm&&String(t.n).indexOf(nm)>=0); return {owner:r?r.owner||"":"",st:r?r.st:"",next:tk?tk.n+"（"+(tk.e||"")+"）":""}; };
   const rows=Object.values(by).sort((a,c)=>c.last.at-a.last.at);
   openDW(`<h3>📊 活動レポート</h3><p class="nn" style="margin:4px 0 8px">記録からそのまま数えています（AIの推測は入っていません）。数字の根拠は下の一覧で確かめられます。</p>
-    <div class="rw" style="gap:4px;flex-wrap:wrap">${per.map(([k,l])=>`<button class="btn ${A30.per===k?"":"g"}" style="padding:3px 10px;font-size:12px" onclick="A30.per='${k}';a30Open()">${l}</button>`).join("")}</div>
+    <div class="rw" style="gap:4px;flex-wrap:wrap">${per.map(([k,l])=>`<button class="btn ${A30.per===k?"":"g"}" style="padding:3px 10px;font-size:12px" onclick="A30.per='${jsa(k)}';a30Open()">${l}</button>`).join("")}</div>
     ${A30.per==="custom"?`<div class="rw" style="gap:6px;margin-top:6px;align-items:center"><input class="sel" type="date" id="a30f" value="${A30.from?new Date(A30.from).toISOString().slice(0,10):""}"> 〜 <input class="sel" type="date" id="a30to" value="${A30.to?new Date(A30.to).toISOString().slice(0,10):""}"><button class="btn g" style="padding:3px 10px;font-size:12px" onclick="A30.from=a30T(document.getElementById('a30f').value);A30.to=a30T(document.getElementById('a30to').value);a30Open()">表示</button></div>`:""}
     <p class="nn" style="margin-top:6px"><b>${R[0]?e(v30Day(R[0])):"はじめ"} 〜 ${e(v30Day(R[1]))}</b></p>${a30Tiles(C,"a30Jump")}${a30GoalHtml(C)}
     <div class="rw" style="gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn" onclick="a30Weekly()">📝 週報の文面を作る</button><button class="btn g" onclick="a30Xlsx()">📤 Excelで書き出す</button><button class="btn g" onclick="a30Print()">🖨 印刷・PDF</button><button class="btn g" onclick="a30GoalEdit()">🎯 目標を決める</button></div>
@@ -34396,7 +34397,7 @@ function s30TkNew(){ const pg=(typeof PAGES!=="undefined"&&typeof cur!=="undefin
     try{ thSetMeta(id,{tkSt:"受付",title:"【お問い合わせ】"+subj.slice(0,50)},1); }catch(e){} if(typeof thPersist==="function") thPersist();
     try{ if(typeof logU==="function") logU("fill","お問い合わせ"); }catch(e){} closeDW(); toast("お問い合わせを送りました（やりとりのスレッドで返事が届きます）"); try{ go("msg"); setTimeout(()=>{ try{ thOpen(id); }catch(e){} },300); }catch(e){} }; }
 function s30TkListHtml(){ const L=s30Tickets().sort((a,c)=>(+c.at||0)-(+a.at||0)).slice(0,8); if(!L.length) return `<p class="nn" style="margin-top:4px">まだありません。</p>`;
-  return L.map(m=>{ const st=s30TkSt(m); return `<div class="rw" style="gap:6px;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line-2)"><a href="#" style="color:var(--bl)" onclick="event.preventDefault();closeDW();go('msg');setTimeout(()=>{ try{ thOpen('${v30Esc(thKey(m))}'); }catch(e){} },300)">${v30Esc(String(m.tt||"").replace(/^【お問い合わせ】/,""))}</a><span class="p ${st==="解決"?"hi":st==="対応中"?"on":"mid"}">${v30Esc(st)}</span></div>`; }).join(""); }
+  return L.map(m=>{ const st=s30TkSt(m); return `<div class="rw" style="gap:6px;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line-2)"><a href="#" style="color:var(--bl)" onclick="event.preventDefault();closeDW();go('msg');setTimeout(()=>{ try{ thOpen('${jsa(thKey(m))}'); }catch(e){} },300)">${v30Esc(String(m.tt||"").replace(/^【お問い合わせ】/,""))}</a><span class="p ${st==="解決"?"hi":st==="対応中"?"on":"mid"}">${v30Esc(st)}</span></div>`; }).join(""); }
 if(typeof ux17Help==="function"){ const __hp30=ux17Help; ux17Help=function(){ const r=__hp30.apply(this,arguments);
   try{ const pn=document.getElementById("pn"); if(pn&&!pn.querySelector("#s30help")){ const mode=(typeof ux17Mode==="function")?ux17Mode():"user"; const close=[...pn.querySelectorAll("button")].find(b=>/閉じる/.test(b.textContent)&&b.closest(".rw"));
       const html=`<div id="s30help">${mode==="user"&&v30Code()?`<div style="border:1px solid var(--line);border-radius:var(--r2);padding:11px 13px;background:var(--surface-2);margin-top:8px"><div class="rw" style="justify-content:space-between;gap:6px;flex-wrap:wrap"><p class="lbl" style="margin:0">📮 お問い合わせ</p><button class="btn" style="padding:3px 10px;font-size:12px" onclick="s30TkNew()">お問い合わせを送る</button></div>${s30TkListHtml()}</div>`:""}
@@ -34405,7 +34406,7 @@ if(typeof ux17Help==="function"){ const __hp30=ux17Help; ux17Help=function(){ co
   return r; }; }
 /* スレッドを開いた時：お問い合わせなら状態のボタン */
 if(typeof thOpen==="function"){ const __tho30=thOpen; thOpen=function(k){ const r=__tho30.apply(this,arguments); try{ const M=thModel(); const root=M.byKey[k]; if(root&&root.tk){ const pn=document.getElementById("pn"); const st=thMeta(k).tkSt||"受付";
-    const bar=`<div class="rw" id="s30tkbar" style="gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center"><span class="p or">お問い合わせ（${v30Esc(root.tk.cat||"")}）</span>${["受付","対応中","解決"].map(s=>`<button class="btn ${st===s?"":"g"}" style="padding:2px 10px;font-size:12px" onclick="thSetMeta('${v30Esc(k)}',{tkSt:'${s}',done:${s==="解決"?1:0}});if(typeof thPersist==='function')thPersist();thOpen('${v30Esc(k)}');toast('「${s}」にしました')">${s}</button>`).join("")}</div>`;
+    const bar=`<div class="rw" id="s30tkbar" style="gap:6px;margin-top:8px;flex-wrap:wrap;align-items:center"><span class="p or">お問い合わせ（${v30Esc(root.tk.cat||"")}）</span>${["受付","対応中","解決"].map(s=>`<button class="btn ${st===s?"":"g"}" style="padding:2px 10px;font-size:12px" onclick="thSetMeta('${jsa(k)}',{tkSt:'${jsa(s)}',done:${s==="解決"?1:0}});if(typeof thPersist==='function')thPersist();thOpen('${v30Esc(k)}');toast('「${s}」にしました')">${s}</button>`).join("")}</div>`;
     const first=pn&&pn.querySelector(".th-dw > .rw"); if(first&&!pn.querySelector("#s30tkbar")) first.insertAdjacentHTML("afterend",bar); } }catch(e){} return r; }; }
 /* ── メンバー欄：サブ担当者・代理承認者 ── */
 function s30Sub(name,on){ const t=(typeof tmCurTen==="function")?tmCurTen():v30Ten(); if(!t) return; const L=Array.isArray(t.subLead)?t.subLead.slice():[]; const i=L.indexOf(name);
@@ -34486,7 +34487,7 @@ function mt30Rel(ms){ const d0=new Date(); d0.setHours(0,0,0,0); const d1=new Da
 function mt30Bar(m,compact){ if(!m) return ""; const rel=mt30Rel(m.at);
   return `<div class="mt30bar" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:${compact?"7px 11px":"10px 13px"};border:1.5px solid var(--bl);border-radius:var(--r2);background:var(--bl-soft);margin-bottom:10px">
     <span style="font-size:18px">📅</span><span style="flex:1;min-width:180px"><b>次回の会議：${rel?`<span class="p ${rel==="今日"?"no":rel==="明日"?"or":"on"}">${v30Esc(rel)}</span> `:""}${v30Esc(mt30When(m.at))}</b>　${v30Esc(m.title||"")}${m.url?`<br><span class="nn" style="margin:0">${v30Esc(mt30Kind(m.url))}${m.agenda?"・議題："+v30Esc(String(m.agenda).slice(0,60)):""}</span>`:""}</span>
-    ${m.url?`<a class="btn" href="${v30Esc(m.url)}" target="_blank" rel="noopener">参加する</a>`:""}<button class="btn g" type="button" onclick="mt30Ics('${v30Esc(m.id)}')">予定表に追加</button>${compact?"":`<button class="btn g" type="button" onclick="mt30Edit('${v30Esc(m.id)}')">変更</button>`}</div>`; }
+    ${m.url?`<a class="btn" href="${v30Esc(m.url)}" target="_blank" rel="noopener">参加する</a>`:""}<button class="btn g" type="button" onclick="mt30Ics('${jsa(m.id)}')">予定表に追加</button>${compact?"":`<button class="btn g" type="button" onclick="mt30Edit('${jsa(m.id)}')">変更</button>`}</div>`; }
 function mt30Edit(id){ const m=id?v30One("mt",id):null; const d=m?new Date(+m.at):new Date(Date.now()+7*864e5); const ymd=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); const hm=m?String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"):"15:00";
   openDW(`<h3>📅 ${m?"次回の会議を変更":"次回の会議を登録"}</h3><p class="nn" style="margin:4px 0 10px">登録すると、ダッシュボード・やりとり・会議メモの上に日時とリンクが出て、前日と当日に🔔でお知らせします（メール通知を登録していれば朝のメールにも入ります）。</p>
     <div class="b30form"><div class="full"><label>会議の名前</label><input class="sel" id="mt30t" value="${v30Esc(m?m.title:((v30Co()?v30Co()+" ":"")+v30T("定例会")))}"></div>
@@ -34536,7 +34537,7 @@ if(typeof uxPalOpen==="function"){ const __po30=uxPalOpen; uxPalOpen=function(){
    ・足りなかったもの：バイヤー一覧（営業情報）・活動ログ・ドキュメント台帳・コメント・会議メモ・議事録・やりとり・次回の会議 ═══ */
 function x30Mail(s){ return ((String(s||"").match(/[\w.+-]+@[\w.-]+\.\w+/)||[])[0])||""; }
 function x30Tel(s){ return ((String(s||"").match(/\+?\d[\d\s\-()]{7,}\d/)||[])[0])||""; }
-function x30Plain(h){ try{ const d=document.createElement("div"); d.innerHTML=String(h||"").replace(/<br\s*\/?>/gi,"\n"); return (d.textContent||"").trim(); }catch(e){ return String(h||""); } }
+function x30Plain(h){ try{ const d=document.createElement("template"); d.innerHTML=String(h||"").replace(/<br\s*\/?>/gi,"\n"); return (d.content.textContent||"").trim(); }catch(e){ return String(h||""); } }
 if(typeof expRows==="function"){ const __er30=expRows; expRows=function(){ let S=[]; try{ S=__er30.apply(this,arguments)||[]; }catch(e){ S=[]; } /* 商品を選ぶ前（D が空）は前からの書き出しが止まっていた */ const put=(name,rows)=>{ if(rows.length>1) S.push({name,rows}); };
   try{ const mbs=(typeof myBuyers==="function")?myBuyers():[]; const i=S.findIndex(s=>s.name==="自社追加バイヤー");
     if(i>=0&&mbs.length) S[i]={name:"自社追加バイヤー",rows:[["会社名","国","業種","取扱品","規模","Webサイト","連絡先","メール","電話","メモ","追加日"]].concat(mbs.map(b=>[b.co||"",b.cty||"",b.biz||"",b.ints||"",b.size||"",b.url||"",String(b.contact||"").slice(0,300),x30Mail(b.contact)||x30Mail(b.memo),x30Tel(b.contact),String(b.memo||"").slice(0,500),b.added||""]))}; }catch(e){}
@@ -35799,7 +35800,7 @@ function v33AqCollect(label,fn){ return async function(){ const prev=V33AQ.coll;
   try{ r=await fn.apply(this,arguments); } finally{ const c=V33AQ.coll; V33AQ.coll=prev;
     if(c&&c.n&&typeof FILL!=="undefined"&&FILL&&FILL.log){ const L=FILL.log;
       for(let i=L.length-1;i>=L0;i--){ const m=L[i]; if(m&&m.who==="ai"&&/見つかりませんでした|特定できませんでした/.test(String(m.html||""))){ L.splice(i,1); break; } }
-      fillSay("ai",`🤖 AI が読み取った <b>${c.n}件</b> を<b>確認待ち</b>に入れました。今の値と案を見比べて、承認すると登録されます。<br><button class="btn" type="button" onclick="v33AqOpen(x=>x.grp==='${c.grp}')">確認待ちを開く（${c.n}件）</button>`);
+      fillSay("ai",`🤖 AI が読み取った <b>${c.n}件</b> を<b>確認待ち</b>に入れました。今の値と案を見比べて、承認すると登録されます。<br><button class="btn" type="button" onclick="v33AqOpen(x=>x.grp==='${jsa(c.grp)}')">確認待ちを開く（${c.n}件）</button>`);
       try{ if(typeof render==="function") render(); }catch(e){} } }
   return r; }; }
 if(typeof fillAttach==="function") fillAttach=v33AqCollect(a=>a[0]&&a[0].name,fillAttach);
@@ -36898,7 +36899,7 @@ function v33InboxItems(){ const out=[], T=v33T, today=v33Day0(); const add=o=>ou
 /* 今日のまとめ（1日1回） */
 function v33DigestItems(){ const out=[]; try{ notifCalc().filter(n=>!v33NtIsEx(n)).forEach(n=>out.push(n.icon+" "+v33T(n.t))); }catch(e){} const o=v33NtGet(); if(o.dg&&o.dg.d===v33Ymd(Date.now())) o.dg.L.slice(0,8).forEach(t=>out.push(t)); return out; }
 function v33DigestHtml(where){ const o=v33NtGet(), d=v33Ymd(Date.now()); if(where==="dash"&&o.dgClosed===d) return ""; const L=v33DigestItems(); if(!L.length) return ""; const E=v33Esc, T=v33T;
-  return `<section class="c v33dg" aria-label="${E(T("今日のまとめ"))}"><div class="v33dg-h"><h3>${E(T("今日のまとめ"))}<span class="v33mute">${E(v33Day(Date.now()))}</span></h3>${where==="dash"?`<button class="btn g" type="button" onclick="v33NtSet({dgClosed:'${d}'});try{render()}catch(e){}">${E(T("今日は閉じる"))}</button>`:""}</div>
+  return `<section class="c v33dg" aria-label="${E(T("今日のまとめ"))}"><div class="v33dg-h"><h3>${E(T("今日のまとめ"))}<span class="v33mute">${E(v33Day(Date.now()))}</span></h3>${where==="dash"?`<button class="btn g" type="button" onclick="v33NtSet({dgClosed:'${jsa(d)}'});try{render()}catch(e){}">${E(T("今日は閉じる"))}</button>`:""}</div>
     <ul>${L.slice(0,10).map(t=>`<li>${E(t)}</li>`).join("")}</ul><p class="v33mute">${E(T("急ぎでない知らせは、ここに1日1回まとめます。すぐ対応が要るものだけベルでお知らせします。"))}</p></section>`; }
 /* ── 画面：受信箱 ── */
 var V33IXV={f:""};
@@ -38664,6 +38665,220 @@ try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
   {re:/^(\d+)日間$/,en:m=>m[1]==="1"?"1 day":m[1]+" days",zh:"$1 天",es:m=>m[1]==="1"?"1 día":m[1]+" días"},
   {re:/^希望着荷に間に合う見積 (\d+)\/(\d+)社$/,en:"$1 of $2 quotes arrive in time",zh:"$2 家报价中有 $1 家能按期到货",es:"$1 de $2 cotizaciones llegan a tiempo"}
 ].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ═══════════ v21.39（2026-10-04）セキュリティの強化（本番の利用開始の前の総点検） ═══════════
+   点検：外から入る文字（取り込んだ資料・メールの返信・LINE・依頼ページの回答とファイル・物流会社と荷主の共有データ・
+   管理画面に届く利用状況・同じ会社のメンバーの投稿）に目印つきの HTML を入れて、全画面で「HTML として解釈される所」を探した。
+   ここでの直し：
+   ① 安全網：画面に入った要素から、操作なしで動くイベント属性（onerror・onload など）と javascript: の URL・<base>・<object> などを
+      取り除く（アプリが使う onerror は1種類だけ＝それは残す）。印刷用の新しいウィンドウにも同じ安全網を付ける
+   ② 保存された HTML（やりとりの本文・物流の交渉記録・情勢コメント・AI相談の回答）は、許可したタグと属性だけにしてから描く（v39San）
+   ③ javascript: のリンクは押しても開かない・window.open も http(s)・mailto・tel・blob・同じサイトだけ
+   ④ ドキュメントを開くとき、HTML・SVG など中でスクリプトが動く形式はブラウザで開かずダウンロードにする
+   ⑤ 書き出すレポート（HTML）には、決まった印刷の1行以外のスクリプトを止める CSP を入れる
+   ⑥ 他のサイトの中に埋め込まれたら（クリックジャッキング）、公開URLではトップに出る
+   ⑦ アクセスコード・メールのスレッドの鍵を暗号用の乱数で作る（新しいコードは BC-XXXX-XXXX-XXXX の12文字）
+   ⑧ メールの返信が「送った相手と別のアドレス」「なりすましの疑い」のときは、スレッドに注意の札を出す（同期サーバー v2.14）
+   エスケープの直し（esc が ' も変える・ハンドラの中の文字は jsa で JS の文字列として渡す・目次・管理画面の利用状況）は fixes_v2139.py */
+
+/* ── ハンドラ（onclick="fn('…')"）の中に入れる文字：JS の文字列として安全にしてから HTML の属性用にエスケープ ── */
+function jsa(x){ return esc(String(x==null?"":x).replace(/\\/g,"\\\\").replace(/'/g,"\\x27").replace(/"/g,"\\x22").replace(/</g,"\\x3c").replace(/>/g,"\\x3e")
+  .replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029")); }
+
+/* ── URL の判定 ── */
+function v39UrlKind(u){ u=String(u==null?"":u).replace(/[\u0000-\u0020\u007f-\u009f]+/g,"").toLowerCase(); if(!u) return "empty";
+  if(/^(javascript|vbscript|livescript):/.test(u)) return "js"; if(/^data:/.test(u)) return /^data:(image\/(png|jpe?g|gif|webp|bmp|x-icon)|application\/(pdf|octet-stream|vnd\.|zip)|text\/(plain|csv))/.test(u)?"data":"datax";
+  if(/^(https?:|mailto:|tel:|blob:)/.test(u)) return "ok"; if(/^[a-z][a-z0-9+.\-]*:/.test(u)) return "other"; return "rel"; }
+function v39SafeUrl(u){ const k=v39UrlKind(u); return k==="ok"||k==="rel"; }
+
+/* ── ① 安全網：操作なしで動くイベント属性・危険な URL・要素を取り除く ── */
+const V39_AUTO=/^on(error|load|loadstart|loadend|progress|abort|begin|end|repeat|toggle|beforetoggle|focus|focusin|focusout|blur|animation[a-z]*|transition[a-z]*|webkit[a-z]*|pageshow|pagehide|start|finish|bounce|mouse(over|enter|leave|move|out)|pointer(over|enter|leave|move|out|rawupdate)|wheel|scroll|scrollend|resize|beforeprint|afterprint|hashchange|popstate|storage|message|messageerror|unload|beforeunload|readystatechange|canplay|canplaythrough|play|playing|pause|ended|seeked|seeking|timeupdate|volumechange|waiting|durationchange|emptied|stalled|suspend|ratechange|loadeddata|loadedmetadata|securitypolicyviolation|selectionchange|selectstart|visibilitychange|content[a-z]*|search|cuechange|formdata|invalid|show|close|cancel|beforematch|gotpointercapture|lostpointercapture|fullscreen[a-z]*|offline|online|languagechange|rejectionhandled|unhandledrejection)$/i;
+const V39_ONERR_OK="this.parentElement.innerHTML='読込不可'";
+const V39={n:0,log:[],mo:new WeakSet()};
+function v39Note(kind,el,attr){ V39.n++; if(V39.log.length<40) V39.log.push({kind,tag:(el&&el.tagName)||"",attr:attr||"",at:Date.now()}); }
+function v39ScrubEl(el){
+  if(!el||el.nodeType!==1) return;
+  const tag=String(el.tagName||"").toUpperCase();
+  if(tag==="BASE"||tag==="OBJECT"||tag==="EMBED"||tag==="APPLET"||tag==="FRAME"||tag==="FRAMESET"||tag==="PORTAL"){ v39Note("el",el); el.remove(); return; }
+  if(tag==="META"&&/refresh|set-cookie/i.test(el.getAttribute("http-equiv")||"")){ v39Note("el",el); el.remove(); return; }
+  if((tag==="ANIMATE"||tag==="SET"||tag==="ANIMATETRANSFORM")&&/href/i.test(el.getAttribute("attributeName")||"")){ v39Note("el",el); el.remove(); return; }
+  const at=el.attributes; if(!at||!at.length) return;
+  for(let i=at.length-1;i>=0;i--){ const a=at[i]; if(!a) continue; const n=a.name.toLowerCase();
+    if(n.charCodeAt(0)===111&&n.charCodeAt(1)===110){   /* on… */
+      if(V39_AUTO.test(n)&&!(n==="onerror"&&a.value===V39_ONERR_OK)){ v39Note("on",el,n); el.removeAttribute(a.name); }
+      else if(/^\s*javascript:/i.test(a.value)){ v39Note("on",el,n); el.removeAttribute(a.name); }
+      continue; }
+    if(n==="href"||n==="xlink:href"||n==="action"||n==="formaction"){ if(v39UrlKind(a.value)==="js"){ v39Note("url",el,n); el.removeAttribute(a.name); } continue; }
+    if(n==="src"||n==="data"){ const k=v39UrlKind(a.value); if(k==="js"||(k==="datax"&&(tag==="IFRAME"||tag==="FRAME"||tag==="EMBED"||tag==="OBJECT"))){ v39Note("url",el,n); el.removeAttribute(a.name); } continue; }
+    if(n==="srcdoc"&&tag==="IFRAME"&&el.id!=="csFrame"){ v39Note("srcdoc",el,n); el.removeAttribute(a.name); continue; }
+  }
+}
+function v39Scrub(root){ if(!root) return; if(root.nodeType===1) v39ScrubEl(root);
+  if(root.querySelectorAll){ const L=root.querySelectorAll("*"); for(let i=0;i<L.length;i++) v39ScrubEl(L[i]); } }
+function v39Guard(doc){ try{ if(!doc||V39.mo.has(doc)) return; const W=doc.defaultView||window; const MO=W.MutationObserver||MutationObserver;
+    const mo=new MO(list=>{ for(const m of list){ if(m.type==="childList"){ for(const nd of m.addedNodes) if(nd.nodeType===1) v39Scrub(nd); } else if(m.type==="attributes"&&m.target) v39ScrubEl(m.target); } });
+    mo.observe(doc,{childList:true,subtree:true,attributes:true,attributeFilter:["onerror","onload","onbegin","ontoggle","onfocus","onanimationstart","onanimationend","onmouseover","onpointerover","href","src","srcdoc","action","formaction","xlink:href","data"]});
+    V39.mo.add(doc); if(doc.documentElement) v39Scrub(doc.documentElement); }catch(e){} }
+v39Guard(document);
+
+/* ── ② 保存された HTML を許可したタグ・属性だけにする（<template> の中で解析＝画像の読み込みもスクリプトも動かない） ── */
+const V39_TAGS=new Set(["B","STRONG","I","EM","U","S","DEL","INS","MARK","SMALL","SUP","SUB","BR","HR","P","DIV","SPAN","UL","OL","LI","DL","DT","DD","CODE","PRE","KBD","Q","CITE","ABBR","TIME",
+  "BLOCKQUOTE","H1","H2","H3","H4","H5","H6","TABLE","THEAD","TBODY","TFOOT","TR","TH","TD","CAPTION","COLGROUP","COL","A","IMG","DETAILS","SUMMARY","BUTTON","LABEL","SECTION","ARTICLE","HEADER","FOOTER","FIGURE","FIGCAPTION"]);
+const V39_DROP=new Set(["SCRIPT","STYLE","IFRAME","FRAME","FRAMESET","OBJECT","EMBED","APPLET","LINK","META","BASE","FORM","INPUT","TEXTAREA","SELECT","OPTION","SVG","MATH","TEMPLATE","NOSCRIPT","AUDIO","VIDEO","SOURCE","TRACK","CANVAS","PORTAL","DIALOG","SLOT"]);
+const V39_ATTR=new Set(["class","title","colspan","rowspan","href","target","rel","src","alt","width","height","style","lang","dir","open","type","aria-label","aria-hidden","role","tabindex","start","value","align","valign","scope","datetime","name"]);
+const V39_OK_ONCLICK=/^try\{go\('[a-z0-9_]{1,20}'\)\}catch\(e\)\{\}$/;
+const V39SAN=new Map();
+function v39San(html){
+  const s=String(html==null?"":html);
+  if(s.indexOf("<")<0) return s;
+  const hit=V39SAN.get(s); if(hit!==undefined) return hit;
+  let out=s;
+  try{ const tpl=document.createElement("template"); tpl.innerHTML=s; const L=[...tpl.content.querySelectorAll("*")];
+    for(const el of L){ if(!el.isConnected&&!tpl.content.contains(el)) continue;
+      const tag=String(el.tagName||"").toUpperCase();
+      if(V39_DROP.has(tag)){ el.remove(); continue; }
+      if(!V39_TAGS.has(tag)){ el.replaceWith(...el.childNodes); continue; }
+      for(const a of [...el.attributes]){ const n=a.name.toLowerCase(), v=a.value;
+        if(n.startsWith("on")){ if(!(n==="onclick"&&V39_OK_ONCLICK.test(v))) el.removeAttribute(a.name); continue; }
+        if(n.startsWith("data-")) continue;
+        if(!V39_ATTR.has(n)){ el.removeAttribute(a.name); continue; }
+        if(n==="href"){ const k=v39UrlKind(v); if(!(k==="ok"||k==="rel"||/^#/.test(v.trim()))) el.removeAttribute(a.name); else if(/^https?:/i.test(v.trim())){ el.setAttribute("rel","noopener noreferrer"); el.setAttribute("target","_blank"); } }
+        else if(n==="src"){ const k=v39UrlKind(v); if(!(k==="ok"||k==="rel"||k==="data")) el.removeAttribute(a.name); }
+        else if(n==="style"){ el.setAttribute("style",v.replace(/(expression|javascript|vbscript)\s*[:(]/gi,"").replace(/url\s*\(/gi,"none(").replace(/@import/gi,"").replace(/position\s*:\s*(fixed|sticky)/gi,"position:static")); }
+        else if(n==="target"&&v!=="_blank") el.setAttribute("target","_blank"); } }
+    out=tpl.innerHTML; }catch(e){ out=esc(s); }
+  if(V39SAN.size>1500) V39SAN.clear(); V39SAN.set(s,out); return out; }
+
+/* ── ③ javascript: のリンクを押しても開かない・window.open の行き先を確かめる ── */
+document.addEventListener("click",e=>{ try{ const a=e.target&&e.target.closest&&e.target.closest("a[href],area[href]"); if(!a) return;
+  if(v39UrlKind(a.getAttribute("href"))==="js"){ e.preventDefault(); e.stopImmediatePropagation(); v39Note("click",a,"href"); if(typeof toast==="function") toast(v39T("安全のため、このリンクは開けません")); return; }
+  if(a.target==="_blank"&&/^https?:/i.test(a.getAttribute("href")||"")){ const r=(a.getAttribute("rel")||"").toLowerCase(); if(!/noopener/.test(r)) a.setAttribute("rel",(r+" noopener noreferrer").trim()); } }catch(err){} },true);
+document.addEventListener("submit",e=>{ try{ const f=e.target; if(f&&f.getAttribute&&v39UrlKind(f.getAttribute("action"))==="js"){ e.preventDefault(); e.stopImmediatePropagation(); } }catch(err){} },true);
+(function(){ try{ const __open=window.open; if(!__open||__open.__v39) return;
+  const wrap=function(url,name,feat){ const u=url==null?"":String(url); const k=v39UrlKind(u);
+    if(k==="js"||k==="datax"||k==="other"){ v39Note("open",null,u.slice(0,20)); if(typeof toast==="function") toast(v39T("このリンクは開けません（http／https のアドレスだけ開けます）")); return null; }
+    const w=__open.apply(window,arguments);
+    if(w&&(k==="empty"||/^about:blank/i.test(u))){ try{ v39Guard(w.document); const d=w.document, ow=d.write, oo=d.open;
+        d.open=function(){ const r=oo.apply(d,arguments); try{ v39Guard(d); }catch(e){} return r; };
+        d.write=function(){ try{ v39Guard(d); }catch(e){} return ow.apply(d,arguments); }; }catch(e){} }
+    return w; };
+  wrap.__v39=1; window.open=wrap; }catch(e){} })();
+
+/* ── ④ ドキュメントを開く：中でスクリプトが動く形式（HTML・SVG・XML など）はダウンロードにする・リンクは http(s) だけ ── */
+if(typeof d30Open==="function"){ d30Open=async function(id){ const d=v30One("docs",id); if(!d){ toast("このファイルは見つかりませんでした"); return; }
+  if(d.link){ if(!v39SafeUrl(d.link)||/^\s*blob:/i.test(d.link)){ toast(v39T("このリンクは開けません（http／https のアドレスだけ開けます）")); return; } window.open(d.link,"_blank","noopener"); return; }
+  try{ const u8=await d30Bytes(Object.assign({id},d)); const mime=String(d.mime||"").toLowerCase().split(";")[0].trim();
+    const inline=/^(image\/(png|jpe?g|gif|webp|bmp)|application\/pdf|text\/plain|text\/csv)$/.test(mime);
+    const type=inline?(mime==="text/csv"?"text/plain;charset=utf-8":mime==="text/plain"?"text/plain;charset=utf-8":mime):"application/octet-stream";
+    const blob=new Blob([u8],{type}); const url=URL.createObjectURL(blob);
+    if(inline){ const w=window.open(url,"_blank"); if(!w) v30Download(blob,d.n); }
+    else { v30Download(blob,d.n); if(/html|svg|xml|javascript|ecmascript/.test(mime)) toast(v39T("このファイルは安全のためダウンロードします（ブラウザでは開きません）")); }
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(e){} },120000); }
+  catch(e){ toast("開けませんでした："+String(e.message||e).slice(0,80)); } }; }
+
+/* ── ⑤ 書き出すレポート（HTML）：決まった印刷の1行以外のスクリプト・外への通信を止める ── */
+const V39_DOC_CSP=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src data: https://fonts.gstatic.com; script-src 'sha256-rwNbx6B5wY2ninXspInrGst3kK1IKSuKy0YpsaDG9AU='; base-uri 'none'; form-action 'none'">`;
+function v39CspDoc(h){ h=String(h==null?"":h); if(/Content-Security-Policy/i.test(h)) return h; if(/<head[^>]*>/i.test(h)) return h.replace(/<head[^>]*>/i,m=>m+V39_DOC_CSP); return V39_DOC_CSP+h; }
+if(typeof v30TrHtml==="function"){ const __tr39=v30TrHtml; v30TrHtml=function(html){ return v39CspDoc(__tr39.apply(this,arguments)); }; }
+
+/* ── ⑥ 他のサイトの中に埋め込まれたら、公開URLではトップに出る（同じサイトの中の埋め込みはそのまま） ── */
+(function(){ try{ if(window.top===window.self) return; if(!/(^|\.)github\.io$|(^|\.)digitrad\.trade$/.test(location.hostname)) return;
+  let same=false; try{ same=window.top.location.origin===location.origin; }catch(e){ same=false; }
+  if(!same){ try{ window.top.location.href=location.href; }catch(e){ document.documentElement.style.display="none"; } } }catch(e){} })();
+
+/* ── ⑥b 通関統計エクスプローラー（同じサイトの中の埋め込み）：外部のグラフ部品に改ざん検知（SRI）・合図は親の画面からだけ受け取る ──
+   chart.umd.min.js は配信側が自動で縮めたもの（中身が変わり得る）→ npm に公開された chart.umd.js そのものに替えて、ハッシュを付ける */
+const V39_CHART='<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha256-dEAdc43T4D7l37O2hBIQ/ixOrYqWDEARykugt4qf2PM=" crossorigin="anonymous"><\/script>';
+if(typeof csPrep==="function"){ const __csp39=csPrep; csPrep=function(h){ let r=__csp39.apply(this,arguments);
+  try{ if(r) r=String(r).replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@4\.4\.1\/dist\/chart\.umd(\.min)?\.js"><\/script>/,V39_CHART)
+    .replace('window.addEventListener("message",function(e){try{var d=e.data||{};','window.addEventListener("message",function(e){try{if(e.source!==window.parent)return;var d=e.data||{};'); }catch(e){}
+  return r; }; }
+
+/* ── ⑦ アクセスコード・メールのスレッドの鍵を暗号用の乱数で ── */
+function v39Rand(n,abc){ abc=abc||"ABCDEFGHJKMNPQRSTUVWXYZ23456789"; const out=[]; const lim=256-(256%abc.length); const buf=new Uint8Array(n*2+8);
+  while(out.length<n){ crypto.getRandomValues(buf); for(let i=0;i<buf.length&&out.length<n;i++){ if(buf[i]<lim) out.push(abc[buf[i]%abc.length]); } } return out.join(""); }
+if(typeof genCode==="function"){ genCode=function(){ let c; do{ c="BC-"+v39Rand(4)+"-"+v39Rand(4)+"-"+v39Rand(4); }while(typeof findAcct==="function"&&findAcct(c)); return c; }; }
+if(typeof bmKey==="function"){ bmKey=function(){ const k=(typeof SYNC!=="undefined"&&SYNC&&SYNC.kid)?String(SYNC.kid).slice(0,6):"local"; return k+"-"+v39Rand(8,"abcdefghijkmnpqrstuvwxyz23456789"); }; }
+
+/* ── ⑧ メールの返信：送った相手と別のアドレス・なりすましの疑いの札（v2.14 の vf・spoof）／体験用の共通アカウントの案内 ── */
+if(typeof bmChip==="function"){ const __chip39=bmChip; bmChip=function(m){ let h=__chip39.apply(this,arguments);
+  try{ if(m&&m.w==="by"&&m.real){ if(m.spoof) h+=` <span class="p no" title="${esc(v39T("送信元の認証（SPF・DMARC）に失敗しています。リンクや添付を開く前に、相手に別の方法で確かめてください"))}">${esc(v39T("⚠ なりすましの疑い"))}</span>`;
+      else if(m.vf==="other") h+=` <span class="p mid" title="${esc(v39T("送った相手とは別のアドレス（別の会社のドメイン）から届きました。心当たりがなければ、内容をうのみにしないでください"))}">${esc(v39T("⚠ 送った相手と別のアドレス"))}</span>`; } }catch(e){}
+  return h; }; }
+if(typeof bmModeHtml==="function"){ const __mode39=bmModeHtml; bmModeHtml=function(to){ try{ const st=(typeof BM!=="undefined"&&BM.st)||{}; if(st&&!st.configured&&st.note&&typeof bmOn==="function"&&bmOn()) return '<span class="p lo">📝 '+esc(v39T("記録のみ"))+'</span> '+esc(st.note)+'。'+esc(v39T("「📧 メールソフトで送る」をご利用ください。")); }catch(e){} return __mode39.apply(this,arguments); }; }
+
+/* ── メール通知：宛先を5件まで（同じ会社の複数のメンバー）・バイヤーの返信のお知らせの説明（同期サーバー v2.14） ── */
+function v39MailSplit(s){ return String(s||"").split(/[\s,;、，]+/).map(x=>x.trim()).filter(Boolean); }
+function v39MailList(s){ const out=[]; v39MailSplit(s).forEach(x=>{ const y=x.toLowerCase(); if(v16Mail(y)&&!out.includes(y)&&out.length<5) out.push(y); }); return out; }
+function v39MailMulti(){ try{ return typeof v33SrvAtLeast==="function"&&v33SrvAtLeast("2.14"); }catch(e){ return false; } }
+function v39MailPick(raw){ let L=v39MailList(raw); if(L.length>1&&!v39MailMulti()){ toast(v39T("複数の宛先は、同期サーバーを v2.14 に更新すると使えます（いまは最初の1件だけ保存します）")); L=L.slice(0,1); } return L; }
+if(typeof digSave==="function"&&typeof v16Mail==="function"){ digSave=function(){ const raw=(($("#digTo")||{}).value||"").trim(), on=!!(($("#digOn")||{}).checked);
+  const bad=v39MailSplit(raw).filter(x=>!v16Mail(x)); const L=v39MailPick(raw);
+  if(on&&(!L.length||bad.length)){ toast("メールアドレスの形式を確認してください"+(bad.length?"："+bad.slice(0,2).join("、"):"")); return; }
+  const to=L.join(", "); const db=notifDB(); db.mail={to,on:on?1:0}; notifSave(db); try{ const e=$("#digTo"); if(e) e.value=to; }catch(e){}
+  digPush(1).then(r=>toast(r&&r.ok?"メール通知の設定を保存しました（毎朝8時・要対応があるときだけ）":"保存しましたが同期サーバーに送れませんでした")); }; }
+if(typeof digTest==="function"&&typeof v16Mail==="function"){ digTest=async function(){ const raw=(($("#digTo")||{}).value||"").trim(); const L=v39MailPick(raw); if(!L.length){ toast("メールアドレスを入力してください"); return; }
+  if(!v16SyncOk()){ toast("クラウド同期が未設定のため送れません"); return; }
+  const to=L.join(", "); const db=notifDB(); db.mail=Object.assign(db.mail||{},{to}); notifSave(db); try{ const e=$("#digTo"); if(e) e.value=to; }catch(e){} await digPush(1); toast("テスト送信しています…");
+  try{ const r=await syncCall("digest_test",{kid:SYNC.kid,to}); toast(r.ok?("テストメールを送りました → "+to+(r.note?"（"+r.note+"）":"")):("送れませんでした："+(r.msg||""))); }
+  catch(e){ toast("送れませんでした："+String(e.message||e).slice(0,50)); } }; }
+if(typeof digBlockHtml==="function"){ const __dig39=digBlockHtml; digBlockHtml=function(){ let h=__dig39.apply(this,arguments);
+  try{ h=h.replace('placeholder="you@example.com"','placeholder="you@example.com, sato@example.com"');
+    h=h.replace(/<\/div><\/div>\s*$/,'</div><p class="nn v39dig" style="margin:6px 0 0">'+esc(v39T("宛先はカンマで区切って5件まで入れられます（同じ会社のメンバーで受け取れます）。直接連絡のメールにバイヤーから返信が届いたときも、15分以内に差出人と件名をお知らせします（同期サーバー v2.14）。"))+'</p></div>'); }catch(e){}
+  return h; }; }
+
+/* ── 管理画面：同期サーバーの安全設定の確かめ（v2.14 の反映・管理者パスワード・返信のお知らせ） ── */
+function v39SrvCardHtml(){ return `<div class="v39srv" id="v39srv" style="margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2)">
+  <b style="font-size:13px">${esc(v39T("同期サーバーの安全設定"))}</b> <button class="btn g" type="button" id="v39srvGo" style="font-size:12px;padding:3px 10px;margin-left:6px">${esc(v39T("確かめる"))}</button>
+  <div id="v39srvOut" class="nn" style="margin-top:6px">${esc(v39T("v2.14（安全の強化）を反映すると、台帳に無いアカウントの保存・メール中継・ファイル預かりを断り、管理者パスワードの総当たりを止めます。"))}</div></div>`; }
+async function v39SrvCheck(){ const out=document.getElementById("v39srvOut"); if(!out) return; out.textContent=v39T("確認中…");
+  try{ const r=await syncCall("ping",{}); const ok=(x)=>x?`<span class="p hi">${esc(v39T("OK"))}</span>`:`<span class="p no">${esc(v39T("要対応"))}</span>`;
+    const rel=String(r.rel||""), v214=(typeof v33SrvAtLeast==="function")?v33SrvAtLeast("2.14"):(parseFloat(rel)>=2.14);
+    out.innerHTML=`<div>${ok(v214&&+r.sec>=2)} ${esc(v39T("安全の強化（v2.14）"))}：${esc(rel||"?")}</div>
+      <div>${ok(!r.pwDefault)} ${esc(v39T("管理者パスワード（ADMIN_PW）"))}：${esc(r.pwDefault?v39T("初期値のまま（すぐに設定してください）"):v39T("設定済み"))}</div>
+      <div>${ok(!!r.digestTrigger)} ${esc(v39T("毎朝8時のメール通知"))}</div>
+      <div>${ok(!!r.mailWatch)} ${esc(v39T("バイヤーの返信のお知らせ（15分ごと）"))}${r.mailWatch?"":"："+esc(v39T("「📧 メール通知 › 毎朝8時の配信ジョブを設定」を押すと作られます（v2.14）"))}</div>`; }
+  catch(e){ out.textContent=v39T("確かめられませんでした：")+String(e&&e.message||e).slice(0,80); } }
+if(typeof syncAdminCardHtml==="function"){ const __sac39=syncAdminCardHtml; syncAdminCardHtml=function(){ let h=__sac39.apply(this,arguments); try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof syncOn==="function"&&syncOn()) h+=v39SrvCardHtml(); }catch(e){} return h; }; }
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("#v39srvGo"); if(b){ e.preventDefault(); v39SrvCheck(); } });
+
+/* 表示の言語（英中西の辞書は logic_v2139i18n.js） */
+function v39T(s){ try{ if(typeof v38T==="function") return v38T(s); if(typeof v33T==="function") return v33T(s); }catch(e){} return s; }
+
+/* お知らせ（新しい順＝最後に unshift） */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.39")) S30_NEWS.unshift(["2026-10","v21.39","安全性を強化しました",
+  ["外から届く文字（取り込んだ資料・メールの返信・依頼ページの回答・共有データ）を、画面に出す前に安全な形にする仕組みを強めました",
+   "メールの返信が、送った相手と別のアドレスから届いたときや、なりすましの疑いがあるときは、スレッドに注意の札が出ます",
+   "ドキュメントのうち、ブラウザで開くと中でプログラムが動く形式（HTML など）は、開かずにダウンロードします"]]); }catch(e){}
+
+/* ═══ v21.39 の表示言語（英・中・西）：安全の強化（リンク・ファイル・メールの返信の札・管理画面の安全設定・お知らせ） ═══ */
+try{ if(typeof v30I18n==="function") v30I18n([
+ ["安全のため、このリンクは開けません","For your safety, this link can’t be opened","为了安全，无法打开此链接","Por seguridad, este enlace no se puede abrir"],
+ ["このリンクは開けません（http／https のアドレスだけ開けます）","This link can’t be opened (only http/https addresses can be opened)","无法打开此链接（只能打开 http/https 地址）","Este enlace no se puede abrir (solo se abren direcciones http/https)"],
+ ["このファイルは安全のためダウンロードします（ブラウザでは開きません）","For safety, this file is downloaded instead of opened in the browser","为了安全，此文件将下载而不是在浏览器中打开","Por seguridad, este archivo se descarga en lugar de abrirse en el navegador"],
+ ["⚠ なりすましの疑い","⚠ Possible spoofing","⚠ 疑似冒充","⚠ Posible suplantación"],
+ ["送信元の認証（SPF・DMARC）に失敗しています。リンクや添付を開く前に、相手に別の方法で確かめてください","The sender failed authentication (SPF/DMARC). Before opening links or attachments, confirm with the sender another way.","发件人认证（SPF/DMARC）失败。打开链接或附件前，请通过其他方式向对方确认。","El remitente no superó la autenticación (SPF/DMARC). Antes de abrir enlaces o adjuntos, confírmelo con el remitente por otra vía."],
+ ["⚠ 送った相手と別のアドレス","⚠ Different address from the one you wrote to","⚠ 与收件人不同的地址","⚠ Dirección distinta a la que escribió"],
+ ["送った相手とは別のアドレス（別の会社のドメイン）から届きました。心当たりがなければ、内容をうのみにしないでください","This came from an address other than the one you wrote to (a different company’s domain). If you don’t recognize it, don’t take it at face value.","这封邮件来自与您发送对象不同的地址（其他公司的域名）。如无印象，请勿轻信其内容。","Llegó desde una dirección distinta a la que escribió (dominio de otra empresa). Si no la reconoce, no confíe en su contenido sin verificar."],
+ ["記録のみ","Log only","仅记录","Solo registro"],
+ ["「📧 メールソフトで送る」をご利用ください。","Please use “📧 Send with your email app.”","请使用“📧 用邮件软件发送”。","Use «📧 Enviar con su app de correo»."],
+ ["同期サーバーの安全設定","Sync server security settings","同步服务器的安全设置","Ajustes de seguridad del servidor de sincronización"],
+ ["確かめる","Check","检查","Comprobar"],["確認中…","Checking…","正在检查…","Comprobando…"],["要対応","Action needed","需要处理","Requiere acción"],
+ ["v2.14（安全の強化）を反映すると、台帳に無いアカウントの保存・メール中継・ファイル預かりを断り、管理者パスワードの総当たりを止めます。","With v2.14 (security hardening), the server refuses saves, email relay and file storage from accounts not in the registry, and stops admin-password guessing.","应用 v2.14（安全强化）后，服务器将拒绝台账中不存在的账户的保存、邮件中继和文件存放，并阻止对管理员密码的暴力尝试。","Con la v2.14 (refuerzo de seguridad), el servidor rechaza guardados, reenvío de correo y archivos de cuentas que no están en el registro, y detiene los intentos de adivinar la contraseña de administrador."],
+ ["安全の強化（v2.14）","Security hardening (v2.14)","安全强化（v2.14）","Refuerzo de seguridad (v2.14)"],
+ ["管理者パスワード（ADMIN_PW）","Admin password (ADMIN_PW)","管理员密码（ADMIN_PW）","Contraseña de administrador (ADMIN_PW)"],
+ ["初期値のまま（すぐに設定してください）","Still the default (set it now)","仍为初始值（请立即设置）","Sigue siendo la predeterminada (cámbiela ya)"],["設定済み","Set","已设置","Configurada"],
+ ["毎朝8時のメール通知","Daily 8:00 email notification","每天8点的邮件通知","Notificación diaria por correo a las 8:00"],
+ ["バイヤーの返信のお知らせ（15分ごと）","Buyer reply alerts (every 15 minutes)","买家回复提醒（每15分钟）","Avisos de respuesta del comprador (cada 15 minutos)"],
+ ["「📧 メール通知 › 毎朝8時の配信ジョブを設定」を押すと作られます（v2.14）","Created when you press “📧 Email notifications › Set up the daily 8:00 job” (v2.14)","按“📧 邮件通知 › 设置每天8点的发送任务”即可创建（v2.14）","Se crea al pulsar «📧 Notificaciones por correo › Configurar el envío diario de las 8:00» (v2.14)"],
+ ["確かめられませんでした：","Couldn’t check: ","无法检查：","No se pudo comprobar: "],
+ ["複数の宛先は、同期サーバーを v2.14 に更新すると使えます（いまは最初の1件だけ保存します）","Multiple addresses work after the sync server is updated to v2.14 (only the first one is saved for now)","同步服务器更新到 v2.14 后才能使用多个收件地址（目前只保存第一个）","Las direcciones múltiples funcionan cuando el servidor de sincronización se actualice a la v2.14 (por ahora solo se guarda la primera)"],
+ ["宛先はカンマで区切って5件まで入れられます（同じ会社のメンバーで受け取れます）。直接連絡のメールにバイヤーから返信が届いたときも、15分以内に差出人と件名をお知らせします（同期サーバー v2.14）。","You can enter up to 5 addresses separated by commas (so members of your company can all receive it). When a buyer replies to your direct-contact email, you’ll also get the sender and subject within 15 minutes (sync server v2.14).","最多可输入5个地址，用逗号分隔（公司成员都能收到）。买家回复“直接联系”的邮件时，也会在15分钟内通知发件人和主题（同步服务器 v2.14）。","Puede introducir hasta 5 direcciones separadas por comas (para que los miembros de su empresa la reciban). Cuando un comprador responda a su correo de contacto directo, también recibirá el remitente y el asunto en 15 minutos (servidor de sincronización v2.14)."],
+ ["安全性を強化しました","Security has been strengthened","已加强安全性","Se reforzó la seguridad"],
+ ["外から届く文字（取り込んだ資料・メールの返信・依頼ページの回答・共有データ）を、画面に出す前に安全な形にする仕組みを強めました","Text that comes from outside (imported files, email replies, request-page answers, shared data) is now made safe more thoroughly before it appears on screen","加强了在显示前将外部文字（导入的资料、邮件回复、请求页面的回答、共享数据）处理为安全形式的机制","Se reforzó el tratamiento que vuelve seguros los textos externos (archivos importados, respuestas por correo, respuestas de páginas de solicitud, datos compartidos) antes de mostrarlos"],
+ ["メールの返信が、送った相手と別のアドレスから届いたときや、なりすましの疑いがあるときは、スレッドに注意の札が出ます","When an email reply comes from an address other than the one you wrote to, or looks spoofed, the thread shows a warning tag","当邮件回复来自与收件人不同的地址或疑似冒充时，会在会话中显示提醒标签","Si una respuesta llega desde una dirección distinta a la que escribió o parece suplantada, el hilo muestra una etiqueta de aviso"],
+ ["ドキュメントのうち、ブラウザで開くと中でプログラムが動く形式（HTML など）は、開かずにダウンロードします","Documents in formats that can run code when opened in a browser (such as HTML) are downloaded instead of opened","对于在浏览器中打开时可能运行程序的文档格式（如 HTML），将直接下载而不打开","Los documentos en formatos que pueden ejecutar código al abrirse en el navegador (como HTML) se descargan en lugar de abrirse"]
+]); }catch(e){}
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
