@@ -1025,7 +1025,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="42c6f3b2bcba";
+const BC20_BUILD="7f2c094f0b61";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -36263,25 +36263,29 @@ var RQP_L={
     name:"お名前",co:"会社名",note:"そのほかのご連絡（任意）",priv:"入力した内容とファイルは暗号化して送られ、依頼元だけが読めます。",
     none:"このリンクの依頼は見つかりません。リンクが正しいか、依頼元にご確認ください。",closed:"この依頼は締め切られました。",expired:"この依頼の回答期限が過ぎました。必要な場合は依頼元にご連絡ください。",
     err:"送れませんでした。通信の状態を確認して、もう一度お試しください。",bad:"リンクが正しくありません（最後まで貼り付けられているかご確認ください）。",big:"ファイルが大きすぎます（10MB まで）",lerr:"依頼を読み込めませんでした。通信の状態を確認して、ページを再読み込みしてください。",fcnt:"ファイルは1つの依頼に{n}件までです。",abig:"回答が長すぎます。長い文章はファイルにして添付してください。",acnt:"保存の回数が上限に達しました。依頼元にご連絡ください。",already:"すでに提出済みです。直した内容は「もう一度提出する」で送ってください。",fgone:"そのファイルはすでに削除されています。",
-    upl:"送っています…",st_draft:"途中保存",st_sent:"提出済み",pv:"試しの画面です（実際には送られません）",pw:"Powered by BOEKI CLOUD 2.0"},
+    upl:"送っています…",st_draft:"途中保存",st_sent:"提出済み",pv:"試しの画面です（実際には送られません）",pw:"Powered by BOEKI CLOUD 2.0",
+    steps:"回答の手順",s1:"内容を確認",s2:"回答を入力",s3:"提出",prog:"あなたの回答 {a}/{n}",rql:"必須の残り {n}",okall:"必須の項目はすべて入力済み"},
   en:{lang:"Language",from:"Request from",due:"Please reply by",left:"{n} days left",today:"Due today",save:"Save draft",send:"Submit",resend:"Submit again",saved:"Saved. You can continue from this link.",sent:"Submitted. Thank you.",
     sentNote:"You can edit and submit again until the deadline.",req:"Required",need:"Please fill in the required fields.",files:"Files",addf:"Add files",drop:"or drag them here",fmax:"Up to 10 MB each, {n} files max",rmf:"Remove",
     name:"Your name",co:"Company",note:"Anything else? (optional)",priv:"Your answers and files are encrypted before sending; only the requester can read them.",
     none:"This request could not be found. Please check the link or contact the requester.",closed:"This request has been closed.",expired:"The reply deadline has passed. Please contact the requester if needed.",
     err:"Could not send. Please check your connection and try again.",bad:"This link is incomplete. Please make sure you copied the whole link.",big:"File too large (10 MB max)",lerr:"Could not load this request. Please check your connection and reload the page.",fcnt:"Up to {n} files per request.",abig:"Your answer is too long. Please attach long text as a file.",acnt:"The save limit has been reached. Please contact the requester.",already:"Already submitted. To send changes, use \u201cSubmit again\u201d.",fgone:"That file has already been removed.",
-    upl:"Sending…",st_draft:"Draft",st_sent:"Submitted",pv:"Preview only (nothing is sent)",pw:"Powered by BOEKI CLOUD 2.0"},
+    upl:"Sending…",st_draft:"Draft",st_sent:"Submitted",pv:"Preview only (nothing is sent)",pw:"Powered by BOEKI CLOUD 2.0",
+    steps:"Steps",s1:"Review",s2:"Answer",s3:"Submit",prog:"Your answers {a}/{n}",rql:"{n} required left",okall:"All required fields are filled in"},
   zh:{lang:"语言",from:"请求方",due:"回复期限",left:"还剩{n}天",today:"今天截止",save:"保存草稿",send:"提交",resend:"再次提交",saved:"已保存。可通过此链接继续填写。",sent:"已提交，谢谢。",
     sentNote:"截止日前可以修改后再次提交。",req:"必填",need:"请填写必填项目。",files:"文件",addf:"添加文件",drop:"或拖放到此处",fmax:"每个文件不超过10MB，最多{n}个",rmf:"删除",
     name:"您的姓名",co:"公司名称",note:"其他事项（选填）",priv:"您填写的内容和文件会加密后发送，只有请求方能够阅读。",
     none:"找不到该请求。请确认链接或联系请求方。",closed:"该请求已截止。",expired:"回复期限已过。如有需要，请联系请求方。",
     err:"发送失败。请检查网络后重试。",bad:"链接不完整，请确认已复制完整链接。",big:"文件过大（不超过10MB）",lerr:"无法加载该请求。请检查网络后刷新页面。",fcnt:"每个请求最多{n}个文件。",abig:"回复内容过长，请将较长的文字作为文件附加。",acnt:"保存次数已达上限，请联系请求方。",already:"已经提交。修改后请点击\u201c再次提交\u201d。",fgone:"该文件已被删除。",
-    upl:"正在发送…",st_draft:"草稿",st_sent:"已提交",pv:"预览（不会实际发送）",pw:"Powered by BOEKI CLOUD 2.0"},
+    upl:"正在发送…",st_draft:"草稿",st_sent:"已提交",pv:"预览（不会实际发送）",pw:"Powered by BOEKI CLOUD 2.0",
+    steps:"回复步骤",s1:"查看内容",s2:"填写回复",s3:"提交",prog:"您的回答 {a}/{n}",rql:"还有 {n} 项必填",okall:"必填项已全部填写"},
   es:{lang:"Idioma",from:"Solicitud de",due:"Responder antes del",left:"Quedan {n} días",today:"Vence hoy",save:"Guardar borrador",send:"Enviar",resend:"Enviar de nuevo",saved:"Guardado. Puede continuar desde este enlace.",sent:"Enviado. Muchas gracias.",
     sentNote:"Puede corregir y volver a enviar hasta la fecha límite.",req:"Obligatorio",need:"Complete los campos obligatorios.",files:"Archivos",addf:"Añadir archivos",drop:"o arrástrelos aquí",fmax:"Hasta 10 MB cada uno, máximo {n}",rmf:"Quitar",
     name:"Su nombre",co:"Empresa",note:"¿Algo más? (opcional)",priv:"Sus respuestas y archivos se cifran antes de enviarse; solo el solicitante puede leerlos.",
     none:"No se encontró esta solicitud. Revise el enlace o contacte al solicitante.",closed:"Esta solicitud está cerrada.",expired:"La fecha límite ya pasó. Contacte al solicitante si es necesario.",
     err:"No se pudo enviar. Revise su conexión e inténtelo de nuevo.",bad:"El enlace está incompleto. Asegúrese de copiarlo completo.",big:"Archivo demasiado grande (máx. 10 MB)",lerr:"No se pudo cargar la solicitud. Revise su conexión y vuelva a cargar la página.",fcnt:"Máximo {n} archivos por solicitud.",abig:"La respuesta es demasiado larga. Adjunte los textos largos como archivo.",acnt:"Se alcanzó el límite de guardados. Contacte al solicitante.",already:"Ya se envió. Para enviar cambios, use \u00abEnviar de nuevo\u00bb.",fgone:"Ese archivo ya se quitó.",
-    upl:"Enviando…",st_draft:"Borrador",st_sent:"Enviado",pv:"Vista previa (no se envía nada)",pw:"Powered by BOEKI CLOUD 2.0"}
+    upl:"Enviando…",st_draft:"Borrador",st_sent:"Enviado",pv:"Vista previa (no se envía nada)",pw:"Powered by BOEKI CLOUD 2.0",
+    steps:"Pasos",s1:"Revisar",s2:"Responder",s3:"Enviar",prog:"Sus respuestas {a}/{n}",rql:"Faltan {n} obligatorios",okall:"Todos los campos obligatorios están completos"}
 };
 var RQP={
   LANGS:[["ja","日本語"],["en","English"],["zh","中文"],["es","Español"]],
@@ -36313,7 +36317,18 @@ var RQP={
   .rqp-msg{font-size:14px;font-weight:700;padding:10px 12px;border-radius:10px}.rqp-msg.ok{background:#e9f6ef;color:var(--rq-good)}.rqp-msg.ng{background:#fdecea;color:var(--rq-crit)}
   .rqp-priv{font-size:13px;color:var(--rq-ink2)}.rqp-st{font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;background:#e9f6ef;color:var(--rq-good);margin-left:8px;vertical-align:middle}
   .rqp-pv{font-size:13px;font-weight:700;color:#8a3d0c;background:#fff4ec;border:1px solid #f3c7a6;border-radius:10px;padding:8px 12px}
-  .rqp-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:560px){.rqp-g2{grid-template-columns:1fr}.rqp-c{padding:16px}.rqp-h{font-size:20px}}`,
+  .rqp-steps{list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 0 14px;padding:0;font-size:13px;color:var(--rq-ink2)}
+  .rqp-steps li{display:inline-flex;align-items:center;gap:6px}.rqp-steps li+li::before{content:"";display:inline-block;width:16px;height:1px;background:#b8c2ce;margin-right:2px}
+  .rqp-steps .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid #b8c2ce;font-size:12px;font-weight:700;background:#fff;color:var(--rq-ink2)}
+  .rqp-steps .on{color:var(--rq-ink);font-weight:700}.rqp-steps .on .n{border-color:var(--rq-acc);background:var(--rq-acc);color:#fff}
+  .rqp-steps .ok .n{border-color:var(--rq-good);background:var(--rq-good);color:#fff}
+  .rqp-bar{position:sticky;bottom:0;z-index:2;display:grid;gap:8px;margin:16px -22px -20px;padding:12px 22px 14px;background:var(--rq-card);border-top:1px solid var(--rq-line);border-radius:0 0 14px 14px;box-shadow:0 -8px 14px -10px rgba(22,33,46,.22)}
+  .rqp-prog{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;align-items:baseline;font-size:14px}.rqp-prog b{font-size:16px;font-variant-numeric:tabular-nums}
+  .rqp-left{color:var(--rq-crit);font-weight:700;font-size:13px}.rqp-okall{color:var(--rq-good);font-weight:700;font-size:13px}
+  .rqp-pb{height:6px;border-radius:999px;background:#e3e8ee;overflow:hidden}.rqp-pb i{display:block;height:100%;width:0;background:var(--rq-acc);border-radius:999px;transition:width .2s}
+  .rqp-b.q{background:none;border-color:transparent;color:var(--rq-acc);text-decoration:underline;text-underline-offset:3px;padding-left:8px;padding-right:8px}
+  .rqp-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:560px){.rqp-g2{grid-template-columns:1fr}.rqp-c{padding:16px}.rqp-h{font-size:20px}.rqp-bar{margin:14px -16px -16px;padding:10px 16px 12px}.rqp-act .rqp-b:not(.q){flex:1 1 auto}}
+  @media (prefers-reduced-motion:reduce){.rqp-pb i{transition:none}}`,
   /* el に描く。io.get() → {ok, req:{…復号済み}, ans:{…復号済み}|null, state, files:[{id,size,m:{name,type,size}}]} */
   async mount(el,io,opt){
     opt=opt||{}; const S={lg:"en",req:null,ans:null,state:"",files:[],busy:false,msg:null};
@@ -36332,12 +36347,14 @@ var RQP={
       const q=S.req.q||[], A=(S.ans&&S.ans.a)||{}, left=Math.ceil(((+S.req.exp||0)-Date.now())/864e5), sent=S.state==="sent";
       const fOn=S.req.files&&S.req.files.on, fMax=(S.req.files&&S.req.files.max)||5;
       const cjk=S.lg==="ja"||S.lg==="zh", CO=cjk?"：":": ", PO=cjk?"（":" (", PC=cjk?"）":")";
+      const st=RQP.stepOf(S);
       try{ if(!opt.preview) document.documentElement.lang=S.lg; }catch(e){}
       el.innerHTML=`<div class="rqp-w">
         <div class="rqp-top"><span class="rqp-brand">${E(S.req.from&&S.req.from.co||"")}</span>
           <label class="rqp-lg">${E(T("lang"))}<select id="rqplg">${RQP.LANGS.map(([k,n])=>`<option value="${k}"${k===S.lg?" selected":""}>${n}</option>`).join("")}</select></label></div>
         ${opt.preview?`<p class="rqp-pv">${E(T("pv"))}</p>`:""}
-        <section class="rqp-c"><p class="rqp-from">${E(T("from"))}${CO}${E([S.req.from&&S.req.from.co,S.req.from&&S.req.from.who].filter(Boolean).join(" / "))}</p>
+        <section class="rqp-c"><ol class="rqp-steps" id="rqpsteps" aria-label="${E(T("steps"))}">${["s1","s2","s3"].map((k,i)=>`<li class="${st>i+1||sent?"ok":st===i+1?"on":""}"${st===i+1&&!sent?' aria-current="step"':""}><span class="n">${st>i+1||sent?"✓":i+1}</span>${E(T(k))}</li>`).join("")}</ol>
+          <p class="rqp-from">${E(T("from"))}${CO}${E([S.req.from&&S.req.from.co,S.req.from&&S.req.from.who].filter(Boolean).join(" / "))}</p>
           <h1 class="rqp-h">${E(RQP.pick(S.req.title,S.lg))}${sent?`<span class="rqp-st">${E(T("st_sent"))}</span>`:S.state==="draft"?`<span class="rqp-st" style="background:#fff4ec;color:#8a3d0c">${E(T("st_draft"))}</span>`:""}</h1>
           ${S.req.item?`<p class="rqp-from">${E(RQP.pick(S.req.item,S.lg))}</p>`:""}
           <span class="rqp-due">${E(T("due"))}${CO}${E(RQP.day(S.req.exp,S.lg))}${PO}${E(left<=0?T("today"):T("left",left))}${PC}</span>
@@ -36354,11 +36371,13 @@ var RQP={
             <div class="rqp-fz" id="rqpfz"><button type="button" class="rqp-b g s" id="rqpfb">${E(T("addf"))}</button> ${E(T("drop"))}<br><small>${E(T("fmax",fMax))}</small><input type="file" id="rqpfi" multiple hidden>
             <div class="rqp-fl">${S.files.map(f=>`<div class="rqp-f"><span>${E((f.m&&f.m.name)||f.id)}（${Math.max(1,Math.round(((f.m&&f.m.size)||f.size||0)/1024))} KB）</span><button type="button" class="rqp-b g s" data-rmf="${E(f.id)}">${E(T("rmf"))}</button></div>`).join("")}</div></div></div>`:""}
           <div class="rqp-q"><label for="rqp_note">${E(T("note"))}</label><textarea id="rqp_note">${E((S.ans&&S.ans.note)||"")}</textarea></div>
-          ${S.msg?`<p class="rqp-msg ${S.msg[0]}" role="status">${E(S.msg[1])}</p>`:""}
-          <div class="rqp-act">${sent?"":`<button type="button" class="rqp-b g" id="rqpsave">${E(T("save"))}</button>`}<button type="submit" class="rqp-b" id="rqpsend">${E(sent?T("resend"):T("send"))}</button></div>
-          <p class="rqp-priv">${E(T("priv"))}${sent?" "+E(T("sentNote")):""}</p></form>
+          <p class="rqp-priv">${E(T("priv"))}${sent?" "+E(T("sentNote")):""}</p>
+          <div class="rqp-bar">${S.msg?`<p class="rqp-msg ${S.msg[0]}" role="status">${E(S.msg[1])}</p>`:""}
+            <div class="rqp-prog"><span id="rqpprog"></span><span id="rqpleft"></span></div><div class="rqp-pb" aria-hidden="true"><i id="rqppb"></i></div>
+            <div class="rqp-act">${sent?"":`<button type="button" class="rqp-b q" id="rqpsave">${E(T("save"))}</button>`}<button type="submit" class="rqp-b" id="rqpsend">${E(sent?T("resend"):T("send"))}</button></div></div></form>
         <p class="rqp-brand">${E(T("pw"))}</p></div>`;
       el.querySelector("#rqplg").onchange=e=>{ S.lg=e.target.value; RQP.saveLang(S.lg); keep(); draw(); };
+      { const fm=el.querySelector("#rqpf"); const up=()=>{ keep(); paint(); }; fm.addEventListener("input",up); fm.addEventListener("change",up); paint(); }
       el.querySelector("#rqpf").onsubmit=e=>{ e.preventDefault(); go("sent"); };
       const sv=el.querySelector("#rqpsave"); if(sv) sv.onclick=()=>go("draft");
       if(fOn){ const fi=el.querySelector("#rqpfi"), fz=el.querySelector("#rqpfz");
@@ -36367,6 +36386,12 @@ var RQP={
         fz.addEventListener("drop",e=>{ e.preventDefault(); fz.classList.remove("on"); addFiles([...(e.dataTransfer&&e.dataTransfer.files||[])]); });
         el.querySelectorAll("[data-rmf]").forEach(b=>b.onclick=async()=>{ if(S.busy) return; S.busy=true; try{ const x=await io.fdel(b.dataset.rmf); if(x&&x.ok) S.files=S.files.filter(f=>f.id!==b.dataset.rmf); else S.msg=["ng",EM(x)]; }catch(e){ S.msg=["ng",T("err")]; } S.busy=false; keep(); draw(); }); }
     };
+    const paint=()=>{ const p=RQP.count(S), raw=(k)=>String((RQP_L[S.lg]||RQP_L.en)[k]||RQP_L.en[k]||k);
+      const a=el.querySelector("#rqpprog"), l=el.querySelector("#rqpleft"), b=el.querySelector("#rqppb");
+      if(a) a.innerHTML=E(raw("prog")).replace("{a}/{n}",`<b>${p.a}/${p.n}</b>`);
+      if(l){ l.className=p.reqLeft?"rqp-left":"rqp-okall"; l.textContent=p.reqLeft?T("rql",p.reqLeft):(p.req?T("okall"):""); }
+      if(b) b.style.width=(p.n?Math.round(p.a/p.n*100):0)+"%";
+      const ol=el.querySelector("#rqpsteps"); if(ol){ const st=RQP.stepOf(S), sent=S.state==="sent"; [...ol.children].forEach((li,i)=>{ const ok=sent||st>i+1, on=!sent&&st===i+1; li.className=ok?"ok":on?"on":""; if(on) li.setAttribute("aria-current","step"); else li.removeAttribute("aria-current"); const n=li.querySelector(".n"); if(n) n.textContent=ok?"✓":String(i+1); }); } };
     const keep=()=>{ const f=el.querySelector("#rqpf"); if(!f) return; const a={}; f.querySelectorAll("[data-k]").forEach(x=>{ a[x.dataset.k]=x.value; });
       S.ans=Object.assign({},S.ans||{},{a,name:(f.querySelector("#rqp_name")||{}).value||"",co:(f.querySelector("#rqp_co")||{}).value||"",note:(f.querySelector("#rqp_note")||{}).value||""}); };
     const addFiles=async(list)=>{ keep(); const max=(S.req.files&&S.req.files.max)||5;
@@ -36376,7 +36401,10 @@ var RQP={
       if(S.msg&&S.msg[1]===T("upl")) S.msg=null; draw(); };
     const go=async(state)=>{ if(S.busy) return; keep(); const f=el.querySelector("#rqpf"); let bad=false;
       f.querySelectorAll("[data-k]").forEach(x=>{ const q=(S.req.q||[]).find(y=>y.k===x.dataset.k); const no=state==="sent"&&q&&q.req&&!String(x.value||"").trim(); x.classList.toggle("rqp-bad",!!no); x.setAttribute("aria-invalid",no?"true":"false"); if(no&&!bad){ bad=true; x.focus(); } });
-      if(bad){ S.msg=["ng",T("need")]; const m=el.querySelector(".rqp-msg"); if(m) m.textContent=T("need"); else { draw(); } return; }
+      if(bad){ S.msg=["ng",T("need")]; const m=el.querySelector(".rqp-msg"); if(m){ m.className="rqp-msg ng"; m.textContent=T("need"); return; }
+        /* 帯に断りを出すために描き直すと、入力欄の印と位置が消える → 最初の必須の空欄へ戻す */
+        draw(); const A2=(S.ans&&S.ans.a)||{}; const k=(S.req.q||[]).find(y=>y.req&&!String(A2[y.k]==null?"":A2[y.k]).trim());
+        const x=k&&[...el.querySelectorAll("[data-k]")].find(i=>i.dataset.k===k.k); if(x){ x.classList.add("rqp-bad"); x.setAttribute("aria-invalid","true"); try{ x.focus({preventScroll:true}); x.scrollIntoView({block:"center"}); }catch(e){} } return; }
       S.busy=true; const b1=el.querySelector("#rqpsend"), b2=el.querySelector("#rqpsave"); if(b1) b1.disabled=true; if(b2) b2.disabled=true;
       try{ const x=await io.ans(Object.assign({},S.ans,{lang:S.lg,files:S.files.map(f=>({fid:f.id,name:f.m&&f.m.name,size:f.m&&f.m.size,type:f.m&&f.m.type})),at:Date.now()}),state);
         if(x&&x.ok){ S.state=state; S.msg=["ok",state==="sent"?T("sent"):T("saved")]; } else S.msg=["ng",EM(x)]; }
@@ -36384,6 +36412,11 @@ var RQP={
       S.busy=false; draw(); try{ el.scrollIntoView({block:"end"}); }catch(e){} };
     draw();
   },
+  /* 回答した数（質問＋ファイルの欄）と必須の残り。名前・会社名・そのほかの連絡は数えない */
+  count(S){ const q=(S.req&&S.req.q)||[], A=(S.ans&&S.ans.a)||{}; let a=0,req=0,left=0;
+    q.forEach(x=>{ const v=String(A[x.k]==null?"":A[x.k]).trim(); if(v) a++; if(x.req){ req++; if(!v) left++; } });
+    let n=q.length; if(S.req&&S.req.files&&S.req.files.on){ n++; if((S.files||[]).length) a++; } return {a,n,req,reqLeft:left}; },
+  stepOf(S){ if(S.state==="sent") return 3; const p=RQP.count(S); const nm=S.ans&&(String(S.ans.name||"").trim()||String(S.ans.note||"").trim()); return (p.a||nm||S.state==="draft")?2:1; },
   navLang(){ const l=String((navigator.languages&&navigator.languages[0])||navigator.language||"en").toLowerCase(); return l.startsWith("ja")?"ja":l.startsWith("zh")?"zh":l.startsWith("es")?"es":"en"; },
   savedLang(){ try{ return localStorage.getItem("rqp_lang")||""; }catch(e){ return ""; } },
   saveLang(l){ try{ localStorage.setItem("rqp_lang",l); }catch(e){} },
@@ -38152,6 +38185,430 @@ try{ if(typeof v30I18n==="function") v30I18n([
 try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
   {re:/^残り(\d+)件を表示$/,en:"Show $1 more",zh:"显示其余 $1 项",es:"Mostrar $1 más"},
   {re:/^絞り込み（(\d+)）$/,en:"Filters ($1)",zh:"筛选（$1）",es:"Filtros ($1)"}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ═══ v21.38（2026-10-04）5か国 50社の調査（v21.37 の報告 EdN4MeGYqgxBzHw6DPdG3X）の「次の候補」6つ
+   ① ダッシュボードの上段に「対応待ち」の数字を3つ（確認・承認／返信／期限が今日まで）。押すと受信箱で、その分だけの一覧（星 SHOPLINE・Insider、日 総合1＋内訳4）
+   ② 状態の札の辞書：札にマウスを乗せる・押す・キーで選ぶと、意味と次の一手が出る（星 Sleek の8つの状態）
+   ③ 受信箱を3列：自分の番／相手の番／下書き・完了（日 クラウドサイン・kintone）。スマホは3つの切り替え
+   ④ 依頼ページ：手順（内容を確認 → 回答を入力 → 提出）＋主ボタン1つ＋「あなたの回答 2/5」（日 クラウドサイン、韓 入力1つ＋ボタン1つ）＝ req_page.js 側
+   ⑤ 出荷：縦のタイムライン＋例外の札（選んだ便が希望着荷に間に合わない・3日以上止まっている）＋段階ごとの日付と日数（韓・中・星 Ninja Van）
+   ⑥ AI の回答：「調べた手順」（Web の出典・根拠の一覧・エンジン）を既定で畳む。本文の根拠の番号はそのまま押せる（米 Palantir・CrowdStrike、中）
+   あわせて：書類の提出依頼の期限がミリ秒で入っているのに「YYYY-MM-DD」として読んでいて、受信箱に一度も出ていなかった（v21.33 から）→ どちらの形も読む */
+var V38={col:"me",lists:{me:[],wait:[],done:[]},tipEl:null,tipT:0};
+function v38Esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]); }
+function v38T(s){ try{ return typeof v30T==="function"?v30T(s):s; }catch(e){ return s; } }
+function v38Ja(){ try{ return typeof I18N==="undefined"||!I18N.lang||I18N.lang==="ja"; }catch(e){ return true; } }
+function v38C(){ try{ return (typeof I18N!=="undefined"&&(I18N.lang==="en"||I18N.lang==="es"))?": ":"："; }catch(e){ return "："; } }
+function v38P(s){ try{ return (typeof I18N!=="undefined"&&(I18N.lang==="en"||I18N.lang==="es"))?" ("+s+")":"（"+s+"）"; }catch(e){ return "（"+s+"）"; } }
+function v38Day0(ms){ const d=new Date(ms==null?Date.now():+ms); d.setHours(0,0,0,0); return d.getTime(); }
+function v38Days(from,to){ return Math.max(0,Math.round((v38Day0(to==null?Date.now():to)-v38Day0(from))/864e5)); }
+function v38MD(ms){ const d=new Date(+ms); return (d.getMonth()+1)+"/"+d.getDate(); }
+/* 期限などの値（ミリ秒・"YYYY-MM-DD"・"YYYY/MM/DD"）をミリ秒に */
+function v38Ms(v){ if(v==null||v==="") return 0; if(typeof v==="number") return v>0?v:0; const s=String(v).trim(); if(/^\d{10,13}$/.test(s)) return +s;
+  const m=/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/.exec(s); if(m) return new Date(+m[1],+m[2]-1,+m[3],12).getTime(); const t=Date.parse(s); return isNaN(t)?0:t; }
+function v38Ago(ms){ try{ if(typeof v30Ago==="function") return v38T(v30Ago(ms)); }catch(e){} const d=v38Days(ms); return d<=0?v38T("今日"):v38T(d+"日前"); }
+
+/* ══ ③ 受信箱：自分の番／相手の番／下書き・完了 ══ */
+const V38_KN={appr:"承認",reply:"返信",due:"期限",next:"次の行動",rq:"依頼ページ",meet:"予定",dr:"書類",dm:"メッセージ",apr:"承認待ち",draft:"下書き"};
+const V38IX_COLS=[["me","自分の番","あなたが動くもの"],["wait","相手の番","相手の返事を待っているもの"],["done","下書き・完了","書きかけ・あとで・済み（7日間）"]];
+/* 「済み」「あとで」に題名と種類も残す（下書き・完了の列に出すため。200件・題名60字まで） */
+function v38IxId(){ const me=v33Me(); return me.replace(/[^\w぀-鿿]/g,"_").slice(0,40)||"me"; }
+function v38IxMark(x,st){ const id=v38IxId(); const m=Object.assign({},(v33One("ix",id)||{}).m||{}); const now=Date.now();
+  m[x.key]={st,at:now,until:st==="later"?v33Day0(now+864e5)+3600e3:0,t:String(x.t||"").slice(0,60),k:x.k||""};
+  const ks=Object.keys(m); if(ks.length>200) ks.sort((a,b)=>(m[a].at||0)-(m[b].at||0)).slice(0,ks.length-200).forEach(k=>delete m[k]);
+  v33Put("ix",id,{m}); }
+function v38IxUnmark(key){ const id=v38IxId(); const m=Object.assign({},(v33One("ix",id)||{}).m||{}); if(!m[key]) return; delete m[key]; v33Put("ix",id,{m}); }
+function v38Fb(){ try{ return (typeof D!=="undefined"&&D&&Array.isArray(D.fb))?D.fb:[]; }catch(e){ return []; } }
+function v38FbName(f){ return [f&&f.b,f&&f.d].filter(Boolean).join(" ・ "); }
+/* 自分の番：v21.33 の項目から、相手を待っているもの（依頼ページ・書類の提出依頼）を除き、差し戻された商談記録を足す */
+function v38MineItems(){ let L=[]; try{ L=v33InboxItems(); }catch(e){}
+  L=L.filter(x=>x.k!=="rq"&&!/^dr:/.test(String(x.key||"")));
+  try{ const me=v33Me(); v38Fb().forEach((f,i)=>{ if(typeof fbAprSt!=="function"||fbAprSt(f)!=="差戻し") return; if(f.apr&&f.apr.req&&f.apr.req!==me) return;
+    L.push({key:"fb:"+i+":"+((f.apr&&f.apr.at)||""),k:"appr",t:v38T("差し戻された商談記録")+v38C()+v38FbName(f),sub:(f.apr&&f.apr.back)?v38T("理由")+v38C()+f.apr.back:v38T("直して、もう一度承認を依頼します"),due:0,at:0,go:()=>{ try{ go("deal"); }catch(e){} }}); }); }catch(e){}
+  const ix=v33IxState(), now=Date.now(); return L.filter(x=>{ const s=ix[x.key]; if(!s) return true; if(s.st==="done") return false; if(s.st==="later"&&now<(s.until||0)) return false; return true; }); }
+/* 相手の番：依頼ページの回答待ち・書類の提出依頼・バイヤーの返信待ち・自分が出した承認の依頼 */
+function v38WaitItems(){ const out=[], T=v38T, C=v38C(), now=Date.now(); let me=""; try{ me=v33Me(); }catch(e){}
+  try{ v33List("rq").forEach(x=>{ const s=v33RqState(x); if(s!=="wait"&&s!=="draft") return;
+    out.push({key:"rq:"+x.id,k:"rq",t:T("依頼ページ")+C+(x.toCo||x.toName||T(x.title||"依頼")),sub:T(s==="draft"?"相手が途中まで入力しています":"まだ回答がありません"),since:+x._c||0,due:+x.exp||0,
+      act:{lb:"催促する",fn:()=>{ try{ v33RqSend(x.id,true); }catch(e){} }},go:()=>{ try{ go("rqp"); }catch(e){} }}); }); }catch(e){}
+  try{ if(typeof v30List==="function") v30List("dr",x=>!x.done).forEach(x=>out.push({key:"dr:"+x.id,k:"dr",t:T("書類の提出依頼")+C+(x.title||""),sub:x.to?T("依頼先")+" "+x.to:"",since:+x._c||0,due:v38Ms(x.due),go:()=>{ try{ go("docs"); }catch(e){} }})); }catch(e){}
+  try{ if(typeof bmThreadsAll==="function") bmThreadsAll().forEach(th=>{ const ms=th.msgs||[]; const last=ms[ms.length-1]; if(!last||last.w!=="me") return;
+    let st=""; try{ st=bmStOf(th); }catch(e){} if(st==="失注") return; const at=+last.at||0; if(at&&now-at>60*864e5) return;
+    out.push({key:"dm:"+th.id+":"+ms.length,k:"dm",t:T("バイヤーの返信待ち")+C+[th.cty,th.biz].filter(Boolean).join(" ")+v38P("ID "+th.id),sub:String(last.subj||last.body||"").replace(/\s+/g," ").trim().slice(0,60),since:at,due:0,go:()=>{ try{ openDMThread(th.id); }catch(e){} }}); }); }catch(e){}
+  try{ if(typeof k30AprList==="function") k30AprList().filter(t=>t&&t.apr&&t.apr.st==="承認待ち"&&t.apr.by===me).forEach(t=>out.push({key:"ta:"+(t.id||t.n)+":"+(t.apr.at||""),k:"apr",t:T("タスクの承認待ち")+C+(t.n||""),sub:t.apr.to?T("確認する人")+C+t.apr.to:T("承認する人の確認を待っています"),since:+t.apr.at||0,due:0,go:()=>{ try{ go("task"); }catch(e){} }})); }catch(e){}
+  try{ v38Fb().forEach((f,i)=>{ if(typeof fbAprSt!=="function"||fbAprSt(f)!=="承認待ち") return; if(!f.apr||(f.apr.req&&f.apr.req!==me)) return; const who=(typeof fbApprover==="function"&&fbApprover())||"";
+    out.push({key:"fa:"+i+":"+(f.apr.reqAt||""),k:"apr",t:T("商談記録の承認待ち")+C+v38FbName(f),sub:who?T("確認する人")+C+who:T("承認する人の確認を待っています"),since:v38Ms(f.apr.reqAt),due:0,go:()=>{ try{ go("deal"); }catch(e){} }}); }); }catch(e){}
+  return out.sort((a,b)=>(a.due||Infinity)-(b.due||Infinity)||(a.since||0)-(b.since||0)); }
+/* 下書き・完了：商談記録の下書き・「あとで」（明日まで）・「済み」（7日間） */
+function v38DoneItems(){ const out=[], T=v38T, C=v38C(), now=Date.now();
+  try{ v38Fb().forEach((f,i)=>{ if(typeof fbAprSt!=="function"||fbAprSt(f)!=="下書き") return;
+    out.push({key:"fd:"+i,k:"draft",g:"draft",t:T("商談記録の下書き")+C+v38FbName(f),sub:T("仕上げて、承認を依頼します"),at:v38Ms(f.d),go:()=>{ try{ go("deal"); }catch(e){} }}); }); }catch(e){}
+  try{ const ix=v33IxState(); Object.keys(ix).forEach(k=>{ const s=ix[k]; if(!s||!s.t) return;
+    if(s.st==="later"&&now<(s.until||0)) out.push({key:k,k:s.k||"",g:"later",t:s.t,sub:T("あとで（明日また出します）"),at:+s.at||0,undo:1});
+    else if(s.st==="done"&&now-(+s.at||0)<7*864e5) out.push({key:k,k:s.k||"",g:"done",t:s.t,sub:T("済み")+" ・ "+v38Ago(s.at),at:+s.at||0,undo:1}); }); }catch(e){}
+  const o={draft:0,later:1,done:2}; return out.sort((a,b)=>(o[a.g]-o[b.g])||((b.at||0)-(a.at||0))); }
+function v38DueLv(x){ if(!x.due) return x.k==="appr"?v33Lv("chk","要対応"):""; const d=v33DaysTo(x.due);
+  return d<0?v33Lv("od","期限切れ（"+(-d)+"日）"):d===0?v33Lv("td","今日"):d===1?v33Lv("fu","明日"):v33Lv("fu",v33Day(x.due)); }
+/* 1件（col＝その項目の列、lk:i＝一覧の中の場所） */
+function v38Li(x,col,lk,i){ const E=v38Esc, T=v38T; const od=x.due&&x.due<v33Day0(); const ref=lk+":"+i;
+  const kb=x.k&&V38_KN[x.k]?`<span class="v33ixk v33ixk-${E(x.k)}">${E(T(V38_KN[x.k]))}</span>`:"";
+  const wdn=col==="wait"&&x.since?v38Days(x.since):-1; const wd=wdn>=0?`<span class="v38wd">${E(T(wdn?wdn+"日待ち":"今日から"))}</span>`:"";
+  const btns=col==="me"?`<button class="btn g" type="button" data-v38later="${ref}" title="${E(T("明日まで隠す"))}">${E(T("あとで"))}</button><button class="btn g" type="button" data-v38done="${ref}">${E(T("済み"))}</button>`
+    :col==="wait"?(x.act?`<button class="btn g" type="button" data-v38act="${ref}">${E(T(x.act.lb))}</button>`:"")
+    :(x.undo?`<button class="btn g" type="button" data-v38undo="${ref}">${E(T("受信箱に戻す"))}</button>`:"");
+  const title=x.go?`<button type="button" class="v33lnk v38li-t" data-v38go="${ref}"><b>${E(x.t)}</b></button>`:`<span class="v38li-t"><b>${E(x.t)}</b></span>`;
+  return `<li class="v38li${od?" v33od":""}"><div class="v38li-h">${kb}${v38DueLv(x)}${wd}</div>${title}${x.sub?`<span class="v33mute">${E(x.sub)}</span>`:""}${btns?`<div class="v38li-a">${btns}</div>`:""}</li>`; }
+const V38IX_F=[["","すべて"],["appr","確認・承認"],["reply","返信"],["today","期限が今日まで"],["next","次の行動"],["rq","依頼ページ"],["meet","予定"]];
+function v38IxMatch(x,f){ const end=v33Day0()+864e5; return f==="today"?!!(x.due&&x.due<end):f==="appr"?x.k==="appr":x.k===f; }
+vInbox33=function(p){ const E=v38Esc, T=v38T; const f=V33IXV.f||"";
+  const mine=v38MineItems(), wait=v38WaitItems(), done=v38DoneItems(); V38.lists={me:mine,wait,done};
+  const head=(typeof ph==="function")?ph(p,"自分の番・相手の番・下書きと完了の3つに分けました。左の「自分の番」を上から片付ければ、やり残しがありません。",""):"";
+  const all=mine.concat(wait); const cnt=k=>all.filter(x=>v38IxMatch(x,k)).length;
+  const tabs=`<div class="v33tabs" role="tablist" aria-label="${E(T("種類で絞り込む"))}">${V38IX_F.filter(([k])=>!k||k===f||cnt(k)).map(([k,n])=>`<button class="v33tab" type="button" role="tab" aria-selected="${f===k}" data-ixf="${k}">${E(T(n))}${k?`<span class="v33cnt">${cnt(k)}</span>`:""}</button>`).join("")}</div>`;
+  let body="";
+  if(f){ const L=all.filter(x=>v38IxMatch(x,f)); V38.lists.f=L; const nm=(V38IX_F.find(x=>x[0]===f)||[f,f])[1];
+    body=`<div class="v38fbar"><span>${E(T("絞り込み中"))}${E(v38C())}<b>${E(T(nm))}</b></span><button class="btn g" type="button" data-ixf="">${E(T("3つの列に戻す"))}</button></div>`+
+      (L.length?`<ul class="v38list">${L.map((x,i)=>v38Li(x,wait.includes(x)?"wait":"me","f",i)).join("")}</ul>`:`<p class="v38empty">${E(T("この種類のやることはありません"))}</p>`);
+  } else { const col=V38.col||"me";
+    const seg=`<div class="v38seg" role="tablist" aria-label="${E(T("受信箱の列"))}">${V38IX_COLS.map(([k,n])=>`<button type="button" role="tab" class="v38segb" aria-selected="${col===k}" data-v38col="${k}">${E(T(n))}<span class="v33cnt">${V38.lists[k].length}</span></button>`).join("")}</div>`;
+    body=seg+`<div class="v38cols">${V38IX_COLS.map(([k,n,h])=>{ const L=V38.lists[k];
+      return `<section class="v38col${col===k?" on":""}" data-col="${k}" aria-label="${E(T(n))}"><header class="v38colh"><h3>${E(T(n))}<span class="v33cnt">${L.length}</span></h3><p class="v33mute">${E(T(h))}</p></header>`+
+        (L.length?`<ul class="v38list">${L.map((x,i)=>v38Li(x,k,k,i)).join("")}</ul>`:`<p class="v38empty">${E(T(k==="me"?"あなたの番のものはありません。":k==="wait"?"相手を待っているものはありません。":"下書き・あとで・済みのものはありません。"))}</p>`)+`</section>`; }).join("")}</div>`; }
+  return head+v33DigestHtml("inbox")+`<div class="c v33ix v38ix">${tabs}${body}<div class="v33row-end"><label class="v33chkbox"><input type="checkbox" id="v33exonly"${v33NtExOnly()?" checked":""}> ${E(T("急ぎの知らせだけベルで知らせる（おすすめ）"))}</label></div></div>`; };
+v33InboxBind=function(){ const re=()=>{ try{ render(); }catch(e){} }; const get=s=>{ const a=String(s||"").split(":"); return ((V38.lists||{})[a[0]]||[])[+a[1]]; };
+  document.querySelectorAll("#well [data-ixf]").forEach(b=>b.onclick=()=>{ V33IXV.f=b.dataset.ixf; re(); });
+  document.querySelectorAll("#well [data-v38col]").forEach(b=>b.onclick=()=>{ V38.col=b.dataset.v38col;
+    document.querySelectorAll("#well .v38segb").forEach(x=>x.setAttribute("aria-selected",String(x===b))); document.querySelectorAll("#well .v38col").forEach(s=>s.classList.toggle("on",s.dataset.col===V38.col)); });
+  document.querySelectorAll("#well [data-v38go]").forEach(b=>b.onclick=()=>{ const x=get(b.dataset.v38go); if(x&&x.go) try{ x.go(); }catch(e){} });
+  document.querySelectorAll("#well [data-v38done]").forEach(b=>b.onclick=()=>{ const x=get(b.dataset.v38done); if(!x) return; v38IxMark(x,"done"); v33Toast("済みにしました（「下書き・完了」の列に7日間残ります）"); re(); });
+  document.querySelectorAll("#well [data-v38later]").forEach(b=>b.onclick=()=>{ const x=get(b.dataset.v38later); if(!x) return; v38IxMark(x,"later"); v33Toast("明日まで隠しました"); re(); });
+  document.querySelectorAll("#well [data-v38act]").forEach(b=>b.onclick=()=>{ const x=get(b.dataset.v38act); if(x&&x.act&&x.act.fn) try{ x.act.fn(); }catch(e){} });
+  document.querySelectorAll("#well [data-v38undo]").forEach(b=>b.onclick=()=>{ const x=get(b.dataset.v38undo); if(!x) return; v38IxUnmark(x.key); v33Toast("受信箱に戻しました"); re(); });
+  const ex=document.getElementById("v33exonly"); if(ex) ex.onchange=()=>{ v33NtSet({exOnly:ex.checked}); try{ notifBadge(); }catch(e){} v33Toast(ex.checked?"急ぎの知らせだけベルでお知らせします":"いままで通り、すべてベルでお知らせします"); }; };
+
+/* ══ ① ダッシュボードの上段に「対応待ち」3つ ══ */
+function v38WaitCounts(){ let L=[]; try{ L=v38MineItems(); }catch(e){} const end=v33Day0()+864e5;
+  return {appr:L.filter(x=>x.k==="appr").length,reply:L.filter(x=>x.k==="reply").length,today:L.filter(x=>x.due&&x.due<end).length}; }
+function v38DashWait(){ const E=v38Esc, T=v38T; const c=v38WaitCounts();
+  const tile=(f,n,lb,sub)=>`<button type="button" class="v38wt${n?"":" v38wt0"}" data-v38wf="${f}"><span class="v38wn">${n}</span><span class="v38wl">${E(T(lb))}</span><span class="v38ws">${E(T(sub))}</span></button>`;
+  return `<section class="c v38wait" aria-labelledby="v38wh"><div class="v38wtop"><h3 id="v38wh">${E(T("対応待ち"))}</h3><span class="v33mute">${E(T("押すと、受信箱でその分だけを開きます"))}</span></div>
+    <div class="v38wg">${tile("appr",c.appr,"確認・承認","AI の案・承認の依頼")}${tile("reply",c.reply,"返信","バイヤー・メンバーから")}${tile("today",c.today,"期限が今日まで","過ぎたものを含む")}</div></section>`; }
+if(typeof vDash==="function"){ const __vd38=vDash; vDash=function(){ const h=String(__vd38.apply(this,arguments));
+  try{ if(typeof PID==="undefined"||!PID) return h; const card=v38DashWait(); const m=/(<div class="c|<section)/.exec(h); return m?h.slice(0,m.index)+card+h.slice(m.index):h+card; }catch(e){} return h; }; }
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("[data-v38wf]"); if(!b) return; V33IXV.f=b.dataset.v38wf||""; V38.col="me"; try{ go("inbox"); }catch(x){} });
+
+/* ══ ⑤ 出荷：縦のタイムライン＋例外の札＋段階ごとの日付と日数 ══
+   段階に入った時刻を案件ごとに残す（stAt。保存は v21.1 の出荷案件の保存＝TEN.shipCases／shipSeed に st として）。前からの案件で分からない日付は出さない */
+const V38_STALL=3;
+function v38ShipDate(s,base){ s=String(s||""); let m=/(\d{4})\s*[年\/-]\s*(\d{1,2})\s*[月\/-]\s*(\d{1,2})/.exec(s); if(m) return new Date(+m[1],+m[2]-1,+m[3],12).getTime();
+  m=/^\s*(\d{1,2})[\/\-](\d{1,2})\s*$/.exec(s); if(m&&base){ const y=new Date(base).getFullYear(); let t=new Date(y,+m[1]-1,+m[2],12).getTime(); if(t-base>180*864e5) t=new Date(y-1,+m[1]-1,+m[2],12).getTime(); else if(base-t>180*864e5) t=new Date(y+1,+m[1]-1,+m[2],12).getTime(); return t; } return 0; }
+function v38ShipEx(S){ const o={late:0,n:0,pickLate:false}; try{ const want=v38ShipDate(S.want); if(!want) return o; const pk=String(S.pick||"").replace(/（.*/,"");
+  (S.quotes||[]).forEach(q=>{ const a=v38ShipDate(q[6],want); if(!a) return; o.n++; if(a>want){ o.late++; if(pk&&String(q[0]).indexOf(pk)===0) o.pickLate=true; } }); }catch(e){} return o; }
+if(typeof shp211Ser==="function"){ const __ss38=shp211Ser; shp211Ser=function(){ const s=__ss38.apply(this,arguments);
+  try{ if(s&&typeof SHIPS!=="undefined"&&SHIPS){ (s.man||[]).forEach(m=>{ const c=SHIPS.find(c=>c&&c.ship&&m.ship&&c.ship.no===m.ship.no); if(c&&Array.isArray(c.stAt)) m.st=c.stAt.slice(0,8); });
+    if(s.seed){ const sd=SHIPS.find(c=>c&&c.seed); if(sd&&Array.isArray(sd.stAt)) s.seed.st=sd.stAt.slice(0,8); } } }catch(e){} return s; }; }
+if(typeof shp211Rehydrate==="function"){ const __sr38=shp211Rehydrate; shp211Rehydrate=function(){ const r=__sr38.apply(this,arguments);
+  try{ if(typeof SHIPS!=="undefined"&&SHIPS&&typeof TEN!=="undefined"&&TEN){ SHIPS.forEach(c=>{ if(!c||Array.isArray(c.stAt)) return;
+    if(c.seed){ if(TEN.shipSeed&&Array.isArray(TEN.shipSeed.st)) c.stAt=TEN.shipSeed.st.slice(); }
+    else { const m=(TEN.shipCases||[]).find(x=>x&&x.ship&&c.ship&&x.ship.no===c.ship.no); if(m&&Array.isArray(m.st)) c.stAt=m.st.slice(); } }); } }catch(e){} return r; }; }
+function v38ShipTimeline(){
+  const stp=document.querySelector("#well .stp"); if(!stp||typeof D==="undefined"||!D||!D.ship||typeof shipSteps!=="function"||typeof SHIPS==="undefined"||!SHIPS) return;
+  const c=SHIPS[SHIPA]; if(!c) return; const ST=shipSteps(); const E=v38Esc, T=v38T; const now=Date.now();
+  if(!Array.isArray(c.stAt)) c.stAt=[]; let chg=false;
+  if(c._v38s!=null&&shipStep<c._v38s&&shipStep===0){ c.stAt=[]; chg=true; }   /* 「最初から」 */
+  for(let i=shipStep+1;i<c.stAt.length;i++) if(c.stAt[i]!=null){ c.stAt[i]=null; chg=true; }
+  if(c.stAt[shipStep]==null){ c.stAt[shipStep]=now; chg=true; } c._v38s=shipStep;
+  if(chg) try{ if(typeof shp211Save==="function") shp211Save(); }catch(e){}
+  const ex=v38ShipEx(D.ship), last=ST.length-1;
+  const rows=ST.map((s,i)=>{ const st=i<shipStep?"done":i===shipStep?"now":"next"; const a=c.stAt[i], b=c.stAt[i+1]; let meta="";
+    if(st==="done"){ const dd=a&&b?v38Days(a,b):-1; meta=dd===0?v38MD(b)+" ・ "+T("当日"):dd>0?v38MD(a)+" → "+v38MD(b)+" ・ "+T(dd+"日間"):b?T("完了")+" "+v38MD(b):T("完了"); }
+    else if(st==="now") meta=i===last?(a?T("完了")+" "+v38MD(a):T("完了")):(a?T(v38MD(a)+" から")+" ・ "+T((v38Days(a)+1)+"日目"):"");
+    const bd=[];
+    if(i===2&&shipStep>=2&&ex.n){ if(ex.pickLate) bd.push(`<span class="v33lv v33lv-crit">${E(T("選んだ便は希望着荷に間に合いません"))}</span>`);
+      else if(ex.late) bd.push(`<span class="v33lv v33lv-mute">${E(T("希望着荷に間に合う見積 "+(ex.n-ex.late)+"/"+ex.n+"社"))}</span>`); }
+    if(st==="now"&&i<last&&a&&v38Days(a)>=V38_STALL) bd.push(`<span class="v33lv v33lv-warn">${E(T(v38Days(a)+"日止まっています"))}</span>`);
+    return `<li class="v38tl-i ${st}"${st==="now"?' aria-current="step"':""}><span class="v38tl-d" aria-hidden="true">${st==="done"?"✓":i+1}</span><div class="v38tl-m"><span class="v38tl-t">${E(T(s.t))}</span>${bd.join("")}</div><span class="v38tl-x">${E(meta)}</span></li>`; }).join("");
+  const box=document.createElement("div"); box.className="v38tl"; box.innerHTML=`<ol aria-label="${E(T("出荷の進み具合"))}">${rows}</ol>`;
+  stp.replaceWith(box);
+  const lb=box.parentElement&&box.parentElement.querySelector(".lbl"); if(lb&&c.stAt[0]&&!lb.querySelector(".v38tot")){ const sp=document.createElement("span"); sp.className="v38tot"; sp.textContent=T("受注の確認から "+(v38Days(c.stAt[0])+1)+"日目"); lb.appendChild(sp); }
+}
+
+/* ══ ⑥ AI の回答：「調べた手順」を既定で畳む ══
+   畳むもの：Web の出典（🌐 の枠）・根拠の一覧（v21.33 の「根拠（n）」）・エンジンとデータの行（.ci）。本文・「判断できません」・次の一手のボタンはそのまま。
+   内蔵エンジンの短い「根拠：…」の行（60字まで）だけのときは畳まない */
+function v38FoldBB(bb){ try{
+  if(!bb||bb.querySelector(".car")||bb.querySelector(":scope > details.v38steps")) return;
+  const kids=[...bb.children];
+  const ci=kids.filter(e=>e.classList&&e.classList.contains("ci"));
+  const refs=kids.find(e=>e.matches&&e.matches("details.v33refs"));
+  const web=kids.filter(e=>e.tagName==="DIV"&&!(e.className&&String(e.className).trim())&&/^\s*🌐/.test(e.textContent||""));
+  const ciTxt=ci.map(e=>(e.textContent||"").trim()).join(" ");
+  if(!web.length&&!refs&&!(ci.length&&ciTxt.length>60)) return;
+  const moved=[refs].concat(web,ci).filter(Boolean); const first=kids.find(e=>moved.includes(e));
+  const nWeb=web.reduce((a,w)=>a+(w.querySelectorAll("a[href]").length||w.querySelectorAll("b").length),0);
+  const nRef=refs?refs.querySelectorAll("li").length:0;
+  const parts=[]; if(nRef) parts.push(v38T("根拠")+" "+nRef); if(nWeb) parts.push("Web "+nWeb);
+  const d=document.createElement("details"); d.className="v38steps";
+  const sm=document.createElement("summary"); sm.textContent=v38T("調べた手順")+(parts.length?v38P(parts.join(" ・ ")):""); d.appendChild(sm);
+  const box=document.createElement("div"); box.className="v38steps-b"; d.appendChild(box);
+  bb.insertBefore(d,first);
+  if(refs){ refs.open=true; box.appendChild(refs); } web.forEach(w=>box.appendChild(w)); ci.forEach(x=>box.appendChild(x));
+}catch(e){} }
+const V38FQ=new Set(); let V38FT=0;
+function v38FoldScan(root){ try{ (root||document).querySelectorAll(".m.a > .bb").forEach(v38FoldBB); }catch(e){} }
+try{ new MutationObserver(muts=>{ try{ for(const m of muts){ let t=m.target; if(t&&t.nodeType===3) t=t.parentNode; const bb=t&&t.closest&&t.closest(".m.a > .bb");
+    if(bb) V38FQ.add(bb); else m.addedNodes&&m.addedNodes.forEach(n=>{ if(n.nodeType!==1) return; if(n.matches&&n.matches(".m.a")){ const b=n.querySelector(":scope > .bb"); if(b) V38FQ.add(b); } else if(n.querySelectorAll&&n.querySelector(".m.a")) n.querySelectorAll(".m.a > .bb").forEach(b=>V38FQ.add(b)); }); }
+  if(V38FQ.size&&!V38FT) V38FT=setTimeout(()=>{ V38FT=0; const L=[...V38FQ]; V38FQ.clear(); L.forEach(v38FoldBB); },80); }catch(e){} }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+/* 本文の根拠の番号を押したら、畳んだ「調べた手順」も開く（v21.33 の処理が根拠の行を光らせる前に） */
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("[data-v33s]"); if(!b) return; const bb=b.closest(".bb"); const d=bb&&bb.querySelector(":scope > details.v38steps"); if(d) d.open=true; },true);
+
+/* ══ ② 状態の札の辞書：意味と次の一手 ══ */
+const V38ST={
+ "未対応":["まだ連絡していない相手です。","最初のメッセージを送るか、次の行動と日付を決めます。"],
+ "営業中":["こちらから働きかけている段階です（相手の返事はまだ）。","返事が無ければ、7日ほどあけて別の切り口で送ります。"],
+ "商談中":["相手から返事があり、条件を話している段階です。","価格・数量・時期を聞いて、見積かサンプルに進めます。"],
+ "契約待ち":["条件がほぼ決まり、契約・発注を待っている段階です。","契約書か発注書の案を送り、返事の期限を決めます。"],
+ "取引中":["受注・出荷が始まっている相手です。","出荷を進め、次の注文の時期を確かめます。"],
+ "取引終了":["いまは取引していない相手です。","終わった理由を残し、時期を見て再提案します。"],
+ "コンタクト中":["こちらから送っただけで、まだ返信がない状態です。","3〜7日待って返事が無ければ、短い追いメッセージを送ります。"],
+ "サンプル出荷":["サンプルを送った・届いた段階です。","届いた日を確かめ、1週間ほどで感想と次の数量を聞きます。"],
+ "見積提示":["こちらから価格・条件を出した段階です。","3〜5日後に、価格への反応と数量を確かめます。"],
+ "契約交渉":["契約・発注書・独占などの条件を話している段階です。","決まった条件を書面にし、残りを1つずつ詰めます。"],
+ "失注":["相手が見送った状態です。","断られた理由を商談記録に残すと、次の提案が良くなります。"],
+ "未着手":["まだ始めていないタスクです。","期限と担当を確かめて、最初の一歩を始めます。"],
+ "対応中":["担当者が進めているタスクです。","止まっていたら、コメントで状況を聞きます。"],
+ "完了":["終わっています。","何もしなくて大丈夫です。"],
+ "中止":["やめたタスクです（記録は残ります）。","必要になったら、もう一度始められます。"],
+ "承認待ち":["承認する人の確認を待っています。","承認する人に知らせが届いています。急ぐ時は直接声をかけます。"],
+ "差戻し":["承認する人が、直してほしいと戻した状態です。","理由を読んで直し、もう一度承認を依頼します。"],
+ "承認済":["承認されました（まだ公開していない記録です）。","必要なら公開します。"],
+ "下書き":["まだ自分だけの書きかけです。","仕上げて、承認を依頼します。"],
+ "公開":["チームに公開された記録です。","AI商社マンの分析にも使われます。"],
+ "未提出":["相手がまだ回答していません。","期限が近ければ催促できます（1日1回まで）。"],
+ "途中保存":["相手が途中まで入力しています。","もう少し待つか、期限を添えて催促します。"],
+ "提出済み":["相手が回答を出しました。","「確認待ち」で中身を確かめて反映します。"],
+ "期限切れ":["期限を過ぎています。","今日中に片付けるか、期限を決め直します。"],
+ "締め切り":["こちらで締め切った依頼です。","必要なら再開できます。"],
+ "推奨":["AI が根拠つきで「この変更で良い」と判断した案です。","中身を見て、良ければ承認します。"],
+ "要確認":["根拠が弱いか、今の値と大きく違う案です。","根拠を読んでから、直すか承認します。"],
+ "非推奨":["AI が問題ありと判断した案です。","基本は却下します。"],
+ "送れない":["このままでは送れない問題があります（例：価格の桁違い・使えない表現）。","指摘された箇所を直します。"],
+ "確認":["送れますが、確かめてほしい点があります（送ると記録に残ります）。","内容を確かめてから送ります。"],
+ "提案":["より良くするための提案です。","必要なら取り入れます。"],
+ "今日":["今日が期限です。","今日のうちに片付けます。"],
+ "明日":["明日が期限です。","今日のうちに準備しておきます。"],
+ "予定なし":["次の行動が決まっていない相手です。","次の行動と日付を決めます。"],
+ "先の予定":["期限まで余裕があります。","期限が近づいたら受信箱に出ます。"],
+ "要対応":["あなたの確認や承認を待っています。","開いて、承認・修正・却下のどれかを選びます。"],
+ "納品レベル":["最終チェックに通った資料です。","そのまま相手に送れます。"],
+ "要修正（下書きのみ）":["最終チェックで大きな問題が見つかった資料です（下書きとしてだけ保存できます）。","指摘を直して、作り直します。"],
+ "済み":["片付け済みです。","7日間は「下書き・完了」に残り、受信箱に戻せます。"]
+};
+function v38StNorm(t){ t=String(t||"").replace(/\s+/g," ").trim().replace(/^[✓✔✅⚠🔒●○◆・\-–—]+\s*/,"");
+  if(/^(期限切れ|Overdue|已逾期|Vencido)/.test(t)) return "期限切れ"; if(/^コンタクト中/.test(t)) return "コンタクト中"; if(/^納品レベル/.test(t)) return "納品レベル";
+  if(/^要修正/.test(t)) return "要修正（下書きのみ）"; if(/^差し?戻し$/.test(t)) return "差戻し"; return t; }
+let V38ST_REV=null, V38ST_REVL="";
+function v38StRev(){ const l=(typeof I18N!=="undefined"&&I18N.lang)||"ja"; if(V38ST_REV&&V38ST_REVL===l) return V38ST_REV; V38ST_REV={}; V38ST_REVL=l;
+  try{ const d=(typeof I18N!=="undefined"&&I18N.dict&&I18N.dict[l])||{}; Object.keys(V38ST).forEach(k=>{ const v=d[k]; if(v&&!V38ST_REV[v]) V38ST_REV[v]=k; }); }catch(e){} return V38ST_REV; }
+function v38StKey(el){ let n=null; const tw=document.createTreeWalker(el,NodeFilter.SHOW_TEXT); let x; while((x=tw.nextNode())){ if(x.nodeValue.trim()){ n=x; break; } } if(!n) return "";
+  let t=(typeof I18N!=="undefined"&&I18N.orig&&I18N.orig.get(n))||n.nodeValue; let k=v38StNorm(t); if(V38ST[k]) return k;
+  const r=v38StRev()[String(n.nodeValue).trim()]; return r||""; }
+/* 札に印を付ける。札そのものが押せる物・ボタンやリンクの中の札は対象外。押せる行（onclick）の中の札は、乗せた時だけ出す（押した時は行の操作のまま）。
+   札の title（交渉ステータスの判定の根拠など）は、ブラウザの吹き出しと二重にならないよう、こちらの吹き出しの最後の行に移す */
+function v38StMark(){ try{ document.querySelectorAll("#well .p:not(.v38st),#well .v33lv:not(.v38st),#pn .p:not(.v38st),#pn .v33lv:not(.v38st)").forEach(el=>{
+    if(el.hasAttribute("onclick")||el.getAttribute("role")==="button"||el.closest("button,a,summary,label,select,[role=tab],[role=button],.v33tabs,#v38tip")) return; const k=v38StKey(el); if(!k) return;
+    el.classList.add("v38st"); el.dataset.v38st=k; if(el.parentElement&&el.parentElement.closest("[onclick]")) el.dataset.v38h="1";
+    if(el.title){ el.dataset.v38t=el.title; el.removeAttribute("title"); } if(!el.hasAttribute("tabindex")) el.tabIndex=0; }); }catch(e){} }
+function v38Tip(){ let t=document.getElementById("v38tip"); if(!t){ t=document.createElement("div"); t.id="v38tip"; t.setAttribute("role","tooltip"); t.hidden=true; document.body.appendChild(t); } return t; }
+function v38TipShow(el,pin){ const d=V38ST[el.dataset.v38st]; if(!d) return; const t=v38Tip(), E=v38Esc, T=v38T;
+  t.innerHTML=`<b>${E((el.textContent||"").trim())}</b><p>${E(T(d[0]))}</p>${d[1]?`<p class="v38tip-n"><span>${E(T("次の一手"))}</span>${E(T(d[1]))}</p>`:""}${el.dataset.v38t?`<p class="v38tip-x">${E(el.dataset.v38t)}</p>`:""}`;
+  t.hidden=false; t.dataset.pin=pin?"1":""; if(V38.tipEl&&V38.tipEl!==el) V38.tipEl.removeAttribute("aria-describedby"); V38.tipEl=el; el.setAttribute("aria-describedby","v38tip");
+  const r=el.getBoundingClientRect(); t.style.maxWidth=Math.min(320,innerWidth-24)+"px"; t.style.left="0px"; t.style.top="0px";
+  const tw=t.offsetWidth, th=t.offsetHeight; let top=r.bottom+8; if(top+th>innerHeight-8) top=Math.max(8,r.top-th-8);
+  t.style.top=Math.round(top)+"px"; t.style.left=Math.round(Math.min(Math.max(8,r.left),innerWidth-tw-8))+"px"; }
+function v38TipHide(force){ const t=document.getElementById("v38tip"); if(!t||t.hidden) return; if(t.dataset.pin==="1"&&!force) return; t.hidden=true; t.dataset.pin=""; if(V38.tipEl){ V38.tipEl.removeAttribute("aria-describedby"); V38.tipEl=null; } }
+document.addEventListener("mouseover",e=>{ const el=e.target&&e.target.closest&&e.target.closest(".v38st"); if(!el) return; clearTimeout(V38.tipT); V38.tipT=setTimeout(()=>{ const t=document.getElementById("v38tip"); if(t&&!t.hidden&&t.dataset.pin==="1") return; v38TipShow(el,false); },250); });
+document.addEventListener("mouseout",e=>{ const el=e.target&&e.target.closest&&e.target.closest(".v38st"); if(!el||(e.relatedTarget&&el.contains(e.relatedTarget))) return; clearTimeout(V38.tipT); v38TipHide(false); });
+document.addEventListener("focusin",e=>{ const el=e.target&&e.target.closest&&e.target.closest(".v38st"); if(el) v38TipShow(el,false); });
+document.addEventListener("focusout",e=>{ const el=e.target&&e.target.closest&&e.target.closest(".v38st"); if(el) v38TipHide(false); });
+/* 押す（スマホはタップ）：開いたままにする／もう一度で閉じる。札の行が押せる行でも、札を押した時は行の操作をしない */
+document.addEventListener("click",e=>{ const el=e.target&&e.target.closest&&e.target.closest(".v38st"); const t=document.getElementById("v38tip");
+  if(!el){ if(t&&!t.hidden&&!(e.target.closest&&e.target.closest("#v38tip"))) v38TipHide(true); return; }
+  if(el.dataset.v38h==="1"){ v38TipHide(true); return; }
+  e.stopPropagation(); e.preventDefault(); clearTimeout(V38.tipT); if(t&&!t.hidden&&V38.tipEl===el&&t.dataset.pin==="1") v38TipHide(true); else v38TipShow(el,true); },true);
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ v38TipHide(true); return; } const el=e.target&&e.target.closest&&e.target.closest(".v38st"); if(el&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); const t=document.getElementById("v38tip"); if(t&&!t.hidden&&t.dataset.pin==="1"&&V38.tipEl===el) v38TipHide(true); else v38TipShow(el,true); } });
+let V38TR=0; function v38TipFollow(){ V38TR=0; const t=document.getElementById("v38tip"), el=V38.tipEl; if(!t||t.hidden||!el) return; const r=el.getBoundingClientRect();
+  if(!el.isConnected||r.bottom<0||r.top>innerHeight||r.width===0){ v38TipHide(true); return; } v38TipShow(el,t.dataset.pin==="1"); }
+addEventListener("scroll",()=>{ if(!V38TR) V38TR=requestAnimationFrame(v38TipFollow); },true); addEventListener("resize",()=>v38TipHide(true));
+
+/* ══ 見た目（v21.37 の層の後ろに置き直す） ══ */
+function v38Css(){ if(document.getElementById("ux2138css")) return; const s=document.createElement("style"); s.id="ux2138css"; s.textContent=`
+/* ① 対応待ち */
+.v38wait .v38wtop{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:12px}.v38wait h3{margin:0}
+.v38wg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.v38wt{font:inherit;text-align:left;display:grid;gap:2px;align-content:start;padding:14px 16px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;min-height:88px}
+.v38wt:hover{border-color:var(--or)}.v38wt:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+.v38wn{font-size:30px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}.v38wl{font-size:15px;font-weight:500}.v38ws{font-size:13px;color:var(--ink-3)}
+.v38wt0 .v38wn{color:var(--ink-3)}
+@media (max-width:820px){.v38wg{gap:8px}.v38wt{padding:10px;min-height:0}.v38wn{font-size:24px}.v38wl{font-size:14px;line-height:1.4}.v38ws{display:none}}
+/* ③ 受信箱 3列 */
+.v38seg{display:none}
+.v38cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:1180px) and (min-width:821px){.v38cols{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}}
+.v38col{background:var(--surface-2);border-radius:var(--r2);padding:12px;min-width:0}
+.v38colh{display:grid;gap:2px;margin:0 2px 10px}.v38colh h3{margin:0;display:flex;align-items:center;gap:8px;font-size:16px}.v38colh p{margin:0}
+.v38list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.v38li{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:10px 12px;display:grid;gap:4px;min-width:0}
+.v38li.v33od{background:var(--surface);border-left:3px solid var(--crit)}
+.v38li-h{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.v38li-h:empty{display:none}
+.v38li-t{display:block;text-align:left}.v38li-t b{font-size:15px;font-weight:500;overflow-wrap:anywhere}.v38li .v33mute{overflow-wrap:anywhere}
+.v38li-a{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;margin-top:2px}.v38li-a .btn{min-height:32px;padding:4px 12px;font-size:14px}
+.v38wd{font-size:13px;color:var(--v33-mute-t);font-variant-numeric:tabular-nums}
+.v38empty{color:var(--v33-mute-t);font-size:14px;padding:14px 4px;margin:0;text-align:center}
+.v38fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:0 0 10px;padding:8px 12px;border-radius:var(--r2);background:var(--bl-soft)}
+@media (max-width:820px){.v38seg{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--sunk);margin:0 0 10px}
+ .v38segb{flex:1 1 auto;min-width:0;font:inherit;font-size:13px;border:0;background:transparent;color:var(--ink-2);border-radius:999px;padding:8px 4px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;white-space:nowrap}
+ .v38segb .v33cnt{padding:0 5px;min-width:16px}
+ .v38segb[aria-selected="true"]{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+ .v38cols{display:block}.v38col{display:none;padding:10px}.v38col.on{display:block}.v38colh h3 .v33cnt{display:none}}
+@media (max-width:820px){.v33dg-h{flex-wrap:wrap;gap:8px}.v33dg-h h3{flex:1 1 auto;min-width:0}.v33dg-h .btn{white-space:nowrap;flex:none}}
+/* ⑤ 出荷：縦のタイムライン */
+.v38tl ol{list-style:none;margin:6px 0 0;padding:0}
+.v38tl-i{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:2px 12px;align-items:start;padding:4px 0 10px}
+.v38tl-i::before{content:"";position:absolute;left:13px;top:32px;bottom:-2px;width:2px;background:var(--line)}
+.v38tl-i:last-child{padding-bottom:0}.v38tl-i:last-child::before{display:none}.v38tl-i.done::before{background:var(--good)}
+.v38tl-d{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;border:2px solid var(--line);background:var(--surface);color:var(--ink-3);position:relative;z-index:1;font-variant-numeric:tabular-nums;box-sizing:border-box}
+.v38tl-i.done .v38tl-d{background:var(--good);border-color:var(--good);color:#fff}
+.v38tl-i.now .v38tl-d{border-color:var(--or);color:var(--or-deep);box-shadow:0 0 0 4px var(--or-soft)}
+.v38tl-m{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0;padding-top:3px}
+.v38tl-t{font-size:15px;color:var(--ink-2)}.v38tl-i.now .v38tl-t{color:var(--ink);font-weight:700}.v38tl-i.next .v38tl-t{color:var(--ink-3)}
+.v38tl-x{font-size:13px;color:var(--ink-3);white-space:nowrap;padding-top:5px;font-variant-numeric:tabular-nums}.v38tl-i.now .v38tl-x{color:var(--or-deep)}
+.v38tot{margin-left:10px;font-weight:400;color:var(--ink-3)}
+@media (max-width:820px){.v38tl-i{grid-template-columns:28px minmax(0,1fr)}.v38tl-x{grid-column:2;padding-top:0;white-space:normal}.v38tot{display:block;margin:2px 0 0}}
+/* ⑥ 調べた手順 */
+.v38steps{margin-top:10px;border-top:1px dashed var(--line);padding-top:4px}
+.v38steps>summary{cursor:pointer;font-size:13px;color:var(--ink-3);list-style:none;display:inline-flex;align-items:center;gap:6px;min-height:30px}
+.v38steps>summary::-webkit-details-marker{display:none}.v38steps>summary::before{content:"▸";font-size:11px;transition:transform .15s}
+.v38steps[open]>summary::before{transform:rotate(90deg)}.v38steps>summary:hover{color:var(--ink-2)}
+.v38steps-b{display:grid;gap:8px;margin-top:4px}.v38steps-b>.ci{margin-top:0;border-top:0;padding-top:0}.v38steps-b>div{margin-top:0!important}
+/* ② 状態の札 */
+.v38st{cursor:help}.v38st:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+#v38tip{position:fixed;z-index:400;max-width:320px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:var(--pop);padding:10px 12px;font-size:14px;line-height:1.6;pointer-events:auto}
+#v38tip[hidden]{display:none}#v38tip b{display:block;font-size:14px;margin-bottom:2px}#v38tip p{margin:0}
+#v38tip .v38tip-n{margin-top:6px;color:var(--ink-2)}#v38tip .v38tip-n span{display:block;font-size:12px;font-weight:700;color:var(--ink-3)}
+#v38tip .v38tip-x{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3)}
+`; document.head.appendChild(s); }
+function v38CssLast(){ try{ const s=document.getElementById("ux2138css"); if(s&&s!==document.head.lastElementChild) document.head.appendChild(s); }catch(e){} }
+if(typeof v37CssLast==="function"){ const __l38=v37CssLast; v37CssLast=function(){ __l38.apply(this,arguments); v38CssLast(); }; }
+
+/* ══ 描画の後 ══ */
+function v38After(){ v38CssLast(); try{ if(typeof cur!=="undefined"&&cur==="ops"&&typeof opsTab!=="undefined"&&opsTab==="ship") v38ShipTimeline(); }catch(e){} try{ v38StMark(); }catch(e){} try{ v38FoldScan(document.getElementById("well")); }catch(e){} v38TipHide(true); }
+{ const __r38=render; render=function(){ const r=__r38.apply(this,arguments); try{ v38After(); }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr38=fwdRender; fwdRender=function(){ const r=__fr38.apply(this,arguments); try{ v38CssLast(); v38StMark(); v38TipHide(true); }catch(e){} return r; }; }
+if(typeof renderAdmin==="function"){ const __ra38=renderAdmin; renderAdmin=function(){ const r=__ra38.apply(this,arguments); try{ v38CssLast(); }catch(e){} return r; }; }
+/* 右の引き出し（AI に質問・タスクの詳細・活動レポートなど）を開いた時も札に印を付ける。
+   v21.37 の「ボタンの先頭の絵文字を外す・小さな操作を静かに」は画面を描いた後だけで、引き出しの中には効いていなかった（「✅ 承認を依頼」「📝 週報の文面を作る」など）→ 開いた時にも */
+if(typeof openDW==="function"){ const __dw38=openDW; openDW=function(){ const r=__dw38.apply(this,arguments); try{ setTimeout(()=>{ v38StMark(); try{ if(typeof v37Emoji==="function") v37Emoji(); if(typeof v37Quiet==="function") v37Quiet(); }catch(e){} },0); }catch(e){} return r; }; }
+try{ v38Css(); v38CssLast(); }catch(e){}
+
+/* ── 新機能と改善 ── */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.38")) S30_NEWS.unshift(["2026-10","v21.38","対応待ちが一目で：受信箱を3列に・依頼ページを手順つきに・出荷を縦のタイムラインに",
+  ["ダッシュボードの上に「対応待ち」の数字を3つ（確認・承認／返信／期限が今日まで）。押すと受信箱でその分だけを開きます",
+   "受信箱を「自分の番／相手の番／下書き・完了」の3列に。相手の返事を待っているものは待った日数つき",
+   "状態の札（商談中・承認待ち・期限切れなど）にマウスを乗せる・押すと、意味と次の一手が出ます",
+   "依頼ページ（相手が開く画面）に手順と「あなたの回答 2/5」。押すボタンは「提出する」の1つに",
+   "出荷を縦のタイムラインに：段階ごとの日付と日数、選んだ便が希望着荷に間に合わない・3日以上止まっている時は札で知らせます",
+   "AI の回答の「調べた手順」（Web の出典・根拠の一覧・エンジン）は畳んで、本文を先に。根拠の番号を押すと開きます"]]); }catch(e){}
+
+/* ═══ v21.38 の表示言語（英・中・西）：受信箱の3列・対応待ち・出荷のタイムライン・調べた手順・状態の札の辞書・お知らせ ═══ */
+try{ if(typeof v30I18n==="function") v30I18n([
+ /* ③ 受信箱 */
+ ["自分の番","My turn","轮到我","Mi turno"],["相手の番","Their turn","轮到对方","Su turno"],["下書き・完了","Drafts & done","草稿・已完成","Borradores y hechos"],
+ ["あなたが動くもの","Things you need to act on","需要您处理的事项","Lo que le toca hacer"],["相手の返事を待っているもの","Waiting for the other side","正在等待对方回复的事项","Esperando a la otra parte"],
+ ["書きかけ・あとで・済み（7日間）","Drafts, snoozed, and done (7 days)","草稿、稍后处理、已完成（7天）","Borradores, pospuestos y hechos (7 días)"],
+ ["自分の番・相手の番・下書きと完了の3つに分けました。左の「自分の番」を上から片付ければ、やり残しがありません。","Split into three: My turn, Their turn, and Drafts & done. Work down “My turn” on the left and nothing slips through.","分为“轮到我”“轮到对方”“草稿・已完成”三列。从左侧“轮到我”自上而下处理，就不会遗漏。","Dividido en tres: Mi turno, Su turno y Borradores y hechos. Avance por «Mi turno» a la izquierda y no se le escapará nada."],
+ ["種類で絞り込む","Filter by type","按类型筛选","Filtrar por tipo"],["絞り込み中","Filtered","筛选中","Filtrado"],["3つの列に戻す","Back to 3 columns","返回三列","Volver a 3 columnas"],["受信箱の列","Inbox columns","收件箱列","Columnas de la bandeja"],
+ ["この種類のやることはありません","Nothing of this type to do","没有此类待办","No hay nada de este tipo"],
+ ["あなたの番のものはありません。","Nothing is waiting on you.","没有需要您处理的事项。","No hay nada pendiente de usted."],["相手を待っているものはありません。","Nothing is waiting on others.","没有在等待对方的事项。","No hay nada esperando a otros."],
+ ["下書き・あとで・済みのものはありません。","No drafts, snoozed, or done items.","没有草稿、稍后处理或已完成的事项。","No hay borradores, pospuestos ni hechos."],
+ ["確認・承認","Review & approve","确认・审批","Revisar y aprobar"],["期限が今日まで","Due today or overdue","今天到期","Vence hoy o vencido"],
+ ["書類","Documents","单证","Documentos"],["メッセージ","Message","消息","Mensaje"],["依頼","Request","请求","Solicitud"],
+ ["差し戻された商談記録","Deal record sent back","被退回的商谈记录","Registro devuelto"],["理由","Reason","原因","Motivo"],["直して、もう一度承認を依頼します","Fix it and request approval again","修改后再次申请审批","Corríjalo y vuelva a solicitar la aprobación"],
+ ["相手が途中まで入力しています","They have started filling it in","对方已填写了一部分","Empezaron a completarla"],["まだ回答がありません","No answer yet","尚未回复","Aún sin respuesta"],["催促する","Send reminder","催促","Enviar recordatorio"],
+ ["書類の提出依頼","Document request","单证提交请求","Solicitud de documentos"],["バイヤーの返信待ち","Waiting for buyer reply","等待买家回复","Esperando respuesta del comprador"],
+ ["タスクの承認待ち","Task awaiting approval","任务待审批","Tarea pendiente de aprobación"],["商談記録の承認待ち","Deal record awaiting approval","商谈记录待审批","Registro pendiente de aprobación"],
+ ["確認する人","Reviewer","确认人","Revisa"],["承認する人の確認を待っています","Waiting for the approver","正在等待审批人确认","Esperando al aprobador"],
+ ["商談記録の下書き","Deal record draft","商谈记录草稿","Borrador de registro"],["仕上げて、承認を依頼します","Finish it and request approval","完成后申请审批","Termínelo y solicite la aprobación"],
+ ["あとで（明日また出します）","Snoozed (back tomorrow)","稍后处理（明天再显示）","Pospuesto (vuelve mañana)"],["受信箱に戻す","Move back to inbox","移回收件箱","Devolver a la bandeja"],
+ ["済みにしました（「下書き・完了」の列に7日間残ります）","Marked as done (kept under “Drafts & done” for 7 days)","已标记为完成（会在“草稿・已完成”列保留7天）","Marcado como hecho (queda en «Borradores y hechos» 7 días)"],
+ ["受信箱に戻しました","Moved back to the inbox","已移回收件箱","Devuelto a la bandeja"],["済み","Done","已完成","Hecho"],["要対応","Action needed","需处理","Requiere acción"],
+ /* ① 対応待ち */
+ ["対応待ち","Waiting on you","待处理","Pendiente"],["押すと、受信箱でその分だけを開きます","Click to open just those in your inbox","点击后在收件箱中只显示这些","Haga clic para ver solo esos en la bandeja"],
+ ["AI の案・承認の依頼","AI suggestions & approval requests","AI方案・审批请求","Propuestas de IA y aprobaciones"],["バイヤー・メンバーから","From buyers & teammates","来自买家・成员","De compradores y del equipo"],["過ぎたものを含む","Including overdue","包括已逾期","Incluye vencidos"],
+ /* ⑤ 出荷 */
+ ["出荷の進み具合","Shipment progress","出货进度","Avance del envío"],["当日","Same day","当天","Mismo día"],["今日から","Since today","从今天起","Desde hoy"],["選んだ便は希望着荷に間に合いません","The chosen sailing misses the requested arrival date","所选航班赶不上希望到货日","El envío elegido no llega a la fecha solicitada"],
+ /* ⑥ 調べた手順 */
+ ["調べた手順","How this was answered","查询步骤","Cómo se respondió"],
+ /* ② 状態の札 */
+ ["次の一手","Next step","下一步","Siguiente paso"],
+ ["まだ連絡していない相手です。","You haven't contacted this buyer yet.","尚未联系的对象。","Todavía no ha contactado a este comprador."],["最初のメッセージを送るか、次の行動と日付を決めます。","Send a first message, or set the next action and a date.","发送第一条消息，或确定下一步行动和日期。","Envíe un primer mensaje o fije la próxima acción y una fecha."],
+ ["こちらから働きかけている段階です（相手の返事はまだ）。","You're reaching out; no reply yet.","我方正在主动联系，对方尚未回复。","Está contactando; aún no hay respuesta."],["返事が無ければ、7日ほどあけて別の切り口で送ります。","If there's no reply, follow up in about 7 days with a different angle.","如无回复，约7天后换个角度再发一次。","Si no responde, haga seguimiento en unos 7 días con otro enfoque."],
+ ["相手から返事があり、条件を話している段階です。","The buyer replied and you're discussing terms.","对方已回复，正在商谈条件。","El comprador respondió y están hablando de condiciones."],["価格・数量・時期を聞いて、見積かサンプルに進めます。","Ask about price, quantity and timing, then move to a quote or samples.","询问价格、数量和时间，推进到报价或样品。","Pregunte precio, cantidad y plazos, y avance a cotización o muestras."],
+ ["条件がほぼ決まり、契約・発注を待っている段階です。","Terms are almost agreed; waiting for the contract or order.","条件基本谈妥，等待签约或下单。","Las condiciones están casi acordadas; se espera el contrato o pedido."],["契約書か発注書の案を送り、返事の期限を決めます。","Send a draft contract or PO and agree on a reply date.","发送合同或订单草案，并约定回复期限。","Envíe un borrador de contrato u orden y acuerde una fecha de respuesta."],
+ ["受注・出荷が始まっている相手です。","Orders or shipments have started with this buyer.","已开始接单或出货的对象。","Ya hay pedidos o envíos con este comprador."],["出荷を進め、次の注文の時期を確かめます。","Move the shipment forward and check when the next order will come.","推进出货，并确认下一次订单的时间。","Avance el envío y confirme cuándo llegará el próximo pedido."],
+ ["いまは取引していない相手です。","You're not doing business with this buyer right now.","目前没有交易的对象。","Actualmente no tiene negocios con este comprador."],["終わった理由を残し、時期を見て再提案します。","Record why it ended and propose again when the timing is right.","记录结束的原因，择机再次提案。","Registre por qué terminó y vuelva a proponer en el momento oportuno."],
+ ["こちらから送っただけで、まだ返信がない状態です。","You've sent messages but there's no reply yet.","我方已发送，但尚未收到回复。","Ha enviado mensajes pero aún no hay respuesta."],["3〜7日待って返事が無ければ、短い追いメッセージを送ります。","Wait 3–7 days; if there's still no reply, send a short follow-up.","等待3〜7天，仍无回复就发一条简短的跟进消息。","Espere de 3 a 7 días; si sigue sin respuesta, envíe un seguimiento breve."],
+ ["サンプルを送った・届いた段階です。","Samples have been sent or have arrived.","样品已寄出或已送达。","Se enviaron o llegaron las muestras."],["届いた日を確かめ、1週間ほどで感想と次の数量を聞きます。","Confirm the arrival date and ask for feedback and next quantities within about a week.","确认送达日期，约一周内询问反馈和下一步数量。","Confirme la fecha de llegada y pida opinión y próximas cantidades en una semana aprox."],
+ ["こちらから価格・条件を出した段階です。","You've sent prices and terms.","我方已报出价格和条件。","Ha enviado precios y condiciones."],["3〜5日後に、価格への反応と数量を確かめます。","After 3–5 days, check their reaction to the price and the quantity.","3〜5天后，确认对方对价格的反应和数量。","En 3 a 5 días, confirme su reacción al precio y la cantidad."],
+ ["契約・発注書・独占などの条件を話している段階です。","You're negotiating the contract, PO or exclusivity.","正在谈合同、订单或独家等条件。","Están negociando contrato, orden o exclusividad."],["決まった条件を書面にし、残りを1つずつ詰めます。","Put agreed terms in writing and settle the open points one by one.","把已谈妥的条件写成书面，逐项敲定剩余事项。","Ponga por escrito lo acordado y cierre los puntos pendientes uno a uno."],
+ ["相手が見送った状態です。","The buyer passed.","对方已放弃。","El comprador desistió."],["断られた理由を商談記録に残すと、次の提案が良くなります。","Record the reason in the deal log; it makes the next proposal better.","把被拒的原因记入商谈记录，下次提案会更好。","Registre el motivo en el historial; mejorará la próxima propuesta."],
+ ["まだ始めていないタスクです。","This task hasn't started.","尚未开始的任务。","La tarea no ha empezado."],["期限と担当を確かめて、最初の一歩を始めます。","Check the due date and owner, then take the first step.","确认期限和负责人，开始第一步。","Revise la fecha límite y el responsable, y dé el primer paso."],
+ ["担当者が進めているタスクです。","The owner is working on it.","负责人正在处理的任务。","El responsable está trabajando en ella."],["止まっていたら、コメントで状況を聞きます。","If it seems stuck, ask for an update in the comments.","如停滞不前，在评论中询问进展。","Si parece detenida, pida novedades en los comentarios."],
+ ["終わっています。","It's done.","已完成。","Está terminado."],["何もしなくて大丈夫です。","Nothing more to do.","无需再做什么。","No hace falta hacer nada más."],
+ ["やめたタスクです（記録は残ります）。","This task was cancelled (the record is kept).","已中止的任务（记录会保留）。","La tarea se canceló (el registro se conserva)."],["必要になったら、もう一度始められます。","You can restart it if it's needed again.","需要时可以重新开始。","Puede reanudarla si vuelve a hacer falta."],
+ ["承認する人の確認を待っています。","Waiting for the approver to review.","正在等待审批人确认。","Esperando la revisión del aprobador."],["承認する人に知らせが届いています。急ぐ時は直接声をかけます。","The approver has been notified. If it's urgent, contact them directly.","审批人已收到通知。紧急时请直接联系。","El aprobador ya fue avisado. Si es urgente, contáctelo directamente."],
+ ["承認する人が、直してほしいと戻した状態です。","The approver sent it back for changes.","审批人退回，要求修改。","El aprobador lo devolvió para cambios."],["理由を読んで直し、もう一度承認を依頼します。","Read the reason, fix it, and request approval again.","阅读原因并修改，再次申请审批。","Lea el motivo, corríjalo y vuelva a solicitar la aprobación."],
+ ["承認されました（まだ公開していない記録です）。","Approved (the record isn't published yet).","已批准（记录尚未公开）。","Aprobado (el registro aún no se publicó)."],["必要なら公開します。","Publish it if needed.","如有需要请公开。","Publíquelo si hace falta."],
+ ["まだ自分だけの書きかけです。","A draft only you can see.","只有自己能看到的草稿。","Un borrador que solo usted ve."],["仕上げて、承認を依頼します。","Finish it and request approval.","完成后申请审批。","Termínelo y solicite la aprobación."],
+ ["チームに公開された記録です。","Published to your team.","已向团队公开的记录。","Publicado para su equipo."],["AI商社マンの分析にも使われます。","It's also used in the AI Trade Agent's analysis.","也会用于AI商社专员的分析。","También se usa en el análisis del agente comercial IA."],
+ ["相手がまだ回答していません。","The other party hasn't answered yet.","对方尚未回复。","La otra parte aún no ha respondido."],["期限が近ければ催促できます（1日1回まで）。","If the deadline is near, you can send a reminder (once a day).","临近截止时可以催促（每天最多一次）。","Si se acerca la fecha límite, puede enviar un recordatorio (una vez al día)."],
+ ["相手が途中まで入力しています。","The other party has started filling it in.","对方已填写了一部分。","La otra parte empezó a completarla."],["もう少し待つか、期限を添えて催促します。","Wait a little, or send a reminder with the deadline.","再等一等，或附上截止日期催促。","Espere un poco o envíe un recordatorio con la fecha límite."],
+ ["相手が回答を出しました。","The other party has submitted their answers.","对方已提交回复。","La otra parte envió sus respuestas."],["「確認待ち」で中身を確かめて反映します。","Review them under “Pending review” and apply them.","在“待确认”中核对内容后反映。","Revíselas en «Pendiente de revisión» y aplíquelas."],
+ ["期限を過ぎています。","Past the deadline.","已过期限。","Pasó la fecha límite."],["今日中に片付けるか、期限を決め直します。","Finish it today or set a new deadline.","今天内处理完，或重新设定期限。","Termínelo hoy o fije una nueva fecha."],
+ ["こちらで締め切った依頼です。","You closed this request.","我方已截止的请求。","Usted cerró esta solicitud."],["必要なら再開できます。","You can reopen it if needed.","如有需要可以重新开启。","Puede reabrirla si hace falta."],
+ ["AI が根拠つきで「この変更で良い」と判断した案です。","The AI judged this change sound, with sources.","AI依据来源判断“此修改可行”的方案。","La IA consideró correcto este cambio, con fuentes."],["中身を見て、良ければ承認します。","Review it and approve if it looks right.","查看内容，没问题就批准。","Revíselo y apruébelo si está bien."],
+ ["根拠が弱いか、今の値と大きく違う案です。","Weak sources, or very different from the current value.","依据不足，或与当前值差异较大的方案。","Fuentes débiles o muy distinto del valor actual."],["根拠を読んでから、直すか承認します。","Read the sources, then edit or approve.","阅读依据后，修改或批准。","Lea las fuentes y luego edítelo o apruébelo."],
+ ["AI が問題ありと判断した案です。","The AI found problems with this suggestion.","AI判断存在问题的方案。","La IA detectó problemas en esta propuesta."],["基本は却下します。","Usually reject it.","原则上驳回。","Por lo general, recháccela."],
+ ["このままでは送れない問題があります（例：価格の桁違い・使えない表現）。","There's a problem that blocks sending (e.g., a price off by a digit, a claim you can't use).","存在无法发送的问题（例：价格位数错误、不能使用的表述）。","Hay un problema que impide el envío (p. ej., un precio con un dígito de más, una afirmación no permitida)."],["指摘された箇所を直します。","Fix the flagged parts.","修改被指出的地方。","Corrija las partes señaladas."],
+ ["送れますが、確かめてほしい点があります（送ると記録に残ります）。","You can send it, but please check these points (sending is logged).","可以发送，但有需要确认的地方（发送后会留下记录）。","Puede enviarlo, pero revise estos puntos (el envío queda registrado)."],["内容を確かめてから送ります。","Check the content before sending.","确认内容后再发送。","Revise el contenido antes de enviar."],
+ ["より良くするための提案です。","A suggestion to make it better.","让内容更好的建议。","Una sugerencia para mejorarlo."],["必要なら取り入れます。","Adopt it if it helps.","需要时采纳即可。","Adóptela si le sirve."],
+ ["今日が期限です。","Due today.","今天到期。","Vence hoy."],["今日のうちに片付けます。","Take care of it today.","今天之内处理完。","Resuélvalo hoy."],
+ ["明日が期限です。","Due tomorrow.","明天到期。","Vence mañana."],["今日のうちに準備しておきます。","Get it ready today.","今天先做好准备。","Prepárelo hoy."],
+ ["次の行動が決まっていない相手です。","No next action is set for this buyer.","尚未确定下一步行动的对象。","No hay próxima acción para este comprador."],["次の行動と日付を決めます。","Decide the next action and a date.","确定下一步行动和日期。","Defina la próxima acción y una fecha."],
+ ["期限まで余裕があります。","There's time before the deadline.","离期限还有时间。","Hay tiempo antes de la fecha límite."],["期限が近づいたら受信箱に出ます。","It will show up in your inbox as the date approaches.","临近期限时会出现在收件箱。","Aparecerá en su bandeja cuando se acerque la fecha."],
+ ["あなたの確認や承認を待っています。","Waiting for your review or approval.","正在等待您确认或批准。","Espera su revisión o aprobación."],["開いて、承認・修正・却下のどれかを選びます。","Open it and approve, edit or reject.","打开后选择批准、修改或驳回。","Ábralo y apruebe, edite o rechace."],
+ ["最終チェックに通った資料です。","This deck passed the final check.","已通过最终检查的资料。","Este material pasó la revisión final."],["そのまま相手に送れます。","You can send it as is.","可以直接发给对方。","Puede enviarlo tal cual."],
+ ["最終チェックで大きな問題が見つかった資料です（下書きとしてだけ保存できます）。","The final check found serious problems (it can only be saved as a draft).","最终检查发现严重问题的资料（只能保存为草稿）。","La revisión final encontró problemas graves (solo se puede guardar como borrador)."],["指摘を直して、作り直します。","Fix the issues and generate it again.","修正问题后重新生成。","Corrija los problemas y vuelva a generarlo."],
+ ["片付け済みです。","Marked as done.","已标记为完成。","Marcado como hecho."],["7日間は「下書き・完了」に残り、受信箱に戻せます。","It stays under “Drafts & done” for 7 days, and you can move it back to the inbox.","会在“草稿・已完成”中保留7天，可以移回收件箱。","Queda en «Borradores y hechos» 7 días y puede devolverlo a la bandeja."],
+ /* お知らせ */
+ ["対応待ちが一目で：受信箱を3列に・依頼ページを手順つきに・出荷を縦のタイムラインに","See what's waiting at a glance: a 3-column inbox, step-by-step request pages, and a vertical shipment timeline","待办一目了然：收件箱分三列、请求页面加步骤、出货改为纵向时间线","Lo pendiente de un vistazo: bandeja en 3 columnas, páginas de solicitud con pasos y línea de tiempo vertical del envío"],
+ ["ダッシュボードの上に「対応待ち」の数字を3つ（確認・承認／返信／期限が今日まで）。押すと受信箱でその分だけを開きます","Three “Waiting on you” numbers at the top of the dashboard (review & approve / replies / due today). Click one to open just those in your inbox","仪表盘顶部新增3个“待处理”数字（确认・审批／回复／今天到期），点击后在收件箱中只显示这些","Tres cifras de «Pendiente» arriba del panel (revisar y aprobar / respuestas / vence hoy). Al hacer clic se abren solo esos en la bandeja"],
+ ["受信箱を「自分の番／相手の番／下書き・完了」の3列に。相手の返事を待っているものは待った日数つき","The inbox now has 3 columns: My turn / Their turn / Drafts & done. Items waiting on others show how many days you've waited","收件箱分为“轮到我／轮到对方／草稿・已完成”三列，等待对方的事项显示已等待天数","La bandeja tiene 3 columnas: Mi turno / Su turno / Borradores y hechos. Lo que espera a otros muestra los días de espera"],
+ ["状態の札（商談中・承認待ち・期限切れなど）にマウスを乗せる・押すと、意味と次の一手が出ます","Hover over or tap a status label (In discussion, Pending approval, Overdue, etc.) to see what it means and the next step","将鼠标移到状态标签（商谈中、待审批、已逾期等）上或点击，即可看到含义和下一步","Pase el cursor o toque una etiqueta de estado (En negociación, Pendiente de aprobación, Vencido, etc.) para ver qué significa y el siguiente paso"],
+ ["依頼ページ（相手が開く画面）に手順と「あなたの回答 2/5」。押すボタンは「提出する」の1つに","Request pages (what the other party opens) now show steps and “Your answers 2/5,” with a single “Submit” button","请求页面（对方打开的画面）显示步骤和“您的回答 2/5”，只需点击“提交”一个按钮","Las páginas de solicitud (lo que abre la otra parte) muestran pasos y «Sus respuestas 2/5», con un único botón «Enviar»"],
+ ["出荷を縦のタイムラインに：段階ごとの日付と日数、選んだ便が希望着荷に間に合わない・3日以上止まっている時は札で知らせます","Shipments use a vertical timeline with dates and days per stage; a label warns you if the chosen sailing misses the requested arrival or a stage has stalled for 3+ days","出货改为纵向时间线：显示各阶段的日期和天数，所选航班赶不上希望到货日或停滞3天以上时用标签提示","Los envíos usan una línea de tiempo vertical con fechas y días por etapa; una etiqueta avisa si el envío elegido no llega a tiempo o una etapa lleva 3+ días detenida"],
+ ["AI の回答の「調べた手順」（Web の出典・根拠の一覧・エンジン）は畳んで、本文を先に。根拠の番号を押すと開きます","AI answers show the answer first; “How this was answered” (web sources, the source list, the engine) is folded and opens when you click a source number","AI回答先显示正文，“查询步骤”（网络来源、依据列表、引擎）默认折叠，点击依据编号即可展开","Las respuestas de IA muestran primero el texto; «Cómo se respondió» (fuentes web, lista de fuentes, motor) queda plegado y se abre al pulsar un número de fuente"]
+]); }catch(e){}
+/* 数や日付が入る文 */
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^(\d+)日待ち$/,en:"Waiting $1 d",zh:"已等 $1 天",es:"Esperando $1 d"},
+  {re:/^(\d+)日止まっています$/,en:"Stalled for $1 days",zh:"已停滞 $1 天",es:"Detenido hace $1 días"},
+  {re:/^受注の確認から (\d+)日目$/,en:"Day $1 since the order was confirmed",zh:"确认订单后第 $1 天",es:"Día $1 desde la confirmación del pedido"},
+  {re:/^(\d{1,2})\/(\d{1,2}) から$/,en:"since $1/$2",zh:"$1/$2 起",es:"desde el $1/$2"},
+  {re:/^(\d+)日目$/,en:"day $1",zh:"第 $1 天",es:"día $1"},
+  {re:/^(\d+)日間$/,en:m=>m[1]==="1"?"1 day":m[1]+" days",zh:"$1 天",es:m=>m[1]==="1"?"1 día":m[1]+" días"},
+  {re:/^希望着荷に間に合う見積 (\d+)\/(\d+)社$/,en:"$1 of $2 quotes arrive in time",zh:"$2 家报价中有 $1 家能按期到货",es:"$1 de $2 cotizaciones llegan a tiempo"}
 ].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
