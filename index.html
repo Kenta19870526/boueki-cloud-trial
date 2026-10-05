@@ -1026,7 +1026,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="1dde134b3bd6";
+const BC20_BUILD="ca200c79a4c4";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -10842,7 +10842,7 @@ function resetTen(){
   buildNav(); render(); toast("削除しました"+(TEN?`。「${TEN.item||TEN.file}」を表示しています`:"。新しい資料をアップロードできます"));
 }
 
-$("#bell").addEventListener("click",openNotif);
+$("#bell").addEventListener("click",()=>openNotif());
 $("#psw").addEventListener("change",e=>{
   const v=e.target.value;
   upFile=null;   /* 直前にアップロードしたファイル名を別商品に表示しない */
@@ -10851,7 +10851,7 @@ $("#psw").addEventListener("change",e=>{
   else if(v.startsWith("s2:")){ adoptSample2(v.slice(3),true); return; }
   else { PID=v; D=PRODUCTS[PID]; TEN=tenantFromSample(D); applyTenScalars(); }
   shipStep=0; SHIPQA=[]; FILL.on=false; buildNav(); render(); toast(`${D.cat}／${D.co} に切り替えました`);});
-document.querySelectorAll("[data-close]").forEach(e=>e.addEventListener("click",closeDW));
+document.querySelectorAll("[data-close]").forEach(e=>e.addEventListener("click",()=>closeDW()));
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDW();});
 /* スマホ実機：ハンバーガーはオーバーレイ開閉、PCは従来どおり折りたたみ */
 const SMQ=matchMedia("(max-width:820px)");
@@ -38855,6 +38855,11 @@ try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x
    "メールの返信が、送った相手と別のアドレスから届いたときや、なりすましの疑いがあるときは、スレッドに注意の札が出ます",
    "ドキュメントのうち、ブラウザで開くと中でプログラムが動く形式（HTML など）は、開かずにダウンロードします"]]); }catch(e){}
 
+/* v21.39.2 のお知らせ（v21.39 の後ろ＝先頭に入る） */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.39.2")) S30_NEWS.unshift(["2026-10","v21.39.2","ベルの通知センターに「メールで受け取る」が出るように",
+  ["右上のベルから開いた通知センターに「⚙ 通知の設定 › 📧 メールで受け取る」が出ていなかったのを直しました。毎朝8時の要対応のまとめと、バイヤーの返信のお知らせをメールで受け取れます",
+   "通知センターの上に「受信箱を開く」と、いまのベルの知らせ方も出るようになりました"]]); }catch(e){}
+
 /* ═══ v21.39 の表示言語（英・中・西）：安全の強化（リンク・ファイル・メールの返信の札・管理画面の安全設定・お知らせ） ═══ */
 try{ if(typeof v30I18n==="function") v30I18n([
  ["安全のため、このリンクは開けません","For your safety, this link can’t be opened","为了安全，无法打开此链接","Por seguridad, este enlace no se puede abrir"],
@@ -38878,6 +38883,9 @@ try{ if(typeof v30I18n==="function") v30I18n([
  ["確かめられませんでした：","Couldn’t check: ","无法检查：","No se pudo comprobar: "],
  ["複数の宛先は、同期サーバーを v2.14 に更新すると使えます（いまは最初の1件だけ保存します）","Multiple addresses work after the sync server is updated to v2.14 (only the first one is saved for now)","同步服务器更新到 v2.14 后才能使用多个收件地址（目前只保存第一个）","Las direcciones múltiples funcionan cuando el servidor de sincronización se actualice a la v2.14 (por ahora solo se guarda la primera)"],
  ["宛先はカンマで区切って5件まで入れられます（同じ会社のメンバーで受け取れます）。直接連絡のメールにバイヤーから返信が届いたときも、15分以内に差出人と件名をお知らせします（同期サーバー v2.14）。","You can enter up to 5 addresses separated by commas (so members of your company can all receive it). When a buyer replies to your direct-contact email, you’ll also get the sender and subject within 15 minutes (sync server v2.14).","最多可输入5个地址，用逗号分隔（公司成员都能收到）。买家回复“直接联系”的邮件时，也会在15分钟内通知发件人和主题（同步服务器 v2.14）。","Puede introducir hasta 5 direcciones separadas por comas (para que los miembros de su empresa la reciban). Cuando un comprador responda a su correo de contacto directo, también recibirá el remitente y el asunto en 15 minutos (servidor de sincronización v2.14)."],
+ ["ベルの通知センターに「メールで受け取る」が出るように","“Receive by email” now appears in the bell’s notification center","铃铛的通知中心现在会显示“通过邮件接收”","«Recibir por correo» ya aparece en el centro de notificaciones de la campana"],
+ ["右上のベルから開いた通知センターに「⚙ 通知の設定 › 📧 メールで受け取る」が出ていなかったのを直しました。毎朝8時の要対応のまとめと、バイヤーの返信のお知らせをメールで受け取れます","Fixed: “⚙ Notification settings › 📧 Receive by email” was missing when the notification center was opened from the bell at the top right. You can get the 8:00 daily to-do summary and buyer reply alerts by email","修复了从右上角铃铛打开通知中心时不显示“⚙ 通知设置 › 📧 通过邮件接收”的问题。可以通过邮件接收每天8点的待办汇总和买家回复提醒","Corregido: «⚙ Ajustes de notificaciones › 📧 Recibir por correo» no aparecía al abrir el centro de notificaciones desde la campana. Puede recibir por correo el resumen de pendientes de las 8:00 y los avisos de respuesta de compradores"],
+ ["通知センターの上に「受信箱を開く」と、いまのベルの知らせ方も出るようになりました","The top of the notification center now shows “Open inbox” and how the bell currently notifies you","通知中心顶部现在会显示“打开收件箱”以及铃铛当前的通知方式","La parte superior del centro de notificaciones ahora muestra «Abrir bandeja» y cómo avisa la campana actualmente"],
  ["安全性を強化しました","Security has been strengthened","已加强安全性","Se reforzó la seguridad"],
  ["外から届く文字（取り込んだ資料・メールの返信・依頼ページの回答・共有データ）を、画面に出す前に安全な形にする仕組みを強めました","Text that comes from outside (imported files, email replies, request-page answers, shared data) is now made safe more thoroughly before it appears on screen","加强了在显示前将外部文字（导入的资料、邮件回复、请求页面的回答、共享数据）处理为安全形式的机制","Se reforzó el tratamiento que vuelve seguros los textos externos (archivos importados, respuestas por correo, respuestas de páginas de solicitud, datos compartidos) antes de mostrarlos"],
  ["メールの返信が、送った相手と別のアドレスから届いたときや、なりすましの疑いがあるときは、スレッドに注意の札が出ます","When an email reply comes from an address other than the one you wrote to, or looks spoofed, the thread shows a warning tag","当邮件回复来自与收件人不同的地址或疑似冒充时，会在会话中显示提醒标签","Si una respuesta llega desde una dirección distinta a la que escribió o parece suplantada, el hilo muestra una etiqueta de aviso"],
