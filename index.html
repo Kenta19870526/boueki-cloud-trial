@@ -1026,7 +1026,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="ca200c79a4c4";
+const BC20_BUILD="48f741850640";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -38812,19 +38812,39 @@ function v39MailSplit(s){ return String(s||"").split(/[\s,;、，]+/).map(x=>x.t
 function v39MailList(s){ const out=[]; v39MailSplit(s).forEach(x=>{ const y=x.toLowerCase(); if(v16Mail(y)&&!out.includes(y)&&out.length<5) out.push(y); }); return out; }
 function v39MailMulti(){ try{ return typeof v33SrvAtLeast==="function"&&v33SrvAtLeast("2.14"); }catch(e){ return false; } }
 function v39MailPick(raw){ let L=v39MailList(raw); if(L.length>1&&!v39MailMulti()){ toast(v39T("複数の宛先は、同期サーバーを v2.14 に更新すると使えます（いまは最初の1件だけ保存します）")); L=L.slice(0,1); } return L; }
-if(typeof digSave==="function"&&typeof v16Mail==="function"){ digSave=function(){ const raw=(($("#digTo")||{}).value||"").trim(), on=!!(($("#digOn")||{}).checked);
+/* v21.39.3：体験用の共通アカウント（コードがアプリに書かれていて誰でも入れるもの）は、メール通知をサーバーが断る（v2.14）。
+   いままでは入力・保存できてしまい、「保存しましたが同期サーバーに送れませんでした」「送れませんでした：…」と後から出ていた
+   → 欄の中で前もって「使えません・どうすれば使えるか」を示し、保存・テスト送信を止める。サーバーの断りの理由もそのまま出す */
+const V39_PUBLIC=["TRIAL-2026","FWD-2026","BC-MIDORI-24","BC-KAKO-77"];
+function v39IsPublic(){ try{ const c=String((typeof SES!=="undefined"&&SES&&SES.code)||"").trim().toUpperCase(); return V39_PUBLIC.includes(c)||!!V39.pubSeen; }catch(e){ return false; } }
+const V39_PUBMSG="体験用の共通アカウントでは、メール通知は使えません。お客様ごとのアクセスコード（BC-…）でログインすると設定できます";
+function v39DigPublic(){ toast(v39T(V39_PUBMSG)); try{ const db=notifDB(); if(db.mail&&db.mail.on){ db.mail.on=0; notifSave(db); } }catch(e){}
+  try{ const b=document.querySelector("[data-v16dig]"); if(b){ const t=document.createElement("div"); t.innerHTML=digBlockHtml(); if(t.firstElementChild) b.replaceWith(t.firstElementChild); } }catch(e){} }
+if(typeof digSave==="function"&&typeof v16Mail==="function"){ digSave=function(){ if(v39IsPublic()){ v39DigPublic(); return; }
+  const raw=(($("#digTo")||{}).value||"").trim(), on=!!(($("#digOn")||{}).checked);
   const bad=v39MailSplit(raw).filter(x=>!v16Mail(x)); const L=v39MailPick(raw);
   if(on&&(!L.length||bad.length)){ toast("メールアドレスの形式を確認してください"+(bad.length?"："+bad.slice(0,2).join("、"):"")); return; }
   const to=L.join(", "); const db=notifDB(); db.mail={to,on:on?1:0}; notifSave(db); try{ const e=$("#digTo"); if(e) e.value=to; }catch(e){}
-  digPush(1).then(r=>toast(r&&r.ok?"メール通知の設定を保存しました（毎朝8時・要対応があるときだけ）":"保存しましたが同期サーバーに送れませんでした")); }; }
-if(typeof digTest==="function"&&typeof v16Mail==="function"){ digTest=async function(){ const raw=(($("#digTo")||{}).value||"").trim(); const L=v39MailPick(raw); if(!L.length){ toast("メールアドレスを入力してください"); return; }
+  digPush(1).then(r=>{ if(r&&r.ok){ toast("メール通知の設定を保存しました（毎朝8時・要対応があるときだけ）"); return; }
+    if(r&&r.reason==="public"){ V39.pubSeen=1; v39DigPublic(); return; }
+    toast(r&&r.msg?v39T("保存できませんでした：")+r.msg:v39T("この端末には保存しましたが、同期サーバーに届きませんでした（通信を確かめてください。画面を開いている間に自動で送り直します）")); }); }; }
+if(typeof digTest==="function"&&typeof v16Mail==="function"){ digTest=async function(){ if(v39IsPublic()){ v39DigPublic(); return; }
+  const raw=(($("#digTo")||{}).value||"").trim(); const L=v39MailPick(raw); if(!L.length){ toast("メールアドレスを入力してください"); return; }
   if(!v16SyncOk()){ toast("クラウド同期が未設定のため送れません"); return; }
-  const to=L.join(", "); const db=notifDB(); db.mail=Object.assign(db.mail||{},{to}); notifSave(db); try{ const e=$("#digTo"); if(e) e.value=to; }catch(e){} await digPush(1); toast("テスト送信しています…");
-  try{ const r=await syncCall("digest_test",{kid:SYNC.kid,to}); toast(r.ok?("テストメールを送りました → "+to+(r.note?"（"+r.note+"）":"")):("送れませんでした："+(r.msg||""))); }
+  const to=L.join(", "); const db=notifDB(); db.mail=Object.assign(db.mail||{},{to}); notifSave(db); try{ const e=$("#digTo"); if(e) e.value=to; }catch(e){}
+  const pr=await digPush(1); if(pr&&pr.reason==="public"){ V39.pubSeen=1; v39DigPublic(); return; }
+  if(pr&&!pr.ok&&pr.msg){ toast(v39T("保存できませんでした：")+pr.msg); return; }
+  toast("テスト送信しています…");
+  try{ const r=await syncCall("digest_test",{kid:SYNC.kid,to}); if(r&&r.reason==="public"){ V39.pubSeen=1; v39DigPublic(); return; }
+    toast(r.ok?("テストメールを送りました → "+to+(r.note?"（"+r.note+"）":"")):("送れませんでした："+(r.msg||""))); }
   catch(e){ toast("送れませんでした："+String(e.message||e).slice(0,50)); } }; }
 if(typeof digBlockHtml==="function"){ const __dig39=digBlockHtml; digBlockHtml=function(){ let h=__dig39.apply(this,arguments);
   try{ h=h.replace('placeholder="you@example.com"','placeholder="you@example.com, sato@example.com"');
-    h=h.replace(/<\/div><\/div>\s*$/,'</div><p class="nn v39dig" style="margin:6px 0 0">'+esc(v39T("宛先はカンマで区切って5件まで入れられます（同じ会社のメンバーで受け取れます）。直接連絡のメールにバイヤーから返信が届いたときも、15分以内に差出人と件名をお知らせします（同期サーバー v2.14）。"))+'</p></div>'); }catch(e){}
+    if(v39IsPublic()){
+      h=h.replace(/<span class="p (hi|lo)" style="font-size:9px">[^<]*<\/span>/,'<span class="p lo" style="font-size:9px">'+esc(v39T("使えません"))+'</span>')
+        .replace('id="digTo"','id="digTo" disabled').replace('id="digOn"','id="digOn" disabled').replace(/onclick="digSave\(\)"/,'onclick="digSave()" disabled').replace(/onclick="digTest\(\)"/,'onclick="digTest()" disabled')
+        .replace(/<\/div><\/div>\s*$/,'</div><p class="nn v39dig v39pub" style="margin:6px 0 0;color:var(--crit)"><b>'+esc(v39T(V39_PUBMSG))+'</b>（'+esc(v39T("コードが公開されている共通アカウントから、だれにでもメールを送れないようにしています。管理コンソールの「新しいトライアルアカウントを発行する」で、お客様ごとのコードを発行してください"))+'）</p></div>'); }
+    else h=h.replace(/<\/div><\/div>\s*$/,'</div><p class="nn v39dig" style="margin:6px 0 0">'+esc(v39T("宛先はカンマで区切って5件まで入れられます（同じ会社のメンバーで受け取れます）。直接連絡のメールにバイヤーから返信が届いたときも、15分以内に差出人と件名をお知らせします（同期サーバー v2.14）。"))+'</p></div>'); }catch(e){}
   return h; }; }
 
 /* ── 管理画面：同期サーバーの安全設定の確かめ（v2.14 の反映・管理者パスワード・返信のお知らせ） ── */
@@ -38881,6 +38901,10 @@ try{ if(typeof v30I18n==="function") v30I18n([
  ["バイヤーの返信のお知らせ（15分ごと）","Buyer reply alerts (every 15 minutes)","买家回复提醒（每15分钟）","Avisos de respuesta del comprador (cada 15 minutos)"],
  ["「📧 メール通知 › 毎朝8時の配信ジョブを設定」を押すと作られます（v2.14）","Created when you press “📧 Email notifications › Set up the daily 8:00 job” (v2.14)","按“📧 邮件通知 › 设置每天8点的发送任务”即可创建（v2.14）","Se crea al pulsar «📧 Notificaciones por correo › Configurar el envío diario de las 8:00» (v2.14)"],
  ["確かめられませんでした：","Couldn’t check: ","无法检查：","No se pudo comprobar: "],
+ ["体験用の共通アカウントでは、メール通知は使えません。お客様ごとのアクセスコード（BC-…）でログインすると設定できます","Email notifications aren’t available on the shared trial account. Log in with your own access code (BC-…) to set them up","共享体验账户无法使用邮件通知。请用各公司的访问码（BC-…）登录后设置","Las notificaciones por correo no están disponibles en la cuenta de prueba compartida. Inicie sesión con su propio código de acceso (BC-…) para configurarlas"],
+ ["使えません","Not available","不可用","No disponible"],["保存できませんでした：","Couldn’t save: ","无法保存：","No se pudo guardar: "],
+ ["この端末には保存しましたが、同期サーバーに届きませんでした（通信を確かめてください。画面を開いている間に自動で送り直します）","Saved on this device, but it didn’t reach the sync server (check your connection; it will be resent automatically while the app is open)","已保存在此设备，但未送达同步服务器（请检查网络；应用打开期间会自动重新发送）","Se guardó en este dispositivo, pero no llegó al servidor de sincronización (revise la conexión; se reenviará automáticamente mientras la app esté abierta)"],
+ ["コードが公開されている共通アカウントから、だれにでもメールを送れないようにしています。管理コンソールの「新しいトライアルアカウントを発行する」で、お客様ごとのコードを発行してください","This prevents anyone from sending email through a shared account whose code is public. Issue a code for each customer with “Issue a new trial account” in the admin console","为防止任何人通过代码公开的共享账户发送邮件。请在管理控制台的“发放新的体验账户”中为每位客户发放代码","Así se evita que cualquiera envíe correos desde una cuenta compartida cuyo código es público. Emita un código para cada cliente con «Emitir una nueva cuenta de prueba» en la consola de administración"],
  ["複数の宛先は、同期サーバーを v2.14 に更新すると使えます（いまは最初の1件だけ保存します）","Multiple addresses work after the sync server is updated to v2.14 (only the first one is saved for now)","同步服务器更新到 v2.14 后才能使用多个收件地址（目前只保存第一个）","Las direcciones múltiples funcionan cuando el servidor de sincronización se actualice a la v2.14 (por ahora solo se guarda la primera)"],
  ["宛先はカンマで区切って5件まで入れられます（同じ会社のメンバーで受け取れます）。直接連絡のメールにバイヤーから返信が届いたときも、15分以内に差出人と件名をお知らせします（同期サーバー v2.14）。","You can enter up to 5 addresses separated by commas (so members of your company can all receive it). When a buyer replies to your direct-contact email, you’ll also get the sender and subject within 15 minutes (sync server v2.14).","最多可输入5个地址，用逗号分隔（公司成员都能收到）。买家回复“直接联系”的邮件时，也会在15分钟内通知发件人和主题（同步服务器 v2.14）。","Puede introducir hasta 5 direcciones separadas por comas (para que los miembros de su empresa la reciban). Cuando un comprador responda a su correo de contacto directo, también recibirá el remitente y el asunto en 15 minutos (servidor de sincronización v2.14)."],
  ["ベルの通知センターに「メールで受け取る」が出るように","“Receive by email” now appears in the bell’s notification center","铃铛的通知中心现在会显示“通过邮件接收”","«Recibir por correo» ya aparece en el centro de notificaciones de la campana"],
