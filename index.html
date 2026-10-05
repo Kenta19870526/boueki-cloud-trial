@@ -1026,7 +1026,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="48f741850640";
+const BC20_BUILD="efb09005779f";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -18388,14 +18388,19 @@ async function syncDec(s){
 /* ── 通信（text/plain の単純リクエスト＝Apps Script でも CORS 事前確認なしで届く） ── */
 async function syncCall(op,body,opt){
   opt=opt||{}; const ctrl=("AbortController" in window)?new AbortController():null; const tm=ctrl?setTimeout(()=>ctrl.abort(),opt.timeout||30000):0;
+  /* v21.39.4：外から止められる（予備の要求の片方が先に答えたとき）。止めた要求の失敗は SYNC.err に残さない */
+  const ext=opt.signal||null; if(ctrl&&ext){ if(ext.aborted) ctrl.abort(); else ext.addEventListener("abort",()=>ctrl.abort(),{once:true}); }
   try{
     const r=await fetch(SYNC.url,{method:"POST",mode:"cors",redirect:"follow",keepalive:!!opt.keepalive,signal:ctrl&&ctrl.signal,
       headers:{"Content-Type":"text/plain;charset=UTF-8"},body:JSON.stringify(Object.assign({op,v:1,t:Date.now()},body||{}))});
     const t=await r.text(); let j;
-    try{ j=JSON.parse(t); }catch(e){ throw new Error("接続先の応答が読めません（"+String(t).slice(0,60)+"）"); }
-    if(j&&j.error) throw new Error(j.error);
+    try{ j=JSON.parse(t); }catch(e){ const er=new Error(r.status>=400?("同期サーバー（Google）が応答しませんでした（HTTP "+r.status+"）"):("接続先の応答が読めません（"+String(t).slice(0,60)+"）"));
+      er.transient=r.status===404||r.status===408||r.status===429||r.status>=500||/^\s*</.test(t); er.http=r.status; throw er; }
+    if(j&&j.error){ const er=new Error(j.error); er.srv=1; throw er; }
     SYNC.err=""; return j;
-  }catch(e){ SYNC.err=(e&&e.name==="AbortError")?"接続がタイムアウトしました":String(e&&e.message||e); throw e; }
+  }catch(e){ if(ext&&ext.aborted) throw e;
+    try{ if(e&&(e.name==="AbortError"||e instanceof TypeError)) e.transient=true; }catch(x){}
+    SYNC.err=(e&&e.name==="AbortError")?"接続がタイムアウトしました":String(e&&e.message||e); throw e; }
   finally{ if(tm) clearTimeout(tm); }
 }
 /* ── 同期する内容 ── */
@@ -38915,6 +38920,142 @@ try{ if(typeof v30I18n==="function") v30I18n([
  ["メールの返信が、送った相手と別のアドレスから届いたときや、なりすましの疑いがあるときは、スレッドに注意の札が出ます","When an email reply comes from an address other than the one you wrote to, or looks spoofed, the thread shows a warning tag","当邮件回复来自与收件人不同的地址或疑似冒充时，会在会话中显示提醒标签","Si una respuesta llega desde una dirección distinta a la que escribió o parece suplantada, el hilo muestra una etiqueta de aviso"],
  ["ドキュメントのうち、ブラウザで開くと中でプログラムが動く形式（HTML など）は、開かずにダウンロードします","Documents in formats that can run code when opened in a browser (such as HTML) are downloaded instead of opened","对于在浏览器中打开时可能运行程序的文档格式（如 HTML），将直接下载而不打开","Los documentos en formatos que pueden ejecutar código al abrirse en el navegador (como HTML) se descargan en lugar de abrirse"]
 ]); }catch(e){}
+
+/* ═══ v21.39.4（2026-10-05）同期サーバーに「なかなかつながらない」の改良 ═══
+   報告（12:38 のスクショ）：公開URLで「☁ 同期サーバーにつながっていません…（6秒後に自動で再接続）」がなかなか消えない
+   調べて分かったこと（本番の Apps Script を読み取り専用で計測。2026-10-05 12:45〜12:57。ログイン・保存はしていない）：
+   ① 何もしない要求（未知の op）でも、答えが返るまで 1.7〜22 秒。20回中4回は Google の転送先が 404 か、別の処理（doGet）の答え（約2割が失敗）。
+      ping・lookup・pull も同じで、pull は 66 秒待って 404 のあと、次は 5 秒で成功。Google の障害情報は出ていない＝Apps Script の受け渡しの遅れと取りこぼし
+   ② 画面は1回の要求を最大30秒待ち、404（Google のエラーページ）は「応答が読めません」の失敗として、やり直さなかった（v21.7 がやり直すのは別の処理の答えだけ）。
+      ログイン→取得の2段のどちらかが外れると接続全体が失敗になり、5→15→30→60 秒後に最初からやり直していた
+   ③ 応答が遅いと生存確認が重なる：10秒ごとの見張りが「前の確認が終わった時刻」で数えるため、確認に20秒かかると次の確認を重ねて出していた（遅いほど要求が増える）
+   ④ 用のない定期の要求：LINE/WhatsApp を設定していなくても45秒ごとに受信を確認・やりとりの画面ではメンバーの変更を15秒ごとに確認・メールの返信を生存確認のたび（30秒）に確認
+   直したこと：
+   ・読むだけの要求とログインは、数秒で答えが無ければ同じ要求をもう1本出し、先に返った答えを使う（同時に2本まで・合わせて最大4本）。
+     404・別の処理の答え・通信の失敗・時間切れは、すぐに出し直す。保存（push）は今までどおり版の照合と自動の送り直し（二重に保存しない）
+   ・同じ内容の取得が重なったら1本にまとめる。生存確認は前の確認が終わるまで次を出さない（待ちは25秒まで）
+   ・LINE/WhatsApp が未設定と分かったら10分ごと、やりとりの画面のメンバー確認は60秒ごと、生存確認のあとのメールの返信の確認は90秒ごと
+   ・つながっていない間の表示：何秒待っているか・理由（Google のサーバーの応答の遅れ／インターネットにつながっていない）・自動で再接続すること。再接続は 3→10→20→40→60 秒後 */
+var V394={beat:0,inBeat:0,bm:0,lwOff:0,reg:{at:0,r:null},fly:{},log:[]};
+/* 予備の要求を出す時刻（ミリ秒）。ここに無い op（保存・メール送信・LINE 送信など）は1本だけ（今までどおり） */
+const V394_HEDGE={ping:[4500,11000],lookup:[4500,11000],login:[6000,13000],pull:[8000,18000],reg_at:[5000],admin_get:[8000,18000],llm_get:[6000],llm_list:[6000],
+  stdkb_get:[8000],mail_status:[6000],digest_status:[6000],lw_status:[6000],lw_me:[6000],pool_status:[6000],token_list:[6000],deck_list:[8000],deck_get:[9000],
+  file_list:[8000],file_get:[9000],req_got:[9000],req_fget:[9000]};
+const V394_LONG=/^(ping|lookup|login|pull)$/;   /* つなぐ時の要求：待ち時間の指定が無ければ、全体で45秒まで待つ */
+const V394_ONE=/^(pull|lookup|ping|reg_at|llm_get|stdkb_get|admin_get|mail_status|digest_status)$/;   /* 同じ内容が重なったら1本に */
+function v394T(s){ try{ return typeof v30T==="function"?v30T(s):s; }catch(e){ return s; } }
+function v394Transient(e){ if(!e) return false; if(e.transient) return true; if(e.name==="AbortError"||e instanceof TypeError) return true;
+  return /別の処理のもの|応答が読めません|応答しませんでした|タイムアウト|timed? ?out|Failed to fetch|NetworkError|Load failed|Lock|ロック|Service invoked|サービス|サーバー ?エラー|server error|しばらく|too many|Address unavailable/i.test(String(e.message||e)); }
+function v394Log(op,ms,ok,n,err){ try{ V394.log.push({op,ms,ok:ok?1:0,n,at:Date.now(),e:ok?"":String((err&&err.message)||err||"").slice(0,80)}); if(V394.log.length>80) V394.log.splice(0,V394.log.length-80); }catch(e){} }
+/* 調べる時のため：直近の要求の時間・本数・結果（コンソールで v394Diag()） */
+function v394Diag(){ return V394.log.slice(-40).map(x=>new Date(x.at).toLocaleTimeString()+" "+x.op+" "+(x.ok?"ok":"NG")+" "+(Math.round(x.ms/100)/10)+"s ×"+x.n+(x.e?" "+x.e:"")).join("\n"); }
+/* 予備の要求つきで呼ぶ：delays の時刻に答えが無ければ同じ要求をもう1本（同時に2本まで）。一時的な失敗は0.5秒後に出し直す。
+   先に返った答えを使い、残りは止める（止めた要求の失敗は画面の状態に残さない＝logic_sync.js の syncCall 側） */
+function v394Run(inner,self,op,body,opt,delays){
+  opt=opt||{}; const t0=Date.now(); const budget=(+opt.timeout)||(V394_LONG.test(op)?45000:30000); const maxN=delays.length+2;   /* 呼び出し側が待ち時間を決めていればその中で */
+  const offline=(typeof navigator!=="undefined"&&navigator.onLine===false);
+  return new Promise((resolve,reject)=>{
+    let done=0, started=0, live=0, last=null; const ctrls=[], tms=[];
+    const end=(ok,v)=>{ if(done) return; done=1; tms.forEach(clearTimeout); ctrls.forEach(c=>{ try{ c.abort(); }catch(e){} }); v394Log(op,Date.now()-t0,ok,started,ok?null:v); if(ok) resolve(v); else reject(v); };
+    const go=()=>{ if(done||started>=maxN) return false; const left=budget-(Date.now()-t0); if(left<2000) return false;
+      started++; live++; const c=("AbortController" in window)?new AbortController():null; if(c) ctrls.push(c);
+      const o=Object.assign({},opt,{timeout:left}); if(c) o.signal=c.signal;
+      Promise.resolve().then(()=>inner.call(self,op,body,o)).then(r=>{ live--; end(true,r); },e=>{ live--; if(done) return; last=e;
+        if(!v394Transient(e)){ end(false,e); return; }   /* サーバーが答えた失敗（鍵が違う等）は、何度出しても同じ */
+        if(offline){ if(live===0) end(false,e); return; }
+        if(live===0) tms.push(setTimeout(()=>{ if(!done&&live===0&&!go()) end(false,last); },500)); });
+      return true; };
+    go();
+    if(!offline) delays.forEach(d=>tms.push(setTimeout(()=>{ if(!done&&live<2) go(); },d)));
+    tms.push(setTimeout(()=>{ if(!done) end(false,last||Object.assign(new Error("接続がタイムアウトしました"),{transient:true})); },budget+1000));
+  });
+}
+if(typeof syncCall==="function"){ const __sc394=syncCall; syncCall=function(op,body,opt){
+  try{
+    if(op==="beat"){ opt=Object.assign({},opt||{}); opt.timeout=Math.max(+opt.timeout||0,25000); }
+    /* やりとりの画面のメンバーの確認（15秒ごと）は60秒に1回（メンバー・担当の画面と管理画面は今までどおり15秒） */
+    if(op==="reg_at"&&typeof cur!=="undefined"&&cur==="msg"&&V394.reg.r&&Date.now()-V394.reg.at<60000) return Promise.resolve(V394.reg.r);
+    const d=V394_HEDGE[op]; let key="";
+    if(d&&V394_ONE.test(op)){ try{ key=op+"|"+JSON.stringify(body||{}); }catch(e){ key=""; } if(key&&V394.fly[key]) return V394.fly[key]; }
+    let p=d?v394Run(__sc394,this,op,body,opt,d):__sc394.call(this,op,body,opt);
+    p=p.then(r=>{ try{ if(op==="lw_pull") V394.lwOff=(r&&r.configured===false)?Date.now():0; if(op==="reg_at"&&r&&r.ok!==false) V394.reg={at:Date.now(),r}; }catch(e){} return r; });
+    if(key){ V394.fly[key]=p; const clr=()=>{ if(V394.fly[key]===p) delete V394.fly[key]; }; p.then(clr,clr); }
+    return p;
+  }catch(e){ return Promise.reject(e); } }; }
+/* つなぐ時の物流の共有データ（見積依頼・レート）の取得：荷主は3秒・物流会社は10秒まで待ち、遅いときは先につなぐ（届いたら取り込んで描き直す）。
+   今までは、この取得が遅いと、自分のデータの取得が済んでいても「つながっていません」のままだった */
+if(typeof syncPullFwd==="function"){ const __spf394=syncPullFwd; syncPullFwd=function(initial){
+  const p=Promise.resolve(__spf394.apply(this,arguments));
+  if(!initial) return p;
+  let fwd=false; try{ fwd=(typeof FWDON!=="undefined"&&!!FWDON)||(typeof SES!=="undefined"&&!!SES&&SES.role==="fwd"); }catch(e){}
+  let late=false; const t=new Promise(res=>setTimeout(()=>{ late=true; res(); },fwd?10000:3000));
+  p.then(()=>{ if(!late) return; try{ if(typeof FWDON!=="undefined"&&FWDON&&typeof fwdRender==="function") fwdRender(); }catch(e){} },()=>{});
+  return Promise.race([p,t]); }; }
+/* 生存確認：前の確認が終わるまで次を出さない（応答が遅いと重なって、要求が増えていた） */
+if(typeof syncBeat==="function"){ const __sb394=syncBeat; syncBeat=async function(){
+  if(V394.beat&&Date.now()-V394.beat<90000) return; V394.beat=Date.now(); V394.inBeat=1;
+  try{ return await __sb394.apply(this,arguments); } finally{ V394.beat=0; V394.inBeat=0; } }; }
+/* メールの返信の確認：生存確認のたび（30秒）→ 90秒に1回。スレッドを開いた時・🔄ボタンは今までどおりすぐ */
+if(typeof bmPull==="function"){ const __bm394=bmPull; bmPull=async function(manual){
+  if(!manual&&V394.inBeat&&Date.now()-V394.bm<85000) return {n:0}; V394.bm=Date.now(); return __bm394.apply(this,arguments); }; }
+/* LINE/WhatsApp の受信：未設定と分かったら10分に1回（ボタンからはすぐ） */
+if(typeof lwPull==="function"){ const __lw394=lwPull; lwPull=async function(manual){
+  if(!manual&&V394.lwOff&&Date.now()-V394.lwOff<600000) return 0; return __lw394.apply(this,arguments); }; }
+/* つながっていない間の表示（v21.7 の帯）：待っている秒数・理由・次の再接続 */
+if(typeof v217Bar==="function"){ v217Bar=function(){ try{
+  let b=document.getElementById("v217bar"); const show=v217Want()&&!SYNC.boot;
+  if(!show){ if(b) b.hidden=true; return; }
+  if(!b){ b=document.createElement("div"); b.id="v217bar"; b.setAttribute("role","status"); document.body.appendChild(b); }
+  const T=v394T, now=Date.now(); let h;
+  if(V217.busy){ const s=Math.max(0,Math.round((now-V217.at)/1000));
+    const msg=s<3?"☁ 同期サーバーに接続しています…":s<8?`☁ 同期サーバーに接続しています…（${s}秒）`:`☁ 同期サーバーに接続しています…（${s}秒）。Google のサーバーの応答が遅れています。このままお待ちください（この端末の変更は保存済みです）`;
+    h=`<span>${esc(T(msg))}</span>`; }
+  else { const wait=Math.max(0,Math.round((V217.next-now)/1000)); const off=(typeof navigator!=="undefined"&&navigator.onLine===false);
+    const msg=(off?"☁ この端末がインターネットにつながっていません。":"☁ 同期サーバー（Google）の応答が遅れていて、まだつながっていません。")+"この端末の変更は保存済みで、つながり次第送ります"+(wait?`（${wait}秒後に自動で再接続）`:"（まもなく自動で再接続）");
+    h=`<span>${esc(T(msg))}</span><button class="btn g" type="button" id="v217go">${esc(T("今すぐ再接続"))}</button>`; }
+  if(b.dataset.h!==h||b.hidden){ b.innerHTML=h; b.dataset.h=h; }
+  b.hidden=false;
+  b.title=V217.err?(T("直近の理由：")+V217.err):"";
+  const g=document.getElementById("v217go"); if(g) g.onclick=()=>{ V217.next=0; v217Start(true); };
+}catch(e){} }; }
+/* 再接続：失敗のあとは 3→10→20→40→60 秒（1回の接続の中で、予備の要求と出し直しを済ませている） */
+if(typeof v217Start==="function"){ v217Start=async function(manual){
+  if(!v217Want()||V217.busy||SYNC.boot) return;
+  V217.busy=1; V217.at=Date.now(); v217Bar();
+  let r=null, err=null; try{ r=await syncStart(); }catch(e){ err=e; }
+  V217.busy=0;
+  if(r&&r.ok&&!r.skip&&SYNC.started){
+    const had=V217.fail; V217.fail=0; V217.err=""; v217Bar();
+    try{ syncReloadState(); }catch(e){}
+    try{ if(SYNC.dirty) syncSchedule("acct"); }catch(e){}
+    if(had||manual) try{ toast(v394T("☁ 同期サーバーにつながりました（他の端末の変更を取り込み、この端末の変更も送ります）")); }catch(e){}
+    return; }
+  if(r&&r.ok===false&&/^(expired|disabled|member)$/.test(String(r.reason||""))){ try{ syncKicked(null,r.reason); }catch(e){} return; }
+  V217.fail++; V217.err=String((err&&err.message)||(r&&(r.msg||r.reason))||SYNC.err||"").slice(0,80);
+  const waits=[3,10,20,40,60]; V217.next=Date.now()+waits[Math.min(V217.fail-1,waits.length-1)]*1000; v217Bar();
+  if(manual) try{ toast(v394T("☁ まだつながりません。Google のサーバーの応答が遅れています。自動で再接続を続けます（この端末の変更は保存済みです）")); }catch(e){}
+}; }
+/* ── 英・中・西 ── */
+try{ if(typeof v30I18n==="function") v30I18n([
+  ["☁ 同期サーバーに接続しています…","☁ Connecting to the sync server…","☁ 正在连接同步服务器…","☁ Conectando con el servidor de sincronización…"],
+  ["今すぐ再接続","Reconnect now","立即重新连接","Reconectar ahora"],
+  ["直近の理由：","Latest reason: ","最近的原因：","Último motivo: "],
+  ["☁ 同期サーバーにつながりました（他の端末の変更を取り込み、この端末の変更も送ります）","☁ Connected to the sync server (changes from other devices are loaded, and this device’s changes are sent)","☁ 已连接同步服务器（已导入其他设备的更改，并发送此设备的更改）","☁ Conectado al servidor de sincronización (se cargan los cambios de otros dispositivos y se envían los de este)"],
+  ["☁ まだつながりません。Google のサーバーの応答が遅れています。自動で再接続を続けます（この端末の変更は保存済みです）","☁ Still not connected. Google’s server is responding slowly. We’ll keep reconnecting automatically (changes on this device are saved).","☁ 仍未连接。Google 服务器响应缓慢。将继续自动重新连接（此设备的更改已保存）。","☁ Aún sin conexión. El servidor de Google responde con lentitud. Seguiremos reconectando automáticamente (los cambios de este dispositivo están guardados)."],
+  ["接続がタイムアウトしました","The connection timed out","连接超时","Se agotó el tiempo de conexión"]
+]); }catch(e){}
+try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+  {re:/^☁ 同期サーバーに接続しています…（(\d+)秒）$/,en:"☁ Connecting to the sync server… ($1 s)",zh:"☁ 正在连接同步服务器…（$1 秒）",es:"☁ Conectando con el servidor de sincronización… ($1 s)"},
+  {re:/^☁ 同期サーバーに接続しています…（(\d+)秒）。Google のサーバーの応答が遅れています。このままお待ちください（この端末の変更は保存済みです）$/,
+    en:"☁ Connecting to the sync server… ($1 s). Google’s server is responding slowly. Please wait (changes on this device are saved).",
+    zh:"☁ 正在连接同步服务器…（$1 秒）。Google 服务器响应缓慢，请稍候（此设备的更改已保存）。",
+    es:"☁ Conectando con el servidor de sincronización… ($1 s). El servidor de Google responde con lentitud. Espere, por favor (los cambios de este dispositivo están guardados)."},
+  {re:/^☁ (同期サーバー（Google）の応答が遅れていて、まだつながっていません|この端末がインターネットにつながっていません)。この端末の変更は保存済みで、つながり次第送ります（(?:(\d+)秒後に自動で再接続|まもなく自動で再接続)）$/,
+    en:(m)=>"☁ "+(m[1].indexOf("Google")>=0?"The sync server (Google) is responding slowly, so we’re not connected yet.":"This device isn’t connected to the internet.")+" Changes on this device are saved and will be sent once connected ("+(m[2]?"reconnecting automatically in "+m[2]+" s":"reconnecting automatically shortly")+")",
+    zh:(m)=>"☁ "+(m[1].indexOf("Google")>=0?"同步服务器（Google）响应缓慢，尚未连接。":"此设备未连接互联网。")+"此设备的更改已保存，连接后将发送（"+(m[2]?m[2]+" 秒后自动重新连接":"即将自动重新连接")+"）",
+    es:(m)=>"☁ "+(m[1].indexOf("Google")>=0?"El servidor de sincronización (Google) responde con lentitud y aún no hay conexión.":"Este dispositivo no está conectado a internet.")+" Los cambios de este dispositivo están guardados y se enviarán al conectar ("+(m[2]?"reconexión automática en "+m[2]+" s":"reconexión automática en breve")+")"},
+  {re:/^同期サーバー（Google）が応答しませんでした（HTTP (\d+)）$/,en:"The sync server (Google) didn’t respond (HTTP $1)",zh:"同步服务器（Google）没有响应（HTTP $1）",es:"El servidor de sincronización (Google) no respondió (HTTP $1)"}
+].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
