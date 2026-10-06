@@ -1027,7 +1027,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="cfe95597a3ed";
+const BC20_BUILD="dcc50246a804";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -39055,6 +39055,210 @@ try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
     es:(m)=>"☁ "+(m[1].indexOf("Google")>=0?"El servidor de sincronización (Google) responde con lentitud y aún no hay conexión.":"Este dispositivo no está conectado a internet.")+" Los cambios de este dispositivo están guardados y se enviarán al conectar ("+(m[2]?"reconexión automática en "+m[2]+" s":"reconexión automática en breve")+")"},
   {re:/^同期サーバー（Google）が応答しませんでした（HTTP (\d+)）$/,en:"The sync server (Google) didn’t respond (HTTP $1)",zh:"同步服务器（Google）没有响应（HTTP $1）",es:"El servidor de sincronización (Google) no respondió (HTTP $1)"}
 ].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+
+/* ═══ v21.40（2026-10-06）「この画面でわかること」をやめ、見出しの横の「使い方を見る」で、はじめてガイドをその場で開く ═══
+   依頼（10/6 のスクショ・ダッシュボード）：左メニューのどの画面にも、見出しの下に「▸ この画面でわかること：…」が1行で出ていて、
+   押して開かないと読めず、言葉も多くて分かりづらい → すべて消す。代わりに分かりやすいボタンを置き、押すと画面はそのままで、
+   はじめてガイド（動く HTML 版）の、その画面を説明したページが窓で開くように。「わかりやすく・引き算・適切な余白」
+   ① 見出しの下の説明（.cando）は描かない（ph() から外す。ph() を通らない画面＝メンバー・物流会社・管理の分も、描いた直後に外す）
+   ② 見出しの横に「使い方を見る」（その画面のガイドのページがあるときだけ。物流会社・管理の画面には出さない）
+   ③ 押すと、画面の上に窓が開き、ガイドの web 版（guide/index.html・初めて開くときだけ読む）を、その画面のページから表示。
+      ガイドの中の ‹ › ・目次・ページ内のリンクもそのまま使える。× ／ Esc ／ 窓の外を押すと閉じ、元の画面に戻る
+   ④ 右上の「？（ヘルプ）」の「この画面でできること」（.cando を写していた）も、同じ「この画面の使い方を見る」に
+   ガイドの置き場所：アプリと同じ場所の guide/（公開URL・アーティファクト）。ファイルで開いたとき（file:）は公開URLのガイド。
+   どちらも開けないときは、窓の中に「もう一度」と「新しいタブで開く」（はじめてガイドの公開リンク）を出す */
+const V40={ fr:null, ready:false, want:null, k:0, tm:0, lt:0, ret:null, ob:null };
+const V40_PUB="https://kenta19870526.github.io/boueki-cloud-trial/guide/index.html";
+const V40_ART="https://claude.ai/artifact/BemgPtfyHibGgoWXMbcUHQ";
+/* 画面 → ガイドのページ（商談・バイヤーと貿易実務は、開いているタブで変える） */
+const V40_MAP={ inbox:"s27b", dash:"s26", today:"s12", up:"s09", item:"s11", srcs:"s29", cty:"s13", deck:"s15", gloss:"s27e", db:"s16",
+  deal:()=>(typeof B30!=="undefined"&&B30&&B30.tab==="rec")?"s18":"s17",
+  msg:"s22", rqp:"s27d", memo:"s25",
+  ops:()=>({reg:"s14",doc:"s19",ship:"s19",ord:"s19",file:"s21"})[typeof opsTab!=="undefined"?opsTab:""]||"s14",
+  docs:"s21", legal:"s20", task:"s24", team:"s23", trash:"s27f", ai:"s28", ship:"s19" };
+function v40T(s){ try{ return typeof v30T==="function"?v30T(s):s; }catch(e){ return s; } }
+function v40User(){ try{ return typeof ux17Mode!=="function"||ux17Mode()==="user"; }catch(e){ return true; } }
+function v40Slide(){ try{ if(!v40User()||typeof cur==="undefined") return null; const m=V40_MAP[cur]; return typeof m==="function"?m():(m||null); }catch(e){ return null; } }
+
+/* ① 見出しの下の説明は描かない */
+if(typeof ph==="function"){ const __ph40=ph; ph=function(p,can,extra){ return String(__ph40.call(this,p,"",extra)).replace(/<p class="cando"><\/p>/,""); }; }
+
+/* ② 見出しの横のボタン（描画のたびに：説明を外し、ボタンを付け直す） */
+const V40_ICON='<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" fill="currentColor"/><path d="M8.1 6.4v7.2l5.6-3.6z" fill="#fff"/></svg>';
+function v40Decorate(){
+  const W=document.getElementById("well"); if(!W) return;
+  W.querySelectorAll(".ph .cando").forEach(e=>e.remove());
+  const h=W.querySelector(".ph h1"); const id=h?v40Slide():null;
+  let b=W.querySelector(".ph .v40gb");
+  if(!id){ if(b) b.remove(); return; }
+  if(!b||b.previousElementSibling!==h){ if(b) b.remove();
+    b=document.createElement("button"); b.type="button"; b.className="v40gb";
+    b.title=v40T("この画面の使い方を、はじめてガイドで見る（画面はこのまま）");
+    b.innerHTML=V40_ICON+"<span>"+v40T("使い方を見る")+"</span>";
+    h.insertAdjacentElement("afterend",b);
+    const box=h.parentElement; if(box) box.classList.add("v40hd");
+    const ph=h.closest(".ph"); if(ph) ph.classList.add("v40ph"); }
+  if(b.dataset.s!==id) b.dataset.s=id;
+}
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest(".v40gb"); if(!b) return; e.preventDefault();
+  const inDW=!!b.closest("#pn"); if(inDW) try{ closeDW(); }catch(x){}
+  v40Open(b.dataset.s||v40Slide(),inDW?document.getElementById("helpb"):b); });
+/* 押す前に、ガイドを先に読み始める（PC でボタンに乗せたとき） */
+document.addEventListener("pointerover",e=>{ if(V40.fr||e.pointerType==="touch") return; const b=e.target&&e.target.closest&&e.target.closest(".v40gb"); if(b) v40Frame(b.dataset.s||"s01"); });
+function v40Watch(){ const W=document.getElementById("well"); if(!W||V40.ob) return;
+  V40.ob=new MutationObserver(()=>{ try{ v40Decorate(); }catch(e){} }); V40.ob.observe(W,{childList:true,subtree:true}); v40Decorate(); }
+/* 商談・バイヤーと貿易実務のタブを変えたとき、ボタンの行き先を変える */
+if(typeof render==="function"){ const __r40=render; render=function(){ const r=__r40.apply(this,arguments); try{ v40Decorate(); }catch(e){} return r; }; }
+
+/* ③ 窓 */
+function v40Dom(){
+  let ov=document.getElementById("v40gd"); if(ov) return ov;
+  ov=document.createElement("div"); ov.id="v40gd"; ov.hidden=true;
+  ov.innerHTML=`<div class="v40bk"></div>
+    <div class="v40dlg" role="dialog" aria-modal="true" tabindex="-1" aria-label="${v40T("はじめてガイド")}">
+      <div class="v40hdr"><span>${v40T("はじめてガイド")}</span></div>
+      <div class="v40ld" role="status"><span class="v40sp" aria-hidden="true"></span><span>${v40T("ガイドを読み込んでいます…")}</span></div>
+      <div class="v40er" hidden><p>${v40T("ガイドを開けませんでした。通信の状態を確かめて、もう一度お試しください。")}</p>
+        <div class="v40erb"><button type="button" class="btn" data-v40="retry">${v40T("もう一度")}</button><a class="btn g" data-v40="tab" target="_blank" rel="noopener noreferrer" href="${V40_ART}">${v40T("新しいタブで開く")}</a></div></div>
+      <button type="button" class="v40x" aria-label="${v40T("閉じる")}" title="${v40T("閉じる（Esc）")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector(".v40bk").addEventListener("click",v40Close);
+  ov.querySelector(".v40x").addEventListener("click",v40Close);
+  ov.querySelector('[data-v40="retry"]').addEventListener("click",()=>{ V40.k=0; v40Frame(V40.last||v40Slide()||"s01",true); });
+  return ov;
+}
+function v40Size(){
+  const ov=document.getElementById("v40gd"); if(!ov) return; const d=ov.querySelector(".v40dlg");
+  const vw=window.innerWidth, vh=window.innerHeight;
+  if(vw<760){ d.style.width=""; d.style.height=""; return; }
+  const HUD=48, PW=20, PH=16;   /* ガイドの下の操作（48px）と、ページのまわりの余白（ガイドの fit() と同じ） */
+  const w=Math.max(560,Math.floor(Math.min(1400, vw-96, (vh-80-HUD-PH)*16/9+PW)));
+  d.style.width=w+"px"; d.style.height=Math.round((w-PW)*9/16+PH+HUD)+"px";
+}
+function v40Cands(){
+  const v=encodeURIComponent(typeof BC20_BUILD!=="undefined"?BC20_BUILD:"demo"), out=[];
+  if(/^https?:$/.test(location.protocol)) out.push("guide/index.html?b="+v);
+  if(location.href.indexOf("https://kenta19870526.github.io/")!==0) out.push(V40_PUB+"?b="+v);
+  return out;
+}
+function v40State(s){ const ov=v40Dom(); ov.querySelector(".v40ld").hidden=s!=="load"; ov.querySelector(".v40er").hidden=s!=="err"; if(V40.fr) V40.fr.style.visibility=s==="ok"?"visible":"hidden"; }
+function v40Frame(id,force){
+  const ov=v40Dom(); if(V40.fr&&!force) return;
+  if(V40.fr){ try{ V40.fr.remove(); }catch(e){} V40.fr=null; }
+  const c=v40Cands(); if(V40.k>=c.length){ v40Fail(id); return; }
+  const f=document.createElement("iframe");
+  f.title=v40T("はじめてガイド"); f.setAttribute("referrerpolicy","no-referrer");
+  /* アプリのログイン情報（同じ場所の保存）には触れさせない＝別扱いで開く。通信できないときにオフライン用の仕組みが返すアプリの画面が、窓の中で動いても安全に */
+  f.setAttribute("sandbox","allow-scripts allow-popups allow-popups-to-escape-sandbox");
+  V40.fr=f; V40.ready=false; V40.want=null; V40.last=id;
+  f.addEventListener("load",()=>{ clearTimeout(V40.lt); V40.lt=setTimeout(()=>{ if(V40.fr===f&&!V40.ready) v40Next(id); },3000); });
+  clearTimeout(V40.tm); V40.tm=setTimeout(()=>{ if(V40.fr===f&&!V40.ready) v40Next(id); },15000);
+  f.src=c[V40.k]+"#"+id;
+  ov.querySelector(".v40dlg").insertBefore(f,ov.querySelector(".v40x"));
+  v40State("load");
+}
+function v40Next(id){ V40.k++; v40Frame(id,true); }
+function v40Fail(id){ if(V40.fr){ try{ V40.fr.remove(); }catch(e){} V40.fr=null; } V40.ready=false;
+  const a=v40Dom().querySelector('[data-v40="tab"]'); if(a) a.href=V40_ART+(id?"#"+id:""); v40State("err"); }
+function v40Post(m){ try{ if(V40.fr&&V40.fr.contentWindow) V40.fr.contentWindow.postMessage(m,"*"); }catch(e){} }
+function v40Open(id,btn){
+  id=id||v40Slide(); if(!id) return;
+  const ov=v40Dom(); V40.ret=btn||document.activeElement; V40.last=id;
+  ov.hidden=false; document.documentElement.classList.add("v40lock"); v40Size();
+  if(!V40.fr){ V40.k=0; v40Frame(id); }
+  else if(V40.ready){ v40State("ok"); v40Post({bc20guide:"go",id}); setTimeout(()=>{ try{ V40.fr.focus(); }catch(e){} },40); }
+  else { V40.want=id; v40State("load"); }
+  if(!V40.fr) return;
+  if(!V40.ready) setTimeout(()=>{ try{ ov.querySelector(".v40dlg").focus(); }catch(e){} },40);   /* 読み込み中は窓そのものに（スマホで × に枠が出ないように） */
+}
+function v40Close(){
+  const ov=document.getElementById("v40gd"); if(!ov||ov.hidden) return;
+  ov.hidden=true; document.documentElement.classList.remove("v40lock");
+  v40Post({bc20guide:"pause"});
+  const r=V40.ret; V40.ret=null; try{ if(r&&r.focus&&document.contains(r)) r.focus(); }catch(e){}
+}
+window.addEventListener("message",e=>{
+  const f=V40.fr; if(!f||e.source!==f.contentWindow) return; const d=e.data; if(!d||typeof d!=="object") return;
+  if(d.bc20guide==="ready"){ V40.ready=true; clearTimeout(V40.tm); clearTimeout(V40.lt); v40State("ok");
+    const w=V40.want; V40.want=null; if(w&&w!==d.id) v40Post({bc20guide:"go",id:w});
+    const ov=document.getElementById("v40gd"); if(ov&&!ov.hidden) setTimeout(()=>{ try{ f.focus(); }catch(x){} },40); else v40Post({bc20guide:"pause"}); }
+  else if(d.bc20guide==="close") v40Close();
+  else if(d.bc20guide==="page"&&d.title){ const g=document.querySelector("#v40gd .v40dlg"); if(g) g.setAttribute("aria-label",v40T("はじめてガイド")+"："+String(d.title).replace(/^[①-⑳㉑-㉟]\s*/,"").slice(0,60)); }
+});
+document.addEventListener("keydown",e=>{ const ov=document.getElementById("v40gd"); if(!ov||ov.hidden) return;
+  if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); v40Close(); } },true);
+document.addEventListener("focusin",e=>{ const ov=document.getElementById("v40gd"); if(!ov||ov.hidden) return; if(!ov.contains(e.target)){ const x=ov.querySelector(".v40x"); if(x) x.focus(); } });
+window.addEventListener("resize",()=>{ try{ v40Size(); }catch(e){} });
+
+/* ④ 右上の「？（ヘルプ）」：「この画面でできること」の代わりに、この画面の使い方（ガイド）を開くボタン */
+if(typeof ux17Help==="function"){ const __hp40=ux17Help; ux17Help=function(){ const r=__hp40.apply(this,arguments);
+  try{ const id=v40Slide(), pn=document.getElementById("pn"), h3=pn&&pn.querySelector("h3");
+    if(id&&h3&&!pn.querySelector(".v40help")){ const d=document.createElement("div"); d.className="v40help";
+      d.innerHTML=`<button type="button" class="v40gb v40gbl" data-s="${id}">${V40_ICON}<span>${v40T("この画面の使い方を見る")}</span></button>`;
+      h3.insertAdjacentElement("afterend",d); } }catch(e){} return r; }; }
+
+/* 見た目 */
+(function(){ const st=document.createElement("style"); st.id="v40css"; st.textContent=`
+#well .ph .cando{display:none!important}
+#well .ph.v40ph{align-items:center}
+#well .ph>.v40hd{display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:6px;min-width:0}
+#well .ph>.v40hd>:not(h1):not(.v40gb){flex-basis:100%}
+#well .ph>.v40hd>h1{margin:0;min-width:0}
+.v40gb{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 13px 0 7px;border:1px solid color-mix(in srgb,var(--ink-3) 34%,transparent);border-radius:999px;
+  background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;font-weight:600;line-height:1;white-space:nowrap;cursor:pointer;flex:none;
+  transition:border-color .15s ease,background-color .15s ease,color .15s ease}
+.v40gb svg{width:18px;height:18px;flex:none;color:var(--or)}
+.v40gb:hover{border-color:var(--or);background:var(--or-soft);color:var(--ink)}
+.v40gb:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.v40help{margin:10px 0 2px}
+.v40gb.v40gbl{height:40px;width:100%;justify-content:center;font-size:14px;padding:0 16px}
+html.v40lock,html.v40lock body{overflow:hidden!important}
+#v40gd{position:fixed;inset:0;z-index:300;display:grid;place-items:center}
+#v40gd[hidden]{display:none!important}
+#v40gd .v40bk{position:absolute;inset:0;background:rgba(15,23,42,.5);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:v40fade .18s ease both}
+#v40gd .v40dlg{position:relative;width:min(1180px,calc(100vw - 96px));height:min(720px,calc(100vh - 80px));background:var(--surface);border-radius:14px;
+  box-shadow:0 32px 80px -28px rgba(8,15,30,.6),0 0 0 1px rgba(255,255,255,.05);animation:v40pop .22s cubic-bezier(.2,.7,.2,1) both}
+#v40gd .v40dlg:focus{outline:none}
+#v40gd iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:inherit;background:transparent;display:block}
+#v40gd .v40hdr{display:none}
+#v40gd .v40x{position:absolute;top:-14px;right:-14px;z-index:2;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);
+  display:grid;place-items:center;cursor:pointer;box-shadow:0 8px 18px -8px rgba(8,15,30,.5);transition:color .15s ease,border-color .15s ease}
+#v40gd .v40x svg{width:16px;height:16px}
+#v40gd .v40x:hover{color:var(--ink);border-color:var(--or)}
+#v40gd .v40x:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+#v40gd .v40ld,#v40gd .v40er{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:14px;padding:24px;text-align:center;color:var(--ink-3);font-size:13px}
+#v40gd .v40ld[hidden],#v40gd .v40er[hidden]{display:none}
+#v40gd .v40er p{margin:0;max-width:34em;color:var(--ink-2);font-size:14px;line-height:1.7}
+#v40gd .v40erb{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#v40gd .v40sp{width:28px;height:28px;border-radius:50%;border:3px solid color-mix(in srgb,var(--ink-3) 22%,transparent);border-top-color:var(--or);animation:v40spin .8s linear infinite}
+@keyframes v40fade{from{opacity:0}to{opacity:1}}
+@keyframes v40pop{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes v40spin{to{transform:rotate(360deg)}}
+@media (max-width:759px){
+  #v40gd .v40dlg{width:100%!important;height:100%!important;border-radius:0;display:flex;flex-direction:column}
+  #v40gd .v40hdr{display:flex;align-items:center;flex:none;height:calc(52px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 60px 0 16px;border-bottom:1px solid var(--line);
+    font-size:14px;font-weight:700;color:var(--ink)}
+  #v40gd iframe{position:static;flex:1;min-height:0;height:auto;border-radius:0}
+  #v40gd .v40x{top:calc(8px + env(safe-area-inset-top,0px));right:8px;box-shadow:none}
+}
+@media (prefers-reduced-motion:reduce){ #v40gd .v40bk,#v40gd .v40dlg{animation:none} }
+`; document.head.appendChild(st); })();
+
+/* ── 英・中・西 ── */
+try{ if(typeof v30I18n==="function") v30I18n([
+  ["使い方を見る","How to use","使用方法","Cómo usar"],
+  ["この画面の使い方を、はじめてガイドで見る（画面はこのまま）","See how to use this screen in the Getting Started Guide (this screen stays open)","在入门指南中查看本页面的使用方法（当前页面保持不变）","Ver cómo usar esta pantalla en la Guía de inicio (esta pantalla sigue abierta)"],
+  ["この画面の使い方を見る","See how to use this screen","查看本页面的使用方法","Ver cómo usar esta pantalla"],
+  ["はじめてガイド","Getting Started Guide","入门指南","Guía de inicio"],
+  ["ガイドを読み込んでいます…","Loading the guide…","正在加载指南…","Cargando la guía…"],
+  ["ガイドを開けませんでした。通信の状態を確かめて、もう一度お試しください。","Couldn’t open the guide. Please check your connection and try again.","无法打开指南。请检查网络连接后重试。","No se pudo abrir la guía. Compruebe la conexión e inténtelo de nuevo."],
+  ["もう一度","Try again","重试","Reintentar"],
+  ["新しいタブで開く","Open in a new tab","在新标签页中打开","Abrir en una pestaña nueva"],
+  ["閉じる（Esc）","Close (Esc)","关闭（Esc）","Cerrar (Esc)"]
+]); }catch(e){}
+try{ v40Watch(); }catch(e){}
+setTimeout(()=>{ try{ v40Watch(); v40Decorate(); }catch(e){} },0);
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
