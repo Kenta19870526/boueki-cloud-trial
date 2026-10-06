@@ -1027,7 +1027,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="dcc50246a804";
+const BC20_BUILD="73886c88c0d5";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -3148,7 +3148,7 @@ function bnStats(now){
     catCount:ck?Math.round(bnTotal(now)*share):0};
 }
 
-/* ═══ AI商社マンからのバイヤーDBアクセス（①） ═══
+/* ═══ AI商社マンからのバイヤーネットワークアクセス（①） ═══
    ・bnCtxDb  : 全AI質問に常設注入する統計サマリ（ppContextへ）
    ・bnCtxFor : 質問に国名があれば、その国の登録見本を追加注入
    ・bnAsk    : 「リストアップして」等の列挙・件数質問に、DBを直接照会して決定論で即答 */
@@ -3164,12 +3164,12 @@ function bnCtyBase(c){ const e=BN_CTY.find(x=>x[0]===c); return e?e[1]:0; }
 function bnCtxDb(){
   try{
     const s=bnStats();
-    return `## バイヤーDB・拠点（社内データベース・週次更新・AIから照会可）
+    return `## バイヤーネットワーク・拠点（社内データベース・週次更新・AIから照会可）
 登録バイヤー総数: ${s.total.toLocaleString()}名／${s.countries}か国（別枠で国未設定${BN_CTY_REST.noCty}名）／取引先企業 ${s.companies.toLocaleString()}社／今週の新規追加 +${s.thisWeek}名${s.catNm?`／自社カテゴリ（${s.catNm}）該当 約${s.catCount.toLocaleString()}名`:""}
 データの出所: 総数・国別分布・週次追加数は貿易クラウド本番DB（Ver.1）の全件API集計による【実数】（基準日 ${s.asof}）。カテゴリ別の内訳のみ推定シェアによる目安。
 更新サイクル: 本番DBの新規登録を毎週月曜にまとめて反映（前回反映 ${s.lastSync}／次回 ${s.nextSync}）。月曜以外の日に総数が変わらないのは正常で、バグではない。基準日より後の未来週の増加数は、直近8週の実績レンジに基づく見込み値。
 国別の登録数（実数・毎週増加中）: ${BN_CTY.map(([c,n])=>c+" "+n+"名").join("、")}、ほか${BN_CTY_REST.countries}か国 ${BN_CTY_REST.buyers}名・国未設定 ${BN_CTY_REST.noCty}名
-※名称・連絡先は正式契約後に開示。ID・業種・取扱カテゴリ・脈あり度・実績件数までは開示してよい。
+※名称・連絡先はつなぐ依頼で相手が承諾すると開示。ID・業種・取扱カテゴリ・脈あり度・実績件数までは開示してよい。
 ※「登録がない」と答えてはいけない。上記が社内DBの実数（基準登録数）。国別の見本が質問に添付されていればそれを根拠に使う。
 ※画面の「相手を探す」一覧に出るのは基準登録数のうち業種・国まで開示できる「匿名見本」の一部。件数の差を聞かれたら「一覧＝見本、基準登録数＝実数」と説明する。`;
   }catch(e){ return ""; }
@@ -3190,11 +3190,11 @@ function bnCtxFor(q){
   if(!/バイヤー|買い手|buyer|取引先|輸入|販路|開拓|卸|小売|商社/i.test(String(q))) return "";
   const rows=bnSampleMix(c,20);
   if(!rows.length) return "";
-  return `=== 社内バイヤーDB照会結果：${c}（基準登録数 ${bnCtyBase(c)}名＝全カテゴリ合計・毎週増加） ===
+  return `=== 社内バイヤーネットワーク照会結果：${c}（基準登録数 ${bnCtyBase(c)}名＝全カテゴリ合計・毎週増加） ===
 カテゴリ別の目安: ${bnCatBreak(c)}
 実績順の見本 上位${rows.length}件（自社カテゴリ優先）:
 ${rows.map(b=>`${b.id}｜${b.biz}｜${b.catNm}｜取扱:${(b.ints||[]).join("・")}｜${b.size}｜脈あり度:${b.lv}｜貿易クラウド成約実績:${b.deals}件`).join("\n")}
-※名称・連絡先は正式契約後に開示（IDで案内する）。この照会結果を根拠に具体的に答えること。
+※名称・連絡先はつなぐ依頼で相手が承諾すると開示（IDで案内する）。この照会結果を根拠に具体的に答えること。
 ※「相手を探す」一覧は上記のうち匿名見本の一部（基準登録数が実数）。`;
 }
 function bnAsk(q){
@@ -3215,15 +3215,15 @@ function bnAsk(q){
     const myNm=myCat?(BN_CATS.find(x=>x[0]===myCat)||["",""])[1]:"";
     a=`<b>${esc(c)}のバイヤー：基準登録数 ${bnCtyBase(c)}名</b>（全カテゴリ合計・毎週増加中・世界${st.countries}か国 計${st.total.toLocaleString()}名＝本番DB実数）。<br>
 カテゴリ別の目安：${esc(bnCatBreak(c))}。<br>
-実績順の上位${rows.length}件（見本${myNm?"・"+esc(myNm)+"を優先":""}）はこちらです。名称・連絡先は<b>正式契約後に開示</b>されます。`+tbl(rows)+
+実績順の上位${rows.length}件（見本${myNm?"・"+esc(myNm)+"を優先":""}）はこちらです。名称・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます。`+tbl(rows)+
 `<p class="nn" style="margin-top:6px">※「相手を探す」の一覧に出るのは、基準登録数のうち<b>業種・国まで開示できる匿名見本</b>です（一覧の件数＝見本数、基準登録数＝実数）。</p>
-絞り込みは「バイヤーDB・拠点」の<b>相手を探す</b>（国・カテゴリ・脈あり度）、コンタクトは各行の<b>直接連絡</b>から。気になるIDがあれば、このまま「${esc(c)}のID ×××に何を提案すべき？」と聞いてください。`;
+絞り込みは「バイヤーネットワーク・拠点」の<b>相手を探す</b>（国・カテゴリ・脈あり度）、コンタクトは各行の<b>直接連絡</b>から。気になるIDがあれば、このまま「${esc(c)}のID ×××に何を提案すべき？」と聞いてください。`;
   }else{
-    a=`社内バイヤーDBの現在の登録は<b>${st.total.toLocaleString()}名／${st.countries}か国</b>（本番DB実数・今週 +${st.thisWeek}名）${st.catNm?`。うち自社カテゴリ（${esc(st.catNm)}）該当は<b>約${st.catCount.toLocaleString()}名</b>`:""}。<br>
+    a=`社内バイヤーネットワークの現在の登録は<b>${st.total.toLocaleString()}名／${st.countries}か国</b>（本番DB実数・今週 +${st.thisWeek}名）${st.catNm?`。うち自社カテゴリ（${esc(st.catNm)}）該当は<b>約${st.catCount.toLocaleString()}名</b>`:""}。<br>
 登録の多い国：${BN_CTY.slice(0,8).map(([cc,n])=>`${esc(cc)} ${n}名`).join("、")} ほか。<br>
 国名を入れて聞くと（例：「ドイツのバイヤーをリストアップして」）、その国の見本一覧をお出しします。`;
   }
-  return {a,c:"社内バイヤーDB（週次更新・"+st.total.toLocaleString()+"名）を直接照会／名称・連絡先は正式契約後に開示"};
+  return {a,c:"社内バイヤーネットワーク（週次更新・"+st.total.toLocaleString()+"名）を直接照会／名称・連絡先はつなぐ依頼で相手が承諾すると開示"};
 }
 
 /* ═══ ① 自社で開拓したBuyerの登録（手動・会社URL・ファイル）＋AI商社マンの自動チェック ═══ */
@@ -6479,16 +6479,16 @@ function ansBuyer(q){
     const d=(D.dbr||[]).find(r=>r[0]===b);
     if(d) return {a:`<b>${esc(d[0])}</b>（${d[1]}・${esc(d[2])}）<br>取扱：${esc(d[3])}／脈あり度 <b>${d[4]}</b>／
       貿易クラウド上の取引実績 ${d[5]}件<br><br>まだ商談記録はありません。
-      「バイヤーDB・拠点」から現地担当に引き合いを依頼できます。`,c:"根拠：バイヤーDB"};
+      「バイヤーネットワーク・拠点」から現地担当に引き合いを依頼できます。`,c:"根拠：バイヤーネットワーク"};
   }
   const fb=D.fb||[];
-  if(!fb.length) return {a:`まだ商談記録がありません。<b>バイヤーDB（6,933社）</b>から候補を探し、現地拠点に依頼するところから始まります。`,
+  if(!fb.length) return {a:`まだ商談記録がありません。<b>バイヤーネットワーク</b>で条件に合う相手を探し、<b>つなぐ依頼</b>を出すところから始められます（相手が承諾すると連絡先が開示されます）。`,
     c:"根拠：商談記録 0件"};
   const hot=(D.hotList||[]).slice(0,3);
   return {a:`いま記録があるのは<b>${new Set(fb.map(f=>f.b)).size}社・${fb.length}件</b>です。<br><br>
     <b>脈がありそうな順</b><br>`+hot.map(([n,c,s])=>`${esc(n)}（${c}）… <b>${s}%</b>`).join("<br>")+
     `<br><br>相手の名前を入れて聞いていただければ、その相手との経緯をまとめます。`,
-    c:`根拠：商談記録 ${fb.length}件／バイヤーDB ${(D.dbr||[]).length}社`};
+    c:`根拠：商談記録 ${fb.length}件`};
 }
 function ansTask(){
   if(!D.tasks||!D.tasks.length) return {a:`まだタスクがありません。`,c:"根拠：タスク 0件"};
@@ -7591,8 +7591,8 @@ function vLegal(p){
       <button class="btn g" id="legwhich" ${on?"":"disabled"}>どの契約書が良いか相談する</button></div>
     <div id="legdraftout"></div>`
     :`<div style="margin-top:10px;padding:12px;border:1.5px dashed var(--line);border-radius:8px;font-size:12px;color:var(--ink-2)">
-      まだ直接メッセージでやり取り中のBuyerがいません。<br>まずは「バイヤーDB・拠点」から気になるバイヤーに直接連絡し、返信のやり取りを始めてください。
-      <div style="margin-top:8px"><button class="btn g" onclick="go('db')">バイヤーDB・拠点を開く</button></div></div>`}
+      まだ直接メッセージでやり取り中のBuyerがいません。<br>まずは「バイヤーネットワーク・拠点」で「つなぐ依頼」を出すか、自社のバイヤーに直接連絡して、やり取りを始めてください。
+      <div style="margin-top:8px"><button class="btn g" onclick="go('db')">バイヤーネットワーク・拠点を開く</button></div></div>`}
    </div>
    <div class="c" id="legdz">
     <h3>③ 契約書をチェックに出す <span class="nt">この版で新規</span></h3>
@@ -8033,7 +8033,7 @@ const PAGES=[
   ic:'<path d="M3 16V9l9-5 9 5v7"/><path d="M3 16l9 5 9-5"/><path d="M12 11v10"/>'},
  {id:"msg",ly:"④",nm:"やりとり",grp:"外とつながる",nw:1,
   ic:'<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.8-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 4 11.5a8.4 8.4 0 0 1 8.5-8.4h.5a8.4 8.4 0 0 1 8 8z"/>'},
- {id:"db",ly:"④",nm:"バイヤーDB・拠点",grp:"外とつながる",
+ {id:"db",ly:"④",nm:"バイヤーネットワーク・拠点",grp:"外とつながる",
   ic:'<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'},
 ];
 let PID=null, cur="up", D=null, upFile=null, shipStep=0, opsTab="reg", SHIPQA=[];
@@ -8947,7 +8947,7 @@ function shipIntent(q){
 /* 新しい案件：案件番号・国名・相手名・カテゴリで検索して開始 */
 function openShipNew(){
   openDW(`<h3>＋ 新しい出荷案件</h3>
-    <p class="nn" style="margin-top:4px">案件番号・国名・相手名・カテゴリで検索できます。商談記録・やり取り中のBuyer・バイヤーDBから相手を選ぶと、登録データで受注内容を自動セットします。</p>
+    <p class="nn" style="margin-top:4px">案件番号・国名・相手名・カテゴリで検索できます。商談記録・やり取り中のBuyer・バイヤーネットワークから相手を選ぶと、登録データで受注内容を自動セットします。</p>
     <input class="sel" id="shq" placeholder="例：韓国／食品輸入商／KO-000…" style="width:100%;box-sizing:border-box;margin-top:9px">
     <div id="shqout" style="margin-top:9px;max-height:52vh;overflow-y:auto"></div>`);
   const out=$("#shqout"), inp=$("#shq");
@@ -8987,14 +8987,14 @@ function shipNewList(q){
   if(ths.length) h+=`<p class="lbl" style="margin-top:8px">直接メッセージでやり取り中のBuyer</p>`+ths.map(t=>
     row(`${esc(t.cty)}の${esc(t.biz)}`,`ID ${esc(String(t.id))}・往復 ${t.msgs.length}通`,
         `data-shipgo="dm" data-cty="${esc(t.cty)}" data-buyer="${esc(t.cty)}の${esc(t.biz)}（ID ${esc(String(t.id))}）"`)).join("");
-  /* バイヤーDB（国ヒット時） */
+  /* 自社のバイヤー（貴社専用）。v21.41：バイヤーネットワークの相手は、つなぐ依頼で承諾されて自社のバイヤーに入ってから出荷の相手にする */
   const cty=(typeof bnFindCty==="function")?bnFindCty(q):"";
-  if(cty&&typeof bnQuery==="function"){
-    const rows=bnQuery({cty,limit:5});
-    if(rows.length) h+=`<p class="lbl" style="margin-top:8px">バイヤーDB（${esc(cty)}・実績順）</p>`+rows.map(b=>
-      row(`${esc(cty)}の${esc(b.biz)} <span class="p lo" style="font-size:9px">${esc(b.id)}</span>`,
-          `${esc(b.catNm)}／${esc((b.ints||[]).join("・"))}／実績${b.deals}件`,
-          `data-shipgo="db" data-cty="${esc(cty)}" data-buyer="${esc(cty)}の${esc(b.biz)}（ID ${esc(b.id)}）"`)).join("");
+  { const mine=(typeof myBuyers==="function"?myBuyers():[]).filter(b=>b&&(hit(b.co)||hit(b.cty)||(cty&&b.cty===cty))).slice(0,6);
+    if(mine.length) h+=`<p class="lbl" style="margin-top:8px">自社のバイヤー（貴社専用）</p>`+mine.map(b=>
+      row(`${esc(b.co||"")} <span class="p lo" style="font-size:9px">${esc(b.cty||"")}</span>`,
+          `${esc(b.biz||"")}${b.ints?"／"+esc(b.ints):""}`,
+          `data-shipgo="my" data-cty="${esc(b.cty||"")}" data-buyer="${esc(b.co||"")}"`)).join(""); }
+  if(cty){
     h+=row(`（想定）${esc(cty)}の輸入商社`,`相手が未定でも、${esc(cty)}向けの想定案件として開始できます`,
         `data-shipgo="new" data-cty="${esc(cty)}" data-buyer=""`);
   }
@@ -9353,7 +9353,7 @@ function openDealForm(){
       <div>${lb("国 <span style='color:var(--crit)'>必須</span>")}
         <input class="sel" id="dfC" list="dfCL" placeholder="選択または入力" style="width:100%;box-sizing:border-box">
         <datalist id="dfCL">${CTYS.map(c=>`<option value="${c}">`).join("")}</datalist></div>
-      <div>${lb("チャネル")}${sel("dfCh",["展示会","オンライン商談","メール・DM","紹介","バイヤーDB経由","その他"])}</div>
+      <div>${lb("チャネル")}${sel("dfCh",["展示会","オンライン商談","メール・DM","紹介","バイヤーネットワーク経由","その他"])}</div>
     </div>
     <div class="g2" style="gap:8px">
       <div>${lb("希望価格（先方）")}<input class="sel" id="dfP" placeholder="例：US$10.50/個" style="width:100%;box-sizing:border-box"></div>
@@ -9424,7 +9424,7 @@ async function dealFromMinutes(text,att){
     const r=await llmAsk(
 '次の商談議事録から、商談記録をJSONのみで抽出してください：\n'+
 '{"d":"商談日 YYYY-MM-DD（不明なら空）","b":"バイヤー会社名","c":"国（日本語）",'+
-'"ch":"展示会|オンライン商談|メール・DM|紹介|バイヤーDB経由|その他",'+
+'"ch":"展示会|オンライン商談|メール・DM|紹介|バイヤーネットワーク経由|その他",'+
 '"spec":"先方の要望・要求スペック","price":"希望価格","lot":"数量","term":"FOB|CIF|DDP|EXW|",'+
 '"react":"高|中|低","st":"商談中|見積提示|サンプル発送|受注|失注|保留","why":"断られた理由（失注時のみ）",'+
 '"owner":"当社側の出席者・担当者名（不明なら空）","note":"背景メモ（3行以内の要約。決定事項・次のアクションを含める）"}\n'+
@@ -9805,7 +9805,7 @@ function rDoc(k){
       ${typeof openCorpSet==="function"?`　<button class="btn g" style="font-size:10px;padding:3px 9px" onclick="openCorpSet()">🧾 帳票の会社設定（登録番号・振込先・下請法）</button>`:""}</p>`;
 }
 
-/* ═════════ バイヤーDB・拠点（週次で増えるネットワーク） ═════════ */
+/* ═════════ バイヤーネットワーク・拠点（週次で増えるネットワーク） ═════════ */
 function vDB(p){
   const st=bnStats();
   const wkMax=Math.max.apply(null,st.weeks.concat([1]));
@@ -9822,7 +9822,7 @@ function vDB(p){
   <div class="c" style="margin-bottom:11px">
     <div class="rw" style="justify-content:space-between;align-items:flex-start">
       <div><h3>🆕 新しく追加されたバイヤー <span class="nt">毎週月曜更新・次回 ${st.nextSync}</span></h3>
-        <p class="nn">直近2週間の追加分です。名称・連絡先は<b>正式契約後に開示</b>されます。</p></div>
+        <p class="nn">直近2週間の追加分です。名称・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます。</p></div>
       <div style="min-width:170px">
         <p class="lbl" style="text-align:right">週次の新規追加（直近${st.weeks.length}週）</p>
         <div style="display:flex;gap:3px;align-items:flex-end;height:36px;justify-content:flex-end;margin-top:4px">
@@ -9832,7 +9832,7 @@ function vDB(p){
     <div class="tw" style="margin-top:8px;max-height:220px"><table><thead><tr>
       <th>追加日</th><th>バイヤー</th><th>国</th><th>取扱・関心</th><th>規模</th></tr></thead><tbody>
       ${news.map(b=>`<tr><td class="n" style="color:var(--ink-3)">${b.added}${b.isNew?' <span class="p or" style="font-size:8.5px;padding:1px 5px">NEW</span>':""}</td>
-        <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・正式契約後に開示</span></td>
+        <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・つなぐ依頼で相手が承諾すると開示</span></td>
         <td>${esc(b.cty)}</td><td><span class="p lo">${esc(b.catNm)}</span> <span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
         <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td></tr>`).join("")}
     </tbody></table></div></div>
@@ -9848,7 +9848,7 @@ function vDB(p){
       <div class="tw" id="dbbw" style="margin-top:10px;max-height:300px"><table><thead><tr>
         <th>バイヤー</th><th>取扱・関心</th><th>規模</th><th>脈あり</th><th class="num">実績</th><th></th>
       </tr></thead><tbody id="dbb"></tbody></table></div>
-      <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。<br>
+      <p class="nn" style="margin-top:7px">🔒 バイヤー名・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます（トライアルでは業態・国・実績のみ）。<br>
       <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。
       <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。</p></div>
     <div class="c" id="bnnet"><div class="rw" style="justify-content:space-between;align-items:center;gap:6px">
@@ -9996,7 +9996,7 @@ function openBaseEdit(i){
       <button class="btn g" onclick="openNetMgr()">← 一覧へ戻る</button></div>`);
   if(typeof dwChrome==="function") dwChrome();
   $("#nbPick").onclick=()=>{
-    if(cur!=="db"){ toast("バイヤーDB・拠点の画面で地図が表示されている状態でご利用ください"); return; }
+    if(cur!=="db"){ toast("バイヤーネットワーク・拠点の画面で地図が表示されている状態でご利用ください"); return; }
     closeDW();
     MAPZ={s:1,x:0,y:0}; mapApply();
     toast("地図上の設置したい場所をクリックしてください");
@@ -10070,7 +10070,7 @@ function rDB(){
       const catNm=f.cat?(BN_CATS.find(x=>x[0]===f.cat)||["",""])[1]:"";
       cnt.innerHTML=`該当（基準登録数）：<b>${esc(f.cty)}${catNm?" × "+esc(catNm):""} 約${est}名</b>`+
         `${f.cat?`（${esc(f.cty)}全体 ${bnCtyBase(f.cty)}名）`:""}・毎週増加中／うち<b>匿名見本 ${rows.length}件</b>を表示${f.lv?"（脈あり度で絞り込み中）":""}。`+
-        `名称・連絡先は正式契約後に開示されます。`;
+        `名称・連絡先はつなぐ依頼で相手が承諾すると開示されます。`;
     }else{
       cnt.innerHTML=`世界${bnStats().countries}か国 <b>${bnStats().total.toLocaleString()}名</b>（本番DB実数）から、実績順の匿名見本 ${rows.length}件を表示中。国とカテゴリで絞り込めます。`;
     }
@@ -10084,7 +10084,7 @@ function rDB(){
         :`<span class="p on" style="cursor:pointer" data-dmopen="${b.id}">やり取り中</span> `)
       :(done?'<span class="p hi" title="直接メッセージを送信済み">連絡済</span> ':"");
     return `<tr>
-    <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・正式契約後に開示</span></td>
+    <td><b>🔒 ${esc(b.cty)}の${esc(b.biz)}</b><br><span style="font-size:9.5px;color:var(--ink-3)">ID ${b.id}・つなぐ依頼で相手が承諾すると開示</span></td>
     <td><span class="p lo">${esc(b.catNm)}</span><br><span style="font-size:10px;color:var(--ink-2)">${esc(b.ints.join("・"))}</span></td>
     <td style="font-size:10.5px;color:var(--ink-2)">${esc(b.size)}</td>
     <td>${b.lv==="高"?'<span class="p hi">高</span>':b.lv==="中"?'<span class="p mid">中</span>':'<span class="p lo">−</span>'}</td>
@@ -10778,7 +10778,7 @@ function render(){
     :D&&D.src==="sample2"
     ?`<b>業種サンプルについて</b>　${esc(D.co)}は架空の企業です。<b>導入1日目の状態</b>（商談・受注のデータがまだ貯まっていない状態）を再現しています。ダッシュボードの数字は、ここから貴社の実データで積み上がっていきます。<br>`
     :`<b>デモ環境について</b>　${PID&&D.ship?esc(D.co)+"、"+esc(D.ship.buyer)+"をはじめとする":""}企業名・商談内容・価格・運送会社名・商品スペックは、すべてデモ用の架空データです。実在の顧客情報・実在の物流会社は含まれていません。<br>`)+`
-    バイヤーDBの件数（取引先${typeof BN_COMPANIES!=="undefined"?BN_COMPANIES.toLocaleString():"7,168"}社・バイヤー${typeof bnTotal==="function"?bnTotal().toLocaleString():"7,379"}名・${typeof BN_COUNTRIES!=="undefined"?BN_COUNTRIES:117}か国）と週次の追加数は、貿易クラウド本番DBの全件API集計による<b>実数</b>（基準日 2026-08-30）です。海外14拠点の配置も本番の稼働プロジェクト集計に基づきます。一覧のバイヤー個社は<b>名称・連絡先を伏せた見本表示</b>です。<br>
+    バイヤーネットワークの一覧と件数は<b>見本（架空）</b>です。「STANDAGEの実績」の数字（バイヤー${typeof v41Track==="function"?v41Track().buyers.toLocaleString():"7,379"}名・${typeof BN_COMPANIES!=="undefined"?BN_COMPANIES.toLocaleString():"7,168"}社・${typeof BN_COUNTRIES!=="undefined"?BN_COUNTRIES:117}か国）は貿易クラウド Ver.1 の集計（基準日 2026-08-30）で、各社のプロジェクトで開拓したバイヤーのため、個々の相手は表示しません。海外14拠点の配置は本番の稼働プロジェクト集計に基づきます。<br>
     <b>デザイン</b>　本番の貿易クラウド（digitrad.trade/boueki）の実装値に合わせています。白のトップバー48px、選択中メニューは #FFF4E6、プライマリは #F8951D・角丸5px、罫線 rgba(70,86,109,.15)、書体 Lato。`;
   updateGuide();
   updateBell();
@@ -12007,7 +12007,7 @@ function todayStepsOf(x){
     add("tgt","進出したい国を決める",{auto:1,ok:!!((t0&&t0.targets&&t0.targets.length)||(typeof D!=="undefined"&&D&&Object.keys(D.regs||{}).length)),go:"up",goNm:"商品情報を登録"});
     let deckOK=false; try{ deckOK=(typeof deckMissReq==="function")&&deckMissReq().length===0; }catch(e){}
     add("deck","外国語営業資料を納品レベルに仕上げる",{auto:1,ok:deckOK,go:"deck",goNm:"外国語 営業資料"});
-    add("db","バイヤー候補を絞り込む",{go:"db",goNm:"バイヤーDB・拠点"});
+    add("db","バイヤー候補を絞り込む",{go:"db",goNm:"バイヤーネットワーク・拠点"});
     add("prop","提案メッセージを作成・送信する",{go:"msg",goNm:"やりとり"});
   } else if(M(/同一性|照合|一致|表記|品番/)){
     add("item","登録済みの商品情報と突き合わせる",{go:"item",goNm:"商品情報"});
@@ -12040,7 +12040,7 @@ function todayGoOf(x){
   const T=(x.t||"")+"｜"+(x.d||"");
   const map=[[/規制|HS|INCI|事前教示/,"ops","貿易実務・書類・出荷","reg"],
     [/英語|外国語|営業資料/,"deck","外国語 営業資料",""],
-    [/バイヤー|提案|候補/,"db","バイヤーDB・拠点",""],
+    [/バイヤー|提案|候補/,"db","バイヤーネットワーク・拠点",""],
     [/仕様|価格|MOQ|収集|未登録|充足/,"up","商品情報を登録",""],
     [/出荷|見積|輸送|運賃/,"ship","出荷を進める",""],
     [/照会|問い合わせ|連絡/,"msg","やりとり",""],
@@ -12792,7 +12792,7 @@ brain=function(q,opts){
      opts.raw：文脈（受注確定内容・添付本文）を連結する前の質問文。意図判定・DB直接照会・内蔵エンジンへの
      フォールバックは必ずこちらで行う（連結後の文で判定すると価格回答に偏る） */
   const q0=(opts&&opts.raw)||q;
-  /* バイヤーDBの列挙・件数質問はDB直接照会で即答（接続の有無に関わらず正確） */
+  /* バイヤーネットワークの列挙・件数質問はDB直接照会で即答（接続の有無に関わらず正確） */
   if(typeof bnAsk==="function"){ const b=bnAsk(q0); if(b) return b; }
   /* 物流費・運賃の質問：登録レートがあればDB直接照会で即答。未登録×未接続は正直回答 */
   if(typeof shipRateAsk==="function"){ const sr=shipRateAsk(q0,ppReady()); if(sr) return sr; }
@@ -13405,7 +13405,7 @@ const AKEY="bc20_trial_v1", SKEY="bc20_ses_v1", DAY=864e5;
 const NOW=()=>Date.now();
 let ADB=null, SES=null, __lastScr=null, admIssued=null;
 const SCN={up:"商品情報を登録",dash:"ダッシュボード",item:"商品情報",deal:"商談・バイヤー",
- task:"タスク・進行",ops:"貿易実務・書類・出荷",ai:"AI商社マン",ship:"出荷を進める",msg:"やりとり",db:"バイヤーDB・拠点"};
+ task:"タスク・進行",ops:"貿易実務・書類・出荷",ai:"AI商社マン",ship:"出荷を進める",msg:"やりとり",db:"バイヤーネットワーク・拠点"};
 
 function emptyU(){return {logins:0,uploads:0,aiQ:0,webQ:0,fills:0,screens:{},lastActive:0,first:0,events:[]};}
 function aSeed(){
@@ -15965,7 +15965,7 @@ render=function(){
       const h=[...document.querySelectorAll("#well h3")].find(x=>/商談の記録|商談を記録|商談記録/.test(x.textContent));
       if(h) h.insertAdjacentHTML("beforeend",` <button class="btn g" id="vfbOpen" style="font-size:10.5px;padding:4px 11px;margin-left:8px" onclick="openVoiceFb()">🎙 音声・議事録から自動登録</button>`);
     }
-    /* バイヤーDB：🧩名寄せ */
+    /* バイヤーネットワーク：🧩名寄せ */
     if(cur==="db"&&!document.getElementById("mbMergeBtn")){
       const hs=[...document.querySelectorAll("#well h3")];
       const h=hs.find(x=>/相手を探す/.test(x.textContent))||hs.find(x=>/自社.*バイヤー|登録したバイヤー/.test(x.textContent))||hs.find(x=>/バイヤー/.test(x.textContent));
@@ -19647,7 +19647,7 @@ function v16CasesAnswer(cty){
   const cnt=`商談 ${C.fb.length}件・受注 ${C.orders.length}件・出荷 ${C.ship?1:0}件・規制調査 ${C.reg?"あり":"なし"}・やりとり ${C.msgs.length}件・会議メモ ${C.memos.length}件・タスク ${C.tasks.length}件・資料 ${C.srcs.length+C.xdocs.length}件`;
   if(!C.total){
     const ctys=[...new Set((dd.fb||[]).map(f=>f.c).filter(Boolean))]; const regs=Object.keys(dd.regs||{});
-    return {a:`貴社のデータに<b>「${esc(cty)}」向けの記録はまだありません</b>（商談・受注・出荷・規制調査・やりとり・会議メモ・タスク・資料を横断して確認）。<br><br>いまある記録：商談記録 ${(dd.fb||[]).length}件${ctys.length?"（"+esc(ctys.slice(0,6).join("・"))+"）":""}／規制調査 ${regs.length}か国${regs.length?"（"+esc(regs.slice(0,6).join("・"))+"）":""}／会議メモ ${kbMemoList().length}件。<br><br>${esc(cty)}向けに進めるなら：「商談・バイヤー」で商談記録を残す、「貿易実務 › 規制」で進出希望国に追加して規制調査を依頼する、「バイヤーDB・拠点」で「${esc(cty)}のバイヤーは？」と照会する、が次の一手です。${v16Offline()?"<br><span style='color:var(--ink-3)'>AIエンジンに接続した端末（PCの管理コンソールで接続、または「AI接続の共有」）では、Web検索と一般的な貿易知識で補足して答えます。</span>":""}`,
+    return {a:`貴社のデータに<b>「${esc(cty)}」向けの記録はまだありません</b>（商談・受注・出荷・規制調査・やりとり・会議メモ・タスク・資料を横断して確認）。<br><br>いまある記録：商談記録 ${(dd.fb||[]).length}件${ctys.length?"（"+esc(ctys.slice(0,6).join("・"))+"）":""}／規制調査 ${regs.length}か国${regs.length?"（"+esc(regs.slice(0,6).join("・"))+"）":""}／会議メモ ${kbMemoList().length}件。<br><br>${esc(cty)}向けに進めるなら：「商談・バイヤー」で商談記録を残す、「貿易実務 › 規制」で進出希望国に追加して規制調査を依頼する、「バイヤーネットワーク・拠点」で「${esc(cty)}のバイヤーは？」と照会する、が次の一手です。${v16Offline()?"<br><span style='color:var(--ink-3)'>AIエンジンに接続した端末（PCの管理コンソールで接続、または「AI接続の共有」）では、Web検索と一般的な貿易知識で補足して答えます。</span>":""}`,
       c:`根拠：蓄積データを「${cty}」で横断検索（該当0件）`+v16WebNote()};
   }
   const L=[];
@@ -20294,7 +20294,7 @@ const I18N_ROWS=[
 ["ダッシュボード","Dashboard","仪表盘","Panel"],["商品情報を登録","Register product","登记商品信息","Registrar producto"],["今日やること","Today's tasks","今日待办","Tareas de hoy"],
 ["商品情報","Product","商品信息","Producto"],["取り込んだ情報一覧","Imported sources","已导入的信息","Fuentes importadas"],["商談・バイヤー","Deals & buyers","商谈・买家","Negociaciones y compradores"],
 ["外国語 営業資料","Sales deck (multilingual)","外语销售资料","Material de ventas"],["タスク・進行","Tasks & progress","任务・进度","Tareas y avance"],["貿易実務・書類・出荷","Trade ops · Docs · Shipping","贸易实务・单证・出货","Operaciones · Documentos · Envío"],
-["契約書関連","Contracts","合同相关","Contratos"],["AI商社マン","AI Trade Agent","AI商社专员","Agente comercial IA"],["やりとり","Messages","往来沟通","Mensajes"],["バイヤーDB・拠点","Buyer DB & bases","买家数据库・据点","BD de compradores y bases"],
+["契約書関連","Contracts","合同相关","Contratos"],["AI商社マン","AI Trade Agent","AI商社专员","Agente comercial IA"],["やりとり","Messages","往来沟通","Mensajes"],["バイヤーネットワーク・拠点","Buyer Network & bases","买家网络・据点","Red de compradores y bases"],
 ["旧版からの改善","Improvements from v1","相对旧版的改进","Mejoras desde v1"],["まず見る","Start here","先看这里","Empezar aquí"],["はじめに","Getting started","开始","Primeros pasos"],["毎日つかう","Daily use","每日使用","Uso diario"],
 ["データを貯める","Build your data","积累数据","Acumular datos"],["業務を回す","Run operations","推进业务","Operar"],["自走する","Self-driving","自主运行","Autónomo"],["外とつながる","Connect outside","对外连接","Conectar"],["この版について","About this version","关于本版本","Sobre esta versión"],
 ["出荷を進める","Proceed to shipping","推进出货","Avanzar envío"],["トライアル管理","Trial management","试用管理","Gestión de pruebas"],["STANDAGE管理","STANDAGE admin","STANDAGE管理","Admin STANDAGE"],["物流会社メニュー","Forwarder menu","物流公司菜单","Menú transitario"],
@@ -20798,8 +20798,8 @@ I18N_ROWS2.push(
 ["① AI法務に相談する","① Ask AI Legal","① 咨询AI法务","① Consultar a IA Legal"],["📎 ファイル添付","📎 Attach file","📎 添加附件","📎 Adjuntar archivo"],
 ["② ひな型が来ない → AI法務が起草","② No draft from the buyer → AI Legal drafts one","② 对方不提供模板 → AI法务起草","② Sin borrador del comprador → IA Legal lo redacta"],
 ["まだ直接メッセージでやり取り中のBuyerがいません。","No buyers in direct message conversation yet.","尚无正在直接通讯的买家。","Aún no hay compradores con mensajes directos."],
-["まずは「バイヤーDB・拠点」から気になるバイヤーに直接連絡し、返信のやり取りを始めてください。","Start by contacting a buyer directly from “Buyer DB & bases” and get a conversation going.","请先从“买家数据库・据点”直接联系感兴趣的买家，开始往来沟通。","Empieza contactando a un comprador desde “BD de compradores y bases” y mantén la conversación."],
-["バイヤーDB・拠点を開く","Open Buyer DB & bases","打开买家数据库・据点","Abrir BD de compradores y bases"],
+["まずは「バイヤーネットワーク・拠点」から気になるバイヤーに直接連絡し、返信のやり取りを始めてください。","Start by contacting a buyer directly from “Buyer Network & bases” and get a conversation going.","请先从“买家网络・据点”直接联系感兴趣的买家，开始往来沟通。","Empieza contactando a un comprador desde “Red de compradores y bases” y mantén la conversación."],
+["バイヤーネットワーク・拠点を開く","Open Buyer Network & bases","打开买家网络・据点","Abrir Red de compradores y bases"],
 ["③ 契約書をチェックに出す","③ Submit a contract for review","③ 提交合同审查","③ Enviar un contrato a revisión"],
 ["ここに契約書ファイルをドラッグ＆ドロップ","Drag & drop contract files here","将合同文件拖放到这里","Arrastra aquí los archivos del contrato"],
 ["またはクリックしてファイルを選択（複数可）","or click to choose files (multiple OK)","或点击选择文件（可多个）","o haz clic para elegir archivos (varios)"],
@@ -20862,7 +20862,7 @@ I18N_PAT2.push(
  {re:/^規制調査（(.+)）$/,en:(m,d)=>"Regulatory research ("+(d[m[1]]||m[1])+")",zh:(m,d)=>"法规调查（"+(d[m[1]]||m[1])+"）",es:(m,d)=>"Normativa ("+(d[m[1]]||m[1])+")"}
 );
 
-/* v15.23b 翻訳辞書（追加分）4/4：AI商社マン・やりとり・バイヤーDB・拠点 */
+/* v15.23b 翻訳辞書（追加分）4/4：AI商社マン・やりとり・バイヤーネットワーク・拠点 */
 I18N_ROWS2.push(
 /* AI商社マン */
 ["いまの根拠","Current evidence","当前依据","Evidencia actual"],["この分野は満点です","Full marks in this area","该领域已满分","Puntuación máxima en esta área"],["次の一手","Next move","下一步","Siguiente paso"],
@@ -20902,7 +20902,7 @@ I18N_ROWS2.push(
 ["現行版","Current version","现行版","Versión actual"],["メール通知に依存。届かない・遅れる・埋もれる。","Relies on email notifications: they fail, arrive late or get buried.","依赖邮件通知：收不到・延迟・被淹没。","Depende del correo: no llega, se retrasa o se pierde."],
 ["この版","This version","本版","Esta versión"],
 ["アプリ内に集約し、右上に未読数を表示。@メンションは別枠で最上位に。メールは補助に降格。","Collected in the app with an unread count at top right. @mentions get their own top slot. Email becomes a backup.","集中在应用内，右上角显示未读数。@提及单独置顶。邮件降为辅助。","Todo en la app, con contador de no leídos arriba a la derecha. Las @menciones tienen su propio espacio. El correo pasa a ser apoyo."],
-/* バイヤーDB・拠点 */
+/* バイヤーネットワーク・拠点 */
 ["中古車・車両","Used cars & vehicles","二手车・车辆","Vehículos usados"],["食品","Food","食品","Alimentos"],["美容・健康","Beauty & health","美容・健康","Belleza y salud"],
 ["工業部品","Industrial parts","工业零部件","Piezas industriales"],["酒類","Alcoholic beverages","酒类","Bebidas alcohólicas"],["日用雑貨","Daily goods","日用杂货","Artículos del hogar"],
 ["アパレル","Apparel","服装","Moda"],["医療・衛生用品","Medical & hygiene","医疗・卫生用品","Sanitario e higiene"],["化粧品","Cosmetics","化妆品","Cosméticos"],["中古車","Used cars","二手车","Coches usados"],
@@ -20960,11 +20960,11 @@ I18N_EL_ROWS.push(
  "Invited members log in with <b>the same access code plus their own name</b>, and their posts appear under that name. Invitations and suspensions are <b>reflected in real time in STANDAGE's master admin console</b>. The product version sends invitation emails automatically.",
  "受邀成员用<b>相同访问码＋本人姓名</b>登录后，将以其名义发帖。邀请・停用会<b>实时反映到STANDAGE的主管理界面</b>。正式版会自动发送邀请邮件。",
  "Los miembros invitados entran con <b>el mismo código de acceso más su nombre</b>, y publican con ese nombre. Invitaciones y bajas se <b>reflejan en tiempo real en la consola maestra de STANDAGE</b>. La versión final envía el correo de invitación automáticamente."],
-["直近2週間の追加分です。名称・連絡先は<b>正式契約後に開示</b>されます。",
+["直近2週間の追加分です。名称・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます。",
  "Buyers added in the last two weeks. Names and contact details are <b>disclosed after a formal contract</b>.",
  "最近两周新增的买家。名称・联系方式将在<b>正式签约后公开</b>。",
  "Compradores añadidos en las dos últimas semanas. Nombres y contactos se <b>revelan tras el contrato formal</b>."],
-["🔒 バイヤー名・連絡先は<b>正式契約後に開示</b>されます（トライアルでは業態・国・実績のみ）。<br> <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。 <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。",
+["🔒 バイヤー名・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます（トライアルでは業態・国・実績のみ）。<br> <b>「直接連絡」＝無料</b>：貿易クラウドが仲介して匿名のまま届けます（文面・交渉はご自身で。🤖AI下書きあり）。 <b>「拠点に依頼」＝別途費用</b>：現地メンバーが代行で接触・商談します。",
  "🔒 Buyer names and contacts are <b>disclosed after a formal contract</b> (the trial shows business type, country and track record only).<br> <b>“Contact directly” = free</b>: Trade Cloud relays your message anonymously (you write and negotiate; 🤖 AI drafts available). <b>“Ask a base” = extra fee</b>: local members approach and negotiate on your behalf.",
  "🔒 买家名称・联系方式将在<b>正式签约后公开</b>（试用版仅显示业态・国家・实绩）。<br> <b>“直接联系”＝免费</b>：由贸易云中转匿名送达（文案・谈判由您自行进行，🤖有AI草稿）。 <b>“委托据点”＝另行收费</b>：当地成员代为接触・商谈。",
  "🔒 Nombres y contactos se <b>revelan tras el contrato formal</b> (en la prueba solo tipo de negocio, país e historial).<br> <b>“Contactar directamente” = gratis</b>: Trade Cloud entrega tu mensaje de forma anónima (tú redactas y negocias; 🤖 hay borradores IA). <b>“Solicitar a una base” = coste adicional</b>: el equipo local contacta y negocia por ti."],
@@ -21191,7 +21191,7 @@ I18N_PAT2.push(
 );
 
 /* v18.3：辞書追加（AI接続が無い端末でも日本語が残らないように）
-   ・AIページの案内文（吹き出し）・登録サマリー・成長ログ・バイヤーDBの行・フィルタ
+   ・AIページの案内文（吹き出し）・登録サマリー・成長ログ・バイヤーネットワークの行・フィルタ
    ・サンプル2社（みなと酒造／メディコア衛生材料）の商品データ・今日やること・強み
    ・パターン出力の可変部（会社名・商品名・国名・プラン名）は I18N_T／関数で辞書を通す */
 I18N_ROWS2.push(
@@ -21246,7 +21246,7 @@ I18N_ROWS2.push(
 ["受信翻訳","Incoming translation","收件翻译","Traducción de recibido"],["受信翻訳(自動)","Incoming translation (auto)","收件翻译(自动)","Traducción de recibido (auto)"],
 ["必須項目の入力が完了","Required fields completed","必填项已完成","Campos obligatorios completados"],
 ["LINEトーク取込","LINE chat imported","导入LINE聊天","Chat de LINE importado"],["WhatsAppトーク取込","WhatsApp chat imported","导入WhatsApp聊天","Chat de WhatsApp importado"],["チャットトーク取込","Chat imported","导入聊天","Chat importado"],
-/* ── バイヤーDB ── */
+/* ── バイヤーネットワーク ── */
 ["すべての国","All countries","所有国家","Todos los países"],["すべてのカテゴリ","All categories","所有类别","Todas las categorías"],["すべての脈あり度","All interest levels","所有意向度","Todos los niveles de interés"],["すべてのステータス","All statuses","所有状态","Todos los estados"],
 ["中古車ディーラー","Used-car dealer","二手车经销商","Concesionario de coches usados"],["車両輸入商","Vehicle importer","车辆进口商","Importador de vehículos"],["フリート運行会社","Fleet operator","车队运营公司","Operador de flotas"],["カーオークション運営","Car auction operator","汽车拍卖运营商","Operador de subastas de coches"],
 ["輸入商社","Importer / trading company","进口贸易公司","Importador"],["ディストリビューター","Distributor","分销商","Distribuidor"],["小売チェーン","Retail chain","零售连锁","Cadena minorista"],["ECプラットフォーム","E-commerce platform","电商平台","Plataforma de comercio electrónico"],["卸売業者","Wholesaler","批发商","Mayorista"],["専門商社","Specialized trading company","专业贸易公司","Empresa comercial especializada"],["百貨店・量販店","Department / mass retailer","百货・量贩店","Grandes almacenes / gran distribución"],
@@ -21513,8 +21513,8 @@ I18N_PAT2.push(
   en:(m,d)=>{ const t=m[3]; let h=null; const lg=t.match(/^ログイン（(.+?)）$/); if(lg) h="Login ("+lg[1].split("・").map(x=>T(x,d)).join(" · ")+")"; else if(d[t]) h=d[t]; else { const i=t.indexOf(":"); if(i>0){ const hd=t.slice(0,i), rs=t.slice(i+1); if(d[hd]) h=d[hd]+": "+TS(rs.replace(/^(\d+)件$/,"$1"),d); } } return h?m[1]+" "+m[2]+" "+h:null; },
   zh:(m,d)=>{ const t=m[3]; let h=null; const lg=t.match(/^ログイン（(.+?)）$/); if(lg) h="登录（"+lg[1].split("・").map(x=>T(x,d)).join("・")+"）"; else if(d[t]) h=d[t]; else { const i=t.indexOf(":"); if(i>0){ const hd=t.slice(0,i), rs=t.slice(i+1); if(d[hd]) h=d[hd]+"："+TS(rs,d); } } return h?m[1]+" "+m[2]+" "+h:null; },
   es:(m,d)=>{ const t=m[3]; let h=null; const lg=t.match(/^ログイン（(.+?)）$/); if(lg) h="Inicio de sesión ("+lg[1].split("・").map(x=>T(x,d)).join(" · ")+")"; else if(d[t]) h=d[t]; else { const i=t.indexOf(":"); if(i>0){ const hd=t.slice(0,i), rs=t.slice(i+1); if(d[hd]) h=d[hd]+": "+TS(rs.replace(/^(\d+)件$/,"$1"),d); } } return h?m[1]+" "+m[2]+" "+h:null; }},
- /* バイヤーDB */
- {re:/^ID ([A-Z]{2}-\d+)・正式契約後に開示$/,en:"ID $1 · disclosed after contract",zh:"ID $1・正式签约后公开",es:"ID $1 · se revela tras el contrato"},
+ /* バイヤーネットワーク */
+ {re:/^ID ([A-Z]{2}-\d+)・つなぐ依頼で相手が承諾すると開示$/,en:"ID $1 · disclosed after contract",zh:"ID $1・正式签约后公开",es:"ID $1 · se revela tras el contrato"},
  {re:/^🔒 (.+?)の(.+)$/,en:(m,d)=>"🔒 "+T(m[2],d)+" in "+T(m[1],d),zh:(m,d)=>"🔒 "+T(m[1],d)+"的"+T(m[2],d),es:(m,d)=>"🔒 "+T(m[2],d)+" en "+T(m[1],d)},
  {re:/^年商 (.+)$/,en:"Revenue $1",zh:"年营收 $1",es:"Facturación $1"},
  {re:/^①商品情報・強み（(\d+)項目） ②価格表・寸法（(\d+)SKU） ③(.+?)（(\d+)項目）$/,en:(m,d)=>"① Product info & strengths ("+m[1]+" items) ② Price list & dimensions ("+m[2]+" SKUs) ③ "+T(m[3],d)+" ("+m[4]+" items)",zh:(m,d)=>"①产品信息・优势（"+m[1]+"项） ②价格表・尺寸（"+m[2]+"个SKU） ③"+T(m[3],d)+"（"+m[4]+"项）",es:(m,d)=>"① Información y fortalezas ("+m[1]+") ② Precios y dimensiones ("+m[2]+" SKU) ③ "+T(m[3],d)+" ("+m[4]+")"},
@@ -21663,7 +21663,7 @@ I18N_ROWS2.push(["🤖 AI商社マンが考え中…","🤖 AI Trade Agent is th
 ["規制を調べる →","Check regulations →","查询法规 →","Ver normativa →"],
 ["価格設定へ →","Go to pricing →","前往定价 →","Ir a precios →"],
 ["出荷・物流見積へ →","Shipping & logistics quotes →","出货・物流报价 →","Envíos y cotizaciones logísticas →"],
-["バイヤーDB・拠点へ →","Buyer DB & bases →","买家库・据点 →","BD de compradores y bases →"],
+["バイヤーネットワーク・拠点へ →","Buyer Network & bases →","买家网络・据点 →","Red de compradores y bases →"],
 ["候補国を決める（最大10か国）","Decide candidate countries (up to 10)","确定候选国（最多10国）","Definir países candidatos (hasta 10)"],
 ["4つの観点で分析し、推奨3か国を見る","Analyse on 4 criteria and see the 3 recommended","按4个维度分析并查看推荐3国","Analizar con 4 criterios y ver los 3 recomendados"],
 ["3か国を確定する（進出希望国・価格・物流・出荷に反映）","Confirm 3 countries (applies to targets, pricing, logistics, shipping)","确定3国（反映到目标国・价格・物流・出货）","Confirmar 3 países (se aplica a objetivos, precios, logística y envíos)"],
@@ -22018,7 +22018,7 @@ if(typeof pendApply==="function"){ const __pa185=pendApply;
     }catch(e){}
     return r; }; }
 
-/* ═══════════ v18.6（2026-09-09）：①商品情報の「価格表・寸法」「成分表」を見やすく ②バイヤーDBの質問は接続AIが推論して答える ═══════════
+/* ═══════════ v18.6（2026-09-09）：①商品情報の「価格表・寸法」「成分表」を見やすく ②バイヤーネットワークの質問は接続AIが推論して答える ═══════════
    ①症状：Excelの横長商品一覧（1行＝1商品・数十列）がそのまま価格表として描かれ、列が細く・長文が縦に伸び・null や「例」の行まで出て読めなかった。
      対応：表の形を判定して描き分ける。
        ・横長の商品一覧（8列以上、または商品名列があり長文が多い）→ 1商品＝1カード（商品名／ブランド・カテゴリ／コード・HSのチップ／価格を大きく／説明は3行で折りたたみ／リンクはボタン／残りの項目は「すべての項目」で展開）
@@ -22163,14 +22163,14 @@ function v186Item(){
 document.addEventListener("click",e=>{ const b=e.target.closest("[data-v186more]"); if(!b) return; const w=b.parentElement; const c=w&&w.querySelector(".v186clamp"); if(!c) return; const open=c.classList.toggle("open"); b.textContent=open?v186T("閉じる"):v186T("続きを読む"); });
 { const __r186=render; render=function(){ const r=__r186.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="item") v186Item(); }catch(e){} return r; }; }
 
-/* ── ② バイヤーDBの質問：AI接続時は接続AIが照会結果を根拠に推論（即答は件数質問・未接続・失敗時のみ） ── */
+/* ── ② バイヤーネットワークの質問：AI接続時は接続AIが照会結果を根拠に推論（即答は件数質問・未接続・失敗時のみ） ── */
 function v186IsBuyerQ(s){ s=String(s||""); return /バイヤー|買い手|buyer/i.test(s)&&/リスト|一覧|全て|すべて|教えて|探し|紹介|挙げて|あげて|示して|出して|選んで|絞|おすすめ|候補|提案|優先|見込|可能性|確率|返答|返信|反応|率|%|％|条件|以上|以下|向いて|相性|狙/.test(s); }
 function v186IsCountOnly(s){ s=String(s||""); return /何社|何名|何件|件数|いくつ|何人/.test(s)&&!/リスト|一覧|示して|挙げて|あげて|出して|候補|おすすめ|返答|返信|率|条件|優先|見込|絞/.test(s); }
 function v186BuyerGuide(){
   let prod=[]; try{ if(typeof D!=="undefined"&&D){ if(D.item) prod.push("商品："+D.item); if(D.cat) prod.push("カテゴリ："+D.cat); if(D.hs) prod.push("HS："+D.hs); const st=(D.strengths||[]).slice(0,3).map(x=>x&&x[0]).filter(Boolean); if(st.length) prod.push("強み："+st.join("／")); } }catch(e){}
   return `=== 回答の指針（バイヤー照会は接続AIが推論して答える） ===
 自社商品：${prod.join("／")||"（未登録）"}
-・候補は上の照会結果にあるID付きのバイヤーだけ。IDの無いバイヤーを作らない。名称・連絡先は「正式契約後に開示」と案内する
+・候補は上の照会結果にあるID付きのバイヤーだけ。IDの無いバイヤーを作らない。名称・連絡先は「つなぐ依頼で相手が承諾すると開示」と案内する
 ・質問に条件（返答率・見込み・優先順位・相性など）があるときは、DBにその直接の指標が無いことを一言明示したうえで、
   代替指標＝①自社商品カテゴリ・取扱との一致 ②脈あり度 ③貿易クラウド成約実績 ④規模 を根拠に「高／中／低」で段階評価し、
   条件に合う候補を Markdown の表（見出し行「| ID | 業種 | 取扱 | 評価 | 根拠 |」、評価は 高／中／低 の1語、根拠は40字以内）で示す。合わない候補は除外し、理由を一言添える
@@ -22179,10 +22179,10 @@ function v186BuyerGuide(){
 }
 function v186BuyerCtxNoCty(){
   try{ const st=bnStats(); const my=(typeof D!=="undefined"&&D&&D.catKey)||""; const rows=my&&typeof bnQuery==="function"?bnQuery({cat:my,limit:20}):[];
-    return `=== 社内バイヤーDB照会結果（国の指定なし）：登録 ${st.total.toLocaleString()}名／${st.countries}か国（本番DB実数・今週 +${st.thisWeek}名）${st.catNm?`・自社カテゴリ（${st.catNm}）該当 約${st.catCount.toLocaleString()}名`:""} ===
+    return `=== 社内バイヤーネットワーク照会結果（国の指定なし）：登録 ${st.total.toLocaleString()}名／${st.countries}か国（本番DB実数・今週 +${st.thisWeek}名）${st.catNm?`・自社カテゴリ（${st.catNm}）該当 約${st.catCount.toLocaleString()}名`:""} ===
 登録の多い国：${BN_CTY.slice(0,8).map(([cc,n])=>`${cc} ${n}名`).join("、")}
 ${rows.length?`自社カテゴリの見本 上位${rows.length}件：\n${rows.map(b=>`${b.id}｜${b.cty||""}｜${b.biz}｜${b.catNm}｜取扱:${(b.ints||[]).join("・")}｜${b.size}｜脈あり度:${b.lv}｜貿易クラウド成約実績:${b.deals}件`).join("\n")}`:""}
-※名称・連絡先は正式契約後に開示（IDで案内する）。`; }catch(e){ return ""; }
+※名称・連絡先はつなぐ依頼で相手が承諾すると開示（IDで案内する）。`; }catch(e){ return ""; }
 }
 if(typeof bnAsk==="function"){ const __bn186=bnAsk; bnAsk=function(){ if(V186.skipBn) return null; return __bn186.apply(this,arguments); }; }
 if(typeof bnCtxFor==="function"){ const __ctx186=bnCtxFor; bnCtxFor=function(q){ let s=__ctx186.apply(this,arguments); if(V186.buyer){ if(!s) s=v186BuyerCtxNoCty(); if(s) s+="\n\n"+v186BuyerGuide(); } return s; }; }
@@ -22196,7 +22196,7 @@ if(typeof brain==="function"){ const __brain186=brain;
     return Promise.resolve(r).then(res=>{
       try{
         if(res&&/接続不可/.test(String(res.c||""))){ const b=__bnAskRaw186(q0); if(b){ b.c=(b.c||"")+"／⚠ 接続AIが使えなかったため社内DBの直接照会（定型）で回答"; return b; } }
-        if(res&&res.c) res.c=String(res.c).replace("社内データを注入済み","社内バイヤーDBの照会結果を根拠に接続AIが推論");
+        if(res&&res.c) res.c=String(res.c).replace("社内データを注入済み","社内バイヤーネットワークの照会結果を根拠に接続AIが推論");
       }catch(e){}
       return res; });
   };
@@ -22737,7 +22737,7 @@ function bmComposeAugment(id,cty,biz){
   const to0=bmAddr(id); const lbls=[...pn.querySelectorAll(".lbl")]; const fromL=lbls.find(l=>/送信元メールアドレス/.test(l.textContent));
   const my=/^MY-/.test(String(id));
   const html=`<p class="lbl" style="margin-top:10px">宛先メールアドレス（バイヤー）</p>
-    <input class="sel" id="dmTo" value="${esc(to0)}" placeholder="${my?"例：buyer@example.com（登録した連絡先から自動入力）":"🔒 正式契約後に開示されます（開示済みならここに入力）"}" style="width:100%;box-sizing:border-box">
+    <input class="sel" id="dmTo" value="${esc(to0)}" placeholder="${my?"例：buyer@example.com（登録した連絡先から自動入力）":"🔒 つなぐ依頼で相手が承諾すると開示されます（開示済みならここに入力）"}" style="width:100%;box-sizing:border-box">
     <p class="nn" id="bmMode" style="margin:3px 0 0"></p>`;
   if(fromL) fromL.insertAdjacentHTML("beforebegin",html); else { const s=document.getElementById("dmS"); if(s) s.previousElementSibling.insertAdjacentHTML("beforebegin",html); }
   if(fromL){ fromL.textContent="貴社のメールアドレス（送信の控えをCCで受け取る・任意）";
@@ -22767,7 +22767,7 @@ function bmComposeAugment(id,cty,biz){
 if(typeof openDMThread==="function"){ const __odt192=openDMThread; openDMThread=function(id){ const r=__odt192.apply(this,arguments); try{ bmThreadAugment(id); }catch(e){ console.warn("bm thread",e); } return r; }; }
 function bmNoteHtml(th,to,st){
   const rel=!bmOn()?'<span class="p lo">中継なし（同期未接続）</span>':st.configured?`<span class="p hi">中継 有効</span> 送信元 ${esc(st.from||"")}`:'<span class="p lo">中継 未設定</span>（管理者がサーバーを v2.2 に更新すると実送受信が有効）';
-  return `宛先：${to?`<b>${esc(to)}</b>`:"🔒 未開示（正式契約後に開示。開示済みなら「直接連絡」から入力）"}／${rel}<br>`
+  return `宛先：${to?`<b>${esc(to)}</b>`:"🔒 未開示（つなぐ依頼で相手が承諾すると開示）"}／${rel}<br>`
     +(th.real?"<b>実メールのスレッド</b>です。この相手からの返信だけがここに取り込まれます（90秒ごと・🔄で即時）。":"実送信はまだありません（記録のみ）。")
     +(th.msgs.some(m=>m.sim)?" 🧪は体験用の模擬返信です。":"")+` 控え：${esc((bmTen()||{}).dmFrom||"未設定")}`;
 }
@@ -22882,7 +22882,7 @@ function bmAdminCard(){
   const slot=document.getElementById("admaislot"); if(!slot||document.getElementById("bmAdm")) return;
   slot.insertAdjacentHTML("afterend",`<div class="c" id="bmAdm" style="margin-bottom:11px"><h3>✉ バイヤーへ直接メールの中継 <span class="nt">この版で新規</span></h3>
     <p class="nn" id="bmAdmSt" style="margin-top:4px">状態を確認しています…</p>
-    <p class="nn" style="margin-top:6px">お客様が「バイヤーDB・拠点 › 直接連絡」から送るメールは、クラウド同期サーバー（Apps Script）の実行ユーザーのGmailから送信され（お客様のアドレスにCC）、返信は件名末尾の [BC-…] で突き合わせて各お客様のスレッドにだけ取り込みます。メールの性質上、送受信の本文は平文でサーバーを経由します。停止はスクリプトプロパティ MAIL_RELAY=off。有効化には sync_gas.js v2.2 の反映（Gmail権限の再承認）が必要です。</p></div>`);
+    <p class="nn" style="margin-top:6px">お客様が「直接連絡」（自社のバイヤー・つなぐ依頼で承諾した相手）から送るメールは、クラウド同期サーバー（Apps Script）の実行ユーザーのGmailから送信され（お客様のアドレスにCC）、返信は件名末尾の [BC-…] で突き合わせて各お客様のスレッドにだけ取り込みます。メールの性質上、送受信の本文は平文でサーバーを経由します。停止はスクリプトプロパティ MAIL_RELAY=off。有効化には sync_gas.js v2.2 の反映（Gmail権限の再承認）が必要です。</p></div>`);
   bmStatus(true).then(st=>{ const e=document.getElementById("bmAdmSt"); if(!e) return;
     e.innerHTML=!bmOn()?"クラウド同期が未接続のため確認できません。":st.configured?`<span class="p hi">有効</span> 送信元 ${esc(st.from||"")}／本日の残り送信枠 ${st.quota==null?"—":st.quota} 通`
       :`<span class="p lo">未設定</span> ${esc(st.reason==="old"?"サーバーが v2.2 未反映（"+(st.err||"unknown op")+"）":(st.note||"中継が停止中"))}`; });
@@ -22934,7 +22934,7 @@ try{ new MutationObserver(()=>{ if(UX193.t) return; UX193.t=setTimeout(()=>{ UX1
 setTimeout(()=>{ try{ ux193Apply(); }catch(e){} },600);
 
 /* ═══════════ v19.4：やり取り中のBuyer＝検索・交渉ステータス（7段階・AI自動判定）・AI商社マンからの参照 ═══════════
-   ① バイヤーDB・拠点に「📨 やり取り中のBuyer」カード（ID・国・業種・本文の検索、ステータス絞り込み、未読、最終メッセージ、開く）。Ctrl+K 検索にも並ぶ
+   ① バイヤーネットワーク・拠点に「📨 やり取り中のBuyer」カード（ID・国・業種・本文の検索、ステータス絞り込み、未読、最終メッセージ、開く）。Ctrl+K 検索にも並ぶ
    ② AI商社マンが直接メッセージを見えていなかった不具合＝接続AIに渡す登録データ（ppContext）にスレッドが無く、即答エンジンにも該当の応答が無かった
       → 登録データにスレッド一覧を追加し、「やり取り中のBuyer／やり取りページを開いて／ID指定」は貿易クラウド側で即答＋該当スレッドを開く
    ③ 交渉ステータスを7段階に統一（コンタクト中（一方的なアプローチ）／商談中／サンプル出荷／見積提示／契約交渉／取引中／失注）。
@@ -23029,7 +23029,7 @@ function bmThreadStatusUI(id){
   const sel=document.getElementById("bmStSel"); if(sel) sel.onchange=()=>{ bmSetStatus(th,sel.value,"手動","手動で変更",false); openDMThread(id); bmThreadsPaint(); try{ if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }catch(e){} };
   const re=document.getElementById("bmStRe"); if(re) re.onclick=async()=>{ re.disabled=true; re.textContent="判定中…"; const prev=th.status; await bmJudge(th,{force:true}); if(th.status===prev) toast("ステータスは「"+(BM_STS[prev]||prev)+"」のままです（"+(th.statusWhy||"")+"）"); openDMThread(id); bmThreadsPaint(); try{ if(typeof cur!=="undefined"&&cur==="db"&&typeof rDB==="function") rDB(); }catch(e){} };
 }
-/* ── ① バイヤーDB・拠点「📨 やり取り中のBuyer」カード ── */
+/* ── ① バイヤーネットワーク・拠点「📨 やり取り中のBuyer」カード ── */
 const BMF={q:"",st:""};
 function bmThreadRows(){
   const q=String(BMF.q||"").trim().toLowerCase(); const L=bmThreadsAll().sort((a,b)=>bmLastAt(b)-bmLastAt(a));
@@ -23083,7 +23083,7 @@ if(typeof uxPalItems==="function"){ const __pal194=uxPalItems; uxPalItems=functi
 /* ── ② AI商社マンへの参照：登録データにスレッドを追加＋即答（一覧・ID指定・開く） ── */
 function bmNormId(s){ return String(s||"").replace(/\b([A-Za-z]{2})\s*[:：\-－]?\s*(\d{3,5})\b/g,(m,a,b)=>a.toUpperCase()+"-"+b); }
 function bmCtx(){
-  const L=bmThreadsAll().sort((a,b)=>bmLastAt(b)-bmLastAt(a)); if(!L.length) return "\n=== バイヤーとの直接メッセージ（やり取り中のBuyer） ===\n（まだありません。バイヤーDB・拠点の「直接連絡」から開始できる）";
+  const L=bmThreadsAll().sort((a,b)=>bmLastAt(b)-bmLastAt(a)); if(!L.length) return "\n=== バイヤーとの直接メッセージ（やり取り中のBuyer） ===\n（まだありません。自社のバイヤーへの直接連絡か、バイヤーネットワーク・拠点の「つなぐ依頼」で相手が承諾すると開始できる）";
   return "\n=== バイヤーとの直接メッセージ（やり取り中のBuyer："+L.length+"件・交渉ステータスは7段階） ===\n"+L.map(th=>{ const last=(th.msgs||[])[th.msgs.length-1]||{}; return `・ID ${th.id}｜${th.cty}の${th.biz}｜ステータス：${bmStOf(th)}（${th.statusBy||"未判定"}${th.statusWhy?"・"+th.statusWhy:""}）｜往復 ${(th.msgs||[]).length}通（相手からの返信 ${(th.msgs||[]).filter(m=>m.w==="by").length}・未読 ${th.unread||0}）｜宛先 ${th.to||"未開示"}${th.real?"｜実メール":""}${(th.msgs||[]).some(m=>m.sim)?"｜体験用の模擬返信を含む":""}｜最終 ${last.t||""} ${last.w==="by"?"相手":"自社"}：「${bmTxt(last).replace(/\s+/g," ").trim().slice(0,80)}」`; }).join("\n")+"\n※「やり取りページを開いて」等の依頼は、貿易クラウド側でIDを指定して該当スレッドを開ける（AIが案内する場合はIDを示す）";
 }
 if(typeof ppContext==="function"){ const __pc194=ppContext; ppContext=function(){ const s=__pc194.apply(this,arguments); try{ return s+"\n"+bmCtx(); }catch(e){ return s; } }; }
@@ -23095,19 +23095,19 @@ function bmAsk(q){
   const missing=[...new Set((s.match(/\b[A-Z]{2}-\d{3,5}\b/g)||[]))].filter(id=>!ids.includes(id));
   if(!ids.length&&!topic&&!missing.length) return null;
   const stKey=BM_ST.find(st=>s.includes(BM_STS[st]))||"";
-  const missNote=missing.length?`<p class="nn" style="margin-bottom:6px">⚠ <b>ID ${missing.map(esc).join("・")}</b> の直接メッセージ（やり取り）は登録されていません。「バイヤーDB・拠点」の一覧でそのIDの「直接連絡」を送ると、やり取りが始まりここに並びます。</p>`:"";
+  const missNote=missing.length?`<p class="nn" style="margin-bottom:6px">⚠ <b>ID ${missing.map(esc).join("・")}</b> の直接メッセージ（やり取り）は登録されていません。そのIDの相手には「バイヤーネットワーク・拠点」の「つなぐ依頼」を出し、相手が承諾するとやり取りを始められます。</p>`:"";
   const row=th=>{ const last=(th.msgs||[])[th.msgs.length-1]||{}; return `<tr><td><b>${esc(th.cty)}の${esc(th.biz)}</b><br><span class="nn">ID ${esc(th.id)}${th.unread?`・<span class="p no">📨 返信${th.unread}件</span>`:""}</span></td><td>${bmStChip(th)}</td><td class="num">${(th.msgs||[]).length}通</td><td><span class="nn">${esc(last.t||"")}</span><br>${esc(bmTxt(last).replace(/\s+/g," ").trim().slice(0,56))}</td><td><button class="q" data-bmopen="${esc(th.id)}">開く</button></td></tr>`; };
   const tbl=rows=>`<div class="tw" style="margin-top:8px;max-height:300px"><table><thead><tr><th>相手</th><th>ステータス</th><th class="num">往復</th><th>最終</th><th></th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table></div>`;
   if(ids.length){ const ths=ids.map(id=>dmThreads()[id]);
     if(ids.length===1&&open){ const th=ths[0]; setTimeout(()=>{ try{ openDMThread(th.id); }catch(e){} },400);
-      return {a:`<b>${esc(th.cty)}の${esc(th.biz)}（ID ${esc(th.id)}）</b>のやり取りページを開きます。交渉ステータスは ${bmStChip(th)}（${esc(th.statusBy||"")}${th.statusWhy?"・根拠："+esc(th.statusWhy):""}）、往復 ${(th.msgs||[]).length}通${th.unread?"・未読 "+th.unread+"件":""}です。`,c:"根拠：直接メッセージのスレッド（バイヤーDB・拠点 › やり取り中のBuyer）"}; }
-    return {a:`該当するやり取り中のBuyerは <b>${ids.length}件</b>です。「開く」でやり取りページに移動できます。`+tbl(ths),c:"根拠：直接メッセージのスレッド（バイヤーDB・拠点 › やり取り中のBuyer）"}; }
+      return {a:`<b>${esc(th.cty)}の${esc(th.biz)}（ID ${esc(th.id)}）</b>のやり取りページを開きます。交渉ステータスは ${bmStChip(th)}（${esc(th.statusBy||"")}${th.statusWhy?"・根拠："+esc(th.statusWhy):""}）、往復 ${(th.msgs||[]).length}通${th.unread?"・未読 "+th.unread+"件":""}です。`,c:"根拠：直接メッセージのスレッド（バイヤーネットワーク・拠点 › やり取り中のBuyer）"}; }
+    return {a:`該当するやり取り中のBuyerは <b>${ids.length}件</b>です。「開く」でやり取りページに移動できます。`+tbl(ths),c:"根拠：直接メッセージのスレッド（バイヤーネットワーク・拠点 › やり取り中のBuyer）"}; }
   const rows=(stKey?L.filter(th=>bmStOf(th)===stKey):L).sort((a,b)=>bmLastAt(b)-bmLastAt(a));
-  if(!L.length) return {a:missNote+`現在、<b>やり取り中のBuyerはまだありません</b>。「バイヤーDB・拠点」の一覧で相手を選び<b>直接連絡</b>を送ると、返信を含めたやり取りがスレッドとして残り、ここから開けるようになります。`,c:"根拠：直接メッセージのスレッド 0件"};
+  if(!L.length) return {a:missNote+`現在、<b>やり取り中のBuyerはまだありません</b>。自社のバイヤーに<b>直接連絡</b>を送るか、「バイヤーネットワーク・拠点」の<b>つなぐ依頼</b>で相手が承諾すると、返信を含めたやり取りがスレッドとして残り、ここから開けるようになります。`,c:"根拠：直接メッセージのスレッド 0件"};
   if(!rows.length) return {a:`「${esc(BM_STS[stKey]||stKey)}」のBuyerは現在ありません（やり取り中は全体で ${L.length}件）。`+tbl(L.slice(0,10)),c:"根拠：直接メッセージのスレッド（交渉ステータス）"};
   if(rows.length===1&&open){ const th=rows[0]; setTimeout(()=>{ try{ openDMThread(th.id); }catch(e){} },400); return {a:`やり取り中のBuyerは1件です。<b>${esc(th.cty)}の${esc(th.biz)}（ID ${esc(th.id)}）</b>のやり取りページを開きます。ステータス：${bmStChip(th)}`,c:"根拠：直接メッセージのスレッド"}; }
   const cnt={}; L.forEach(th=>{ const k=bmStOf(th); cnt[k]=(cnt[k]||0)+1; });
-  return {a:missNote+`やり取り中のBuyerは <b>${L.length}件</b>${stKey?`（うち「${esc(BM_STS[stKey])}」${rows.length}件）`:""}です。内訳：${BM_ST.filter(k=>cnt[k]).map(k=>`${esc(BM_STS[k])} ${cnt[k]}`).join("／")||"—"}。${open?"複数あるため一覧から「開く」を押してください。":"「開く」でやり取りページに移動できます。"}`+tbl(rows.slice(0,15))+`<p class="nn" style="margin-top:6px">交渉ステータスはAI商社マンがやり取りから自動判定しています（各スレッドで手動変更・再判定が可能）。</p>`,c:"根拠：直接メッセージのスレッド（バイヤーDB・拠点 › やり取り中のBuyer）"};
+  return {a:missNote+`やり取り中のBuyerは <b>${L.length}件</b>${stKey?`（うち「${esc(BM_STS[stKey])}」${rows.length}件）`:""}です。内訳：${BM_ST.filter(k=>cnt[k]).map(k=>`${esc(BM_STS[k])} ${cnt[k]}`).join("／")||"—"}。${open?"複数あるため一覧から「開く」を押してください。":"「開く」でやり取りページに移動できます。"}`+tbl(rows.slice(0,15))+`<p class="nn" style="margin-top:6px">交渉ステータスはAI商社マンがやり取りから自動判定しています（各スレッドで手動変更・再判定が可能）。</p>`,c:"根拠：直接メッセージのスレッド（バイヤーネットワーク・拠点 › やり取り中のBuyer）"};
 }
 if(typeof brain==="function"){ const __brain194=brain; brain=function(q,opts){ try{ const q0=(opts&&opts.raw)||q; const r=bmAsk(q0); if(r){ try{ if(typeof logU==="function") logU("ai","やり取り中のBuyer照会"); }catch(e){} return r; } }catch(e){} return __brain194.apply(this,arguments); }; }
 document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("[data-bmopen]"); if(b){ e.preventDefault(); try{ openDMThread(b.dataset.bmopen); }catch(x){} } });
@@ -24224,7 +24224,7 @@ if(typeof admContext==="function"){ const __ac200=admContext; admContext=functio
 /* F5復元（管理者セッション）：起動時の renderAdmin はこのモジュールの読込前に走るため、列とカードが無ければ一度だけ描き直す（v17.6 と同じ考え方） */
 (function(){ try{ if(typeof SES!=="undefined"&&SES&&SES.t==="admin"&&typeof cur!=="undefined"&&cur==="adm"&&document.getElementById("admkpi")&&!document.getElementById("admpool")&&typeof renderAdmin==="function") renderAdmin(); }catch(e){} })();
 
-/* ═══════════ v20.1：バイヤーDB・拠点「相手を探す」の一覧を、右の「現地のSTANDAGEネットワーク」と同じ高さに ═══════════
+/* ═══════════ v20.1：バイヤーネットワーク・拠点「相手を探す」の一覧を、右の「現地のSTANDAGEネットワーク」と同じ高さに ═══════════
    従来は一覧の枠が max-height:300px 固定（3社しか見えない）で、カードの下に大きな空白が残っていた。
    PC（2列表示）：左カードの高さが右カードと同じになるよう、一覧の枠の高さをその場で計算して設定（右カードの高さは拠点メンバーの描画や地図で変わるため ResizeObserver で追従）。
    スマホ（1列表示）：右カードとは並ばないので、画面の 60% を上限にして一気に見られるようにする。フォントは変更しない */
@@ -24817,7 +24817,7 @@ growGo=function(id,pre,label){
            ③今日やること・貿易実務からアクセス／チャットで「販売先国を決めたい」→ この画面へ／今日やることが商品情報の後に必ず提案
            ④確定した3か国を進出希望国（TEN.targets）に反映＝規制・価格・物流・出荷・バイヤー提案・営業資料・AI商社マンの前提に
    データ：TEN.ctySel={cands:[国…],auto,rec:[{c,rank,sc:{reg,mkt,comp,base,total},facts,why,risk,next,comp}],top:[3国],chosen:[確定3国],chosenAt,ai:{eng,at,summary,top3,per},at}
-   根拠：規制DB（regsFor）・通関統計（kbStats：日本からの輸出・相手国別）・バイヤーDB（BN_CTY×カテゴリ比率）・STANDAGE拠点（basesAll/staffAll）。接続AIは事実表を読んで語り口と最終判断（top3）を返す */
+   根拠：規制DB（regsFor）・通関統計（kbStats：日本からの輸出・相手国別）・バイヤーネットワーク（BN_CTY×カテゴリ比率）・STANDAGE拠点（basesAll/staffAll）。接続AIは事実表を読んで語り口と最終判断（top3）を返す */
 const CTY_MAX=10, CTY_W={reg:25,mkt:35,comp:20,base:20};
 const CTY_ALIAS={"アメリカ合衆国":"アメリカ","米国":"アメリカ","USA":"アメリカ","大韓民国":"韓国","中華人民共和国":"中国","アラブ首長国連邦":"UAE","英国":"イギリス","連合王国":"イギリス","中華民国":"台湾","豪州":"オーストラリア","越南":"ベトナム","泰国":"タイ","印度":"インド","比国":"フィリピン","独":"ドイツ","仏":"フランス","伊":"イタリア","西":"スペイン","星":"シンガポール","ホンコン":"香港","シンガポール共和国":"シンガポール","フィリッピン":"フィリピン","サウジ":"サウジアラビア","サウジアラビア王国":"サウジアラビア","エジプト・アラブ共和国":"エジプト","ナイジェリア連邦共和国":"ナイジェリア","蘭":"オランダ","加":"カナダ","墨":"メキシコ","ブラジル連邦共和国":"ブラジル","トルコ共和国":"トルコ","タイ王国":"タイ","マレイシア":"マレーシア","インドネシア共和国":"インドネシア","ベトナム社会主義共和国":"ベトナム","カナダ連邦":"カナダ","ドイツ連邦共和国":"ドイツ","フランス共和国":"フランス","イタリア共和国":"イタリア","スペイン王国":"スペイン","オーストラリア連邦":"オーストラリア","ニュー・ジーランド":"ニュージーランド","香港特別行政区":"香港","マカオ":"マカオ"};
 const CTY_REGION={ASEAN:["シンガポール","タイ","ベトナム","マレーシア","インドネシア","フィリピン"],EastAsia:["香港","台湾","中国","韓国","マカオ"],MiddleEast:["UAE","サウジアラビア","エジプト","トルコ","カタール"],NorthAm:["アメリカ","カナダ","メキシコ"],Europe:["フランス","ドイツ","イギリス","イタリア","オランダ","スペイン"],Oceania:["オーストラリア","ニュージーランド"],SouthAsia:["インド","バングラデシュ","パキスタン","スリランカ"],Africa:["ナイジェリア","ケニア","タンザニア","南アフリカ"],LatAm:["ブラジル","チリ","ペルー"]};
@@ -24840,7 +24840,7 @@ function ctyBaseOf(c){
 }
 function ctyDuty(d){ const m=String(d||"").match(/(\d+(?:\.\d+)?)\s*%/); return m?+m[1]:null; }
 function ctyM(v){ v=+v||0; return v>=1e9?"$"+(v/1e9).toFixed(1)+"B":v>=1e6?"$"+(v/1e6).toFixed(1)+"M":v>=1e3?"$"+Math.round(v/1e3)+"K":"$"+Math.round(v); }
-/* ── 1か国の事実（規制DB・通関統計・バイヤーDB・拠点）── */
+/* ── 1か国の事実（規制DB・通関統計・STANDAGEの実績・拠点）── */
 function ctyFacts(c,S){
   const cat=ctyCatKey(); let reg=null; try{ reg=regsFor(cat,[c])[c]; }catch(e){ reg=null; }
   const duty=ctyDuty(reg&&reg.duty); const known=!!(reg&&reg.duty&&reg.duty!=="要確認"); const docs=(reg&&reg.docs)||[]; const warn=(reg&&reg.warn)||"";
@@ -24869,7 +24869,7 @@ function ctyScoreAll(facts,S){
     const total=Math.round((reg*CTY_W.reg+mkt*CTY_W.mkt+comp*CTY_W.comp+base*CTY_W.base)/100);
     return {c:f.c,sc:{reg,mkt,comp,base,total},facts:f}; });
 }
-function ctyWhyLocal(r){ const f=r.facts, a=[]; if(f.known) a.push(`関税${f.duty}${f.lead&&f.lead!=="要確認"?"・"+String(f.lead).replace(/^通関\s*/,"通関"):""}`); else a.push("規制DB未登録（STANDAGEが個別調査）"); if(f.exportUsd) a.push(`日本からの輸出 ${ctyM(f.exportUsd)}（シェア${Math.round(f.share*100)}%${f.yoy!=null?"・前年比"+(f.yoy>=0?"+":"")+Math.round(f.yoy*100)+"%":""}）`); if(f.buyers) a.push(`バイヤーDB 約${f.buyers}社（同カテゴリ換算・登録${f.buyersAll}名）`); a.push(f.base.kind==="direct"?`STANDAGE拠点あり（${f.base.c}・メンバー${f.base.staff.length}名）`:f.base.kind==="region"?`近隣拠点（${f.base.c}）が担当`:"拠点なし（本社対応）"); return a.join("／"); }
+function ctyWhyLocal(r){ const f=r.facts, a=[]; if(f.known) a.push(`関税${f.duty}${f.lead&&f.lead!=="要確認"?"・"+String(f.lead).replace(/^通関\s*/,"通関"):""}`); else a.push("規制DB未登録（STANDAGEが個別調査）"); if(f.exportUsd) a.push(`日本からの輸出 ${ctyM(f.exportUsd)}（シェア${Math.round(f.share*100)}%${f.yoy!=null?"・前年比"+(f.yoy>=0?"+":"")+Math.round(f.yoy*100)+"%":""}）`); if(f.buyers) a.push(`STANDAGEの実績 バイヤー約${f.buyers}社（同カテゴリ換算・全${f.buyersAll}名）`); a.push(f.base.kind==="direct"?`STANDAGE拠点あり（${f.base.c}・メンバー${f.base.staff.length}名）`:f.base.kind==="region"?`近隣拠点（${f.base.c}）が担当`:"拠点なし（本社対応）"); return a.join("／"); }
 function ctyRiskLocal(r){ const f=r.facts, a=[]; if(!f.known) a.push("規制・関税が未確認"); if(f.warn&&!/登録がありません|個別に調査/.test(f.warn)) a.push(String(f.warn).slice(0,70)); if(f.share>0.25) a.push("日本勢の競合が多い市場（シェア"+Math.round(f.share*100)+"%）"); if(f.yoy!=null&&f.yoy<0) a.push("輸出額が前年比マイナス"); if(f.base.kind==="none") a.push("現地拠点なし（本社からの遠隔対応）"); return a.join("／")||"目立ったリスクなし（要確認事項は規制の詳細調査で）"; }
 function ctyNextLocal(r){ const f=r.facts; return f.known?`規制の詳細調査（AI）→ ${f.docs.slice(0,3).join("・")||"必要書類"}の準備 → 現地バイヤーへ提案`:"規制の個別調査を依頼 → 必要書類の確定 → 提案"; }
 function ctyCompLocal(r){ const f=r.facts; if(!f.exportUsd) return "通関統計に日本からの輸出実績が無い（先行者不在＝開拓型）"; return `日本からの輸出シェア${Math.round(f.share*100)}%${f.share>0.25?"＝日本勢の競合が多い":f.share>0.08?"＝一定の競合あり":"＝競合は少なめ"}${f.upunit?"・市場平均単価 $"+f.upunit.toFixed(2)+"/"+(f.unit||"単位"):""}${f.priceNote?"・"+f.priceNote:""}`; }
@@ -24881,7 +24881,7 @@ async function ctyAnalyzeAI(rec){
   let ctx=""; try{ ctx=ppContext(); }catch(e){}
   const r=await llmAsk(`=== 目的 ===
 「${(D&&D.item)||""}」（${(D&&D.cat)||""}・HS ${(D&&D.hs)||"未確定"}）の販売先国を、候補${rec.length}か国から3か国に絞り込む。
-=== 候補国ごとの事実（貿易クラウドの規制DB・通関統計＝日本からの輸出・バイヤーDB・STANDAGE拠点。score は内蔵ロジックの暫定点＝規制25／市場性35／競合20／拠点20） ===
+=== 候補国ごとの事実（貿易クラウドの規制DB・通関統計＝日本からの輸出・STANDAGEの実績（バイヤー数）・STANDAGE拠点。score は内蔵ロジックの暫定点＝規制25／市場性35／競合20／拠点20） ===
 ${JSON.stringify(facts)}
 === 商品・会社の登録データ ===
 ${String(ctx).slice(0,6000)}
@@ -24896,7 +24896,7 @@ ${String(ctx).slice(0,6000)}
   const per={}; (j.countries||[]).forEach(x=>{ const c=ctyNorm(x&&x.c); if(names.has(c)) per[c]={why:String(x.why||"").slice(0,420),risk:String(x.risk||"").slice(0,300),next:String(x.next||"").slice(0,200),comp:String(x.comp||"").slice(0,220)}; });
   return {eng:r.provNm||"",at:ctyNow(),summary:String(j.summary||"").slice(0,800),top3,per};
 }
-/* ── 候補国の自動選定（初心者向け・1クリック）：既存の進出希望国 → 通関統計の上位相手国 → STANDAGE拠点 → バイヤーDB上位 → 規制DB ── */
+/* ── 候補国の自動選定（初心者向け・1クリック）：既存の進出希望国 → 通関統計の上位相手国 → STANDAGE拠点 → STANDAGEの実績の多い国 → 規制DB ── */
 function ctyAutoCands(){
   const out=[]; const add=c=>{ c=ctyNorm(c); if(c&&c!=="日本"&&!out.includes(c)&&out.length<CTY_MAX) out.push(c); };
   ctyChosen().forEach(add); (((typeof TEN!=="undefined"&&TEN&&TEN.targets)||[])).forEach(add);
@@ -24940,15 +24940,15 @@ function vCty(p){
   const head=ph(p,"<b>この画面でできること：</b>売り先の国を、AI商社マンが<b>規制・競合・市場性・STANDAGE拠点</b>の4つの観点で評価し、<b>推奨3か国と理由</b>をレポートにします。確定した3か国は、規制・価格・物流・出荷・バイヤー提案・営業資料・AI商社マンの前提に反映されます。",
     `<button class="btn" onclick="ctyRun(true)" ${busy?"disabled":""}>🤖 AI商社マンにおまかせ（1クリック）</button>`);
   const cands=`<div class="c" style="margin-bottom:11px"><div class="rw" style="justify-content:space-between;gap:8px;flex-wrap:wrap"><h3>① 候補国（最大${CTY_MAX}か国）</h3>${ctyPill()}</div>
-    <p class="nn">自分で候補を選ぶか、「AI商社マンにおまかせ」で候補選び（通関統計の上位相手国・STANDAGE拠点・バイヤーDB上位）から分析まで一気に進めます。</p>
+    <p class="nn">自分で候補を選ぶか、「AI商社マンにおまかせ」で候補選び（通関統計の上位相手国・STANDAGE拠点・STANDAGEの実績の多い国）から分析まで一気に進めます。</p>
     <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap" id="ctycands">${s.cands.length?s.cands.map(c=>`<span class="p on" style="font-size:12px;padding:5px 10px">${esc(c)} <button class="q" style="padding:0 6px;margin-left:4px;border:0;background:transparent" title="外す" onclick="ctyDelCand('${jsa(c)}')">✕</button></span>`).join(""):`<span class="nn">まだ候補がありません</span>`}</div>
     <div class="rw" style="margin-top:9px;gap:6px;flex-wrap:wrap">
       <select class="sel" id="ctysel" style="min-width:180px"><option value="">国を選んで追加…</option>${all.map(c=>`<option>${esc(c)}</option>`).join("")}</select>
       <input class="sel" id="ctyin" placeholder="一覧に無い国名を入力（例：メキシコ）" style="min-width:200px">
       <button class="btn g" id="ctyadd">＋ 追加</button>
       <button class="btn" onclick="ctyRun(false)" ${busy||!s.cands.length?"disabled":""} style="margin-left:auto">🔎 この候補で分析（4つの観点）</button></div>
-    <p class="nn" style="margin-top:7px">評価の配点：市場性 ${CTY_W.mkt}／規制 ${CTY_W.reg}／競合 ${CTY_W.comp}／STANDAGE拠点 ${CTY_W.base}（100点満点）。根拠：規制DB・通関統計（${S?"HS "+esc(S.hs)+"・"+esc(String(S.latest&&S.latest.y||""))+"年・日本からの輸出":"HS未一致のため統計なし"}）・バイヤーDB（同カテゴリ換算）・STANDAGE拠点。${online?"接続AIが商品特性に照らして最終判断します":"⚠ AI未接続：内蔵ロジックの採点だけで並べます（接続すると商品特性に合わせた判断と理由が付きます）"}</p>
-    ${busy?`<p class="nn" style="margin-top:8px"><span class="spin"></span> AI商社マンが分析しています…（規制DB・通関統計・バイヤーDB・拠点 → 接続AIの判断。10〜60秒）</p>`:""}</div>`;
+    <p class="nn" style="margin-top:7px">評価の配点：市場性 ${CTY_W.mkt}／規制 ${CTY_W.reg}／競合 ${CTY_W.comp}／STANDAGE拠点 ${CTY_W.base}（100点満点）。根拠：規制DB・通関統計（${S?"HS "+esc(S.hs)+"・"+esc(String(S.latest&&S.latest.y||""))+"年・日本からの輸出":"HS未一致のため統計なし"}）・STANDAGEの実績（同カテゴリ換算）・STANDAGE拠点。${online?"接続AIが商品特性に照らして最終判断します":"⚠ AI未接続：内蔵ロジックの採点だけで並べます（接続すると商品特性に合わせた判断と理由が付きます）"}</p>
+    ${busy?`<p class="nn" style="margin-top:8px"><span class="spin"></span> AI商社マンが分析しています…（規制DB・通関統計・STANDAGEの実績・拠点 → 接続AIの判断。10〜60秒）</p>`:""}</div>`;
   if(!s.rec) return head+cands+`<div class="c"><h3>② 分析結果と推奨3か国</h3><p class="nn">候補を決めて「分析」を押すと、ここに国ごとの評価（4つの観点）・推奨3か国・理由・リスク・最初の一歩が出ます。PPTXレポートも出力できます。</p></div>`;
   const rec=s.rec; const top=s.top||[]; const picked=ch.length?ch:top;
   const rows=rec.map(r=>`<tr style="${top.includes(r.c)?"background:var(--or-soft)":""}"><td style="white-space:nowrap;min-width:150px"><label class="rw" style="gap:6px;flex-wrap:nowrap;white-space:nowrap"><input type="checkbox" data-ctypick="${esc(r.c)}" ${picked.includes(r.c)?"checked":""} ${ch.length?"disabled":""} style="accent-color:var(--or)"><b>${esc(r.c)}</b>${top.includes(r.c)?` <span class="p or">推奨</span>`:""}${ch.includes(r.c)?` <span class="p hi">確定</span>`:""}</label></td>
@@ -24958,7 +24958,7 @@ function vCty(p){
     <div class="g2" style="margin-top:8px;gap:8px">
       <div style="padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:11.5px;line-height:1.7">
         <b>📋 規制（${r.sc.reg}）</b>：関税 ${esc(f.duty)}／通関 ${esc(f.lead)}／必要書類 ${f.docs.map(esc).join("・")||"—"}${f.warn?`<br><span style="color:var(--warn)">⚠ ${esc(String(f.warn).slice(0,120))}</span>`:""}${f.regKb?`<br><span class="p hi">AI詳細調査 反映済み</span>`:""}<br>
-        <b>📈 市場性（${r.sc.mkt}）</b>：${f.exportUsd?`日本からの輸出 ${ctyM(f.exportUsd)}（${esc(String(f.statsYear))}年・シェア${Math.round(f.share*100)}%${f.yoy!=null?"・前年比"+(f.yoy>=0?"+":"")+Math.round(f.yoy*100)+"%":""}）`:"通関統計に実績なし"}／バイヤーDB 約${f.buyers}社（登録${f.buyersAll}名）<br>
+        <b>📈 市場性（${r.sc.mkt}）</b>：${f.exportUsd?`日本からの輸出 ${ctyM(f.exportUsd)}（${esc(String(f.statsYear))}年・シェア${Math.round(f.share*100)}%${f.yoy!=null?"・前年比"+(f.yoy>=0?"+":"")+Math.round(f.yoy*100)+"%":""}）`:"通関統計に実績なし"}／STANDAGEの実績 バイヤー約${f.buyers}社（全${f.buyersAll}名）<br>
         <b>⚔ 競合（${r.sc.comp}）</b>：${esc(r.comp||"")}<br>
         <b>📍 STANDAGE拠点（${r.sc.base}）</b>：${f.base.kind==="direct"?`あり（${esc(f.base.c)}）`:f.base.kind==="region"?`近隣拠点 ${esc(f.base.c)} が担当`:"なし（本社対応）"}${f.base.staff.length?"　"+f.base.staff.slice(0,2).map(x=>esc(x.n)+"（"+esc(x.r)+"）").join("・"):""}</div>
       <div style="padding:9px 11px;border:1px solid var(--line);border-radius:var(--r2);font-size:11.5px;line-height:1.7">
@@ -24970,8 +24970,8 @@ function vCty(p){
     <div class="rw" style="margin-top:10px;gap:8px;flex-wrap:wrap;align-items:center">
       ${ch.length?`<span class="p hi" style="font-size:12px;padding:6px 10px">✅ 確定：${ch.map(esc).join("・")}（進出希望国に反映済み）</span><button class="btn g" onclick="ctyUnconfirm()">選び直す</button>`:`<button class="btn" onclick="ctyConfirm()">✅ この3か国で確定（進出希望国・価格・物流・出荷に反映）</button><span class="nn">チェックで入れ替えできます（最大3か国）</span>`}</div></div>
     <div class="g2" style="align-items:start;gap:11px;margin-bottom:11px">${detail}</div>
-    <div class="c"><h3>③ 確定後の連動</h3><p class="nn" style="margin-top:4px">確定した3か国は「進出希望国」になり、<b>貿易実務（規制・関税・必要書類）</b>、<b>商品情報の価格設定（推奨FOB・DDP）</b>、<b>出荷を進める（物流AI見積の送り先）</b>、<b>バイヤーDB・拠点（相手を探す・拠点に依頼）</b>、<b>外国語営業資料</b>に反映されます。AI商社マンは、この3か国を前提に戦略・伴走・アドバイスを行います。</p>
-      <div class="rw" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn g" onclick="opsTab='reg';go('ops')">規制を調べる →</button><button class="btn g" onclick="go('item')">価格設定へ →</button><button class="btn g" onclick="go('ship')">出荷・物流見積へ →</button><button class="btn g" onclick="go('db')">バイヤーDB・拠点へ →</button></div></div>`;
+    <div class="c"><h3>③ 確定後の連動</h3><p class="nn" style="margin-top:4px">確定した3か国は「進出希望国」になり、<b>貿易実務（規制・関税・必要書類）</b>、<b>商品情報の価格設定（推奨FOB・DDP）</b>、<b>出荷を進める（物流AI見積の送り先）</b>、<b>バイヤーネットワーク・拠点（相手を探す・つなぐ依頼）</b>、<b>外国語営業資料</b>に反映されます。AI商社マンは、この3か国を前提に戦略・伴走・アドバイスを行います。</p>
+      <div class="rw" style="margin-top:8px;gap:6px;flex-wrap:wrap"><button class="btn g" onclick="opsTab='reg';go('ops')">規制を調べる →</button><button class="btn g" onclick="go('item')">価格設定へ →</button><button class="btn g" onclick="go('ship')">出荷・物流見積へ →</button><button class="btn g" onclick="go('db')">バイヤーネットワーク・拠点へ →</button></div></div>`;
   return head+cands+result;
 }
 function ctyBind(){
@@ -24995,7 +24995,7 @@ function ctySlides(){
     +shpText(60,180,840,70,[{t:"販売先国 選定レポート",sz:44,b:1,c:TT}],{ea})+shpText(60,252,840,30,[{t:`${item}${co?"　｜　"+co:""}`,sz:fit(`${item}　｜　${co}`,840,[20,17,14,12]),c:INK}],{ea})
     +shpText(60,300,840,44,[{t:"AI商社マンが「規制・競合・市場性・STANDAGE拠点」の4つの観点で候補国を評価し、推奨3か国と理由をまとめました。",sz:13,c:SUB}],{ea})
     +top.map((c,i)=>dk2Card(60+i*270,368,250,64,"FFFFFF",{line:AC,lw:1.2,shadow:true})+dk2Circle(74,382,36,AC,String(i+1),15,"FFFFFF",ea)+shpText(120,378,180,44,[{t:c,sz:fit(c,180,[20,16,13]),b:1,c:INK},{t:"推奨"+(ch.includes(c)?"（確定）":""),sz:10,c:OR}],{ea})).join("")
-    +shpText(60,470,840,16,[{t:`作成日 ${today}　·　根拠：規制DB・通関統計（日本からの輸出）・バイヤーDB・STANDAGE拠点${s.ai?"　·　判断："+s.ai.eng:"　·　内蔵ロジック"}`,sz:10,c:MUT}],{ea}));
+    +shpText(60,470,840,16,[{t:`作成日 ${today}　·　根拠：規制DB・通関統計（日本からの輸出）・STANDAGEの実績（バイヤー数）・STANDAGE拠点${s.ai?"　·　判断："+s.ai.eng:"　·　内蔵ロジック"}`,sz:10,c:MUT}],{ea}));
   /* 2 サマリー */
   const topRec=rec.filter(r=>top.includes(r.c));
   S.push(bg(1)+head("EXECUTIVE SUMMARY","推奨3か国と総評")
@@ -25003,7 +25003,7 @@ function ctySlides(){
       +shpText(x+16,186,240,34,[{t:`市場性 ${r.sc.mkt}　規制 ${r.sc.reg}　競合 ${r.sc.comp}　拠点 ${r.sc.base}`,sz:9.5,c:MUT}],{ea})+shpText(x+16,206,240,150,[{t:why,sz:fit(why,240,[11,10,9],7),c:INK}],{ea}); }).join("")
     +dk2Card(48,384,864,108,TN,{})+shpText(64,394,832,90,[{t:"AI商社マンの総評",sz:11,b:1,c:AC},{t:cap(s.ai&&s.ai.summary||"（AI未接続のため、内蔵ロジックの採点で並べています。接続すると商品特性に合わせた総評が入ります）").slice(0,330),sz:fit(cap(s.ai&&s.ai.summary||"").slice(0,330),832,[12,11,10],4),c:INK}],{ea})+foot());
   /* 3 評価の方法 */
-  const axes=[["市場性",CTY_W.mkt,"通関統計＝日本からその国への輸出額・シェア・前年比、バイヤーDBの登録数（同カテゴリ換算）",OR],["規制",CTY_W.reg,"規制DB＝関税率・通関日数・必要書類・注意点。AI詳細調査を反映済みなら加点",GOOD],["競合",CTY_W.comp,"日本勢の輸出シェア（集中度）と市場平均単価に対する当社価格の位置",AC],["STANDAGE拠点",CTY_W.base,"現地拠点の有無（あり100／近隣拠点60／なし25）と拠点メンバー","9B6BD6"]];
+  const axes=[["市場性",CTY_W.mkt,"通関統計＝日本からその国への輸出額・シェア・前年比、STANDAGEがやりとりしたバイヤーの数（同カテゴリ換算）",OR],["規制",CTY_W.reg,"規制DB＝関税率・通関日数・必要書類・注意点。AI詳細調査を反映済みなら加点",GOOD],["競合",CTY_W.comp,"日本勢の輸出シェア（集中度）と市場平均単価に対する当社価格の位置",AC],["STANDAGE拠点",CTY_W.base,"現地拠点の有無（あり100／近隣拠点60／なし25）と拠点メンバー","9B6BD6"]];
   S.push(bg(2)+head("METHODOLOGY","4つの観点と配点（100点満点）")
     +axes.map(([n,w,d,c],i)=>{ const y=118+i*90; return dk2Card(48,y,864,78,"FFFFFF",{line:TN2})+dk2Circle(64,y+17,44,c,String(w),14,"FFFFFF",ea)+shpText(122,y+12,760,56,[{t:n,sz:15,b:1,c:INK},{t:d,sz:11,c:SUB}],{ea}); }).join("")
     +shpText(48,480,864,20,[{t:"統計・DBは概算です。関税・規制の正式な確認は税関の事前教示および規制の詳細調査で行ってください。",sz:9.5,c:MUT}],{ea})+foot());
@@ -25017,7 +25017,7 @@ function ctySlides(){
   /* 5-7 推奨国の詳細 */
   topRec.forEach((r,i)=>{ const f=r.facts; const fx=(t)=>cap(t);
     const facts=[["📋 規制",`関税 ${f.duty}／通関 ${f.lead}／書類 ${f.docs.slice(0,5).join("・")||"—"}${f.warn?"／注意："+cap(f.warn).slice(0,60):""}`,GOOD,r.sc.reg],
-      ["📈 市場性",`${f.exportUsd?"日本からの輸出 "+ctyM(f.exportUsd)+"（"+f.statsYear+"年・シェア"+Math.round(f.share*100)+"%"+(f.yoy!=null?"・前年比"+(f.yoy>=0?"+":"")+Math.round(f.yoy*100)+"%":"")+"）":"通関統計に実績なし"}／バイヤーDB 約${f.buyers}社（登録${f.buyersAll}名）`,OR,r.sc.mkt],
+      ["📈 市場性",`${f.exportUsd?"日本からの輸出 "+ctyM(f.exportUsd)+"（"+f.statsYear+"年・シェア"+Math.round(f.share*100)+"%"+(f.yoy!=null?"・前年比"+(f.yoy>=0?"+":"")+Math.round(f.yoy*100)+"%":"")+"）":"通関統計に実績なし"}／STANDAGEの実績 バイヤー約${f.buyers}社（全${f.buyersAll}名）`,OR,r.sc.mkt],
       ["⚔ 競合",fx(r.comp||""),AC,r.sc.comp],
       ["📍 STANDAGE拠点",f.base.kind==="direct"?`拠点あり（${f.base.c}）${f.base.staff.length?"　"+f.base.staff.slice(0,2).map(x=>x.n+"（"+x.r+"）").join("・"):""}`:f.base.kind==="region"?`近隣拠点 ${f.base.c} が担当`:"なし（本社対応）","9B6BD6",r.sc.base]];
     let left=facts.map(([n,t,c,v],k)=>{ const y=118+k*90; return dk2Card(48,y,470,80,"FFFFFF",{line:TN2})+shpText(62,y+9,300,18,[{t:n,sz:11,b:1,c:c}],{ea})+shpText(440,y+7,66,22,[{t:String(v),sz:15,b:1,c:c,al:"r"}],{ea})+shpText(62,y+30,444,48,[{t:t,sz:fit(t,444,[10.5,9.5,8.5],3),c:INK}],{ea}); }).join("");
@@ -25027,7 +25027,7 @@ function ctySlides(){
       +shpText(556,392,340,18,[{t:"最初の一歩",sz:11,b:1,c:GOOD}],{ea})+shpText(556,412,340,50,[{t:next,sz:fit(next,340,[10.5,9.5,8.5],3),c:INK}],{ea});
     S.push(bg(i+4)+head(`RECOMMENDATION ${i+1}`,`${r.c}　総合 ${r.sc.total}点${ch.includes(r.c)?"（確定）":""}`)+left+right+foot()); });
   /* 8 次の一歩と連動 */
-  const links=[["貿易実務・書類・出荷","規制・関税・必要書類は確定した国で表示。AIの規制詳細調査から着手"],["商品情報（価格設定）","推奨FOB・国別DDP価格を確定した国で算出"],["出荷を進める","物流AI見積の送り先＝確定した国。相見積からAI物流マンが推奨"],["バイヤーDB・拠点","相手を探す・直接連絡・拠点に依頼の対象を確定した国に絞る"],["外国語 営業資料","進出希望国として営業資料に反映"],["AI商社マン","この3か国を前提に戦略・伴走・アドバイス"]];
+  const links=[["貿易実務・書類・出荷","規制・関税・必要書類は確定した国で表示。AIの規制詳細調査から着手"],["商品情報（価格設定）","推奨FOB・国別DDP価格を確定した国で算出"],["出荷を進める","物流AI見積の送り先＝確定した国。相見積からAI物流マンが推奨"],["バイヤーネットワーク・拠点","相手を探す・つなぐ依頼の対象を確定した国に絞る"],["外国語 営業資料","進出希望国として営業資料に反映"],["AI商社マン","この3か国を前提に戦略・伴走・アドバイス"]];
   S.push(bg(1)+head("NEXT STEPS","確定後の連動と次の一歩")+links.map(([n,d],k)=>{ const x=48+(k%2)*440, y=118+Math.floor(k/2)*100; return dk2Card(x,y,424,88,"FFFFFF",{line:TN2,shadow:true})+dk2Circle(x+14,y+22,40,AC,String(k+1),13,"FFFFFF",ea)+shpText(x+66,y+14,344,66,[{t:n,sz:13,b:1,c:INK},{t:d,sz:10,c:SUB}],{ea}); }).join("")
     +shpText(48,428,864,60,[{t:"免責：本レポートの統計・規制・バイヤー数は貿易クラウドのデータベースと通関統計に基づく概算です。最終判断の前に、規制の詳細調査（AI）・税関の事前教示・現地拠点への確認をお勧めします。",sz:9.5,c:MUT}],{ea})+foot());
   return S;
@@ -25077,7 +25077,7 @@ if(typeof brain==="function"){ const __br206=brain;
       if(ch.length) a+=`現在の確定：<b>${ch.map(esc).join("・")}</b>（${esc(s.chosenAt||"")}）。${s.ai&&s.ai.summary?esc(s.ai.summary):"レポートで理由・リスク・次の一歩を確認できます。"}`;
       else if(s.rec) a+=`AI商社マンの推奨は <b>${(s.top||[]).map(esc).join("・")}</b>。画面で理由を確認し、「この3か国で確定」を押すと規制・価格・物流・出荷に反映されます。`;
       else a+=`候補国を最大${CTY_MAX}か国選ぶか、「🤖 AI商社マンにおまかせ」を押すと、規制・競合・市場性・STANDAGE拠点の4点から推奨3か国と理由のレポートを作ります（PPTX出力可）。`;
-      return {a,c:"根拠：販売先国の選定（規制DB・通関統計・バイヤーDB・STANDAGE拠点）"}; } }catch(e){}
+      return {a,c:"根拠：販売先国の選定（規制DB・通関統計・STANDAGEの実績（バイヤー数）・STANDAGE拠点）"}; } }catch(e){}
     return __br206.apply(this,arguments); }; }
 /* AI商社マンの参照データ：確定した3か国を前提に */
 function ctyCtx(){
@@ -25096,7 +25096,7 @@ if(typeof kbSeen==="function"){ const __seen206=kbSeen; kbSeen=function(){ const
           レベルの詳細調査（市場規模・CAGR・規制当局・区分・参入期間・登録費用・投入方針・規制／表示（Claim可否）・市場性・
           競合TOP3・チャネル（越境EC／ライブ／オフライン）・価格根拠（単価分解・税制）・ロードマップ・KPI・リスク・出典）が見られるように
    仕組み：接続AIがWeb検索（対応エンジン）で国×商品の事実を調べ、構造化JSONで返す → 画面（vCtyDeep）と PPTX（5枚/国）に展開。
-          未接続は内蔵の基礎データ（規制DB・通関統計・バイヤーDB・拠点・当局/チャネルの一般表）で骨組みを作り「要確認」を明示
+          未接続は内蔵の基礎データ（規制DB・通関統計・STANDAGEの実績・拠点・当局/チャネルの一般表）で骨組みを作り「要確認」を明示
    データ：TEN.ctySel.deep[国]={at,eng,web,cits,conf,local,d:{overview,entry,regulation,market,competition,channels,pricing,roadmap,kpi,risks,standage,sources}} */
 const CTY_VIEW={c:""};
 /* 規制当局の一般表（カテゴリ別）：未接続時の骨組み。接続AIは Web で上書き・補強する */
@@ -25156,7 +25156,7 @@ function ctyDeepStore(){ const s=ctyStore(); s.deep=s.deep||{}; return s.deep; }
 function ctyDeepOf(c){ return ctyDeepStore()[c]||null; }
 function ctyEn(c){ const M={"香港":"HONG KONG","台湾":"TAIWAN","シンガポール":"SINGAPORE","マレーシア":"MALAYSIA","タイ":"THAILAND","ベトナム":"VIETNAM","インドネシア":"INDONESIA","フィリピン":"PHILIPPINES","韓国":"KOREA","中国":"CHINA","アメリカ":"USA","カナダ":"CANADA","UAE":"UAE","サウジアラビア":"SAUDI ARABIA","フランス":"FRANCE","ドイツ":"GERMANY","イギリス":"UK","イタリア":"ITALY","オランダ":"NETHERLANDS","スペイン":"SPAIN","オーストラリア":"AUSTRALIA","インド":"INDIA","エジプト":"EGYPT","ナイジェリア":"NIGERIA","ケニア":"KENYA","メキシコ":"MEXICO","ブラジル":"BRAZIL","トルコ":"TURKEY","ニュージーランド":"NEW ZEALAND"}; return M[c]||""; }
 function ctyAuthOf(c){ const A=CTY_AUTH[c]; if(!A) return ""; const k=ctyCatKey(); return A[k]||A._||""; }
-/* ── 基礎データ（規制DB・通関統計・バイヤーDB・拠点・商品）── */
+/* ── 基礎データ（規制DB・通関統計・STANDAGEの実績・拠点・商品）── */
 function ctyDeepBase(c){
   const s=ctyStore(); let r=(s.rec||[]).find(x=>x.c===c); if(!r){ try{ r=ctyScoreAll([ctyFacts(c,ctyStats())],ctyStats())[0]; }catch(e){ r=null; } }
   const f=r?r.facts:{}; const B=f.base||ctyBaseOf(c); const ch=CTY_CH[c]||null;
@@ -25180,11 +25180,11 @@ function ctyDeepLocal(c){
     competition:{players:[],shareNote:b.exportUsd?`日本からの輸出シェア${Math.round(b.share*100)}%（${b.share>0.25?"日本勢の競合が多い":b.share>0.08?"一定の競合あり":"競合は少なめ"}）`:"通関統計に実績なし（開拓型）",position:q,differentiation:b.strengths.slice(0,3)},
     channels:{online:(ch?ch.online:[q]).map(x=>({platform:x,note:"一般的なチャネル（要確認）"})),live:{platform:ch?ch.live:q,note:""},offline:(ch?ch.offline:[q]).map(x=>({channel:x,note:"一般的なチャネル（要確認）"})),importer:"現地の正規輸入者（要選定）",notes:""},
     pricing:{retail:q,retailJpy:"",position:q,vs:q,online:{platformFee:"15〜20%",logistics:"10〜12%",payment:"2〜3%",net:"約65〜70%"},offline:{retailMargin:"35〜40%",distributor:"10〜15%",importer:"10〜15%",net:"約30〜35%"},tax:{duty:b.duty,vat:q,deMinimis:q},rationale:"標準的な流通マージンの配分（要確認）。当社の推奨FOB・DDP価格を算出すると金額入りで裏付けできます"},
-    roadmap:[{phase:"Phase 1",period:"0〜3ヶ月",actions:["規制・表示の確認と必要書類の準備","サンプル・見積の提示（越境EC／輸入者）","現地拠点・バイヤーDBで候補先を選定"]},{phase:"Phase 2",period:"3〜9ヶ月",actions:["正規輸入者との契約・登録手続き","初回出荷・店頭／ECでの販売開始","実績のモニタリング"]},{phase:"Phase 3",period:"9ヶ月〜",actions:["チャネル拡大・SKU追加","定期取引化・現地マーケティング","近隣国への横展開"]}],
+    roadmap:[{phase:"Phase 1",period:"0〜3ヶ月",actions:["規制・表示の確認と必要書類の準備","サンプル・見積の提示（越境EC／輸入者）","現地拠点・バイヤーネットワークで候補先を選定"]},{phase:"Phase 2",period:"3〜9ヶ月",actions:["正規輸入者との契約・登録手続き","初回出荷・店頭／ECでの販売開始","実績のモニタリング"]},{phase:"Phase 3",period:"9ヶ月〜",actions:["チャネル拡大・SKU追加","定期取引化・現地マーケティング","近隣国への横展開"]}],
     kpi:[{gate:"6ヶ月",items:["初回受注・出荷の完了","商談5件以上","レビュー／反応の蓄積"]},{gate:"12ヶ月",items:["限界利益 ±0以上","リピート発注の発生","正規ルートの確立"]},{gate:"18ヶ月",items:["取扱店舗・チャネルの拡大","近隣国への展開判断"]}],
     risks:[{risk:"規制・表示の不適合",mitigation:"事前のリーガルチェック・AI詳細調査・現地拠点の確認"},{risk:"価格競争",mitigation:"強み・エビデンスで差別化し正規ルートで価格を維持"},{risk:"物流・リードタイム",mitigation:"小ロットの初回出荷・AI物流見積で複数社比較"},{risk:"代金回収",mitigation:"前払い／L/C・信用調査"}],
     standage:{base:b.base.kind==="direct"?`拠点あり（${b.base.c}）`:b.base.kind==="region"?`近隣拠点（${b.base.c}）が担当`:"拠点なし（本社対応）",members:(b.base.staff||[]).slice(0,3).map(x=>`${x.n}（${x.r}・${x.sp||""}）`),support:["規制・表示の調査と書類作成","バイヤー開拓・商談代行（拠点に依頼）","物流AI見積・出荷手続き","越境EC／ライブコマースの設計"]},
-    sources:[{title:"貿易クラウド 規制DB",url:""},{title:"通関統計（日本からの輸出）",url:""},{title:"貿易クラウド バイヤーDB・STANDAGE拠点",url:""}]};
+    sources:[{title:"貿易クラウド 規制DB",url:""},{title:"通関統計（日本からの輸出）",url:""},{title:"STANDAGEの実績・STANDAGE拠点",url:""}]};
   return {at:ctyNow(),eng:"",web:false,cits:[],conf:"low",local:true,d};
 }
 function ctyClean(o,max){ if(o==null) return ""; if(typeof o==="object"){ try{ return JSON.stringify(o).slice(0,max||200); }catch(e){ return ""; } } return String(o).replace(/\s+/g," ").trim().slice(0,max||200); }
@@ -25198,7 +25198,7 @@ async function ctyDeepAI(c){
 規制DB：関税 ${b.duty}／通関 ${b.lead}／必要書類 ${b.docs.join("・")||"—"}${b.warn?"／注意 "+b.warn:""}
 規制当局（一般表）：${b.authority||"—"}
 通関統計：${b.exportUsd?"日本→"+c+" 輸出 "+ctyM(b.exportUsd)+"（"+b.statsYear+"年・シェア"+Math.round(b.share*100)+"%"+(b.yoy!=null?"・前年比"+(b.yoy>=0?"+":"")+Math.round(b.yoy*100)+"%":"")+(b.upunit?"・市場平均単価 $"+b.upunit.toFixed(2)+"/"+b.unit:"")+"）":"実績なし"}
-バイヤーDB：${c} 登録 ${b.buyersAll}名（同カテゴリ換算 約${b.buyers}社）／STANDAGE拠点：${b.base.kind==="direct"?"あり（"+b.base.c+"）":b.base.kind==="region"?"近隣拠点 "+b.base.c:"なし"}
+STANDAGEの実績：${c} バイヤー ${b.buyersAll}名（同カテゴリ換算 約${b.buyers}社・各社専用）／STANDAGE拠点：${b.base.kind==="direct"?"あり（"+b.base.c+"）":b.base.kind==="region"?"近隣拠点 "+b.base.c:"なし"}
 一般的なチャネル（骨組み）：${b.channels?"越境EC "+b.channels.online.join("・")+"／ライブ "+b.channels.live+"／店頭 "+b.channels.offline.join("・"):"—"}
 ${b.regKb?"AI詳細調査（規制・反映済み）：\n"+b.regKb+"\n":""}=== 商品・会社の登録データ ===
 ${String(ctx).slice(0,5000)}
@@ -25271,7 +25271,7 @@ function ctyDeepView(c){
         ${DP?`<p class="nn" style="margin-top:6px">${DP.local?"内蔵データの骨組み（AI未接続／未調査）":`${esc(DP.eng)} が調査（${DP.web?"🌐 Web検索あり・出典"+(DP.d.sources||[]).length+"件":"Web検索なし・エンジンの知識"}・信頼度 ${DP.conf==="high"?"高":DP.conf==="mid"?"中":"低"}）`}・${esc(DP.at||"")}${DP.err?`・⚠ ${esc(DP.err)}`:""}</p>`:""}</div>
       <div class="rw" style="gap:6px;flex-wrap:wrap"><button class="btn" onclick="ctyDeepRun('${jsa(c)}',true)" ${busy?"disabled":""}>${DP&&!DP.local?"🔄 AIで再調査（Web検索）":"🤖 AIで詳しく調査（Web検索）"}</button><button class="btn g" onclick="ctyPptxCountry('${jsa(c)}')" ${DP?"":"disabled"}>📥 この国のPPTX</button><button class="btn g" onclick="ctyDeepToggle('${jsa(c)}')">${ch.includes(c)?"確定から外す":"✅ 確定に含める"}</button></div></div>
       ${busy?`<p class="nn" style="margin-top:8px"><span class="spin"></span> AI商社マンが ${esc(c)} を調査しています…（当局・統計・競合・チャネル・価格をWeb検索で確認。30〜120秒）</p>`:""}
-      ${!online&&!busy?`<p class="nn" style="margin-top:8px">⚠ AI未接続のため、規制DB・通関統計・バイヤーDB・拠点・一般表の骨組みだけを表示しています。管理者がAIエンジンを接続すると、Web検索で戦略提案資料の粒度に埋まります。</p>`:""}</div>`;
+      ${!online&&!busy?`<p class="nn" style="margin-top:8px">⚠ AI未接続のため、規制DB・通関統計・STANDAGEの実績・拠点・一般表の骨組みだけを表示しています。管理者がAIエンジンを接続すると、Web検索で戦略提案資料の粒度に埋まります。</p>`:""}</div>`;
   if(!DP) return head+`<div class="c"><p class="nn">調査結果がまだありません。「🤖 AIで詳しく調査」を押してください。</p></div>`;
   const d=DP.d, o=d.overview, r=d.regulation, m=d.market, cp=d.competition, chn=d.channels, pr=d.pricing;
   const overview=`<div class="c" style="margin-bottom:11px"><h3>概要</h3><p style="margin-top:6px;font-size:13px;line-height:1.7"><b>${esc(o.headline||"")}</b></p>${o.summary?`<p class="nn" style="margin-top:4px;font-size:12px">${esc(o.summary)}</p>`:""}
@@ -25312,7 +25312,7 @@ if(typeof ctyBind==="function"){ const __cb207=ctyBind; ctyBind=function(){ __cb
 function ctyDeepSlides(c,P,ctx){
   const DP=ctyDeepOf(c); if(!DP) return []; const d=DP.d; const s=ctyStore(); const rec=(s.rec||[]).find(x=>x.c===c); const sc=rec?rec.sc:null;
   const {AC,TT,TN,TN2,INK,SUB,MUT,OR,GOOD,ea,bg,foot,head,fit,cap,DKc}=ctx; const S=[]; const clip=(t,n)=>cap(t).slice(0,n);
-  const src=(d.sources||[]).slice(0,4).map(x=>x.title||x.url).join("／")||"貿易クラウド 規制DB・通関統計・バイヤーDB";
+  const src=(d.sources||[]).slice(0,4).map(x=>x.title||x.url).join("／")||"貿易クラウド 規制DB・通関統計・STANDAGEの実績";
   const srcLine=()=>shpText(48,490,864,14,[{t:"出典："+clip(src,150)+(DP.web?"（Web検索・"+DP.eng+"）":DP.local?"（内蔵データの骨組み・要確認）":"（"+DP.eng+"・Web検索なし）"),sz:8,c:MUT}],{ea});
   const list=(x,y,w,h,items,sz)=>shpText(x,y,w,h,items.slice(0,6).map(t=>({t:"• "+clip(t,90),sz:sz||9.5,c:INK})),{ea});
   /* D1 概要 */
@@ -25785,7 +25785,7 @@ if(typeof renderAdmin==="function"){ const __ra210=renderAdmin; renderAdmin=func
    2026-09-23 の総点検で見つかった漏れを埋める層（両ビルドの末尾・logic_v210v1.js の後）。
    ① AIの記憶：AI商社マン画面・右パネル・出荷画面の質問と回答を商品ごとに保存（TEN.aiMem.log）し、接続AIの文脈に「これまでの相談」として渡す
    ② 教える：回答ごとに「👍 役に立った／👎 ちがう・直したい」。直したい内容は「担当者が教えた事実」（TEN.aiMem.taught）として最優先で使う
-   ③ 自社で登録したバイヤー・バイヤーDBからの直接連絡・物流会社の区間別運賃を AI商社マンの参照データへ
+   ③ 自社で登録したバイヤー・バイヤーネットワークからの直接連絡・物流会社の区間別運賃を AI商社マンの参照データへ
    ④ 手動で作った出荷案件・想定案件の進み具合と会話を保存（再読み込みで消えていた）
    ⑤ 強みの9件目以降が「追加しました」と出るのに捨てられていた → 20件まで保存、超えるときは知らせる
    ⑥ 成長レベル：契約書が数えられていなかった不具合の修正＋詳細調査・国選定・直接交渉・自社バイヤー・AIの記憶・タスク実行・やりとりを加点
@@ -25961,7 +25961,7 @@ function kbMyBuyers(){
   const L=(typeof myBuyers==="function")?myBuyers():[]; const O=(typeof outreachList==="function")?outreachList():[]; if(!L.length&&!O.length) return "";
   let s="";
   if(L.length) s+=`## 自社で登録したバイヤー（${L.length}件・貴社の営業リスト。提案先・次の一手の助言に使う）\n`+L.slice(0,15).map(b=>`・${b.co||"（社名未入力）"}（${b.cty||"国未設定"}${b.biz?"・"+b.biz:""}${b.size?"・"+b.size:""}）${b.ints?"／取扱 "+String(b.ints).slice(0,40):""}${b.memo?"／メモ "+String(b.memo).slice(0,80):""}${b.ai&&b.ai.sum?"／AI確認 "+String(b.ai.sum).slice(0,60):""}`).join("\n")+(L.length>15?`\n（ほか${L.length-15}件）`:"");
-  if(O.length){ const by={}; O.forEach(o=>l211Inc(by,o.cty||"不明")); s+=`${s?"\n":""}## バイヤーDBから直接連絡した相手（${O.length}件）\n国別：${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,n])=>k+" "+n+"件").join("、")}／直近：`+O.slice(-5).reverse().map(o=>`${o.id}（${o.cty||""}${o.d?"・"+o.d:""}${o.lang?"・"+o.lang:""}）`).join("、"); }
+  if(O.length){ const by={}; O.forEach(o=>l211Inc(by,o.cty||"不明")); s+=`${s?"\n":""}## バイヤーネットワークから直接連絡した相手（${O.length}件）\n国別：${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([k,n])=>k+" "+n+"件").join("、")}／直近：`+O.slice(-5).reverse().map(o=>`${o.id}（${o.cty||""}${o.d?"・"+o.d:""}${o.lang?"・"+o.lang:""}）`).join("、"); }
   return s;
 }
 function kbLanes(){
@@ -26105,7 +26105,7 @@ function l211Compile(digests){
   if(Object.keys(S.fbCh).length) lines.push(`商談の連絡手段（Ver2.0）：${top(S.fbCh,6).map(([k,n])=>`${k} ${n}`).join("、")}`);
   if(S.ai.q||S.ai.tg) lines.push(`AI商社マンへの相談（Ver2.0）：${S.ai.q}件（👍${S.ai.up}・👎${S.ai.dn}）／多い話題 ${top(S.ai.tp,6).map(([k,n])=>`${k} ${n}`).join("、")||"-"}${S.ai.tg?`／担当者がAIに教えた訂正 ${S.ai.tg}件（話題：${top(S.ai.fx,4).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）＝この話題は特に慎重に、根拠を示して答える`:""}`);
   const op=S.ops; if(op.po||op.shp||Object.keys(op.lg).length||op.dk) lines.push(`実務の件数（Ver2.0）：発注書案件 ${op.po}件・出荷手続き ${op.shp}件（完了 ${op.shd}）${Object.keys(op.lg).length?"・契約書 "+top(op.lg,5).map(([k,n])=>`${k} ${n}`).join("・"):""}${op.dk?"・外国語営業資料 "+op.dk+"回（言語："+(top(op.lang,5).map(([k,n])=>`${k} ${n}社`).join("・")||"-")+"）":""}${op.today?"・今日やることの実行 "+op.today+"件":""}`);
-  if(S.byr.mine||S.byr.out) lines.push(`自社で見つけたバイヤー・直接連絡（Ver2.0）：自社登録 ${S.byr.mine}件（国：${top(S.byr.mc,5).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）／バイヤーDBからの直接連絡 ${S.byr.out}件（国：${top(S.byr.oc,5).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）`);
+  if(S.byr.mine||S.byr.out) lines.push(`自社で見つけたバイヤー・直接連絡（Ver2.0）：自社登録 ${S.byr.mine}件（国：${top(S.byr.mc,5).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）／バイヤーネットワークからの直接連絡 ${S.byr.out}件（国：${top(S.byr.oc,5).map(([k,n])=>`${k} ${n}`).join("、")||"-"}）`);
   if(S.str.n) lines.push(`各社が打ち出している強みの観点（Ver2.0）：${top(S.str.tp,8).map(([k,n])=>`${k} ${n}`).join("、")}`);
   return {S,lines};
 }
@@ -32449,7 +32449,7 @@ try{ if(document.readyState!=="loading") setTimeout(()=>{ ux25CssLast(); try{ ux
   else document.addEventListener("DOMContentLoaded",()=>{ ux25CssLast(); ux25After(); }); }catch(e){}
 addEventListener("resize",()=>{ try{ ux25Tables(); }catch(e){} });
 
-/* ═══ v21.26（2026-09-30）バイヤーDB・拠点「新しく追加されたバイヤー」の追加日が未来の日付になる
+/* ═══ v21.26（2026-09-30）バイヤーネットワーク・拠点「新しく追加されたバイヤー」の追加日が未来の日付になる
    報告：9/30（水）に開くと、追加日が 10/4・10/2・10/3 と、まだ来ていない日付で並んでいた
    原因：bnNew（logic_buyers.js）は今週の分の追加日を「今週の月曜＋0〜6日」の乱数で決めていた。週の途中に開くと、まだ来ていない曜日の
      日付が付く（水曜なら今週の分の約 4/7 が木〜日＝未来）。並びも NEW を先にするだけで日付の順ではなかった。
@@ -32479,10 +32479,10 @@ bnNew=function(now){
   return out.sort((a,b)=>((b.isNew?1:0)-(a.isNew?1:0))||(b.addedK-a.addedK));
 };
 
-const BN26_NOTE="毎週月曜に、前の週に登録されたバイヤーをまとめて追加します（NEW＝今週の追加分）。名称・連絡先は<b>正式契約後に開示</b>されます。";
+const BN26_NOTE="毎週月曜に、前の週に登録されたバイヤーをまとめて追加します（NEW＝今週の追加分）。名称・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます。";
 if(typeof vDB==="function"){ const __vdb26=vDB; vDB=function(p){ let h=__vdb26.apply(this,arguments);
   try{
-    h=h.replace("直近2週間の追加分です。名称・連絡先は<b>正式契約後に開示</b>されます。",BN26_NOTE);
+    h=h.replace("直近2週間の追加分です。名称・連絡先は<b>つなぐ依頼で相手が承諾すると開示</b>されます。",BN26_NOTE);
     const at=h.indexOf("<th>追加日</th>"); if(at<0) return h;
     h=h.slice(0,at)+"<th>登録日</th>"+h.slice(at+"<th>追加日</th>".length);
     /* 登録日のセルに並べ替え用の data-k（表は bnNew() の先頭10件と同じ順） */
@@ -32525,7 +32525,7 @@ try{ if(typeof I18N!=="undefined"&&I18N.pat){ const mon=(s,x)=>String(s).replace
    ※新しい構成が公開版の v21.27 を取り込む時は、このファイルは入れない（adapter/fixes に同じものがある） */
 
 /* ── 新しい構成 adapter/fixes/a-db.js ── */
-/* ═══ まとまり A：バイヤーDB・拠点の不具合の直し（動いている時に足す分。組み立ての時の差し替えは a-db.cjs） ═══ */
+/* ═══ まとまり A：バイヤーネットワーク・拠点の不具合の直し（動いている時に足す分。組み立ての時の差し替えは a-db.cjs） ═══ */
 /* 要素の文字を、翻訳する前の日本語でつないで返す（英・中・西では描画の直後に辞書・AI翻訳の層が文字のかたまりを置き換えるため、
    日本語の見出しで要素を探す処理は訳す前の文字を見る。A2：「📨 やり取り中のBuyer」を差し込む場所の見出し） */
 function bc20JaText(el){
@@ -33343,7 +33343,7 @@ function b30Open(key,tab){
     body=`<dl class="b30grid">${B30_F.filter(([f])=>f!=="co").map(([f,l])=>{ const v=val(f); return `<dt>${v30Esc(l)}</dt><dd>${v?(f==="url"&&/^https?:\/\//.test(v)?`<a href="${v30Esc(v)}" target="_blank" rel="noopener" style="color:var(--bl)">${v30Esc(v)}</a>`:f==="email"?`<a href="mailto:${v30Esc(v)}" style="color:var(--bl)">${v30Esc(v)}</a>`:v30Esc(v).replace(/\n/g,"<br>")):'<span style="color:var(--ink-3)">—</span>'}</dd>`; }).join("")}
       <dt>タグ</dt><dd><div class="b30tags">${r.tags.length?r.tags.map(id=>`<span class="b30tag">${v30Esc(t30Name(id))}</span>`).join(""):'<span style="color:var(--ink-3)">—</span>'}</div></dd>
       <dt>最終活動日</dt><dd>${r.last?v30Esc(v30DT(r.last)):"—"}</dd><dt>最終更新</dt><dd>${r.x._m?v30Esc(v30DT(r.x._m)+"（"+(r.x._by||"")+"）"):"—"}</dd>
-      ${r.src==="db"?`<dt>出どころ</dt><dd>バイヤーDB（ID ${v30Esc(r.dbId||"")}）${r.locked?"・名称と連絡先は正式契約後に開示":""}</dd>`:r.src==="my"?`<dt>出どころ</dt><dd>自社で登録${r.base.added?"（"+v30Esc(r.base.added)+"）":""}</dd>`:`<dt>出どころ</dt><dd>商談記録から自動</dd>`}</dl>
+      ${r.src==="db"?`<dt>出どころ</dt><dd>バイヤーネットワーク（ID ${v30Esc(r.dbId||"")}）${r.locked?"・名称と連絡先は、つなぐ依頼で相手が承諾すると開示":""}</dd>`:r.src==="my"?`<dt>出どころ</dt><dd>自社で登録${r.base.added?"（"+v30Esc(r.base.added)+"）":""}</dd>`:`<dt>出どころ</dt><dd>商談記録から自動</dd>`}</dl>
       ${r.lead==="失注"?`<div style="margin-top:10px;padding:9px 11px;border:1px solid var(--crit);border-radius:var(--r2);background:var(--crit-soft);font-size:var(--fs-sm,14px)"><b>失注</b>${r.x.lostCat?"：理由 "+v30Esc(r.x.lostCat):""}${r.x.lostAt?"（"+v30Esc(v30Day(r.x.lostAt))+"）":""}${r.x.lostWhy?"<br>"+v30Esc(r.x.lostWhy):""}</div>`:""}
       ${r.my&&r.my.ai?`<p class="nn" style="margin-top:10px">🤖 AI商社マンのチェック：<b>${v30Esc((r.my.ai.fact&&r.my.ai.fact.verdict)||"")}</b> ${v30Esc((r.my.ai.fact&&r.my.ai.fact.note)||"")}</p>`:""}
       <div class="rw" style="gap:6px;margin-top:12px;flex-wrap:wrap"><button class="btn" onclick="b30Edit('${jsa(key)}')">✎ 情報を編集</button>
@@ -33417,7 +33417,7 @@ function b30Edit(key){
   const mem=b30Members(); const CT=(typeof KNOWN_CTY!=="undefined"?KNOWN_CTY:["香港","台湾","シンガポール","アメリカ","タイ","ベトナム"]);
   const inp=(f,l,ph,full,type)=>`<div class="${full?"full":""}"><label for="b30e_${f}">${v30Esc(l)}${f==="co"?' <span style="color:var(--crit)">必須</span>':""}</label>${f==="note"?`<textarea class="sel" id="b30e_${f}" style="min-height:64px">${v30Esc(val(f))}</textarea>`:`<input class="sel" id="b30e_${f}" ${type?`type="${type}"`:""} value="${v30Esc(val(f))}" placeholder="${v30Esc(ph||"")}" ${f==="cty"?'list="b30ctyl"':f==="owner"?'list="b30meml"':""}>`}</div>`;
   openDW(`<h3>${r?"✎ バイヤーの情報を編集":"＋ バイヤーを追加"}</h3>
-    <p class="nn" style="margin:4px 0 10px">${r&&r.locked?"バイヤーDBの相手は、名称・連絡先が正式契約後に開示されます。開示された情報や、独自に分かったことをここに残せます。":"Ver.1 のバイヤー情報と同じ項目です。分かるところだけで登録できます（会社名だけでも可）。"}</p>
+    <p class="nn" style="margin:4px 0 10px">${r&&r.locked?"バイヤーネットワークの相手は、つなぐ依頼で相手が承諾すると、名称・連絡先が貴社にだけ開示されます。開示された情報や、独自に分かったことをここに残せます。":"Ver.1 のバイヤー情報と同じ項目です。分かるところだけで登録できます（会社名だけでも可）。"}</p>
     ${r?"":`<div style="border:1px solid var(--bl);background:var(--bl-soft);border-radius:var(--r2);padding:8px 10px;margin-bottom:10px;font-size:var(--fs-xs,13px)">🌐 会社のサイトのURLや名刺・資料のファイルから AI に読み取らせたいときは <button class="btn g" style="padding:2px 8px" onclick="closeDW();setTimeout(()=>{ if(typeof openBuyerAdd==='function') openBuyerAdd(); },60)">URL・ファイルから追加（AI）</button></div>`}
     <div class="b30form">${inp("co","会社名","例：Golden Harvest Trading",true)}${inp("person","担当者名","例：Ms. Lee")}${inp("dept","部署","例：Purchasing")}
       ${inp("email","メールアドレス","buyer@example.com",false,"email")}${inp("phone","電話番号","+852 …")}${inp("sns","SNS","LinkedIn・WhatsApp など")}${inp("cty","国","例：香港")}
@@ -34289,7 +34289,7 @@ function a30Collect(R){ const out={appr:[],reply:[],meet:[],sample:[],quote:[],w
   ((typeof D!=="undefined"&&D&&D.tasks)||[]).forEach(t=>{ if(t&&t.st==="完了"&&t.up&&a30In(+t.up,R)) out.task.push({at:+t.up,who:t.upBy||t.who||"",b:"",how:"タスク",txt:t.n}); });
   ((typeof memoStore==="function")?memoStore():[]).forEach(m=>{ const at=a30T(m.d)||+m.at; if(m&&!(m.priv&&m.by&&m.by!==v30Me())&&a30In(at,R)) out.memo.push({at,who:m.by||"",b:"",how:"会議メモ",txt:m.t||""}); });
   Object.keys(out).forEach(k=>out[k].sort((a,c)=>c.at-a.at)); return out; }
-const A30_K=[["appr","アプローチ","こちらから送った連絡（直接連絡・バイヤーDB・メール/電話のログ）"],["reply","返信あり","相手からの返信"],["meet","商談","商談記録・面談のログ"],["sample","サンプル送付","サンプルを送った記録"],["quote","見積","見積の提示・送付"],["won","受注","受注の記録"],["lost","失注","失注の記録"],["nb","新しいバイヤー","新しく登録したバイヤー"],["task","タスク完了","完了にしたタスク"],["memo","会議","会議メモ・議事録"]];
+const A30_K=[["appr","アプローチ","こちらから送った連絡（直接連絡・バイヤーネットワーク・メール/電話のログ）"],["reply","返信あり","相手からの返信"],["meet","商談","商談記録・面談のログ"],["sample","サンプル送付","サンプルを送った記録"],["quote","見積","見積の提示・送付"],["won","受注","受注の記録"],["lost","失注","失注の記録"],["nb","新しいバイヤー","新しく登録したバイヤー"],["task","タスク完了","完了にしたタスク"],["memo","会議","会議メモ・議事録"]];
 function a30Tiles(C,clickFn){ return `<div class="a30t">${A30_K.map(([k,l,d])=>`<button type="button" class="a30i" title="${v30Esc(d)}" onclick="${clickFn}('${jsa(k)}')"><span>${v30Esc(l)}</span><b class="num">${C[k].length}</b></button>`).join("")}</div>`; }
 (function(){ try{ if(document.getElementById("a30css")) return; const s=document.createElement("style"); s.id="a30css"; s.textContent=`.a30t{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px} @media(max-width:640px){.a30t{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .a30i{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:7px 10px;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
@@ -34378,7 +34378,7 @@ const S30_NEWS=[["2026-10","v21.30","Ver.1 と同じ使い方ができる機能�
   "ドキュメント（全部のファイルを1か所に・種類・アップロード元・公開範囲・リンクの登録・提出の依頼・まとめてダウンロード）","タスクの新規作成・編集・子タスク・タスクのやりとり・承認タスク・自分だけのタスク・まとめて作成・絞り込み",
   "商談記録の商談回数・ソース・断られた理由の区分・コメント・代理承認者","やりとりの宛先・Cc・編集・削除・定型文・メッセージへのリンク","自分だけのメモ・編集ロック・ファイル添付","タイムライン（AIの要約）・活動レポート・タグ管理・☆マーク"]],
  ["2026-10","v21.29","お客様の声から",["ログインすると前回の画面から始まる","3時間操作がないと自動でログアウト（5分前にお知らせ）"]],
- ["2026-09","v21.26","バイヤーDB",["新しく追加されたバイヤーの「登録日」が正しい日付に"]]];
+ ["2026-09","v21.26","バイヤーネットワーク",["新しく追加されたバイヤーの「登録日」が正しい日付に"]]];
 function s30NewsHtml(){ return S30_NEWS.map(([ym,v,t,L])=>`<div style="border-top:1px dashed var(--line-2);padding:7px 0"><b>${v30Esc(t)}</b> <span class="nn" style="margin:0">${v30Esc(ym)}・${v30Esc(v)}</span><ul style="margin:4px 0 0 18px;padding:0;font-size:var(--fs-sm,14px);line-height:1.7">${L.map(x=>`<li>${v30Esc(x)}</li>`).join("")}</ul></div>`).join(""); }
 /* ── お問い合わせ（やりとりのスレッド） ── */
 const S30_TKC=["使い方","不具合","要望","契約・請求","そのほか"];
@@ -34640,7 +34640,7 @@ v30I18n([
  ["理由の区分を選んでください","Select a reason category","请选择原因分类","Seleccione una categoría de motivo"],["この記録を削除しますか？","Delete this entry?","要删除这条记录吗？","¿Eliminar este registro?"],["削除しました","Deleted","已删除","Eliminado"],
  ["この相手には直接連絡を使えません","Direct contact is not available for this buyer","该对象无法使用直接联系","El contacto directo no está disponible para este comprador"],
  ["必須","Required","必填","Obligatorio"],["✎ バイヤーの情報を編集","✎ Edit buyer details","✎ 编辑买家信息","✎ Editar datos del comprador"],
- ["バイヤーDBの相手は、名称・連絡先が正式契約後に開示されます。開示された情報や、独自に分かったことをここに残せます。","For Buyer DB contacts, the name and contact details are disclosed after the formal contract. Record the disclosed information and anything you learn yourself here.","买家DB中的对象，名称・联系方式在正式签约后公开。可以在这里记录已公开的信息和自己了解到的情况。","En los contactos de la Base de compradores, el nombre y los datos se revelan tras el contrato formal. Anote aquí lo revelado y lo que averigüe usted."],
+ ["バイヤーネットワークの相手は、名称・連絡先がつなぐ依頼で相手が承諾すると開示されます。開示された情報や、独自に分かったことをここに残せます。","For Buyer Network contacts, the name and contact details are disclosed after the formal contract. Record the disclosed information and anything you learn yourself here.","买家网络中的对象，名称・联系方式在正式签约后公开。可以在这里记录已公开的信息和自己了解到的情况。","En los contactos de la Red de compradores, el nombre y los datos se revelan tras el contrato formal. Anote aquí lo revelado y lo que averigüe usted."],
  ["Ver.1 のバイヤー情報と同じ項目です。分かるところだけで登録できます（会社名だけでも可）。","Same fields as the buyer information in Ver.1. Fill in only what you know (the company name alone is fine).","与 Ver.1 的买家信息项目相同。只填知道的部分即可（只填公司名也可以）。","Mismos campos que la información de compradores de Ver.1. Complete solo lo que sepa (basta con el nombre de la empresa)."],
  ["🌐 会社のサイトのURLや名刺・資料のファイルから AI に読み取らせたいときは","🌐 To have AI read a company website URL or a business card / document file:","🌐 想让AI从公司网站URL或名片・资料文件中读取时：","🌐 Para que la IA lea la URL del sitio web o un archivo de tarjeta/documento:"],
  ["URL・ファイルから追加（AI）","Add from URL/file (AI)","从URL・文件添加（AI）","Añadir desde URL/archivo (IA)"],
@@ -34752,7 +34752,7 @@ v30I18n([
  ["お客様の声から","From customer feedback","来自客户的反馈","A partir de comentarios de clientes"],
  ["ログインすると前回の画面から始まる","After logging in, you start from the screen you used last","登录后从上次的画面开始","Al iniciar sesión, empieza en la última pantalla que usó"],
  ["3時間操作がないと自動でログアウト（5分前にお知らせ）","Automatic logout after 3 hours of inactivity (with a notice 5 minutes before)","3小时无操作自动退出（提前5分钟提醒）","Cierre de sesión automático tras 3 horas sin actividad (con aviso 5 minutos antes)"],
- ["バイヤーDB","Buyer DB","买家DB","Base de compradores"],
+ ["バイヤーネットワーク","Buyer Network","买家网络","Red de compradores"],
  ["新しく追加されたバイヤーの「登録日」が正しい日付に","The “Registered” date of newly added buyers is now correct","新增买家的“登记日期”现在显示正确","La fecha de «Registro» de los compradores nuevos ahora es correcta"],
  ["不具合","Bug","故障","Error"],["要望","Request","需求","Sugerencia"],["契約・請求","Contract & billing","合同・账单","Contrato y facturación"],["受付","Received","已受理","Recibido"],["解決","Resolved","已解决","Resuelto"],
  ["例：営業資料の英語版が作れない","e.g. I can't create the English sales deck","例：无法制作英文版营销资料","p. ej.: No puedo crear el material de ventas en inglés"],
@@ -34822,7 +34822,7 @@ v30I18n([
  ["商談記録へのコメント","Comments on meeting records","商谈记录的评论","Comentarios en registros de negociación"],["失注の理由","Reason for loss","流失原因","Motivo de la pérdida"],["SNS","Social media","社交媒体","Redes sociales"],
  /* 活動レポート・週報 */
  ["メール（直接連絡）","Email (direct contact)","邮件（直接联系）","Correo (contacto directo)"],["断られた理由：","Reason for loss:","被拒原因：","Motivo del rechazo:"],["アプローチ","Approaches","接触","Acercamientos"],
- ["こちらから送った連絡（直接連絡・バイヤーDB・メール/電話のログ）","Contacts you sent (direct contact, Buyer DB, email/phone logs)","我方发出的联系（直接联系・买家DB・邮件/电话日志）","Contactos enviados (contacto directo, Base de compradores, registros de correo/teléfono)"],
+ ["こちらから送った連絡（直接連絡・バイヤーネットワーク・メール/電話のログ）","Contacts you sent (direct contact, Buyer Network, email/phone logs)","我方发出的联系（直接联系・买家网络・邮件/电话日志）","Contactos enviados (contacto directo, Red de compradores, registros de correo/teléfono)"],
  ["返信あり","Replies","有回复","Respuestas"],["相手からの返信","Replies from buyers","对方的回复","Respuestas de compradores"],["商談記録・面談のログ","Meeting records and meeting logs","商谈记录・面谈日志","Registros de negociación y reuniones"],
  ["サンプルを送った記録","Records of samples sent","寄送样品的记录","Registros de muestras enviadas"],["見積","Quotes","报价","Cotizaciones"],["見積の提示・送付","Quotes presented or sent","提出・发送报价","Cotizaciones presentadas o enviadas"],
  ["受注の記録","Won deals","成交记录","Negocios ganados"],["失注の記録","Lost deals","流失记录","Negocios perdidos"],["新しいバイヤー","New buyers","新买家","Nuevos compradores"],["新しく登録したバイヤー","Newly registered buyers","新登记的买家","Compradores registrados recientemente"],
@@ -34921,7 +34921,7 @@ v30I18n([
    P(/^商談記録（(\d+)件）$/,"Meeting records ($1)","商谈记录（$1条）","Registros de negociación ($1)"),P(/^アクティビティログ（(\d+)件）$/,"Activity log ($1)","活动日志（$1条）","Registro de actividad ($1)"),
    Object.assign({re:/^自動：(.+)$/},F((m,d,l)=>({en:"Auto: ",zh:"自动：",es:"Automático: "})[l]+T(m[1],d))),
    Object.assign({re:/^(.+?)の(.+?)（ID ([A-Z]{2,3}-\d{2,})）$/},F((m,d,l)=>l==="zh"?`${T(m[1],d)}的${T(m[2],d)}（ID ${m[3]}）`:`${T(m[2],d)} ${l==="en"?"in":"en"} ${T(m[1],d)} (ID ${m[3]})`)),
-   Object.assign({re:/^バイヤーDB（ID ([^）]+)）(・名称と連絡先は正式契約後に開示)?$/},F((m,d,l)=>({en:"Buyer DB (ID "+m[1]+")",zh:"买家DB（ID "+m[1]+"）",es:"Base de compradores (ID "+m[1]+")"})[l]+(m[2]?({en:" · name and contact disclosed after the formal contract",zh:"・名称和联系方式在正式签约后公开",es:" · nombre y contacto tras el contrato formal"})[l]:""))),
+   Object.assign({re:/^バイヤーネットワーク（ID ([^）]+)）(・名称と連絡先はつなぐ依頼で相手が承諾すると開示)?$/},F((m,d,l)=>({en:"Buyer Network (ID "+m[1]+")",zh:"买家网络（ID "+m[1]+"）",es:"Red de compradores (ID "+m[1]+")"})[l]+(m[2]?({en:" · name and contact disclosed after the formal contract",zh:"・名称和联系方式在正式签约后公开",es:" · nombre y contacto tras el contrato formal"})[l]:""))),
    P(/^自社で登録（(.+)）$/,"Added by your company ($1)","本公司登记（$1）","Añadido por su empresa ($1)"),P(/^自社で登録$/,"Added by your company","本公司登记","Añadido por su empresa"),
    P(/^要望：(.*)$/,"Requests: $1","要求：$1","Solicitudes: $1"),
    Object.assign({re:/^断られた理由：(.*)$/},F((m,d,l)=>({en:"Reason for loss: ",zh:"被拒原因：",es:"Motivo del rechazo: "})[l]+T(m[1],d))),
@@ -35063,7 +35063,7 @@ v30I18nEl([
    ② ドキュメントの種類の自動判定：「有機」「organic」を含むだけで「証明書・認証」になる（有機抹茶_規格書.pdf など）→ logic_v2130docs.js の d30Guess で直した
    ③ サブ担当者：「やりとり」の右の列（標準では出ない）のメンバー欄の「⋮」からしか決められない
       → 「メンバー・担当」の「商品ごとの担当」で決められるように（ここ）。記録は今までと同じ商品の subLead（メンバー欄の「サブ」の印と同じ）
-   ④ バイヤーDB・拠点「相手を探す」の表：枠より表が広いと（画面幅 1440px 以下）右端の「直接連絡」「拠点に依頼」が横スクロールの先に隠れる
+   ④ バイヤーネットワーク・拠点「相手を探す」の表：枠より表が広いと（画面幅 1440px 以下）右端の「直接連絡」「拠点に依頼」が横スクロールの先に隠れる
       → そのときだけ、操作のボタンをバイヤー名の下へ移す（ここ）。広い画面は今までどおり右の列
    ⑤ デモの業種サンプルで、追加したバイヤーが活動レポートの「新しいバイヤー」に数えられない → logic_v2130rep.js の a30Collect で直した */
 
@@ -35106,7 +35106,7 @@ if(typeof tmDecorateProducts==="function"){ const __tdp2131=tmDecorateProducts; 
     b.textContent=b.textContent.replace(/^(担当：)(.*?)(＋全体担当\d+名)?$/,(all,p,names,tail)=>p+String(names||"").split("・").map(n=>n&&subs.includes(n)?n+"（サブ）":n).join("・")+(tail||"")); }); }catch(e){}
   return r; }; }
 
-/* ── ④ バイヤーDB・拠点「相手を探す」：表が枠より広いときは、操作のボタンをバイヤー名の下へ ── */
+/* ── ④ バイヤーネットワーク・拠点「相手を探す」：表が枠より広いときは、操作のボタンをバイヤー名の下へ ── */
 function db31Fold(on){ const W=document.getElementById("dbbw"); if(!W) return;
   W.querySelectorAll("#dbb > tr").forEach(tr=>{ const c=tr.cells; if(!c||c.length<2) return; const a=c[0], z=c[c.length-1]; let box=a.querySelector(":scope > .db31a");
     if(on){ if(!z.childNodes.length) return; if(!box){ box=document.createElement("div"); box.className="db31a"; box.addEventListener("click",e=>e.stopPropagation()); a.appendChild(box); } while(z.firstChild) box.appendChild(z.firstChild); }
@@ -35138,7 +35138,7 @@ window.addEventListener("resize",db31Schedule);
 try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.31")) S30_NEWS.unshift(["2026-10","v21.31","見やすさと使いやすさの改善",
   ["バイヤーのアクティビティログ・商談記録へのコメント・タスクのやりとりで、見出し（種類・日付・書いた人）が読めるように",
    "「メンバー・担当」の「商品ごとの担当」で、サブ担当者を決められるように",
-   "バイヤーDB・拠点の一覧で、画面の幅が狭くても「直接連絡」「拠点に依頼」が切れずに見えるように",
+   "バイヤーネットワーク・拠点の一覧で、画面の幅が狭くても「直接連絡」「拠点に依頼」が切れずに見えるように",
    "ドキュメントの種類の自動判定で、「有機」を含むだけのファイル名を「証明書・認証」にしないように"]]); }catch(e){}
 
 /* ── 表示言語（英・中・西） ── */
@@ -35150,7 +35150,7 @@ v30I18n([
  ["見やすさと使いやすさの改善","Readability and usability improvements","易读性与易用性改进","Mejoras de legibilidad y usabilidad"],
  ["バイヤーのアクティビティログ・商談記録へのコメント・タスクのやりとりで、見出し（種類・日付・書いた人）が読めるように","Headings (type, date, author) are now readable in buyer activity logs, comments on meeting records and task conversations","买家活动记录、商谈记录评论和任务往来的标题（类型・日期・作者）现在可以正常阅读","Los encabezados (tipo, fecha, autor) ya se leen en el registro de actividad del comprador, los comentarios de las reuniones y las conversaciones de tareas"],
  ["「メンバー・担当」の「商品ごとの担当」で、サブ担当者を決められるように","Sub owners can now be set in “Members & assignments” › “Assignments by product”","可在“成员・负责人”的“按商品的负责人”中设定副负责人","Ahora se puede asignar el responsable secundario en «Miembros y asignaciones» › «Asignaciones por producto»"],
- ["バイヤーDB・拠点の一覧で、画面の幅が狭くても「直接連絡」「拠点に依頼」が切れずに見えるように","In the Buyer DB & bases list, “Contact directly” and “Ask a base” are no longer cut off on narrower screens","在买家DB・据点列表中，屏幕较窄时“直接联系”“委托据点”也不会被截断","En la lista de la BD de compradores y bases, «Contactar directamente» y «Solicitar a una base» ya no se cortan en pantallas estrechas"],
+ ["バイヤーネットワーク・拠点の一覧で、画面の幅が狭くても「直接連絡」「拠点に依頼」が切れずに見えるように","In the Buyer Network & bases list, “Contact directly” and “Ask a base” are no longer cut off on narrower screens","在买家网络・据点列表中，屏幕较窄时“直接联系”“委托据点”也不会被截断","En la lista de la Red de compradores y bases, «Contactar directamente» y «Solicitar a una base» ya no se cortan en pantallas estrechas"],
  ["ドキュメントの種類の自動判定で、「有機」を含むだけのファイル名を「証明書・認証」にしないように","Automatic document typing no longer marks a file as “Certificate” just because its name contains “organic”","文档类型自动判断不再仅因文件名含“有机”就归为“证书・认证”","La clasificación automática de documentos ya no marca un archivo como «Certificado» solo porque su nombre contiene «orgánico»"]
 ]);
 
@@ -35273,7 +35273,7 @@ function ux32Setup(){
     ["fill","足りない情報を埋める","AIが必要なことだけ質問します","ux32Fill()",!!(sc&&!sc.missing.length)],
     ["cty","販売先の国を決める","AIが規制・市場・競合から3か国を提案","go('cty')",!!(t.ctySel&&Array.isArray(t.ctySel.chosen)&&t.ctySel.chosen.length)],
     ["deck","外国語の営業資料を作る","登録した情報から5つの言語で","go('deck')",!!(Array.isArray(t.deckGen)&&t.deckGen.length)],
-    ["buyer","バイヤーに連絡する","バイヤーDBから「直接連絡」、または自社のバイヤーを追加","go('db')",!!(thr||(Array.isArray(t.outreach)&&t.outreach.length)||(Array.isArray(t.myBuyers)&&t.myBuyers.length))],
+    ["buyer","バイヤーに連絡する","バイヤーネットワークで「つなぐ依頼」、または自社のバイヤーを追加","go('db')",!!(thr||(Array.isArray(t.outreach)&&t.outreach.length)||(Array.isArray(t.myBuyers)&&t.myBuyers.length)||(Array.isArray(t.netConnects)&&t.netConnects.length))],
     ["fb","商談を記録する","相手の反応・価格・次の一手を残す","go('deal')",!!((D0&&Array.isArray(D0.fb)&&D0.fb.length)||(Array.isArray(t.fbx)&&t.fbx.length))]];
   try{ if(typeof tmAcct==="function"&&tmAcct()){ const a=tmAcct(); S.push(["team","メンバーを招待する","社内で担当を分けて進める","go('team')",!!((a.members||[]).length)]); } }catch(e){}
   return S;
@@ -35509,7 +35509,7 @@ try{ v30I18n([
  ["足りない情報を埋める","Fill in missing information","补全缺少的信息","Completar la información que falta"],["AIが必要なことだけ質問します","The AI asks only what it needs","AI只询问必要的内容","La IA solo pregunta lo necesario"],
  ["販売先の国を決める","Choose target countries","确定销售国家","Elegir países de destino"],["AIが規制・市場・競合から3か国を提案","The AI proposes 3 countries from regulations, market and competitors","AI根据法规・市场・竞争推荐3个国家","La IA propone 3 países según normativa, mercado y competencia"],
  ["外国語の営業資料を作る","Create a sales deck in another language","制作外语销售资料","Crear material de ventas en otro idioma"],["登録した情報から5つの言語で","In 5 languages from your registered data","根据已登记的信息生成5种语言","En 5 idiomas a partir de sus datos"],
- ["バイヤーに連絡する","Contact buyers","联系买家","Contactar compradores"],["バイヤーDBから「直接連絡」、または自社のバイヤーを追加","“Contact directly” from the Buyer DB, or add your own buyers","从买家DB“直接联系”，或添加自有买家","«Contactar directamente» desde la BD o añada sus compradores"],
+ ["バイヤーに連絡する","Contact buyers","联系买家","Contactar compradores"],["バイヤーネットワークで「つなぐ依頼」、または自社のバイヤーを追加","“Contact directly” from the Buyer Network, or add your own buyers","从买家网络“直接联系”，或添加自有买家","«Contactar directamente» desde la BD o añada sus compradores"],
  ["相手の反応・価格・次の一手を残す","Record reactions, prices and next steps","记录对方反应・价格・下一步","Registre reacciones, precios y próximos pasos"],
  ["メンバーを招待する","Invite members","邀请成员","Invitar miembros"],["社内で担当を分けて進める","Share the work across your team","在公司内分工推进","Repartan el trabajo en el equipo"],
   ["STANDAGE管理","STANDAGE admin","STANDAGE管理","Administración STANDAGE"],["概要（数字）","Overview (numbers)","概要（数字）","Resumen (cifras)"],
@@ -37032,7 +37032,7 @@ const V33_AQM=[["c","確認してから"],["s","提案だけ"],["a","自動"]];
 function v33AcctAqMode(a,op){ const fx=(a&&a.fx)||[]; if(fx.includes("aqa_"+op)) return "a"; if(fx.includes("aqs_"+op)) return "s"; return "c"; }
 function v33AcctAqSet(a,op,m){ const fx=((a&&a.fx)||[]).filter(x=>!new RegExp("^aq[csa]_"+op+"$").test(x)); if(m&&m!=="c") fx.push("aq"+m+"_"+op); a.fx=fx.slice(0,16); }
 /* ── 見え方（そのお客様の画面に出るもの） ── */
-const V33_SEE_USER=["受信箱","ダッシュボード","今日やること","商品情報を登録","商品情報","取り込んだ情報","販売先国の選定","外国語営業資料","用語集","バイヤーDB","商談・バイヤー","やりとり","会議メモ","依頼ページ","貿易実務・書類","ドキュメント","契約書","タスク","メンバー・担当","ゴミ箱"];
+const V33_SEE_USER=["受信箱","ダッシュボード","今日やること","商品情報を登録","商品情報","取り込んだ情報","販売先国の選定","外国語営業資料","用語集","バイヤーネットワーク","商談・バイヤー","やりとり","会議メモ","依頼ページ","貿易実務・書類","ドキュメント","契約書","タスク","メンバー・担当","ゴミ箱"];
 const V33_SEE_FWD=["見積受信箱","案件","依頼ページ","物流レート管理","相見積・AI推奨","AI物流マンに相談","メンバー・担当"];
 function v33AdmSee(code){ const a=(typeof findAcct==="function")?findAcct(code):null; if(!a) return; const E=v33Esc, T=v33T; const fx=(typeof fx17Clean==="function")?fx17Clean(a.fx):(a.fx||[]);
   const ro=v33AcctRo(a), pg=v33AcctPurgeable(a), exp=a.expires&&a.expires<Date.now(); const fwd=a.role==="fwd";
@@ -37538,7 +37538,7 @@ v30I18n([
  ["左のメニュー","Left menu","左侧菜单","Menú izquierdo"],["スマホの下のタブ","Phone bottom tabs","手机底部标签","Pestañas inferiores del móvil"],["メニュー","Menu","菜单","Menú"],["撮って登録","Capture","拍照登记","Capturar"],["AIに聞く","Ask AI","问AI","Preguntar a la IA"],
  ["期限切れ：読み取り専用の間です","Expired: in the read-only period","已过期：只读期间","Vencida: en periodo de solo lectura"],["まで","until","为止","hasta"],["読み取り専用の期間が終わりました（ログインできません）。延長するか、削除できます。","The read-only period is over (can't log in). You can extend or delete it.","只读期间已结束（无法登录）。可以延长或删除。","Terminó el periodo de solo lectura (sin acceso). Puede ampliarla o eliminarla."],
  ["ダッシュボード","Dashboard","仪表板","Panel"],["今日やること","Today's to-dos","今日待办","Tareas de hoy"],["商品情報を登録","Register product","登记商品信息","Registrar producto"],["商品情報","Product information","商品信息","Información del producto"],["取り込んだ情報","Imported information","导入的信息","Información importada"],["販売先国の選定","Choosing target countries","选择销售国","Elección de países"],
- ["外国語営業資料","Sales deck","外语营业资料","Presentación comercial"],["バイヤーDB","Buyer DB","买家数据库","Base de compradores"],["商談・バイヤー","Deals & buyers","商谈・买家","Negociaciones y compradores"],["やりとり","Messages","沟通","Mensajes"],["貿易実務・書類","Trade operations & documents","贸易实务・单证","Operaciones y documentos"],["契約書","Contracts","合同","Contratos"],["メンバー・担当","Members & owners","成员・负责","Miembros y responsables"],
+ ["外国語営業資料","Sales deck","外语营业资料","Presentación comercial"],["バイヤーネットワーク","Buyer Network","买家网络","Red de compradores"],["商談・バイヤー","Deals & buyers","商谈・买家","Negociaciones y compradores"],["やりとり","Messages","沟通","Mensajes"],["貿易実務・書類","Trade operations & documents","贸易实务・单证","Operaciones y documentos"],["契約書","Contracts","合同","Contratos"],["メンバー・担当","Members & owners","成员・负责","Miembros y responsables"],
  ["見積受信箱","Quote inbox","报价收件箱","Bandeja de cotizaciones"],["物流レート管理","Rate management","费率管理","Gestión de tarifas"],["相見積・AI推奨","Comparison & AI picks","比价・AI推荐","Comparativa y recomendaciones"],["AI物流マンに相談","Ask AI Logistics","咨询AI物流","Consultar a la IA logística"],["承認","Approve","审批","Aprobar"],
  /* 読み取り専用 */
  ["このアカウントは有効期限が切れています。延長はSTANDAGEの担当まで。","This account has expired. Contact your STANDAGE representative to extend it.","此账户已过期。延长请联系 STANDAGE 负责人。","Esta cuenta ha vencido. Contacte con su representante de STANDAGE para ampliarla."],
@@ -39259,6 +39259,536 @@ try{ if(typeof v30I18n==="function") v30I18n([
 ]); }catch(e){}
 try{ v40Watch(); }catch(e){}
 setTimeout(()=>{ try{ v40Watch(); v40Decorate(); }catch(e){} },0);
+
+/* ═══ v21.41（2026-10-06）バイヤーDB → バイヤーネットワーク：「名簿を渡す」から「つなぐ」へ（セキュリティチームの指摘への対応） ═══
+   指摘（要旨）：世界のバイヤーデータを別の顧客にも見せる設計は、データの中身しだいでリスクが高い。データを3つに分けること
+     ① 公開企業情報（会社名・URL・国・業種・公開の代表連絡先）＝比較的使いやすいが「公開だから何をしてもいい」ではない（個人の情報は入れない）
+     ② 担当者個人に紐づく情報（担当者名・個人メール・携帯・WhatsApp・LinkedIn・商談履歴）＝他社が閲覧できる状態に置くだけで第三者提供になり得る
+     ③ STANDAGE の業務で得た非公開情報（いま何を探している・過去にどの会社と商談・仕入額・価格・商談メモ）＝営業秘密・守秘義務・信頼の問題
+     特に危ない：A社の「おまかせ貿易」で開拓したバイヤーを、B社・C社も検索できる形
+     → 生データを開放せず「条件に合うバイヤーへのアクセス」を提供する。件数・匿名の属性までは見せ、連絡先は「つなぐ」→ STANDAGE が紹介 → 相手が承諾したら開示
+   この版でしたこと：
+   ・画面の名前を「バイヤーネットワーク・拠点」に（どの画面・AI・翻訳でも＝fixes_v2141.py）
+   ・見える範囲を3つに分けて、画面のいちばん上に：公開情報／STANDAGEネットワーク（参加に同意したバイヤー）／貴社専用（貴社が登録・開拓したバイヤー）
+   ・一覧は匿名（国・業態・関心＝本人の申告・規模・参加月）だけ。脈あり度・成約実績（ほかの会社の商談から分かること）は出さない。1回に30件まで・ダウンロードなし
+   ・「直接連絡」「拠点に依頼」→「つなぐ依頼」にまとめる（現地担当の代行は依頼の中で選ぶ）。相手が承諾すると、名前と連絡先が依頼した会社にだけ開示され、
+     貴社専用のバイヤーに入る（そこからは直接連絡できる）。1か月に20件まで。依頼と承諾は記録に残る（STANDAGE の管理画面の行動の記録にも出る）
+   ・Ver.1 の件数（7,379名・7,168社・117か国）は「STANDAGEの実績（各社のプロジェクトで開拓したバイヤー・各社専用）」としてだけ見せ、ネットワークの件数に混ぜない
+   ・AI商社マン：ネットワークの相手の名前・連絡先・ほかの会社との商談の状況は答えない。件数と匿名の属性まで。連絡は「つなぐ依頼」へ案内
+   ・出荷を進める（新しい案件の相手）・内蔵 AI の見本データ（D.dbr＝会社名つき）からも、ネットワークの相手を外す
+   トライアル・デモのネットワークは見本（架空）。つなぐ依頼は見本の進み方（確認 → 紹介 → 承諾）で、開示される連絡先も見本（example.com・実際には送らない） */
+const V41={ share:.18, cap:20, list:30, pool:null, f:null, tick:0 };
+const V41_SIZES=["年商 $1M未満","年商 $1〜5M","年商 $5〜20M","年商 $20M超"];
+const V41_ST=[["req","受付済み"],["check","STANDAGEが確認中"],["intro","相手に紹介済み"],["ok","承諾（開示済み）"]];
+const V41_SIM=[0,8000,17000,27000];   /* 見本の進み方（ミリ秒）：受付 → 確認 → 紹介 → 承諾 */
+const V41_PURP=[["sample","サンプルを送りたい"],["quote","見積を出したい"],["meet","オンラインで商談したい"],["info","まず資料を送りたい"]];
+const V41_NAMES=["Alex","Jordan","Sam","Chris","Taylor","Morgan","Jamie","Robin"];
+const V41_CATMAP={food:"food",cosme:"cosme",parts:"parts",daily:"daily",car:"car",liquor:"liquor",apparel:"apparel",medical:"medical"};
+
+function v41Ja(){ try{ return typeof v30Ja!=="function"||v30Ja(); }catch(e){ return true; } }
+function v41T(s){ try{ return typeof v30T==="function"?v30T(s):s; }catch(e){ return s; } }
+/* 文の中に数を入れる：辞書は {n} などの入った文のまま引き、訳してから数を入れる */
+function v41F(s,o){ let t=v41T(s); Object.keys(o||{}).forEach(k=>{ t=t.split("{"+k+"}").join(String(o[k])); }); return t; }
+function v41E(s){ try{ return esc(s); }catch(e){ return String(s==null?"":s); } }
+function v41MyCat(){ try{ const k=(typeof D!=="undefined"&&D&&(D.catKey||D.key))||""; return V41_CATMAP[k]||""; }catch(e){ return ""; } }
+function v41CatNm(k){ try{ return (BN_CATS.find(c=>c[0]===k)||["",""])[1]; }catch(e){ return ""; } }
+function v41Joined(m){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-m); return d.getFullYear()+"年"+(d.getMonth()+1)+"月"; }
+function v41Who(b){ return v41Ja()?`${b.cty}の${b.biz}`:`${v41T(b.biz)} · ${v41T(b.cty)}`; }
+
+/* STANDAGE の実績（Ver.1 の集計・基準日まで。見込みの増加は入れない） */
+function v41Track(){
+  let w=0; try{ Object.keys(BN_WEEKLY).forEach(k=>{ if(k<=BN_ASOF) w+=BN_WEEKLY[k]; }); }catch(e){}
+  return {buyers:(typeof BN_BASE!=="undefined"?BN_BASE:6745)+w, companies:(typeof BN_COMPANIES!=="undefined"?BN_COMPANIES:7168),
+    countries:(typeof BN_COUNTRIES!=="undefined"?BN_COUNTRIES:117), asof:(typeof BN_ASOF!=="undefined"?BN_ASOF:"2026-08-30")};
+}
+
+/* ネットワーク（トライアルの見本）：国ごとの社数＝Ver.1 の国別の 18%。ID は重ならない（7919 と 36^4 は互いに素） */
+function v41Pool(){
+  if(V41.pool) return V41.pool;
+  const out=[]; let n=0;
+  try{ BN_CTY.forEach(([cty,cnt],ci)=>{
+    const N=Math.max(3,Math.round(cnt*V41.share));
+    for(let k=0;k<N;k++){
+      const r=bnRnd(4100+ci*997+k);
+      let kv=r(), cat="other", a2=0; for(const [kk,,w] of BN_CATS){ a2+=w; if(kv<a2){ cat=kk; break; } }
+      const bl=BN_BIZ[cat]||BN_BIZ.def; const biz=bl[Math.floor(r()*bl.length)];
+      const il=BN_INT[cat]||BN_INT.other; const ints=[il[Math.floor(r()*il.length)]]; if(r()<.4){ const x=il[Math.floor(r()*il.length)]; if(!ints.includes(x)) ints.push(x); }
+      const size=V41_SIZES[Math.floor(r()*V41_SIZES.length)], mAgo=Math.floor(r()*14);
+      const code=((n*7919+40961)%1679616).toString(36).toUpperCase().padStart(4,"0");
+      out.push({n,id:(BN_CC[cty]||"XX")+"-"+code,cty,cat,catNm:v41CatNm(cat)||"その他",biz,ints,size,mAgo});
+      n++;
+    } }); }catch(e){}
+  V41.pool=out; return out;
+}
+function v41Find(id){ return v41Pool().find(b=>b.id===id)||null; }
+function v41Sort(L,my){ return L.slice().sort((a,b)=>((b.cat===my)-(a.cat===my))||(a.mAgo-b.mAgo)||(a.n-b.n)); }
+function v41CatBreak(L){ const c={}; L.forEach(b=>{ c[b.catNm]=(c[b.catNm]||0)+1; }); return Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+" "+v+"社").join("、"); }
+function v41Query(f){
+  const L=v41Pool().filter(b=>(!f.cty||b.cty===f.cty)&&(!f.cat||b.cat===f.cat)&&(!f.biz||b.biz===f.biz));
+  return {total:L.length,ctys:new Set(L.map(b=>b.cty)).size,rows:v41Sort(L,v41MyCat()).slice(0,V41.list)};
+}
+function v41BizList(cat){ const s=new Set(); v41Pool().forEach(b=>{ if(!cat||b.cat===cat) s.add(b.biz); }); return [...s].sort(); }
+
+/* つなぐ依頼（商品ごとの保存場所。自社のバイヤー・やり取りと同じ） */
+function v41Store(){
+  try{ if(typeof TEN!=="undefined"&&TEN) return TEN; }catch(e){}   /* 自社のバイヤー・やり取りと同じく、商品（テナント）ごとに保存＝再読み込みでも残る */
+  try{ if(typeof D!=="undefined"&&D) return D; }catch(e){}
+  return (window.__v41s=window.__v41s||{});
+}
+function v41Reqs(){ const s=v41Store(); if(!Array.isArray(s.netConnects)) s.netConnects=[]; return s.netConnects; }
+function v41ReqOf(id){ return v41Reqs().find(r=>r.id===id)||null; }
+function v41Save(){ try{ if(typeof saveTen==="function") saveTen(); }catch(e){} }
+function v41Ym(d){ return d.getFullYear()+"-"+(d.getMonth()+1); }
+function v41Month(){ const ym=v41Ym(new Date()); return v41Reqs().filter(r=>v41Ym(new Date(r.at||0))===ym).length; }
+function v41StOf(r){
+  if(!r) return ""; if(r.st==="ok"||r.st==="ng"||!r.sim) return r.st||"req";
+  const t=Date.now()-(+r.t0||Date.parse(r.at)||0); let s="req"; V41_ST.forEach(([k],i)=>{ if(t>=V41_SIM[i]) s=k; }); return s;
+}
+function v41StNm(s){ const e=V41_ST.find(x=>x[0]===s); return e?e[1]:s==="ng"?"見送り":""; }
+function v41Today(){ try{ return typeof legNow==="function"?legNow():new Date().toISOString().slice(0,10); }catch(e){ return ""; } }
+/* 承諾：相手の連絡先（見本）を貴社専用のバイヤーに入れる */
+function v41Accept(r,live){
+  if(r.myId) return;
+  const code=String(r.id).split("-")[1]||String(r.id); const h=[...code].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const mb=(typeof mybNew==="function")?mybNew():{id:"MY-"+Date.now().toString(36).toUpperCase().slice(-5)};
+  /* 見本の相手の名前・メモは、承諾した時の表示言語で（英中西の画面で日本語の名前が入らないように） */
+  const ja=v41Ja(), smp=v41T("見本");
+  Object.assign(mb,{co:ja?"見本 "+r.cty+"の"+r.biz:smp+" · "+v41Who(r),cty:r.cty,biz:r.biz,ints:(r.ints||[]).join("・"),size:r.size||"",
+    contact:V41_NAMES[h%V41_NAMES.length]+(ja?"（見本）・":" ("+smp+") · ")+"buyer-"+code.toLowerCase()+"@example.com",
+    memo:v41F("バイヤーネットワークの「つなぐ依頼」で承諾（見本）・ID {id}",{id:r.id}),added:v41Today(),src:"net",netId:r.id});
+  try{ myBuyers().push(mb); }catch(e){}
+  r.myId=mb.id; r.okAt=new Date().toISOString();
+  try{ if(typeof mybSave==="function") mybSave(); }catch(e){}
+  if(live){ try{ toast(v41F("🤝 {who}が承諾しました（見本）。連絡先を「貴社専用」のバイヤーに入れました",{who:v41Who(r)})); }catch(e){}
+    try{ if(typeof logU==="function") logU("connect","承諾（見本）:"+r.id); }catch(e){} }
+}
+function v41Tick(){
+  let ch=0;
+  v41Reqs().forEach(r=>{ const s=v41StOf(r); if(s&&s!==r.st){ r.st=s; (r.log=r.log||[]).push([s,Date.now()]); ch=1; if(s==="ok") v41Accept(r,true); } });
+  if(ch){ v41Save(); try{ if(typeof cur!=="undefined"&&cur==="db"){ v41PaintReqs(); v41Paint(); v41PaintOwn(); } }catch(e){} }
+  return ch;
+}
+setInterval(()=>{ try{ if(v41Reqs().some(r=>r.sim&&r.st!=="ok"&&r.st!=="ng")) v41Tick(); }catch(e){} },2500);
+
+/* ── つなぐ依頼の窓 ── */
+function v41OpenConnect(id){
+  const b=v41Find(id); if(!b){ try{ toast(v41T("この相手は見つかりませんでした")); }catch(e){} return; }
+  if(v41ReqOf(id)) return v41OpenReq(id);
+  const used=v41Month(), full=used>=V41.cap;
+  const item=(typeof D!=="undefined"&&D&&D.item)||"";
+  openDW(`<h3>🤝 ${v41T("つなぐ依頼")}</h3>
+    <p class="nn" style="margin-top:4px">${v41T("宛先")}：🔒 <b>${v41E(v41Who(b))}</b>（ID ${v41E(b.id)}）<br>${v41T("関心（本人の申告）")}：${v41E(v41T(b.catNm))}・${v41E(b.ints.map(v41T).join("・"))}／${v41E(v41T(b.size))}</p>
+    <ol class="v41flow">
+      <li>${v41T("STANDAGEの担当が、依頼の内容を確認します")}</li>
+      <li>${v41T("相手に貴社をご紹介します（貴社の会社名・商品と、下のひと言をお伝えします）")}</li>
+      <li>${v41T("相手が承諾すると、相手の会社名・担当者・連絡先が貴社にだけ開示され、「貴社専用」のバイヤーに入ります。見送りの場合は開示されません")}</li></ol>
+    <p class="lbl" style="margin-top:12px">${v41T("依頼の目的")}</p>
+    <div class="v41pp" role="radiogroup" aria-label="${v41T("依頼の目的")}">${V41_PURP.map(([k,nm],i)=>`<label class="v41pc"><input type="radio" name="v41p" value="${k}" ${i===0?"checked":""}><span>${v41T(nm)}</span></label>`).join("")}</div>
+    <p class="lbl" style="margin-top:12px">${v41T("相手へのひと言（任意）")}</p>
+    <textarea id="v41msg" class="sel" rows="4" style="width:100%;box-sizing:border-box;resize:vertical" placeholder="${v41E(v41F("例：{item}をご提案できます。まずはサンプルをお送りしたいです。",{item:item||v41T("貴社の商品")}))}"></textarea>
+    <p class="nn" style="margin-top:3px">${v41T("STANDAGEが相手の言葉に直してお伝えします。連絡先やURLは書かないでください（承諾後にやりとりできます）")}</p>
+    <label class="v41ck"><input type="checkbox" id="v41ag"> ${v41T("現地の担当に、商談まで任せる（別途費用：稼働費・成果報酬）")}</label>
+    <div class="rw" style="margin-top:14px;gap:8px">
+      <button class="btn" id="v41go" ${full?"disabled":""}>${v41T("つなぐ依頼を出す")}</button>
+      <button class="btn g" onclick="closeDW()">${v41T("やめる")}</button></div>
+    <p class="nn" style="margin-top:10px">${full?v41F("今月の上限（{cap}件）に達しました。来月またご利用いただくか、担当のSTANDAGE営業・CSにご相談ください。",{cap:V41.cap})
+      :v41F("今月の依頼：{used} / {cap}件。依頼と承諾は記録に残ります。",{used,cap:V41.cap})}
+      ${v41T("トライアルの相手は見本のため、見本の進み方（確認 → 紹介 → 承諾）で表示します。")}</p>`);
+  const go=document.getElementById("v41go"); if(go) go.onclick=()=>v41Submit(b);
+  const m=document.getElementById("v41msg"); if(m) setTimeout(()=>{ try{ m.focus(); }catch(e){} },60);
+}
+function v41Submit(b){
+  if(v41ReqOf(b.id)) return v41OpenReq(b.id);
+  if(v41Month()>=V41.cap){ try{ toast(v41F("今月の上限（{cap}件）に達しました",{cap:V41.cap})); }catch(e){} return; }
+  const p=(document.querySelector('input[name="v41p"]:checked')||{}).value||"sample";
+  let note=String((document.getElementById("v41msg")||{}).value||"").trim().slice(0,600);
+  if(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}|https?:\/\//i.test(note)){ try{ toast(v41T("ひと言には連絡先やURLを書かないでください（承諾後にやりとりできます）")); }catch(e){} return; }
+  const agent=!!(document.getElementById("v41ag")||{}).checked;
+  const r={id:b.id,cty:b.cty,biz:b.biz,cat:b.cat,catNm:b.catNm,ints:b.ints.slice(),size:b.size,purpose:p,note,agent,
+    at:new Date().toISOString(),t0:Date.now(),st:"req",log:[["req",Date.now()]],sim:true,item:(typeof D!=="undefined"&&D&&D.item)||""};
+  v41Reqs().unshift(r); v41Save();
+  try{ if(typeof logU==="function") logU("connect","依頼:"+b.id+"・"+(V41_PURP.find(x=>x[0]===p)||["",""])[1]+(agent?"・現地担当に任せる":"")); }catch(e){}
+  try{ closeDW(); }catch(e){}
+  try{ toast(v41T("つなぐ依頼を出しました。STANDAGEの担当が確認します")); }catch(e){}
+  try{ if(typeof cur!=="undefined"&&cur==="db"){ v41PaintReqs(); v41Paint(); const c=document.getElementById("v41reqcard"); if(c) c.scrollIntoView({behavior:"smooth",block:"nearest"}); } }catch(e){}
+}
+function v41OpenReq(id){
+  const r=v41ReqOf(id); if(!r) return;
+  const s=v41StOf(r); const pn=(V41_PURP.find(x=>x[0]===r.purpose)||["",""])[1];
+  const mb=r.myId?(myBuyers().find(x=>x.id===r.myId)||null):null;
+  openDW(`<h3>🤝 ${v41T("つなぐ依頼の状況")}</h3>
+    <p class="nn" style="margin-top:4px">${v41T("相手")}：${mb?`<b>${v41E(mb.co)}</b>`:`🔒 <b>${v41E(v41Who(r))}</b>`}（ID ${v41E(r.id)}）<br>${v41T("目的")}：${v41E(v41T(pn))}${r.agent?"・"+v41T("現地の担当に任せる"):""}</p>
+    ${v41Steps(s,true)}
+    ${r.note?`<p class="lbl" style="margin-top:12px">${v41T("相手へのひと言")}</p><p class="nn" style="white-space:pre-wrap">${v41E(r.note)}</p>`:""}
+    ${mb?`<div class="v41ok"><b>${v41T("開示された連絡先（見本）")}</b><br>${v41E(mb.contact||"")}<br><span class="nn">${v41T("「貴社専用」のバイヤーに入りました。ここからは直接連絡できます。")}</span></div>
+      <div class="rw" style="margin-top:12px;gap:8px"><button class="btn" id="v41dm">${v41T("やりとりを始める")}</button><button class="btn g" onclick="closeDW();go('deal')">${v41T("自社のバイヤーを見る")}</button></div>`
+     :`<p class="nn" style="margin-top:12px">${v41T("相手が承諾すると、ここに相手の会社名・担当者・連絡先が出ます（貴社にだけ）。見送りの場合は開示されません。")}</p>`}`);
+  const dm=document.getElementById("v41dm"); if(dm&&mb) dm.onclick=()=>{ try{ closeDW(); }catch(e){} try{ openDM(mb.id,mb.cty,mb.co); }catch(e){} };
+}
+function v41Steps(s,big){
+  const i=V41_ST.findIndex(x=>x[0]===s);
+  if(s==="ng") return `<span class="v41chip v41ng">${v41T("見送り（開示されません）")}</span>`;
+  return `<ol class="v41steps${big?" v41big":""}">${V41_ST.map(([k,nm],j)=>`<li class="${j<i?"dn":j===i?"on":""}">${v41T(nm)}</li>`).join("")}</ol>`;
+}
+
+/* ── 画面 ── */
+function v41View(p){
+  const tr=v41Track(); const own=(typeof myBuyers==="function"?myBuyers().length:0);
+  const dup=(own>1&&typeof mbDupGroups==="function")?mbDupGroups().length:0;
+  if(!V41.f) V41.f={cty:"",cat:v41MyCat(),biz:""};
+  const f=V41.f; const bl=v41BizList(f.cat); if(f.biz&&!bl.includes(f.biz)) f.biz="";
+  const nm=s=>v41E(v41T(s));
+  return ph(p,"")+`
+  <div class="v41tiers" id="v41tiers">
+    <div class="c v41t"><span class="v41k">${nm("公開情報")}</span><b class="v41h">${nm("会社の公開情報")}</b>
+      <p>${nm("会社名・URL・国・業種など、公開されている会社の情報です。担当者個人の情報は含みません。")}</p>
+      <span class="v41chip">${nm("ご契約後に閲覧（一括ダウンロードなし）")}</span></div>
+    <div class="c v41t v41on"><span class="v41k">${nm("STANDAGEネットワーク")}</span><b class="v41h">${nm("条件で探して、つないでもらう")}</b>
+      <p>${nm("参加に同意したバイヤーです。見えるのは国・業態・関心・規模まで。名前と連絡先は、相手が承諾してから貴社にだけ開示されます。")}</p>
+      <span class="v41chip">${nm("下の「相手を探す」")}</span></div>
+    <div class="c v41t"><span class="v41k">${nm("貴社専用")}</span><b class="v41h" id="v41own">${v41F("自社のバイヤー {n}社",{n:own})}</b>
+      <p>${nm("貴社が登録・開拓したバイヤーです。他社には一切見えません。")}</p>
+      <div class="v41acts"><button class="btn g" onclick="openBuyerAdd()">${nm("＋ 追加")}</button><button class="btn g" onclick="go('deal')">${nm("一覧を見る")}</button>${own>1?`<button class="btn g" id="mbMergeBtn" onclick="openMerge()">🧩 名寄せ${dup?`（重複${dup}組）`:""}</button>`:`<span id="mbMergeBtn" hidden></span>`}</div></div>
+  </div>
+  <p class="v41rec">${v41F("STANDAGEの実績：これまでに各社のプロジェクトで開拓・やりとりしたバイヤーは {b}名（{c}社・{k}か国）。これらはその会社専用のバイヤーで、他社には開示せず、ネットワークの件数にも含めていません。",{b:tr.buyers.toLocaleString(),c:tr.companies.toLocaleString(),k:tr.countries})}<span>${v41F("貿易クラウド Ver.1 の集計・基準日 {d}",{d:tr.asof})}</span></p>
+  <div class="c" id="v41find">
+    <div class="v41hd"><h3>${nm("相手を探す")}</h3></div>
+    <p class="nn">${nm("条件に合う、ネットワークのバイヤーを探します。名前・連絡先と、ほかの会社との商談の状況は表示しません。")}</p>
+    <div class="v41fl">
+      <select class="sel" id="v41c" aria-label="${nm("国")}"><option value="">${nm("すべての国")}</option>${BN_CTY.map(([c])=>`<option value="${v41E(c)}" ${f.cty===c?"selected":""}>${nm(c)}</option>`).join("")}</select>
+      <select class="sel" id="v41k" aria-label="${nm("関心のカテゴリ")}"><option value="">${nm("すべてのカテゴリ")}</option>${BN_CATS.map(([k,n])=>`<option value="${k}" ${f.cat===k?"selected":""}>${nm(n)}</option>`).join("")}</select>
+      <select class="sel" id="v41z" aria-label="${nm("業態")}"><option value="">${nm("すべての業態")}</option>${bl.map(x=>`<option value="${v41E(x)}" ${f.biz===x?"selected":""}>${nm(x)}</option>`).join("")}</select></div>
+    <p class="v41sum" id="v41sum"></p>
+    <div class="tw" id="v41tw"><table class="v41tb"><thead><tr><th>${nm("相手")}</th><th>${nm("関心（本人の申告）")}</th><th>${nm("規模")}</th><th>${nm("参加")}</th><th></th></tr></thead><tbody id="v41b"></tbody></table></div>
+    <p class="nn v41foot">${v41F("一覧はトライアルの見本（架空）です。1回に{n}件まで表示し、一覧のダウンロードはできません。",{n:V41.list})}</p>
+  </div>
+  <div id="v41reqs"></div>
+  <div class="c" id="bnnet"><div class="rw" style="justify-content:space-between;align-items:center;gap:6px">
+      <h3>現地のSTANDAGEネットワーク</h3>
+      <button class="btn g" style="padding:4px 10px;font-size:11px;flex:none" onclick="openNetMgr()">✎ 拠点を管理</button></div>
+    <p class="nn">2029年度までに14拠点へ。現地の人が、現地の言葉と時間で動きます。ピンを押すかプルダウンで<b>拠点メンバーのプロフィール</b>が見られます。</p>
+    <div class="v41net">
+      <div class="v41map">
+        <div class="mapw" id="mapw" style="aspect-ratio:2/1;position:relative;overflow:hidden;border-radius:var(--r2);border:1px solid var(--line);background:#fdfdfc;touch-action:none;cursor:grab">
+          <div id="mapin" style="position:absolute;inset:0;transform-origin:0 0">
+          ${typeof WORLD_MAP_SVG!=="undefined"?WORLD_MAP_SVG:WORLD_SVG}
+          ${basesAll().map(b=>`<div class="pin ${b.o===2?"g":b.o?"o":""}" data-base="${esc(b.c)}" style="left:${b.x}%;top:${b.y}%;cursor:pointer"><i></i><span>${esc(b.c)}</span></div>`).join("")}</div>
+          <div class="rw" style="position:absolute;right:7px;top:7px;gap:4px;z-index:5">
+            <button class="btn g" data-mz="in" style="padding:2px 10px;font-size:14px;font-weight:800" title="拡大">＋</button>
+            <button class="btn g" data-mz="out" style="padding:2px 10px;font-size:14px;font-weight:800" title="縮小">−</button>
+            <button class="btn g" data-mz="reset" style="padding:2px 9px;font-size:11px" title="全体表示に戻す">⟳</button></div>
+        </div>
+        <p class="nn" style="margin-top:6px">＋−ボタンかマウスホイールで拡大・ドラッグで移動（国の形にマウスを乗せると国名が出ます）。<span style="color:var(--good);font-weight:700">緑</span>＝開設済み／<span style="color:var(--or);font-weight:700">オレンジ</span>＝2027年度に開設予定／青＝2028〜29年度に順次開設。</p></div>
+      <div class="v41staff">
+        <div class="rw" style="gap:6px">
+          <select class="sel" id="bsel">${Object.keys(staffAll()).map(k=>`<option>${esc(k)}</option>`).join("")}</select>
+          <button class="btn" id="breq">この拠点に依頼する</button></div>
+        <p class="nn" style="margin-top:5px">${nm("※拠点への依頼（引き合い開拓・商談代行）は別途費用（稼働費・成果報酬）が発生します。費用をかけずに始めるなら、上の「相手を探す」から「つなぐ依頼」をどうぞ。")}</p>
+        <div id="staffbox" style="margin-top:9px"></div>
+        <div class="v41how"><b>${nm("ネットワークに入るバイヤー")}</b><br>${nm("STANDAGEが自ら出会ったバイヤー（海外拠点の開拓・国際展示会・紹介・引き合い）に、STANDAGEを通じて複数の日本のサプライヤーから紹介を受けることへの同意をいただいて登録します。各社のプロジェクトで開拓したバイヤーは、その会社専用で、ネットワークには入りません。")}</div></div>
+    </div></div>`;
+}
+/* 一覧（相手を探す） */
+function v41Paint(){
+  const tb=document.getElementById("v41b"); if(!tb) return;
+  const f=V41.f||{cty:"",cat:"",biz:""}; const q=v41Query(f);
+  const sum=document.getElementById("v41sum");
+  if(sum){ const cond=[f.cty,f.cat?v41CatNm(f.cat):"",f.biz].filter(Boolean).map(v41T).join(" × ");
+    sum.innerHTML=(cond?v41F("{cond}：ネットワークに <b>{n}社</b>（見本）",{cond:v41E(cond),n:q.total.toLocaleString()})
+      :v41F("ネットワーク全体：<b>{n}社</b>・{k}か国（見本）。国・カテゴリ・業態で絞り込めます。",{n:q.total.toLocaleString(),k:q.ctys}))
+      +(q.total>q.rows.length?" "+v41F("うち{m}社を表示しています。",{m:q.rows.length}):""); }
+  tb.innerHTML=q.rows.length?q.rows.map(b=>{
+    const r=v41ReqOf(b.id), s=r?v41StOf(r):"";
+    const act=r?`<button class="v41chip ${s==="ok"?"v41okc":""}" data-v41open="${v41E(b.id)}" title="${v41E(v41T("依頼の状況を開く"))}">${s==="ok"?"✓ ":""}${v41E(v41T(v41StNm(s)))}</button>`
+      :`<button class="btn g v41cn v41row" data-v41c="${v41E(b.id)}">${v41E(v41T("つなぐ依頼"))}</button>`;
+    return `<tr><td><b>🔒 ${v41E(v41Who(b))}</b><span class="v41id">ID ${v41E(b.id)}</span></td>
+      <td><span class="p lo">${v41E(v41T(b.catNm))}</span> <span class="v41ints">${v41E(b.ints.map(v41T).join("・"))}</span></td>
+      <td class="v41s">${v41E(v41T(b.size))}</td><td class="v41s">${v41E(v41T(v41Joined(b.mAgo)))}</td><td class="v41a">${act}</td></tr>`; }).join("")
+    :`<tr><td colspan="5" class="v41none">${v41E(v41T("条件に合う相手は見本の中にいません。条件を広げてください。"))}</td></tr>`;
+  tb.querySelectorAll("[data-v41c]").forEach(x=>x.onclick=()=>v41OpenConnect(x.dataset.v41c));
+  tb.querySelectorAll("[data-v41open]").forEach(x=>x.onclick=()=>v41OpenReq(x.dataset.v41open));
+}
+/* 貴社専用の社数（承諾で増える） */
+function v41PaintOwn(){ const e=document.getElementById("v41own"); if(!e) return; const n=(typeof myBuyers==="function"?myBuyers().length:0); const t=v41F("自社のバイヤー {n}社",{n}); if(e.textContent!==t) e.textContent=t; }
+/* つなぐ依頼の状況（依頼が1件でもあるとき） */
+function v41PaintReqs(){
+  const box=document.getElementById("v41reqs"); if(!box) return;
+  const L=v41Reqs(); if(!L.length){ box.innerHTML=""; return; }
+  box.innerHTML=`<div class="c" id="v41reqcard"><div class="v41hd"><h3>${v41E(v41T("つなぐ依頼の状況"))}</h3><span class="v41cap">${v41F("今月 {u} / {c}件",{u:v41Month(),c:V41.cap})}</span></div>
+    <div class="tw"><table class="v41tb"><thead><tr><th>${v41E(v41T("相手"))}</th><th>${v41E(v41T("目的"))}</th><th>${v41E(v41T("依頼日"))}</th><th>${v41E(v41T("状況"))}</th><th></th></tr></thead><tbody>
+    ${L.slice(0,20).map(r=>{ const s=v41StOf(r); const mb=r.myId?(myBuyers().find(x=>x.id===r.myId)||null):null; const pn=(V41_PURP.find(x=>x[0]===r.purpose)||["",""])[1];
+      return `<tr><td>${mb?`<b>${v41E(mb.co)}</b>`:`<b>🔒 ${v41E(v41Who(r))}</b>`}<span class="v41id">ID ${v41E(r.id)}</span></td><td class="v41s">${v41E(v41T(pn))}${r.agent?"<br>"+v41E(v41T("現地の担当に任せる")):""}</td>
+        <td class="v41s">${v41E(String(r.at||"").slice(0,10))}</td><td>${v41Steps(s)}</td>
+        <td class="v41a">${mb?`<button class="btn v41cn" data-v41dm="${v41E(r.id)}">${v41E(v41T("やりとりを始める"))}</button>`:`<button class="btn g v41cn" data-v41open="${v41E(r.id)}">${v41E(v41T("開く"))}</button>`}</td></tr>`; }).join("")}
+    </tbody></table></div>
+    <p class="nn" style="margin-top:8px">${v41E(v41T("相手が承諾すると、名前と連絡先が貴社にだけ開示され、「貴社専用」のバイヤーに入ります。見送りの場合は開示されません。トライアルでは見本の進み方で表示します。"))}</p></div>`;
+  box.querySelectorAll("[data-v41open]").forEach(x=>x.onclick=()=>v41OpenReq(x.dataset.v41open));
+  box.querySelectorAll("[data-v41dm]").forEach(x=>x.onclick=()=>{ const r=v41ReqOf(x.dataset.v41dm); const mb=r&&r.myId?(myBuyers().find(y=>y.id===r.myId)||null):null; if(mb) try{ openDM(mb.id,mb.cty,mb.co); }catch(e){} });
+}
+/* やり取り中のBuyer（スレッドがあるときだけ・相手を探すの上） */
+function v41ThreadsMount(){
+  if(typeof cur==="undefined"||cur!=="db"||document.getElementById("bmThreadsCard")||typeof bmThreadsCardHtml!=="function") return;
+  if(!(typeof bmThreadsAll==="function"&&bmThreadsAll().length)) return;
+  const a=document.getElementById("v41find"); if(!a) return;
+  try{ bmInitStatus(); }catch(e){}
+  a.insertAdjacentHTML("beforebegin",bmThreadsCardHtml());
+  try{ bmThreadsPaint(); }catch(e){}
+  const q=document.getElementById("bmQ"); if(q){ let t=0; q.addEventListener("input",()=>{ clearTimeout(t); t=setTimeout(()=>{ BMF.q=q.value; bmThreadsPaint(); },120); }); }
+  document.querySelectorAll("#bmStF [data-bmst]").forEach(b=>b.onclick=()=>{ BMF.st=b.dataset.bmst||""; bmThreadsPaint(); });
+  const ra=document.getElementById("bmReAll"); if(ra) ra.onclick=async()=>{ ra.disabled=true; ra.textContent="判定中…"; const n=await bmJudgeAll({force:true}); ra.disabled=false; ra.textContent="🤖 全件を再判定"; toast(n+"件のステータスを判定し直しました"); };
+}
+function v41Bind(){
+  if(typeof cur==="undefined"||cur!=="db"||!document.getElementById("v41find")) return;
+  const sel=(id,k)=>{ const e=document.getElementById(id); if(e) e.onchange=()=>{ V41.f=V41.f||{}; V41.f[k]=e.value;
+    if(k==="cat"){ V41.f.biz=""; const z=document.getElementById("v41z"); if(z) z.innerHTML=`<option value="">${v41E(v41T("すべての業態"))}</option>`+v41BizList(V41.f.cat).map(x=>`<option value="${v41E(x)}">${v41E(v41T(x))}</option>`).join(""); }
+    v41Paint(); }; };
+  sel("v41c","cty"); sel("v41k","cat"); sel("v41z","biz");
+  v41Tick(); v41Paint(); v41PaintReqs(); v41ThreadsMount();
+  try{ if(typeof ux2SecNav==="function") ux2SecNav(); if(typeof ux17SecUpdate==="function") ux17SecUpdate(); }catch(e){}
+}
+if(typeof vDB==="function") vDB=v41View;
+{ const __r41=render; render=function(){ const r=__r41.apply(this,arguments); try{ v41Bind(); }catch(e){ console.warn("v41",e); } return r; }; }
+if(typeof rDB==="function"){ const __rdb41=rDB; rDB=function(){ const r=__rdb41.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="db"){ v41Paint(); v41PaintReqs(); } }catch(e){} return r; }; }
+
+/* 直接連絡：ネットワークの相手（やり取りの無いもの）は「つなぐ依頼」へ。承諾済みなら貴社専用のバイヤーとして開く */
+if(typeof openDM==="function"){ const __odm41=openDM; openDM=function(id,cty,biz){
+  try{ const sid=String(id||""); if(sid&&!/^MY-/.test(sid)){
+    const th=(typeof dmThreads==="function"?dmThreads():{})[sid];
+    if(!(th&&th.msgs&&th.msgs.length)){
+      const r=v41ReqOf(sid); if(r&&r.myId){ const mb=myBuyers().find(x=>x.id===r.myId); if(mb) return __odm41.call(this,mb.id,mb.cty,mb.co); }
+      if(v41Find(sid)) return v41OpenConnect(sid);
+      try{ toast(v41T("ネットワークの相手には「つなぐ依頼」からご連絡ください（相手が承諾すると連絡先が開示されます）")); }catch(e){}
+      try{ go("db"); }catch(e){} return; } } }catch(e){}
+  return __odm41.apply(this,arguments); }; }
+/* 見本の連絡先（example.com）には、メールの中継で実際には送らない（記録だけ） */
+if(typeof bmSend==="function"){ const __bs41=bmSend; bmSend=function(id,cty,biz,subj,body,lang,to,opts){
+  try{ if(/@example\.(com|org|net)$/i.test(String((typeof bmMailOf==="function"?bmMailOf(to):to)||""))) opts=Object.assign({},opts||{},{noRelay:1}); }catch(e){}
+  return __bs41.call(this,id,cty,biz,subj,body,lang,to,opts); }; }
+/* 内蔵 AI の見本データ（会社名・脈あり度・実績つきのネットワークの相手）を外す */
+try{ if(typeof PRODUCTS!=="undefined"&&PRODUCTS) Object.values(PRODUCTS).forEach(p=>{ if(p&&Array.isArray(p.dbr)) p.dbr=[]; }); }catch(e){}
+
+/* ── AI商社マン：参照データと答え方の決まり ── */
+if(typeof bnCtxDb==="function") bnCtxDb=function(){
+  try{
+    const tr=v41Track(), P=v41Pool(); const by={}; P.forEach(b=>{ by[b.cty]=(by[b.cty]||0)+1; });
+    const my=v41MyCat(), myN=my?P.filter(b=>b.cat===my).length:0; const R=v41Reqs(); const own=(typeof myBuyers==="function"?myBuyers().length:0);
+    return `## バイヤーネットワーク・拠点（見える範囲の決まりつき）
+見える範囲は3つ：①公開情報（会社名・URL・国・業種など公開されている会社の情報。担当者個人の情報は含めない）②STANDAGEネットワーク（STANDAGEを通じて複数のサプライヤーから紹介を受けることに同意したバイヤー。国・業態・関心＝本人の申告・規模・参加時期まで）③貴社専用（貴社が登録・開拓したバイヤー。貴社だけが見られる）
+ネットワーク（トライアルの見本・架空）：${P.length.toLocaleString()}社・${Object.keys(by).length}か国。多い国：${Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([c,n])=>c+" "+n+"社").join("、")}${my?`／自社カテゴリ（${v41CatNm(my)}）に関心 ${myN}社`:""}
+貴社専用のバイヤー：${own}社／つなぐ依頼：${R.length}件（承諾 ${R.filter(r=>v41StOf(r)==="ok").length}件）
+STANDAGEの実績（貿易クラウド Ver.1 の集計・基準日 ${tr.asof}）：各社のプロジェクトで開拓・やりとりしたバイヤー ${tr.buyers.toLocaleString()}名・${tr.companies.toLocaleString()}社・${tr.countries}か国。各社専用のため個々の相手は他社に開示しない。ネットワークの件数ではない
+答え方の決まり：
+・ネットワークの相手の会社名・担当者名・メール・電話・SNSは答えない。「つなぐ依頼」を出し、相手が承諾すると、依頼した会社にだけ開示される
+・ほかの会社やSTANDAGEの商談から分かったこと（商談の有無・取引実績・脈あり度・価格・仕入額・商談メモ）は、ネットワークの相手について答えない
+・答えてよいのは、条件ごとの件数と、匿名の属性（ID・国・業態・関心・規模・参加時期）まで。一覧は1回に10件まで。一覧の書き出しはできない
+・連絡したいと言われたら「バイヤーネットワーク・拠点 › 相手を探す › つなぐ依頼」を案内する。現地の担当に商談まで任せる場合は、つなぐ依頼の中で選べる（別途費用）。貴社専用のバイヤーには直接連絡できる`;
+  }catch(e){ return ""; }
+};
+function v41Line(b){ return `${b.id}｜${b.cty}｜${b.biz}｜関心（本人の申告）:${b.catNm}・${b.ints.join("・")}｜${b.size}｜参加:${v41Joined(b.mAgo)}`; }
+if(typeof bnCtxFor==="function") bnCtxFor=function(q){
+  let s="";
+  try{
+    const c=bnFindCty(q);
+    if(c&&/バイヤー|買い手|buyer|取引先|輸入|販路|開拓|卸|小売|商社/i.test(String(q))){
+      const all=v41Pool().filter(b=>b.cty===c); const rows=v41Sort(all,v41MyCat()).slice(0,10);
+      if(rows.length) s=`=== バイヤーネットワーク照会：${c}（トライアルの見本・計 ${all.length}社） ===
+カテゴリ別：${v41CatBreak(all)}
+匿名の見本 ${rows.length}件（自社カテゴリを優先）：
+${rows.map(v41Line).join("\n")}
+※名前・連絡先と、ほかの会社との商談の状況は答えない。連絡は「つなぐ依頼」から（相手が承諾すると、依頼した会社にだけ開示）。`;
+    }
+    if(typeof V186!=="undefined"&&V186&&V186.buyer){ if(!s) s=v186BuyerCtxNoCty(); if(s) s+="\n\n"+v186BuyerGuide(); }
+  }catch(e){}
+  return s;
+};
+if(typeof v186BuyerCtxNoCty==="function") v186BuyerCtxNoCty=function(){
+  try{ const my=v41MyCat(), P=v41Pool(); const by={}; P.forEach(b=>{ by[b.cty]=(by[b.cty]||0)+1; });
+    const rows=my?v41Sort(P.filter(b=>b.cat===my),my).slice(0,10):[];
+    return `=== バイヤーネットワーク照会（国の指定なし・トライアルの見本）：計 ${P.length.toLocaleString()}社・${Object.keys(by).length}か国 ===
+多い国：${Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([c,n])=>c+" "+n+"社").join("、")}
+${rows.length?`自社カテゴリ（${v41CatNm(my)}）に関心のある相手（匿名の見本 ${rows.length}件）：\n${rows.map(v41Line).join("\n")}`:""}
+※名前・連絡先は答えない（つなぐ依頼で相手が承諾すると、依頼した会社にだけ開示）。`; }catch(e){ return ""; }
+};
+if(typeof v186BuyerGuide==="function") v186BuyerGuide=function(){
+  let prod=[]; try{ if(typeof D!=="undefined"&&D){ if(D.item) prod.push("商品："+D.item); if(D.cat) prod.push("カテゴリ："+D.cat); if(D.hs) prod.push("HS："+D.hs); const st=(D.strengths||[]).slice(0,3).map(x=>x&&x[0]).filter(Boolean); if(st.length) prod.push("強み："+st.join("／")); } }catch(e){}
+  return `=== 回答の指針（バイヤー照会は接続AIが推論して答える） ===
+自社商品：${prod.join("／")||"（未登録）"}
+・候補は上の照会結果にあるID付きの匿名の相手だけ。IDの無い相手や会社名を作らない。名前・連絡先は「つなぐ依頼で相手が承諾すると開示」と案内する
+・条件（相性・見込み・優先順位など）があるときは、ネットワークの相手について「ほかの会社との商談の状況や実績は使わない」ことを一言添え、
+  ①関心（本人の申告）と自社商品の一致 ②業態（販路として合うか）③規模 ④国（確定した販売先国か）を根拠に「高／中／低」で段階評価し、
+  Markdown の表（見出し行「| ID | 業態 | 関心 | 評価 | 根拠 |」、評価は 高／中／低 の1語、根拠は40字以内）で示す。合わない候補は除外し、理由を一言添える
+・自社商品と無関係な業態は候補にしない
+・最後に次の一手を1〜2行（「相手を探す」の絞り込み条件と、「つなぐ依頼」で伝える目的・ひと言の要点）`;
+};
+if(typeof bnAsk==="function") bnAsk=function(q){
+  if(typeof V186!=="undefined"&&V186&&V186.skipBn) return null;
+  const s=String(q||"");
+  if(!/バイヤー|買い手|buyer/i.test(s)) return null;
+  if(!/リスト|一覧|全て|すべて|何社|何名|何件|件数|教えて|探し|紹介|挙げて|あげて|いますか|います？|いる？|ありますか|ある？/.test(s)) return null;
+  const c=bnFindCty(s), my=v41MyCat(), P=v41Pool();
+  const tbl=rows=>`<div class="tw" style="margin-top:8px;max-height:300px"><table><thead><tr><th>ID</th><th>業態</th><th>関心（本人の申告）</th><th>規模</th><th>参加</th></tr></thead><tbody>
+    ${rows.map(b=>`<tr><td class="n">${esc(b.id)}</td><td>${esc(b.biz)}</td><td style="font-size:10.5px">${esc(b.catNm)}・${esc(b.ints.join("・"))}</td><td style="font-size:10.5px">${esc(b.size)}</td><td style="font-size:10.5px">${esc(v41Joined(b.mAgo))}</td></tr>`).join("")}</tbody></table></div>`;
+  let a;
+  if(c){ const all=P.filter(b=>b.cty===c); const rows=v41Sort(all,my).slice(0,10);
+    a=`<b>${esc(c)}のバイヤーネットワーク：${all.length}社</b>（トライアルの見本）。カテゴリ別：${esc(v41CatBreak(all))}。<br>
+匿名の見本 ${rows.length}件${my?`（${esc(v41CatNm(my))}に関心のある相手を優先）`:""}です。名前・連絡先と、ほかの会社との商談の状況はお伝えしていません。`+tbl(rows)+
+`<p class="nn" style="margin-top:6px">連絡したい相手がいれば、「バイヤーネットワーク・拠点」の<b>相手を探す</b>で同じIDの行から<b>つなぐ依頼</b>を出してください。STANDAGEが相手に貴社をご紹介し、相手が承諾すると、連絡先が貴社にだけ開示されます。</p>`;
+  }else{ const by={}; P.forEach(b=>{ by[b.cty]=(by[b.cty]||0)+1; }); const myN=my?P.filter(b=>b.cat===my).length:0;
+    a=`バイヤーネットワーク（トライアルの見本）は<b>${P.length.toLocaleString()}社・${Object.keys(by).length}か国</b>です${my?`。うち${esc(v41CatNm(my))}に関心のある相手は<b>${myN}社</b>`:""}。<br>
+多い国：${Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([cc,n])=>`${esc(cc)} ${n}社`).join("、")} ほか。<br>
+国名を入れて聞くと（例：「ドイツのバイヤーは？」）、その国の匿名の見本をお出しします。連絡は<b>つなぐ依頼</b>から（相手が承諾すると、連絡先が貴社にだけ開示されます）。`;
+  }
+  return {a,c:"バイヤーネットワーク（トライアルの見本）を照会／名前・連絡先は、つなぐ依頼で相手が承諾すると依頼した会社にだけ開示"};
+};
+
+/* 見た目 */
+(function(){ const st=document.createElement("style"); st.id="v41css"; st.textContent=`
+.v41tiers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:10px}
+.v41t{display:flex;flex-direction:column;gap:7px;padding:16px 18px;margin:0}
+.v41k{font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--ink-3)}
+.v41h{font-size:16px;line-height:1.45;color:var(--ink)}
+.v41t p{margin:0;font-size:13px;line-height:1.75;color:var(--ink-2)}
+.v41t.v41on{border-color:var(--or);box-shadow:inset 0 0 0 1px var(--or)}
+.v41chip{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;margin-top:auto;font:inherit;font-size:12px;font-weight:600;line-height:1.4;padding:3px 11px;border-radius:999px;border:1px solid var(--line);background:var(--sunk);color:var(--ink-2)}
+button.v41chip{cursor:pointer;margin:0}
+.v41on .v41chip{background:var(--or-soft);border-color:transparent;color:var(--or-deep)}
+.v41chip.v41okc{background:var(--or-soft);border-color:var(--or);color:var(--or-deep)}
+.v41chip.v41ng{background:var(--sunk);color:var(--ink-3)}
+.v41acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.v41acts .btn{padding:5px 12px;font-size:12px}
+.v41rec{margin:0 2px 14px;font-size:12.5px;line-height:1.8;color:var(--ink-3)}
+.v41rec span{display:inline-block;margin-left:6px;font-size:11.5px}
+.v41hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.v41cap{font-size:12px;color:var(--ink-3)}
+.v41fl{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.v41fl .sel{min-width:150px}
+.v41sum{margin:12px 0 8px;font-size:13.5px;color:var(--ink-2)}
+#v41tw{max-height:min(62vh,640px);overflow:auto}
+.v41tb td{vertical-align:middle}
+.v41id{display:block;margin-top:2px;font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.v41ints{font-size:12px;color:var(--ink-2)}
+.v41s{font-size:12px;color:var(--ink-2);white-space:nowrap}
+.v41a{text-align:right;white-space:nowrap}
+.btn.v41cn{padding:5px 12px;font-size:12px}
+.btn.g.v41row{color:var(--or-deep);border-color:color-mix(in srgb,var(--or) 45%,var(--line));background:var(--surface)}
+.btn.g.v41row:hover{background:var(--or-soft);border-color:var(--or)}
+.v41none{text-align:center;color:var(--ink-3);padding:18px}
+.v41foot{margin-top:8px}
+#v41reqs:empty{display:none}
+.v41steps{display:flex;gap:4px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
+.v41steps li{font-size:11px;line-height:1.4;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--ink-3);white-space:nowrap}
+.v41steps li.dn{background:var(--or-soft);color:var(--or-deep)}
+.v41steps li.on{background:var(--or);color:#fff;font-weight:700}
+.v41steps.v41big{margin-top:12px}.v41steps.v41big li{font-size:12.5px;padding:4px 11px}
+.v41flow{margin:12px 0 0;padding-left:1.4em;display:grid;gap:6px;font-size:13px;line-height:1.7;color:var(--ink-2)}
+.v41pp{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.v41pc{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;font-size:12.5px;cursor:pointer;background:var(--surface)}
+.v41pc:has(input:checked){border-color:var(--or);background:var(--or-soft);color:var(--or-deep);font-weight:600}
+.v41pc input{margin:0;accent-color:var(--or)}
+.v41ck{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12.5px;color:var(--ink-2)}
+.v41ok{margin-top:12px;padding:12px 14px;border-radius:var(--r2);background:var(--or-soft);font-size:13px;line-height:1.8}
+.v41net{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;margin-top:10px;align-items:start}
+.v41how{margin-top:12px;padding:10px 12px;border-radius:var(--r2);background:var(--or-soft);font-size:12px;line-height:1.75}
+.v41how b{color:var(--or-deep)}
+#bnnet{margin-top:11px}
+@media (max-width:900px){ .v41tiers{grid-template-columns:1fr} .v41net{grid-template-columns:1fr} .v41a{text-align:left} }
+`; document.head.appendChild(st); })();
+
+/* お知らせ（📰 新機能と改善） */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)){
+  if(!S30_NEWS.some(x=>x&&x[1]==="v21.40")) S30_NEWS.unshift(["2026-10","v21.40","見出しの横の「使い方を見る」で、その画面の説明をその場で",
+    ["どの画面も、見出しの下の「この画面でわかること」をやめ、見出しの横に「▶ 使い方を見る」を置きました",
+     "押すと、画面はそのままで、はじめてガイドのその画面のページが開きます（動きつき）。× か Esc で閉じます"]]);
+  if(!S30_NEWS.some(x=>x&&x[1]==="v21.41")) S30_NEWS.unshift(["2026-10","v21.41","バイヤーネットワーク：条件で探して、STANDAGEが「つなぐ」形に",
+    ["「バイヤーDB」を「バイヤーネットワーク」に。見える範囲を、公開情報・STANDAGEネットワーク・貴社専用の3つに分けました",
+     "ネットワークの相手は「つなぐ依頼」から。STANDAGEがご紹介し、相手が承諾すると、名前と連絡先が貴社にだけ開示されます",
+     "各社のプロジェクトで開拓したバイヤーは、その会社専用です。ほかの会社には一切見えません"]]);
+} }catch(e){}
+
+/* ── 英・中・西 ── */
+try{ if(typeof v30I18n==="function") v30I18n([["UAE","UAE","阿联酋","EAU"],["アメリカ","United States","美国","Estados Unidos"],["香港","Hong Kong","香港","Hong Kong"],["シンガポール","Singapore","新加坡","Singapur"],["エジプト","Egypt","埃及","Egipto"],["フランス","France","法国","Francia"],["インドネシア","Indonesia","印度尼西亚","Indonesia"],["日本","Japan","日本","Japón"],["台湾","Taiwan","台湾","Taiwán"],["マレーシア","Malaysia","马来西亚","Malasia"],["タイ","Thailand","泰国","Tailandia"],["インド","India","印度","India"],["イギリス","United Kingdom","英国","Reino Unido"],["オーストラリア","Australia","澳大利亚","Australia"],["ナイジェリア","Nigeria","尼日利亚","Nigeria"],["ベトナム","Vietnam","越南","Vietnam"],["サウジアラビア","Saudi Arabia","沙特阿拉伯","Arabia Saudí"],["ドイツ","Germany","德国","Alemania"],["韓国","South Korea","韩国","Corea del Sur"],["中国","China","中国","China"],["カナダ","Canada","加拿大","Canadá"],["タンザニア","Tanzania","坦桑尼亚","Tanzania"],["ケニア","Kenya","肯尼亚","Kenia"],["フィリピン","Philippines","菲律宾","Filipinas"],["イタリア","Italy","意大利","Italia"],["オランダ","Netherlands","荷兰","Países Bajos"]]); }catch(e){}
+(function(){
+  const R=[
+  ["公開情報","Public info","公开信息","Información pública"],
+  ["会社の公開情報","Public company information","企业公开信息","Información pública de empresas"],
+  ["会社名・URL・国・業種など、公開されている会社の情報です。担当者個人の情報は含みません。","Company name, URL, country, industry and other publicly available company information. Personal details of individual contacts are not included.","公司名称・网址・国家・行业等公开的企业信息。不含联系人个人信息。","Nombre, URL, país, sector y otra información pública de la empresa. No incluye datos personales de los contactos."],
+  ["ご契約後に閲覧（一括ダウンロードなし）","Viewable after contract (no bulk download)","签约后可查看（不可批量下载）","Visible tras el contrato (sin descarga masiva)"],
+  ["STANDAGEネットワーク","STANDAGE Network","STANDAGE网络","Red STANDAGE"],
+  ["条件で探して、つないでもらう","Search by criteria, then get introduced","按条件查找，由我们为您引荐","Busque por criterios y le presentamos"],
+  ["参加に同意したバイヤーです。見えるのは国・業態・関心・規模まで。名前と連絡先は、相手が承諾してから貴社にだけ開示されます。","Buyers who agreed to join. You see country, business type, interests and size only. Names and contacts are disclosed only to you, after the buyer accepts.","同意加入的买家。仅可查看国家・业态・关注・规模。名称和联系方式在对方接受后仅向贵公司公开。","Compradores que aceptaron unirse. Solo ve país, tipo de negocio, intereses y tamaño. El nombre y el contacto se le revelan solo a usted, tras la aceptación del comprador."],
+  ["下の「相手を探す」","Use “Find buyers” below","使用下方“寻找对象”","Use «Buscar compradores» abajo"],
+  ["貴社専用","Your company only","贵公司专用","Solo su empresa"],
+  ["自社のバイヤー {n}社","Your buyers: {n}","自有买家 {n}家","Sus compradores: {n}"],
+  ["貴社が登録・開拓したバイヤーです。他社には一切見えません。","Buyers your company registered or developed. Never visible to other companies.","贵公司登记・开拓的买家。其他公司完全看不到。","Compradores que su empresa registró o captó. Nunca son visibles para otras empresas."],
+  ["＋ 追加","＋ Add","＋ 添加","＋ Añadir"],["一覧を見る","View list","查看列表","Ver lista"],
+  ["STANDAGEの実績：これまでに各社のプロジェクトで開拓・やりとりしたバイヤーは {b}名（{c}社・{k}か国）。これらはその会社専用のバイヤーで、他社には開示せず、ネットワークの件数にも含めていません。","STANDAGE track record: {b} buyers ({c} companies, {k} countries) developed or contacted in each client’s projects. They belong to that client only, are never disclosed to other companies, and are not counted in the network.","STANDAGE实绩：迄今在各公司项目中开拓・往来的买家 {b} 名（{c} 家公司・{k} 个国家）。这些买家归该公司专用，不向其他公司公开，也不计入网络数量。","Trayectoria de STANDAGE: {b} compradores ({c} empresas, {k} países) captados o contactados en los proyectos de cada cliente. Pertenecen solo a ese cliente, nunca se revelan a otras empresas y no se cuentan en la red."],
+  ["貿易クラウド Ver.1 の集計・基準日 {d}","Trade Cloud Ver.1 aggregate · as of {d}","贸易云 Ver.1 统计・基准日 {d}","Agregado de Trade Cloud Ver.1 · a {d}"],
+  ["相手を探す","Find buyers","寻找对象","Buscar compradores"],
+  ["条件に合う、ネットワークのバイヤーを探します。名前・連絡先と、ほかの会社との商談の状況は表示しません。","Find network buyers that match your criteria. Names, contacts and their dealings with other companies are not shown.","查找符合条件的网络买家。不显示名称・联系方式及与其他公司的商谈情况。","Busque compradores de la red que encajen. No se muestran nombres, contactos ni sus tratos con otras empresas."],
+  ["国","Country","国家","País"],["関心のカテゴリ","Category of interest","关注类别","Categoría de interés"],["業態","Business type","业态","Tipo de negocio"],["すべての業態","All business types","所有业态","Todos los tipos"],
+  ["相手","Buyer","对象","Comprador"],["関心（本人の申告）","Interests (self-declared)","关注（本人申报）","Intereses (declarados)"],["参加","Joined","加入","Alta"],
+  ["一覧はトライアルの見本（架空）です。1回に{n}件まで表示し、一覧のダウンロードはできません。","The list is a fictional trial sample. Up to {n} rows are shown at a time, and the list cannot be downloaded.","列表为试用样本（虚构）。每次最多显示 {n} 条，无法下载列表。","La lista es una muestra ficticia de prueba. Se muestran hasta {n} filas y no se puede descargar."],
+  ["{cond}：ネットワークに <b>{n}社</b>（見本）","{cond}: <b>{n}</b> in the network (sample)","{cond}：网络中 <b>{n}家</b>（样本）","{cond}: <b>{n}</b> en la red (muestra)"],
+  ["ネットワーク全体：<b>{n}社</b>・{k}か国（見本）。国・カテゴリ・業態で絞り込めます。","Whole network: <b>{n}</b> buyers in {k} countries (sample). Filter by country, category and business type.","网络整体：<b>{n}家</b>・{k}个国家（样本）。可按国家・类别・业态筛选。","Toda la red: <b>{n}</b> compradores en {k} países (muestra). Filtre por país, categoría y tipo de negocio."],
+  ["うち{m}社を表示しています。","Showing {m}.","显示其中 {m} 家。","Se muestran {m}."],
+  ["条件に合う相手は見本の中にいません。条件を広げてください。","No matching buyers in the sample. Try broader criteria.","样本中没有符合条件的对象。请放宽条件。","No hay compradores en la muestra. Amplíe los criterios."],
+  ["つなぐ依頼","Request introduction","请求引荐","Solicitar presentación"],["依頼の状況を開く","Open request status","打开请求状态","Ver el estado"],
+  ["受付済み","Received","已受理","Recibida"],["STANDAGEが確認中","STANDAGE reviewing","STANDAGE确认中","STANDAGE revisando"],["相手に紹介済み","Introduced","已引荐","Presentado"],["承諾（開示済み）","Accepted (disclosed)","已接受（已公开）","Aceptada (revelado)"],["見送り","Declined","婉拒","Rechazada"],["見送り（開示されません）","Declined (not disclosed)","婉拒（不公开）","Rechazada (no se revela)"],
+  ["つなぐ依頼の状況","Introduction requests","引荐请求状态","Solicitudes de presentación"],["今月 {u} / {c}件","This month {u} / {c}","本月 {u} / {c}件","Este mes {u} / {c}"],
+  ["目的","Purpose","目的","Objetivo"],["依頼日","Requested","请求日","Fecha"],["状況","Status","状态","Estado"],["開く","Open","打开","Abrir"],["やりとりを始める","Start conversation","开始沟通","Iniciar conversación"],
+  ["相手が承諾すると、名前と連絡先が貴社にだけ開示され、「貴社専用」のバイヤーに入ります。見送りの場合は開示されません。トライアルでは見本の進み方で表示します。","When the buyer accepts, the name and contact are disclosed only to you and added to “Your company only”. If declined, nothing is disclosed. The trial shows a sample progression.","对方接受后，名称和联系方式仅向贵公司公开，并加入“贵公司专用”买家。若婉拒则不公开。试用中按样本流程显示。","Si el comprador acepta, el nombre y el contacto se le revelan solo a usted y pasan a «Solo su empresa». Si rechaza, no se revela nada. La prueba muestra un avance de ejemplo."],
+  ["宛先","To","收件对象","Para"],
+  ["STANDAGEの担当が、依頼の内容を確認します","A STANDAGE representative reviews your request","STANDAGE负责人确认请求内容","Un responsable de STANDAGE revisa su solicitud"],
+  ["相手に貴社をご紹介します（貴社の会社名・商品と、下のひと言をお伝えします）","We introduce your company to the buyer (your company name, product and the note below)","向对方引荐贵公司（告知贵公司名称・商品及下方留言）","Presentamos su empresa al comprador (nombre, producto y la nota de abajo)"],
+  ["相手が承諾すると、相手の会社名・担当者・連絡先が貴社にだけ開示され、「貴社専用」のバイヤーに入ります。見送りの場合は開示されません","If the buyer accepts, their company name, contact person and details are disclosed only to you and added to “Your company only”. If declined, nothing is disclosed","对方接受后，其公司名称・负责人・联系方式仅向贵公司公开，并加入“贵公司专用”买家。若婉拒则不公开","Si acepta, su nombre de empresa, contacto y datos se le revelan solo a usted y pasan a «Solo su empresa». Si rechaza, no se revela nada"],
+  ["依頼の目的","Purpose of the request","请求目的","Objetivo de la solicitud"],
+  ["サンプルを送りたい","Send samples","想寄送样品","Enviar muestras"],["見積を出したい","Send a quotation","想报价","Enviar una cotización"],["オンラインで商談したい","Hold an online meeting","想在线商谈","Reunión en línea"],["まず資料を送りたい","Send materials first","想先寄送资料","Enviar materiales primero"],
+  ["相手へのひと言（任意）","Note to the buyer (optional)","给对方的留言（可选）","Nota para el comprador (opcional)"],
+  ["例：{item}をご提案できます。まずはサンプルをお送りしたいです。","e.g. We can offer {item}. We would like to send samples first.","例：可为您推荐{item}。希望先寄送样品。","Ej.: Podemos ofrecer {item}. Nos gustaría enviar muestras primero."],
+  ["貴社の商品","your product","贵公司的商品","su producto"],
+  ["STANDAGEが相手の言葉に直してお伝えします。連絡先やURLは書かないでください（承諾後にやりとりできます）","STANDAGE will pass it on in the buyer’s language. Please do not include contact details or URLs (you can talk after acceptance)","STANDAGE会译成对方语言转达。请勿填写联系方式或网址（接受后即可沟通）","STANDAGE lo transmitirá en el idioma del comprador. No incluya datos de contacto ni URLs (podrá hablar tras la aceptación)"],
+  ["現地の担当に、商談まで任せる（別途費用：稼働費・成果報酬）","Let our local team handle the negotiation (separate fee: work fee + success fee)","交由当地负责人代为商谈（另行收费：工时费・成果报酬）","Que nuestro equipo local lleve la negociación (tarifa aparte: trabajo + éxito)"],
+  ["つなぐ依頼を出す","Send introduction request","提交引荐请求","Enviar solicitud"],["やめる","Cancel","取消","Cancelar"],
+  ["今月の上限（{cap}件）に達しました。来月またご利用いただくか、担当のSTANDAGE営業・CSにご相談ください。","You have reached this month’s limit ({cap}). Please try again next month or contact your STANDAGE representative.","已达到本月上限（{cap}件）。请下月再使用，或联系STANDAGE负责人。","Ha alcanzado el límite mensual ({cap}). Vuelva el próximo mes o consulte a su responsable de STANDAGE."],
+  ["今月の依頼：{used} / {cap}件。依頼と承諾は記録に残ります。","Requests this month: {used} / {cap}. Requests and acceptances are logged.","本月请求：{used} / {cap}件。请求与接受均会留存记录。","Solicitudes este mes: {used} / {cap}. Las solicitudes y aceptaciones quedan registradas."],
+  ["トライアルの相手は見本のため、見本の進み方（確認 → 紹介 → 承諾）で表示します。","Trial buyers are samples, so a sample progression is shown (review → introduction → acceptance).","试用中的对象为样本，按样本流程（确认 → 引荐 → 接受）显示。","Los compradores de prueba son ejemplos; se muestra un avance de ejemplo (revisión → presentación → aceptación)."],
+  ["今月の上限（{cap}件）に達しました","Monthly limit reached ({cap})","已达本月上限（{cap}件）","Límite mensual alcanzado ({cap})"],
+  ["ひと言には連絡先やURLを書かないでください（承諾後にやりとりできます）","Please do not include contact details or URLs in the note (you can talk after acceptance)","留言中请勿填写联系方式或网址（接受后即可沟通）","No incluya datos de contacto ni URLs en la nota (podrá hablar tras la aceptación)"],
+  ["つなぐ依頼を出しました。STANDAGEの担当が確認します","Introduction request sent. A STANDAGE representative will review it","已提交引荐请求。STANDAGE负责人将进行确认","Solicitud enviada. Un responsable de STANDAGE la revisará"],
+  ["🤝 {who}が承諾しました（見本）。連絡先を「貴社専用」のバイヤーに入れました","🤝 {who} accepted (sample). Their contact was added to “Your company only”","🤝 {who}已接受（样本）。联系方式已加入“贵公司专用”买家","🤝 {who} aceptó (ejemplo). Su contacto se añadió a «Solo su empresa»"],
+  ["この相手は見つかりませんでした","This buyer was not found","未找到该对象","No se encontró este comprador"],
+  ["相手へのひと言","Note to the buyer","给对方的留言","Nota para el comprador"],["現地の担当に任せる","Handled by local team","交由当地负责人","Equipo local"],
+  ["開示された連絡先（見本）","Disclosed contact (sample)","已公开的联系方式（样本）","Contacto revelado (ejemplo)"],
+  ["「貴社専用」のバイヤーに入りました。ここからは直接連絡できます。","Added to “Your company only”. You can now contact them directly.","已加入“贵公司专用”买家。之后可直接联系。","Añadido a «Solo su empresa». Ya puede contactar directamente."],
+  ["自社のバイヤーを見る","View your buyers","查看自有买家","Ver sus compradores"],
+  ["相手が承諾すると、ここに相手の会社名・担当者・連絡先が出ます（貴社にだけ）。見送りの場合は開示されません。","When the buyer accepts, their company name, contact person and details appear here (for you only). If declined, nothing is disclosed.","对方接受后，此处将显示其公司名称・负责人・联系方式（仅限贵公司）。若婉拒则不公开。","Cuando el comprador acepte, aquí aparecerán su empresa, contacto y datos (solo para usted). Si rechaza, no se revela nada."],
+  ["ネットワークの相手には「つなぐ依頼」からご連絡ください（相手が承諾すると連絡先が開示されます）","Please contact network buyers via “Request introduction” (contacts are disclosed once they accept)","请通过“请求引荐”联系网络中的对象（对方接受后公开联系方式）","Contacte a los compradores de la red mediante «Solicitar presentación» (el contacto se revela al aceptar)"],
+  ["※拠点への依頼（引き合い開拓・商談代行）は別途費用（稼働費・成果報酬）が発生します。費用をかけずに始めるなら、上の「相手を探す」から「つなぐ依頼」をどうぞ。","* Requests to a base (lead generation, negotiation on your behalf) incur a separate fee (work fee + success fee). To start at no cost, use “Request introduction” in “Find buyers” above.","※委托据点（开拓询盘・代为商谈）另行收费（工时费・成果报酬）。如想免费开始，请使用上方“寻找对象”中的“请求引荐”。","* Las solicitudes a una base (captación, negociación en su nombre) tienen tarifa aparte (trabajo + éxito). Para empezar sin coste, use «Solicitar presentación» en «Buscar compradores»."],
+  ["ネットワークに入るバイヤー","Who joins the network","加入网络的买家","Quién entra en la red"],
+  ["STANDAGEが自ら出会ったバイヤー（海外拠点の開拓・国際展示会・紹介・引き合い）に、STANDAGEを通じて複数の日本のサプライヤーから紹介を受けることへの同意をいただいて登録します。各社のプロジェクトで開拓したバイヤーは、その会社専用で、ネットワークには入りません。","Buyers STANDAGE meets directly (overseas bases, trade shows, referrals, inquiries) are registered after they agree to receive introductions from multiple Japanese suppliers through STANDAGE. Buyers developed in a client’s project belong to that client only and never enter the network.","STANDAGE亲自接触的买家（海外据点开拓・国际展会・介绍・询盘），在其同意通过STANDAGE接受多家日本供应商引荐后登记。各公司项目中开拓的买家归该公司专用，不进入网络。","Los compradores que STANDAGE conoce directamente (bases, ferias, referencias, consultas) se registran tras aceptar recibir presentaciones de varios proveedores japoneses a través de STANDAGE. Los compradores captados en el proyecto de un cliente son solo de ese cliente y nunca entran en la red."],
+  ["年商 $1M未満","Revenue < $1M","年营业额 $1M以下","Facturación < 1 M$"],["年商 $1〜5M","Revenue $1–5M","年营业额 $1〜5M","Facturación 1–5 M$"],["年商 $5〜20M","Revenue $5–20M","年营业额 $5〜20M","Facturación 5–20 M$"],["年商 $20M超","Revenue > $20M","年营业额 $20M以上","Facturación > 20 M$"],
+  ["バイヤーネットワークで「つなぐ依頼」、または自社のバイヤーを追加","Request an introduction in the Buyer Network, or add your own buyers","在买家网络中“请求引荐”，或添加自有买家","Solicite una presentación en la Red de compradores o añada sus compradores"],
+  ["まずは「バイヤーネットワーク・拠点」で「つなぐ依頼」を出すか、自社のバイヤーに直接連絡して、やり取りを始めてください。","Start by sending a “Request introduction” in “Buyer Network & bases”, or contact one of your own buyers directly.","请先在“买家网络・据点”中“请求引荐”，或直接联系自有买家，开始往来沟通。","Empiece enviando una «Solicitud de presentación» en «Red de compradores y bases» o contacte directamente a uno de sus compradores."],
+  ["バイヤーネットワークの相手は、つなぐ依頼で相手が承諾すると、名称・連絡先が貴社にだけ開示されます。開示された情報や、独自に分かったことをここに残せます。","For Buyer Network contacts, the name and contact details are disclosed only to you once the buyer accepts your introduction request. Record the disclosed information and anything you learn yourself here.","买家网络中的对象，在其接受引荐请求后，名称・联系方式仅向贵公司公开。可以在这里记录已公开的信息和自己了解到的情况。","En los contactos de la Red de compradores, el nombre y los datos se le revelan solo a usted cuando el comprador acepta la presentación. Anote aquí lo revelado y lo que averigüe."],
+  ["見出しの横の「使い方を見る」で、その画面の説明をその場で","“How to use” next to each heading opens that screen’s guide on the spot","在标题旁“使用方法”即可当场查看该页面说明","«Cómo usar» junto al título abre la guía de esa pantalla al instante"],
+  ["どの画面も、見出しの下の「この画面でわかること」をやめ、見出しの横に「▶ 使い方を見る」を置きました","Every screen now has “▶ How to use” next to its heading instead of the “What this page shows” line","各页面取消了标题下方的“本页可见”，改为在标题旁放置“▶ 使用方法”","Cada pantalla tiene ahora «▶ Cómo usar» junto al título en lugar de la línea «Qué muestra esta página»"],
+  ["押すと、画面はそのままで、はじめてガイドのその画面のページが開きます（動きつき）。× か Esc で閉じます","Pressing it opens that screen’s page of the Getting Started Guide (animated) without leaving the screen. Close with × or Esc","点击后在不离开当前页面的情况下打开入门指南的对应页面（带动画）。按 × 或 Esc 关闭","Al pulsarlo se abre la página de esa pantalla en la Guía de inicio (animada) sin salir. Cierre con × o Esc"],
+  ["バイヤーネットワーク：条件で探して、STANDAGEが「つなぐ」形に","Buyer Network: search by criteria, and STANDAGE introduces you","买家网络：按条件查找，由STANDAGE“引荐”","Red de compradores: busque por criterios y STANDAGE le presenta"],
+  ["「バイヤーDB」を「バイヤーネットワーク」に。見える範囲を、公開情報・STANDAGEネットワーク・貴社専用の3つに分けました","“Buyer DB” is now “Buyer Network”, with three visibility levels: public info, STANDAGE Network and your company only","“买家DB”更名为“买家网络”，可见范围分为公开信息・STANDAGE网络・贵公司专用三类","«BD de compradores» pasa a ser «Red de compradores», con tres niveles: información pública, Red STANDAGE y solo su empresa"],
+  ["ネットワークの相手は「つなぐ依頼」から。STANDAGEがご紹介し、相手が承諾すると、名前と連絡先が貴社にだけ開示されます","Network buyers are reached via “Request introduction”: STANDAGE introduces you, and once the buyer accepts, the name and contact are disclosed only to you","网络中的对象通过“请求引荐”联系：STANDAGE为您引荐，对方接受后，名称和联系方式仅向贵公司公开","A los compradores de la red se llega con «Solicitar presentación»: STANDAGE le presenta y, cuando aceptan, el nombre y el contacto se le revelan solo a usted"],
+  ["見本","Sample","示例","Muestra"],
+  ["バイヤーネットワークの「つなぐ依頼」で承諾（見本）・ID {id}","Accepted via a Buyer Network “Request introduction” (sample) · ID {id}","通过买家网络“请求引荐”接受（样本）· ID {id}","Aceptado mediante «Solicitar presentación» de la Red de compradores (ejemplo) · ID {id}"],
+  /* 商談のチャネル（新しい名前と、過去の記録に残る前の名前） */
+  ["バイヤーネットワーク経由","Via Buyer Network","经买家网络","Vía la red de compradores"],["バイヤーDB経由","Via Buyer Network","经买家网络","Vía la red de compradores"],
+  ["各社のプロジェクトで開拓したバイヤーは、その会社専用です。ほかの会社には一切見えません","Buyers developed in a client’s project belong to that client only and are never visible to other companies","各公司项目中开拓的买家归该公司专用，其他公司完全看不到","Los compradores captados en el proyecto de un cliente son solo de ese cliente y nunca son visibles para otras empresas"]
+  ];
+  /* 置き換えた文は前の訳を上書きする（同じ見出しの古い訳が先に入っていても） */
+  try{ if(typeof I18N!=="undefined"&&I18N&&I18N.dict) R.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){}
+  try{ if(typeof I18N!=="undefined"&&Array.isArray(I18N.pat)) [
+    {re:/^(\d{4})年(\d{1,2})月$/,en:(m)=>["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m[2]-1]+" "+m[1],zh:"$1年$2月",es:"$2/$1"},
+    {re:/^バイヤーネットワーク（ID ([^）]+)）・名称と連絡先は、つなぐ依頼で相手が承諾すると開示$/,en:"Buyer Network (ID $1) · name and contact disclosed once the buyer accepts your introduction request",zh:"买家网络（ID $1）・对方接受引荐请求后公开名称和联系方式",es:"Red de compradores (ID $1) · nombre y contacto se revelan cuando el comprador acepta la presentación"}
+  ].reverse().forEach(p=>I18N.pat.unshift(p)); }catch(e){}
+})();
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
