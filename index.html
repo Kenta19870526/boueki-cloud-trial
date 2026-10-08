@@ -1028,7 +1028,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="98ed7448ad6b";
+const BC20_BUILD="3b5e34a076c1";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -18430,6 +18430,7 @@ async function syncStart(){
   const r=await syncCall("login",{kid,dev:syncDev(),usage:syncUsage(),code_hint:String(SES.code).slice(0,3)});
   if(!r.ok) return {ok:false,reason:r.reason||"login",msg:r.msg||""};
   SYNC.srvAcct=r.acct||null; SYNC.ver=Object.assign({acct:0,fwd:0},r.ver||{});
+  SYNC.ver.acct=0;   /* v21.43：送る時の基準は「中身を取り込んだ版」だけ。ログインの応答の版で送ると、取り込みの前の古い控えがそのまま通る */
   if(r.acct&&typeof findAcct==="function"){ const a=findAcct(SES.code); if(a){ ["co","who","st","expires","role","aiMode"].forEach(k=>{ if(r.acct[k]!=null&&r.acct[k]!=="") a[k]=r.acct[k]; }); if(typeof asave==="function") asave(); } }
   /* 取得は並列に（Apps Script は1呼び出し 3〜15秒かかることがあるため、直列にしない） */
   syncStatus("☁ 保存済みの状態を取得しています…");
@@ -18439,27 +18440,34 @@ async function syncStart(){
 async function syncPullAcct(initial){
   if(!SYNC.on||!SYNC.kid) return;
   const p=await syncCall("pull",{kid:SYNC.kid,ns:"acct"});
-  SYNC.ver.acct=p.ver||0; SYNC.last.pull=Date.now();
+  const pv=p.ver||0; SYNC.last.pull=Date.now();   /* v21.43：基準の版（SYNC.ver.acct）は、中身を読んで反映・結合してから進める */
   const meta=syncMetaGet(); const localAt=(meta[SYNC.kid]&&meta[SYNC.kid].at)||0;
   const hasLocal=!!localStorage.getItem("bc20_ten_"+SES.code);
   if(p.blob){
-    let snap=null; try{ snap=await syncDec(p.blob); }catch(e){ SYNC.err="保存データを復号できません（別のコードで暗号化されています）"; return; }
-    if(snap&&(snap.at||0)>localAt||(snap&&!hasLocal)){ syncApply(snap); meta[SYNC.kid]={at:snap.at||Date.now()}; syncMetaSet(meta); SYNC.acctAt=snap.at||0;
+    let snap=null; try{ snap=await syncDec(p.blob); }catch(e){ snap=null; }
+    if(!snap){ SYNC.err="保存データを復号できません（別のコードで暗号化されています）"; return; }   /* 読めない中身では版を進めない＝上書きしない */
+    if((snap.at||0)>localAt||!hasLocal){ syncApply(snap); meta[SYNC.kid]={at:snap.at||Date.now()}; syncMetaSet(meta); SYNC.acctAt=snap.at||0; SYNC.ver.acct=pv;
       if(!initial){ syncReloadState(); } }
-    else if(hasLocal&&localAt>(snap&&snap.at||0)){ if(snap&&typeof v16MergeIntoLocal==="function"){ try{ v16MergeIntoLocal(snap); }catch(e){} } syncSchedule("acct"); }   /* 端末側が新しい → 送る */
-  } else if(hasLocal){ syncSchedule("acct"); }
+    else if(localAt>(snap.at||0)){ if(typeof v16MergeIntoLocal==="function"){ try{ v16MergeIntoLocal(snap); }catch(e){} } SYNC.ver.acct=pv; syncSchedule("acct"); }   /* 端末側が新しい → 結合してから送る */
+    else SYNC.ver.acct=pv;   /* 同じ時刻＝この端末が送った中身 */
+  } else { SYNC.ver.acct=pv; if(hasLocal) syncSchedule("acct"); }
 }
 async function syncPushAcct(){
   if(!SYNC.on||!SYNC.kid||!SES||SES.t!=="trial") return;
   const snap=syncSnapshot(); const blob=await syncEnc(snap);
   let r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:SYNC.ver.acct,blob,at:snap.at,usage:syncUsage(),dev:syncDev()});
-  if(r.conflict){
-    /* 他端末が先に保存していた：向こうの方が新しければ取り込む、こちらが新しければ上書き */
-    let remote=null; try{ remote=await syncDec(r.blob); }catch(e){}
-    if(remote&&(remote.at||0)>snap.at){ syncApply(remote); const meta=syncMetaGet(); meta[SYNC.kid]={at:remote.at}; syncMetaSet(meta); SYNC.ver.acct=r.ver||SYNC.ver.acct; syncReloadState(); toast("他の端末の更新を取り込みました"); return; }
-    { if(remote&&typeof v16MergeIntoLocal==="function"){ try{ v16MergeIntoLocal(remote); }catch(e){} } const s2=syncSnapshot(); const b2=await syncEnc(s2); r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:r.ver,blob:b2,at:s2.at,usage:syncUsage(),dev:syncDev(),force:1}); }
+  let sent=snap;
+  for(let n=0;r&&r.conflict;n++){
+    /* 他端末が先に保存していた：向こうの方が新しければ取り込む、こちらが新しければ結合してから送る（v21.43：強制の上書きはしない） */
+    let remote=null; if(r.blob){ try{ remote=await syncDec(r.blob); }catch(e){ remote=null; }
+      if(!remote){ SYNC.err="他の端末が保存した内容を読めないため、上書きせずに止めました（再読み込みしてください）"; throw new Error(SYNC.err); } }
+    if(remote&&(remote.at||0)>snap.at){ syncApply(remote); const meta=syncMetaGet(); meta[SYNC.kid]={at:remote.at}; syncMetaSet(meta); SYNC.ver.acct=r.ver||SYNC.ver.acct; syncReloadState(); toast("他の端末の更新を取り込みました");
+      try{ syncSchedule("acct"); }catch(e){} return; }   /* 結合した端末側の変更を送り直す（送らないままだと生存確認の取り込みも止まる） */
+    if(n>=3){ SYNC.err="同期が混み合っています（あとで自動で送り直します）"; throw new Error(SYNC.err); }
+    if(remote&&typeof v16MergeIntoLocal==="function"){ try{ v16MergeIntoLocal(remote); }catch(e){} }
+    sent=syncSnapshot(); const b2=await syncEnc(sent); r=await syncCall("push",{kid:SYNC.kid,ns:"acct",base:r.ver,blob:b2,at:sent.at,usage:syncUsage(),dev:syncDev()});
   }
-  if(r.ok){ SYNC.ver.acct=r.ver||SYNC.ver.acct; SYNC.dirty=0; SYNC.last.push=Date.now(); const meta=syncMetaGet(); meta[SYNC.kid]={at:snap.at}; syncMetaSet(meta); }
+  if(r.ok){ SYNC.ver.acct=r.ver||SYNC.ver.acct; SYNC.dirty=0; SYNC.last.push=Date.now(); const meta=syncMetaGet(); meta[SYNC.kid]={at:sent.at}; syncMetaSet(meta); }
 }
 /* 物流会社モードのデータ（荷主⇄物流会社で共有・平文） */
 function fwdMerge(loc,rem){
@@ -40202,6 +40210,98 @@ document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.tar
   ];
   try{ if(typeof I18N!=="undefined"&&I18N&&I18N.dict) R.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){}
 })();
+
+/* ═══════════ v21.43（2026-10-08）同期で「消したもの」が戻る不具合の直し（トライアル版だけ。logic_zz_boot.js の前＝同期の包みのいちばん外側） ═══════════
+   2026-10-08 11:10、共通アカウント TRIAL-2026 で、削除した実在の会社の商品と投稿が、隠れていたタブ（古い控え）から戻った。
+   サーバーに残った版（1780）は、その端末が 9:55 に送った内容とまったく同じで、ほかの端末が足した墓標（削除の印）も投稿も入っていなかった。
+   手元の再現（bc20-platform/tmp/qa46/sync-tomb-e2e.mjs・2つの端末・模擬サーバーの取り込みを6秒に）で分かったこと：
+   ① 再読み込み（隠れたタブの復帰も同じ）・つなぎ直しの時、ログインの応答でサーバーの最新の版番号を受け取り、それを「送る時の基準」にしていた。
+      中身の取り込み（Google で3〜15秒）が終わる前に保存の送信（2.5秒後）が走ると、基準の版が合っているので衝突にならず、
+      古い控えがそのままサーバーを上書きした（墓標も古いものに戻り、ほかの端末の新しい投稿も消えた）
+      → 基準の版は「中身を取り込んだ版」だけにする（fixes_v2143.py：ログインでは進めない・取り込みが済んでから進める）。取り込み中の送信は待たせる（下の ①）
+   ② 衝突して結合する経路で、相手の内容を読めなかったときも強制で上書きしていた → 上書きしない。強制の送信（force）をやめ、結合をやり直す（fixes_v2143.py）
+   ③ 投稿（やりとり）には墓標が無く、一覧から外した投稿がほかの端末の控えから足し戻された
+      → 墓標に msgs を足す（目印＝投稿の id。id の無い古い投稿は、商品と投稿の目印のハッシュ＝本文は墓標に残さない）。
+        保存のたびに、残っている商品から消えた投稿に墓標を付ける（商品ごと消したときは付けない＝商品の墓標で足りる）。投稿の墓標は「再登場で外す」をしない
+      画面の「削除」（自分の投稿・v21.30）は今までどおり「削除されました」の表示（thMeta の del）で、ほかの端末にも伝わる
+   ④ 端末側が新しい経路（v16MergeIntoLocal）：墓標を相手側と合わせて両側を落とす（v17 の包みと同じ。二重でも結果は同じ）。
+      墓標で落としただけ（足すものが無い）のときも、保存の中身が変わったら画面のメモリを作り直す（古いメモリが次の保存で戻さないように）
+   ⑤ 送る中身からは、墓標の付いたもの（商品・会議メモ・定型・タスク・商談記録・投稿）を必ず落とす。落としたら、この端末の保存と画面も合わせる
+   ⑥ 古い版の画面が上書きしたサーバーの内容（墓標の付いたものが入っている・墓標が足りない）を取り込んだら、直した内容をすぐ送り直す */
+const V43={pulling:0,msgSigs:null,repair:0,out:0,gone:0};
+function v43TenKey(){ const c=(typeof v17Code==="function")?v17Code():""; return c?"bc20_ten_"+c:""; }
+function v43H(s){ return (typeof fnv1a==="function")?fnv1a(String(s)):String(s).slice(0,24); }
+/* 投稿の目印：id があれば id。無ければ商品の目印と投稿の目印（v16 の結合と同じ：送った人|時刻|本文の先頭80字）のハッシュ */
+function v43MsgKey(t,m){ if(!m) return ""; if(m.id) return "i:"+String(m.id);
+  const sg=(typeof thSig==="function")?thSig(m):[m.who,m.t,String(m.body||"").slice(0,80)].join("|");
+  return "s:"+v43H((typeof v17TenSig==="function")?v17TenSig(t):[t&&t.co,t&&t.item].join("|"))+v43H(sg); }
+
+/* ── ③ 墓標に投稿（msgs）を足す。知らない区画（後の版が足したもの）も落とさない ── */
+if(typeof v17TombParse==="function"&&typeof v17TombSave==="function"&&typeof v17TombUnion==="function"&&typeof v17PruneList==="function"){
+  { const __tp43=v17TombParse; v17TombParse=function(raw){ const o=__tp43.apply(this,arguments); if(!o.msgs||typeof o.msgs!=="object") o.msgs={}; return o; }; }
+  { const __ts43=v17TombSave; v17TombSave=function(o){ try{ const lim=Date.now()-45*864e5; if(o&&o.msgs&&typeof o.msgs==="object") Object.keys(o.msgs).forEach(k=>{ if(+o.msgs[k]<lim) delete o.msgs[k]; }); }catch(e){} return __ts43.apply(this,arguments); }; }
+  { const __tu43=v17TombUnion; v17TombUnion=function(a,b){ const o=__tu43.apply(this,arguments);
+    try{ const ks=new Set([...Object.keys(a||{}),...Object.keys(b||{})]);
+      ks.forEach(s=>{ if(s!=="msgs"&&(s in o)) return; const A=a&&a[s], B=b&&b[s]; const okA=!!A&&typeof A==="object"&&!Array.isArray(A), okB=!!B&&typeof B==="object"&&!Array.isArray(B);
+        if(!okA&&!okB) return; const m=Object.assign({},okA?A:{}); if(okB) Object.entries(B).forEach(([k,v])=>{ if(!(k in m)||+m[k]<+v) m[k]=v; }); o[s]=m; }); }catch(e){}
+    return o; }; }
+  { const __pl43=v17PruneList; v17PruneList=function(list,tomb){ let ch=__pl43.apply(this,arguments);
+    try{ tomb=tomb||v17TombGet(); const T=tomb&&tomb.msgs; if(T&&typeof T==="object"&&Object.keys(T).length) (Array.isArray(list)?list:[]).forEach(t=>{ if(!t||!Array.isArray(t.msgs)) return;
+        const keep=t.msgs.filter(m=>!(m&&T[v43MsgKey(t,m)])); if(keep.length!==t.msgs.length){ t.msgs=keep; ch=true; } }); }catch(e){}
+    return ch; }; }
+}
+/* 保存のたびに：前回の保存（または読み込み）の時にあって、今は無い投稿に墓標を付ける。商品ごと無くなったときは付けない */
+function v43MsgCollect(){ const m=new Map();
+  try{ (typeof TENS!=="undefined"&&Array.isArray(TENS)?TENS:[]).forEach(t=>{ if(!t||!Array.isArray(t.msgs)) return; const sg=v17TenSig(t); const s=m.get(sg)||new Set();
+      t.msgs.forEach(x=>{ if(x&&!x._tmp) s.add(v43MsgKey(t,x)); }); m.set(sg,s); }); }catch(e){}
+  return m; }
+function v43MsgDiff(){ try{ const now=v43MsgCollect(), was=V43.msgSigs; V43.msgSigs=now;
+    if(!was||typeof v17TombKey!=="function"||!v17TombKey()) return 0; const gone=[];
+    was.forEach((s,sg)=>{ const n=now.get(sg); if(!n) return; s.forEach(k=>{ if(k&&!n.has(k)) gone.push(k); }); });
+    if(!gone.length) return 0; const o=v17TombGet(), t=Date.now(); gone.forEach(k=>{ o.msgs[k]=t; }); v17TombSave(o); V43.gone+=gone.length; return gone.length; }catch(e){ return 0; } }
+if(typeof saveTen==="function"){ const __st43=saveTen; saveTen=function(){ try{ v43MsgDiff(); }catch(e){} return __st43.apply(this,arguments); }; }
+if(typeof loadTen==="function"){ const __lt43=loadTen; loadTen=function(){ const r=__lt43.apply(this,arguments); try{ V43.msgSigs=v43MsgCollect(); }catch(e){} return r; }; }
+setTimeout(()=>{ try{ if(!V43.msgSigs) V43.msgSigs=v43MsgCollect(); }catch(e){} },900);
+
+/* ── 同期の経路（いちばん外側） ── */
+if(typeof SYNC!=="undefined"&&typeof syncPushAcct==="function"&&typeof syncPullAcct==="function"){
+  /* ① 取り込み中（ログイン直後・つなぎ直し・生存確認の取り込み）は送信を待たせる（最大90秒。基準の版の直しで、待たなくても上書きはしない） */
+  function v43Busy(){ try{ return V43.pulling>0||(!!SYNC.boot&&!SYNC.started)||(typeof V217!=="undefined"&&!!V217&&!!V217.busy); }catch(e){ return V43.pulling>0; } }
+  { const __pa43=syncPullAcct; syncPullAcct=async function(){ V43.pulling++; try{ return await __pa43.apply(this,arguments); } finally{ V43.pulling=Math.max(0,V43.pulling-1); } }; }
+  { const __pu43=syncPushAcct; syncPushAcct=async function(){
+      if(v43Busy()){ SYNC.dirty=1; const t0=Date.now(); while(v43Busy()&&Date.now()-t0<90000) await new Promise(r=>setTimeout(r,300)); }
+      return __pu43.apply(this,arguments); }; }
+  /* ④ 端末側が新しい経路：墓標を合わせて両側を落とし、保存が変わったら画面のメモリも作り直す */
+  if(typeof v16MergeIntoLocal==="function"){ const __mil43=v16MergeIntoLocal; v16MergeIntoLocal=function(snap){
+    const k=v43TenKey(); let b0=null; try{ b0=k?localStorage.getItem(k):null; }catch(e){}
+    try{ if(typeof v17MergeTomb==="function") v17MergeTomb(snap); }catch(e){}
+    const r=__mil43.apply(this,arguments);
+    let b1=null; try{ b1=k?localStorage.getItem(k):null; }catch(e){}
+    if(b1!==b0&&!r){ try{ if(typeof syncReloadState==="function") syncReloadState(); }catch(e){} }
+    return r||b1!==b0; }; }
+  /* ⑤ 送る中身から、墓標の付いたものを必ず落とす */
+  function v43FixLocal(){ try{ const tk=v43TenKey(); if(!tk) return; const lv=localStorage.getItem(tk); if(!lv) return; const pr=v17PruneRaw(lv,v17TombGet());
+      if(pr!==lv){ localStorage.setItem(tk,pr); if(typeof syncReloadState==="function") syncReloadState(); } }catch(e){} }
+  if(typeof syncSnapshot==="function"&&typeof v17PruneRaw==="function"){ const __sn43=syncSnapshot; syncSnapshot=function(){ const o=__sn43.apply(this,arguments);
+    try{ const tk=v43TenKey(), bk=v17TombKey(); if(o&&o.items&&tk&&bk&&o.items[tk]){ const tomb=v17TombParse(o.items[bk]||localStorage.getItem(bk)||"{}"); const pr=v17PruneRaw(o.items[tk],tomb);
+        if(pr!==o.items[tk]){ o.items[tk]=pr; V43.out++; setTimeout(v43FixLocal,0); } } }catch(e){}
+    return o; }; }
+  /* ⑥ 取り込んだサーバーの内容に、墓標の付いたものが入っている／この端末の墓標が足りない（古い版の画面が上書きした跡）→ 直した内容を送り直す */
+  function v43NeedsRepair(snap){
+    const tk=v43TenKey(), bk=(typeof v17TombKey==="function")?v17TombKey():""; if(!tk||!bk||!snap||!snap.items||!snap.items[tk]) return false;
+    const loc=v17TombGet(), rem=v17TombParse(snap.items[bk]||"{}"); let ahead=false;
+    Object.keys(loc).forEach(s=>{ const L=loc[s], R=(rem[s]&&typeof rem[s]==="object")?rem[s]:{}; if(!L||typeof L!=="object"||Array.isArray(L)) return;
+      Object.keys(L).forEach(id=>{ if(!(id in R)||+R[id]<+L[id]) ahead=true; }); });
+    if(ahead) return true;
+    let o=null; try{ o=JSON.parse(snap.items[tk]); }catch(e){ return false; }
+    return v17PruneList(Array.isArray(o&&o.list)?o.list:[],v17TombUnion(loc,rem));   /* 判定用の写し（snap は書き換えない） */
+  }
+  if(typeof syncApply==="function"){ const __ap43=syncApply; syncApply=function(snap){
+    let fix=false; try{ fix=v43NeedsRepair(snap); }catch(e){}
+    const r=__ap43.apply(this,arguments);
+    if(fix){ V43.repair++; setTimeout(()=>{ try{ if(typeof syncSchedule==="function") syncSchedule("acct"); }catch(e){} },700); }
+    return r; }; }
+}
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
