@@ -1028,7 +1028,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="3b5e34a076c1";
+const BC20_BUILD="78d65a1bc8c9";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -40302,6 +40302,67 @@ if(typeof SYNC!=="undefined"&&typeof syncPushAcct==="function"&&typeof syncPullA
     if(fix){ V43.repair++; setTimeout(()=>{ try{ if(typeof syncSchedule==="function") syncSchedule("acct"); }catch(e){} },700); }
     return r; }; }
 }
+
+/* ═══════════ v21.43.1（2026-10-08 夕方）同期：端末に保存できないまま送って、サーバーのデータを消す穴をふさぐ（トライアル版だけ。logic_v2143sync.js の後＝いちばん外側） ═══════════
+   2026-10-08 16:59、本番の TRIAL-2026 が「商品のデータ無し・墓標も空」の版になった（18:14 に大森さんのブラウザが v21.43 の直し⑥で戻した）。
+   手元で再現（bc20-platform/tmp/qa46/quota-e2e.mjs）：ブラウザの保存容量がほぼいっぱいの端末（同じ kenta19870526.github.io の別のページと容量を共有）がログインすると、
+   取り込んだ商品のデータの書き込み（localStorage）が失敗しても黙って続き、同期済みとして「商品のデータの無い控え」を送っていた（v21.42.2 も同じ）
+   ① 取り込み・結合（syncApply・v16MergeIntoLocal）の間の保存の失敗を見張る。失敗したら、この端末からの送信を止めて知らせる（ほかの端末のデータは守る）
+   ② 初めての端末（商品のデータがまだ無い）が衝突の経路を通るときは、結合の前にサーバーの商品のデータをこの端末に取り込む（今までは結合の先が無く、商品のデータの無い控えを送っていた）
+      送る直前の最後の守り：サーバーに商品のデータがあるのに、この端末に無いときは、その送信を見送って取り込み直す（「保存できない」の知らせは、本当に保存に失敗したときだけ）
+   ③ 利用記録：サーバーで直した（掃除した）自分の端末の記録が、この端末の記録より新しければ、それをこの端末の台帳にも反映する（送るたびに実名が戻らないように）
+   ④ 利用記録：削除した商品の名前（墓標の目印＝会社｜商品）が入った自分の記録は「（削除済み）」にする（会社名は、その会社の商品が残っていない時だけ） */
+V43.storeFail=0; V43.srvTen=false; V43.warned=0; V43.scrubN=-1;
+function v43StoreMsg(){ return "⚠ この端末のブラウザの保存容量がいっぱいのため、同期したデータを保存できません。ほかの端末のデータを守るため、この端末からの送信を止めました。不要なデータを整理するか、別のブラウザでお使いください（整理したら再読み込み）"; }
+function v43StoreWarn(){ try{ SYNC.err=v43StoreMsg(); if(!V43.warned){ V43.warned=1; if(typeof toast==="function") toast(v43StoreMsg()); } }catch(e){} }
+/* ① 保存の失敗の見張り（同期の取り込み・結合の間だけ） */
+function v43Watch(fn){ return function(){ const P=Storage.prototype, o=P.setItem; let fail=0;
+  P.setItem=function(){ try{ return o.apply(this,arguments); }catch(e){ fail++; throw e; } };
+  try{ const snap=arguments[0]; try{ const tk=v43TenKey(); if(tk&&snap&&snap.items&&snap.items[tk]) V43.srvTen=true; }catch(e){}
+    return fn.apply(this,arguments); }
+  finally{ P.setItem=o; if(fail){ V43.storeFail=V43.storeFail||Date.now(); v43StoreWarn(); } } }; }
+/* ② 初めての端末：結合の前にサーバーの商品のデータを取り込む（保存の見張りの内側で書く） */
+if(typeof v16MergeIntoLocal==="function"){ const __mi431=v16MergeIntoLocal; v16MergeIntoLocal=function(snap){
+  const tk=v43TenKey(); let took=false;
+  try{ if(tk&&snap&&snap.items&&snap.items[tk]&&!localStorage.getItem(tk)){ try{ if(typeof v17MergeTomb==="function") v17MergeTomb(snap); }catch(e){} localStorage.setItem(tk,snap.items[tk]); took=true; } }catch(e){}
+  const r=__mi431.apply(this,arguments);
+  if(took){ try{ if(typeof syncReloadState==="function") syncReloadState(); }catch(e){} }
+  return r||took; }; }
+if(typeof syncApply==="function") syncApply=v43Watch(syncApply);
+if(typeof v16MergeIntoLocal==="function") v16MergeIntoLocal=v43Watch(v16MergeIntoLocal);
+/* ② 送信の最後の守り（同期の通信の口で止める＝衝突のあとの送り直しも通る） */
+function v43PushBlocked(){ try{ if(V43.storeFail) return "store"; const tk=v43TenKey(); if(tk&&V43.srvTen&&!localStorage.getItem(tk)) return "missing"; }catch(e){} return ""; }
+if(typeof syncCall==="function"){ const __sc431=syncCall; syncCall=function(op,body,opt){
+  const why=(op==="push"&&body&&body.ns==="acct")?v43PushBlocked():"";
+  if(why){ try{ SYNC.dirty=0; clearTimeout(SYNC.timer); }catch(e){}   /* dirty のままだと生存確認の取り込みも止まる */
+    if(why==="store"){ v43StoreWarn(); const er=new Error(v43StoreMsg()); er.v43=1; return Promise.reject(er); }
+    try{ SYNC.ver.acct=0; setTimeout(()=>{ try{ if(typeof syncPullAcct==="function") syncPullAcct(false).catch(()=>{}); }catch(e){} },1500); }catch(e){}   /* まだ取り込めていない → 送らずに取り込み直す */
+    const er=new Error("同期サーバーのデータをまだ取り込めていないため、送るのを待っています"); er.v43=1; return Promise.reject(er); }
+  return __sc431.apply(this,arguments); }; }
+/* ③ サーバーで直した自分の端末の利用記録を、この端末の台帳へ */
+function v43AdoptOwnGrow(snap){
+  if(typeof v17GrowKey!=="function") return; const k=v17GrowKey(); if(!k||!snap||!snap.items||!snap.items[k]) return;
+  const me=v17DevId(); const R=(v17GrowParse(snap.items[k]).dev||{})[me]; const L=(v17GrowGet().dev||{})[me];
+  if(!R||!Array.isArray(R.events)||(L&&(+L.at||0)>=(+R.at||0))) return;
+  const a=(typeof acct==="function")?acct():null; const u=a&&a.usage; if(!u||!Array.isArray(u.events)) return;
+  const m=new Map(R.events.filter(Array.isArray).map(e=>[e[0]+"|"+e[1],String(e[2]||"")])); let ch=0;
+  u.events.forEach(e=>{ if(!Array.isArray(e)) return; const kk=e[0]+"|"+e[1]; if(m.has(kk)&&m.get(kk)!==String(e[2]||"")){ e[2]=m.get(kk); ch++; } });
+  if(ch&&typeof asave==="function") asave(); }
+if(typeof v17MergeGrow==="function"){ const __mg431=v17MergeGrow; v17MergeGrow=function(snap){ try{ v43AdoptOwnGrow(snap); }catch(e){} return __mg431.apply(this,arguments); }; }
+/* ④ 削除した商品の名前が入った自分の利用記録を「（削除済み）」に */
+function v43ScrubGone(force){ try{
+  if(typeof v17TombGet!=="function"||typeof v17TombKey!=="function"||!v17TombKey()) return 0; const T=v17TombGet().ten||{}; const ks=Object.keys(T);
+  if(!force&&ks.length===V43.scrubN) return 0; V43.scrubN=ks.length; if(!ks.length) return 0;
+  const live=new Set(((typeof TENS!=="undefined"&&TENS)||[]).filter(Boolean).map(t=>String(t.co||""))); const liveSig=new Set(((typeof TENS!=="undefined"&&TENS)||[]).filter(Boolean).map(t=>v17TenSig(t)));
+  const names=new Set(); ks.forEach(sg=>{ if(liveSig.has(sg)) return; const i=sg.indexOf("|"); const co=i>=0?sg.slice(0,i):sg, item=i>=0?sg.slice(i+1):"";
+    if(item&&item.length>=3) names.add(item); if(co&&co.length>=3&&!live.has(co)) names.add(co); });
+  const GEN=/^(株式会社|有限会社|合同会社|合資会社|一般社団法人|（株）|\(株\)|Co\.?,? ?Ltd\.?|Inc\.?|LLC|Ltd\.?)$/i;   /* 会社の種類だけの名前では消さない */
+  const N=[...names].filter(n=>!GEN.test(n.trim())&&!live.has(n)); if(!N.length) return 0;
+  const a=(typeof acct==="function")?acct():null; const u=a&&a.usage; if(!u||!Array.isArray(u.events)) return 0; let ch=0;
+  u.events.forEach(e=>{ if(!Array.isArray(e)) return; const s=String(e[2]||""); if(s&&s!=="（削除済み）"&&N.some(n=>s.includes(n))){ e[2]=/^商談記録:/.test(s)?"商談記録:（削除済み）":"（削除済み）"; ch++; } });
+  if(ch&&typeof asave==="function") asave(); return ch; }catch(e){ return 0; } }
+if(typeof v17TombAdd==="function"){ const __ta431=v17TombAdd; v17TombAdd=function(type){ const r=__ta431.apply(this,arguments); if(type==="ten") setTimeout(()=>v43ScrubGone(true),0); return r; }; }
+if(typeof syncSnapshot==="function"){ const __sn431=syncSnapshot; syncSnapshot=function(){ try{ v43ScrubGone(false); }catch(e){} return __sn431.apply(this,arguments); }; }
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
