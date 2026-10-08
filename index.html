@@ -1028,7 +1028,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="ff3e5398d6c1";
+const BC20_BUILD="98ed7448ad6b";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -14468,7 +14468,7 @@ function fwdChatHtml(){
     <div class="m ${m.w==="u"?"u":"a"}">
       <span class="av" style="${m.w==="a"?"background:var(--bl);color:#fff":""}">${m.w==="u"?"物":"AI"}</span>
       <div class="bb">${v39San(m.t)}</div></div>`).join("");
-  const SUGS=["香港向けの推奨はどの会社？","相見積があるレーンは？","韓国向けのレーンはある？","有効期限が近いレートは？","最近いつレート表をアップロードした？","未対応の依頼は？","インドネシア向けは出せる？"];
+  const SUGS=["ルート（レーン）を登録するには？","香港向けの推奨はどの会社？","相見積があるレーンは？","韓国向けのレーンはある？","有効期限が近いレートは？","最近いつレート表をアップロードした？","未対応の依頼は？","インドネシア向けは出せる？"];
   return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span><span class="nt">この版で新規</span></div>
     <h1>AI物流マンに相談</h1>
     <p class="cando"><b>この画面でできること：</b>貴社の<b>レート表・見積依頼のやり取り・アップロード履歴</b>など、貿易クラウド内のすべての物流情報をAI物流マンが把握して答えます。</p></div>
@@ -14485,7 +14485,7 @@ function fwdChatHtml(){
           style="display:block;width:100%;border:0;border-radius:0;box-sizing:border-box;resize:none;min-height:84px;max-height:180px;overflow-y:auto;line-height:1.6"></textarea>
         <div class="rw" style="justify-content:flex-end;padding:5px 8px;border-top:1px solid var(--line-2)">
           <button class="btn" id="fwdqgo">質問する</button></div></div>
-      <p class="nn" style="margin-top:7px">回答は<b>貴社の登録データだけ</b>から組み立てます（根拠付き）。${fwdReady()?"":"AIエンジン接続＋スタンダード以上で、自由文の質問に実AIが答えます。"}</p>
+      <p class="nn" style="margin-top:7px">回答は<b>貴社の登録データ</b>と<b>操作ガイド（使い方）</b>から組み立てます（根拠付き）。${fwdReady()?"":"AIエンジン接続＋スタンダード以上で、自由文の質問に実AIが答えます。"}</p>
     </div>
     <div class="stk">
       <div class="c"><h3>AI物流マンが見ているもの</h3>
@@ -14672,7 +14672,7 @@ function fwdRatesFromGrids(grids){
         out.push({pol,pod,mode,price:pv.price,cur:pv.usd?"US$":"¥",
           unit:mode==="LCL"?"/m³":mode==="AIR"?"/kg":"/本",
           tt:parseInt(String(map.tt!==undefined?r[map.tt]:""),10)||10,
-          valid:String((map.valid!==undefined?r[map.valid]:"")||"").trim()||"2026-12-31",
+          valid:String((map.valid!==undefined?r[map.valid]:"")||"").trim()||(typeof v422DefValid==="function"?v422DefValid():"2026-12-31"),
           note:String((map.note!==undefined?r[map.note]:"")||"").trim()+(pv.usd?"（USD建て）":"")});
       }
     } else {
@@ -14684,7 +14684,7 @@ function fwdRatesFromGrids(grids){
         const mode=fwdNormMode(r[2]);
         out.push({pol:String(r[0]).trim(),pod:String(r[1]).trim(),mode,price:pv.price,
           cur:pv.usd?"US$":"¥",unit:mode==="LCL"?"/m³":mode==="AIR"?"/kg":"/本",
-          tt:parseInt(String(r[4]||""),10)||10,valid:String(r[5]||"").trim()||"2026-12-31",
+          tt:parseInt(String(r[4]||""),10)||10,valid:String(r[5]||"").trim()||(typeof v422DefValid==="function"?v422DefValid():"2026-12-31"),
           note:String(r[6]||"").trim()+(pv.usd?"（USD建て）":"")});
       });
     }
@@ -14742,7 +14742,7 @@ async function fwdRatesLLM(src){
     .map(x=>({pol:String(x.pol||"日本"),pod:String(x.pod),mode:fwdNormMode(x.mode),
       price:Math.round(+x.price),cur:/USD/i.test(String(x.note||""))?"US$":"¥",
       unit:String(x.unit||"/m³"),tt:parseInt(x.tt,10)||10,
-      valid:String(x.valid||"2026-12-31"),note:String(x.note||"")}));
+      valid:String(x.valid||(typeof v422DefValid==="function"?v422DefValid():"2026-12-31")),note:String(x.note||"")}));
 }
 /* レート追加後：「レーン未登録」で止まっていた見積依頼を再評価し、自動で見積を付ける（案内文「レート整備後に自動でお見積」を実装） */
 function fwdReevalPending(){
@@ -14872,7 +14872,7 @@ function fwdBindPage(){
     if(!pol||!pod||!price){ toast("仕出港・仕向港・運賃を入力してください"); return; }
     FWDB.rates.push({co:fwdRateCoInput(),at:Date.now(),pol,pod,mode:$("#frMode").value,price,cur:"¥",
       unit:/FCL/.test($("#frMode").value)?"/本":"/m³",tt:parseInt($("#frTt").value,10)||10,
-      valid:"2026-12-31",note:"手入力"});
+      valid:(typeof v422DefValid==="function"?v422DefValid():"2026-12-31"),note:"手入力"});
     const re=fwdReevalPending(); fwdSave(); fwdRender(); toast("レーンを追加しました"+(re?"（見積 "+re+"件の推奨を更新）":""));
   };
   document.querySelectorAll("[data-frdel]").forEach(b=>b.addEventListener("click",()=>{
@@ -25548,11 +25548,11 @@ function openAskFwd(){
   try{ if(typeof fwdLoad==="function") fwdLoad(); }catch(e){}
   if(typeof FWDB==="undefined"||!FWDB){ if(typeof toast==="function") toast("物流会社モードのデータがありません"); return; }
   const on=typeof fwdReady==="function"&&fwdReady();
-  const SUGS=["香港向けの推奨はどの会社？","相見積があるレーンは？","有効期限が近いレートは？","未対応の依頼は？"];
+  const SUGS=["ルート（レーン）を登録するには？","香港向けの推奨はどの会社？","相見積があるレーンは？","有効期限が近いレートは？","未対応の依頼は？"];
   openDW(`<div class="dwhead"><h3>🤖 AI物流マンに質問</h3>
       <span class="p ${on?"on":"lo"}" style="font-size:9.5px">${on?esc(typeof fwdEngLabel==="function"?fwdEngLabel():"AI接続中"):"内蔵エンジン"}</span></div>
     <div class="dwbody">
-      <p class="nn">画面はこのまま、右側で完結します。レート表・見積依頼・履歴を根拠に答えます。やり取りは「AI物流マンに相談」の画面と共通です。</p>
+      <p class="nn">画面はこのまま、右側で完結します。レート表・見積依頼・履歴と、操作ガイド（使い方）を根拠に答えます。やり取りは「AI物流マンに相談」の画面と共通です。</p>
       <div class="chat" id="dwfwdchat" style="flex:1;min-height:0;max-height:none;margin-top:9px"></div>
       <div class="qb" style="margin-top:8px">${SUGS.map(s=>`<button class="q" data-dwfq="${esc(s)}">${esc(s)}</button>`).join("")}</div>
     </div>
@@ -39952,6 +39952,256 @@ document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.tar
 if(typeof syncCall==="function"){ const __sc42=syncCall; syncCall=async function(op,body,opt){ const r=await __sc42.apply(this,arguments);
   try{ if(r&&r.relogin===1&&typeof SES!=="undefined"&&SES&&SES.t==="admin"&&!window.__v42re){ window.__v42re=1; toast("管理者のログインの有効期限が切れました。もう一度ログインしてください（確認コードがメールで届きます）"); setTimeout(()=>{ try{ sessionStorage.removeItem(SKEY); }catch(e){} location.reload(); },2500); } }catch(e){}
   return r; }; }
+
+/* ═══ v21.42.2（2026-10-08）同期サーバーの版が「まだ分からない」のを「古い」と読み違えない ═══════════════════
+   原因：画面は同期サーバーの版（rel）を、サーバーの応答を受け取った時に覚える（v21.15.1）。ログインしたまま再読み込み（F5）すると、
+         最初の応答より先に、管理コンソールの「STANDAGE 確認済みの知識」や依頼ページが描かれる。そのとき版が「まだ分からない」のを
+         「v2.13 より古い」と読んで「同期サーバーを v2.13 に更新すると…」と出し、あとで版（v2.15）が分かっても描き直さなかった。
+         依頼をその瞬間に作ると、相手が開けない「この端末だけ」の依頼になり、確認済みの知識の取り込みも1時間後まで待つ。
+   対応：① 最後に聞いた版を、同期サーバーのアドレスごとに端末に覚えておき、まだ聞いていない間はそれを使う
+         ② 一度も聞いていないときは、版を聞いてから決める（依頼を作る・回答を取り込む・確認済みの知識を取りに行く）。画面は「確かめています」
+         ③ 版が分かった（変わった）ときに、その表示が出ている「確認済みの知識」と依頼ページを描き直す */
+const V422={key:"bc20_srv_rel_v1",last:"",ask:null,askAt:0};
+function v422Url(){ try{ return (typeof syncUrl==="function"&&syncUrl())||""; }catch(e){ return ""; } }
+function v422Saved(){ try{ const o=JSON.parse(localStorage.getItem(V422.key)||"null"); return o&&o.u&&o.r&&o.u===v422Url()?String(o.r):""; }catch(e){ return ""; } }
+function v422Save(r){ try{ const u=v422Url(); if(u&&r) localStorage.setItem(V422.key,JSON.stringify({u,r:String(r),t:Date.now()})); }catch(e){} }
+function v422Now(){ try{ return (typeof SYNC!=="undefined"&&SYNC&&SYNC.relStr)||""; }catch(e){ return ""; } }
+function v422Known(){ return !!(v422Now()||v422Saved()); }
+function v422On(){ try{ return typeof syncOn==="function"&&syncOn()&&typeof syncCall==="function"; }catch(e){ return false; } }
+/* 版を聞く（同時に何度も聞かない・失敗したら20秒は聞き直さない）。分かれば true */
+function v422Ask(){ if(v422Now()) return Promise.resolve(true); if(!v422On()) return Promise.resolve(false);
+  if(V422.ask) return V422.ask; if(Date.now()-V422.askAt<20000) return Promise.resolve(v422Known());
+  V422.askAt=Date.now();
+  V422.ask=syncCall("ping",{},{timeout:20000}).then(()=>!!v422Now()).catch(()=>false).then(ok=>{ V422.ask=null; return ok||v422Known(); });
+  return V422.ask; }
+/* ① 版の読み方：今の応答で分かった版 → この端末が前に聞いた版（同じサーバーのとき）→ 分からない（0） */
+if(typeof v33SrvRel==="function"){ v33SrvRel=function(){ try{ const s=v422Now()||v422Saved(); return s&&typeof hf21151Rel==="function"?hf21151Rel(s):0; }catch(e){ return 0; } }; }
+/* ③ 版が分かった・変わったら覚えて、その表示が出ている画面を描き直す */
+function v422Boot(){ try{ return typeof SYNC!=="undefined"&&SYNC&&!!SYNC.boot; }catch(e){ return false; } }   /* ログインしたまま再読み込みした直後の、同期の立ち上げ中 */
+/* 依頼ページ：「v2.13 になると」や「確かめています」が出ていて、いまはサーバーで送れるなら描き直す（入力中は触らない） */
+function v422RqRedraw(){ try{ const n=document.querySelector("#well .v33rq > .v33note, #well .v33rq > [data-v422]"); if(!n||v422Typing()) return;
+  if(!(n.dataset.v422||(typeof v33RqSrv==="function"&&v33RqSrv()))) return;
+  if(typeof v33Mode==="function"&&v33Mode()==="fwd"){ if(typeof fwdCur!=="undefined"&&fwdCur==="frq"&&typeof fwdRender==="function") fwdRender(); }
+  else if(typeof cur!=="undefined"&&cur==="rqp"&&typeof render==="function") render(); }catch(e){} }
+function v422Typing(){ try{ const a=document.activeElement; return !!(a&&a.closest&&a.closest("#well")&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }catch(e){ return false; } }
+function v422Changed(){
+  try{ const box=document.getElementById("v33kbbox"); if(box&&!V422.kbBusy&&!box.querySelector("form")&&typeof v33AdmKb==="function") v33AdmKb(); }catch(e){}
+  if(!v422Boot()) v422RqRedraw();
+  try{ if(V422.kbWait&&typeof v33KbFetch==="function"){ V422.kbWait=0; v33KbFetch(); } }catch(e){}
+}
+if(typeof syncCall==="function"){ const __sc422=syncCall; syncCall=async function(op,body,opt){ const r=await __sc422.apply(this,arguments);
+  try{ const now=v422Now(); if(now&&now!==V422.last){ V422.last=now; v422Save(now); setTimeout(v422Changed,0); } }catch(e){} return r; }; }
+/* ② まだ一度も聞いていないときは、聞いてから決める */
+if(typeof v33AdmKb==="function"){ const __kb422=v33AdmKb; v33AdmKb=async function(){ const box=document.getElementById("v33kbbox");
+  if(box&&v422On()&&!v422Known()){ if(V422.kbBusy) return; box.innerHTML=`<p class="v33mute">${v33Esc(v33T("同期サーバーの版を確かめています…"))}</p>`;
+    V422.kbBusy=1; let ok=false; try{ ok=await v422Ask(); } finally { V422.kbBusy=0; } if(!document.getElementById("v33kbbox")) return;
+    if(!ok){ box.innerHTML=`<p class="v33note">${v33Esc(v33T("同期サーバーに接続できませんでした。通信状況を確認して、画面を再読み込みしてください。"))}</p>`; return; } }
+  return __kb422.apply(this,arguments); }; }
+if(typeof v33KbFetch==="function"){ const __kf422=v33KbFetch; v33KbFetch=async function(){
+  if(typeof SYNC!=="undefined"&&SYNC&&SYNC.kid&&v422On()&&!v422Known()){ const ok=await v422Ask(); if(!ok){ V422.kbWait=1; return false; } }
+  return __kf422.apply(this,arguments); }; }
+if(typeof v33RqPut==="function"){ const __rp422=v33RqPut; v33RqPut=async function(){ if(v422On()&&!v422Known()) await v422Ask(); return __rp422.apply(this,arguments); }; }
+if(typeof v33RqPoll==="function"){ const __rq422=v33RqPoll; v33RqPoll=async function(){ if(v422On()&&!v422Known()) await v422Ask(); return __rq422.apply(this,arguments); }; }
+/* 依頼ページ：再読み込みの直後（サーバーの応答がまだ無い・同期の立ち上げ中）は、「v2.13 になると」ではなく「確かめています」と出し、
+   立ち上がったら描き直す。30秒たっても応答が無ければ「接続できませんでした」（デモ版の案内はそのまま） */
+function v422RqNote(){ try{ if(!v422On()||(typeof v33Demo==="function"&&v33Demo())) return; if(v422Now()&&!v422Boot()) return;
+  const n=document.querySelector("#well .v33rq > .v33note"); if(!n) return;
+  n.textContent=v33T("同期サーバーの版を確かめています…"); n.className="v33mute"; n.dataset.v422="wait";
+  if(!v422Now()) v422Ask();
+  const t0=Date.now(), tick=()=>{ if(!n.isConnected) return; if(v422Now()&&!v422Boot()){ v422RqRedraw(); return; }
+    if(Date.now()-t0>30000){ n.className="v33note"; n.removeAttribute("data-v422"); n.textContent=v33T("同期サーバーに接続できませんでした。通信状況を確認して、画面を再読み込みしてください。"); return; }
+    setTimeout(tick,400); };
+  setTimeout(tick,400); }catch(e){} }
+if(typeof render==="function"){ const __rd422=render; render=function(){ const r=__rd422.apply(this,arguments); try{ if(typeof cur!=="undefined"&&cur==="rqp") v422RqNote(); }catch(e){} return r; }; }
+if(typeof fwdRender==="function"){ const __fr422=fwdRender; fwdRender=function(){ const r=__fr422.apply(this,arguments); try{ if(typeof fwdCur!=="undefined"&&fwdCur==="frq") v422RqNote(); }catch(e){} return r; }; }
+/* ログインしたまま再読み込みしたとき：ほかの通信で版が分からなければ、少し待ってから一度だけ聞く */
+setTimeout(()=>{ try{ if(typeof SES!=="undefined"&&SES&&!v422Now()) v422Ask(); }catch(e){} },2500);
+(function(){
+  const R=[
+    ["同期サーバーの版を確かめています…","Checking the sync server version…","正在确认同步服务器的版本…","Comprobando la versión del servidor de sincronización…"],
+    ["同期サーバーに接続できませんでした。通信状況を確認して、画面を再読み込みしてください。","Could not connect to the sync server. Check your connection and reload the page.","无法连接同步服务器。请检查网络后重新加载页面。","No se pudo conectar con el servidor de sincronización. Compruebe la conexión y vuelva a cargar la página."]
+  ];
+  try{ if(typeof I18N!=="undefined"&&I18N&&I18N.dict) R.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){}
+})();
+
+/* ═══ v21.42.2 ② AI物流マン：アプリの使い方（ルートの登録など）に、手順と「その画面を開く」ボタンで答える ═══════════════
+   原因：AI物流マンに渡す社内データは「レート表・相見積・見積依頼・操作履歴」だけで、アプリの操作方法が入っていなかった。
+         v21.33 の決まり（登録データ・Web・統計に根拠が無いことは推測で言い切らず「判断できません」）で、使い方の質問まで「判断できません」になった。
+         「判断できません」の下のボタンは荷主の画面（商品情報・資料の登録）向けの固定で、物流会社の画面には行き先が無かった。
+         実AIに接続していない時（内蔵エンジン）も、「登録」の質問には定型のあいさつしか返さなかった。
+   対応：① 物流会社の画面の操作ガイド（実画面の見出し・ボタン名どおり）を持たせる
+         ② 使い方の質問は、ガイドから手順で即答し、その画面を開いて入力欄・取り込みの枠まで案内するボタンを付ける（実AIを待たない・AIの費用もかからない）
+         ③ それ以外の質問で実AIに聞くときも、ガイドを根拠の節（✓ 操作ガイド）として渡す。答えに画面名が出たら、その画面を開くボタンを付ける
+         ④ 「判断できません」の下のボタンを、物流会社では物流会社の画面に
+         ⑤ 有効期限の無いレート（期限の列が無い表・AI の読み取り・手入力）は、その年の12月31日（12月は翌年）。前は「2026-12-31」の決め打ちで、
+            2027年になると登録した瞬間に期限切れ（見積の対象外）になるところだった（fixes_v21422 で4か所を v422DefValid に） */
+function v422DefValid(){ try{ const t=String((typeof TODAYS!=="undefined"&&TODAYS)||new Date().toISOString().slice(0,10)); const y=+t.slice(0,4), m=+t.slice(5,7);
+  return (m===12?y+1:y)+"-12-31"; }catch(e){ return "2026-12-31"; } }
+
+/* ── ① 操作ガイド（物流会社）。画面の名前・ボタンの名前は実画面のとおり ── */
+const V422G_PG={finbox:"見積受信箱",fcase:"案件",frq:"依頼ページ",frates:"物流レート管理",fagg:"相見積・AI推奨",fai:"AI物流マンに相談",fteam:"メンバー・担当"};
+const V422G=[
+  {id:"lane",nm:"ルート（レーン）・レートを登録する",pg:"frates",ex:"ルート（レーン）を登録するには？",
+    kw:[[/ルート|レーン|航路|区間|レート|運賃|料金表|タリフ|tariff|仕向|仕出|発着/i,1]],need:/登録|追加|入れ|入力|作成|作る|作り|設定|載せ|アップ|取り?込|インポート|読み?込|足す|足し|増や/,
+    steps:["左のメニューの「物流レート管理」を開きます。",
+      "【表でまとめて登録】「レート表をアップロード」で「この表の物流会社名」を確かめ、「ここにレート表をドラッグ＆ドロップ」に料金表（Excel・CSV・PDF・画像）を入れます。クリックしてファイルを選んでも同じです。1行目の見出し（仕出港・仕向港・形態・運賃・日数・有効期限）から列を自動で読み取ります。",
+      "【1レーンだけ手で登録】「手入力で1レーン追加」に、仕出港・仕向港・形態（LCL／FCL20／FCL40／AIR）・運賃（円）・日数を入れて「追加」を押します。仕出港・仕向港・運賃は必須です（日数を空けると10日）。",
+      "登録したレーンは右の「登録済みレート」に出ます。AI物流マンは次の見積からこのレートを使い、レーン未登録で止まっていた見積依頼にも自動で見積が付きます。"],
+    tips:["PDF・画像の読み取りには、AIエンジンの接続（STANDAGE の管理者が行います）と、利用プランがスタンダード以上であることが必要です。Excel・CSV はそのまま取り込めます。",
+      "AI が読み取ったレートは、「AI が読み取ったレートを確かめる」で中身を確かめ、「チェックしたレーンを登録」で登録します（登録するとすぐ荷主の見積に使われるため）。",
+      "有効期限の列が無い表や手入力のレーンは、有効期限がその年の12月31日（12月は翌年の12月31日）になります。"],
+    acts:[{t:"レート表を取り込む",pg:"frates",f:"#fwdrop"},{t:"1レーンを手で追加する",pg:"frates",f:"#frPol",pod:1}]},
+  {id:"update",nm:"レートを更新する・有効期限",pg:"frates",ex:"レートを更新するには？",
+    kw:[[/レート|運賃|料金|レーン|ルート|タリフ/i,1],[/有効期限|期限/,2]],need:/更新|差し?替|入れ替|最新|改定|変更|変え|直す|直し|修正|延長|延ば|値上|値下/,
+    steps:["「物流レート管理」で、新しい料金表を「ここにレート表をドラッグ＆ドロップ」から取り込みます（1レーンだけなら「手入力で1レーン追加」）。",
+      "取り込んだレートは追加されます。同じ区間の古いレートは自動では消えないので、「登録済みレート」の行の「削除」で外します。",
+      "有効期限が切れたレートは、自動で見積の対象外になります。期限が近いレートは、AI物流マンに「有効期限が近いレートは？」と聞くと一覧で出ます。"],
+    tips:[],acts:[{t:"新しいレート表を取り込む",pg:"frates",f:"#fwdrop"},{t:"登録済みレートを見る",pg:"frates",f:"#frSearch"}]},
+  {id:"del",nm:"レートを削除する",pg:"frates",ex:"古いレートを消すには？",
+    kw:[[/レート|運賃|料金|レーン|ルート/i,1]],need:/削除|消す|消し|外す|外し|取り?消|無効/,
+    steps:["「物流レート管理」の「登録済みレート」で、上の「すべて／LCL／FCL／航空／小包」や「🔍 会社・港・備考で絞り込み」で行を探します。",
+      "その行の「削除」を押します。すぐに外れ、荷主の見積にも使われなくなります。"],
+    tips:[],acts:[{t:"登録済みレートを開く",pg:"frates",f:"#frSearch"}]},
+  {id:"inbox",nm:"荷主からの見積依頼に対応する",pg:"finbox",ex:"見積依頼に対応するには？",
+    kw:[[/見積依頼|受信箱/,3],[/依頼|見積|要確認|未対応|未担当|担当する|交渉|返信|回答/,1]],
+    steps:["「見積受信箱」に、荷主からの見積依頼が届きます。登録したレートで見積を出せる依頼には、AI物流マンが自動で回答します。",
+      "見積を出せなかった依頼（レーン未登録）は、上の「要確認のタスク」に出ます。「レートを登録」で「物流レート管理」へ進み、その区間のレートを登録すると、自動で見積が付きます。対応が済んだら「済み」を押します。",
+      "依頼の行の「担当する」で担当を決められます。「すべて／未担当／担当あり／完了／要確認」で絞り込めます。「交渉記録」で、荷主のAI商社マンとAI物流マンのやり取りと国ごとの見積を見られます。"],
+    tips:[],acts:[{t:"見積受信箱を開く",pg:"finbox"},{t:"レートを登録する",pg:"frates",f:"#frPol"}]},
+  {id:"agg",nm:"相見積・推奨を見る／情勢メモを登録する",pg:"fagg",ex:"情勢メモを登録するには？",
+    kw:[[/相見積|推奨|情勢|港湾スト|ストライキ|遅延|混雑|逼迫/,2],[/比較|おすすめ/,1]],
+    steps:["「相見積・AI推奨」で、レーンごとの参加社数・運賃の幅・所要日数と、AI物流マンの推奨を見られます（標準2m³・希望納期なしで計算した目安）。",
+      "港湾ストや航路の混雑などは「情勢メモ（AI物流マンの推奨に反映）」に、対象（国・港名）・内容・遅延見込み（日）・影響度を入れて「情勢メモを登録」を押します。該当する区間の推奨と、荷主のAI見積に、すぐ反映されます。"],
+    tips:[],acts:[{t:"相見積・AI推奨を開く",pg:"fagg"},{t:"情勢メモを登録する",pg:"fagg",f:"#fsReg"}]},
+  {id:"case",nm:"案件ごとにB/L・出荷の情報をまとめる",pg:"fcase",ex:"B/L番号を入れるには？",
+    kw:[[/案件|B\/?L|船荷|ブッキング|booking/i,2],[/出荷の?情報/,2]],
+    steps:["「案件」で、荷主の会社と案件番号ごとに、見積の依頼・状況・B/L 番号・メモをまとめて見られます。",
+      "「B/L・出荷の情報を入れる」で、B/L 番号などを記録します。",
+      "荷主に出荷の情報を出してもらうときは「荷主に出荷情報を頼む（依頼ページ）」を押します。"],
+    tips:[],acts:[{t:"案件を開く",pg:"fcase"}]},
+  {id:"rq",nm:"荷主に情報や書類をリンクで出してもらう（依頼ページ）",pg:"frq",ex:"荷主に書類を出してもらうには？",
+    kw:[[/依頼ページ/,4],[/リンク/,2],[/荷主に.{0,10}(頼|依頼|もら|聞|出して|出させ)|書類を?(頼|もら|集め)/,3]],
+    steps:["「依頼ページ」の「＋ 新しい依頼」で、荷主に出荷の情報や書類をリンクで出してもらえます。相手はログインしなくても答えられます。",
+      "届いた回答は「回答を確かめる」で確かめてから反映します。"],
+    tips:[],acts:[{t:"依頼ページを開く",pg:"frq"}]},
+  {id:"team",nm:"メンバーを招待する・担当を決める",pg:"fteam",ex:"メンバーを招待するには？",
+    kw:[[/メンバー|招待/,3],[/社員|スタッフ|権限|ユーザー|役割|担当者|荷主ごと/,1]],
+    steps:["「メンバー・担当」の「＋ メンバーを招待」から招待します。招待したメンバーは、アクセスコード＋ご本人の氏名でログインします。",
+      "「荷主ごとの担当」で、荷主ごとの担当者を決められます。",
+      "管理者は、招待・担当・役割・停止・削除ができます（代表は外せません）。"],
+    tips:[],acts:[{t:"メンバー・担当を開く",pg:"fteam",f:"text:メンバーを招待"}]},
+  {id:"plan",nm:"AI物流マンの稼働設定（利用プラン・AIの接続）",pg:"frates",ex:"AI物流マンのプランを変えるには？",
+    kw:[[/プラン|実AI|未接続|APIキー|スタンダード|プレミアム|ライト/i,2],[/AI.{0,8}(接続|設定|使え|使う|動か|切り替|つなが)/i,2]],
+    steps:["「物流レート管理」の「🤖 AI物流マンの稼働設定（利用プラン）」で、ライト・スタンダード・プレミアムを選べます（画面で内容を確かめて選びます。トライアル中は無料で切り替えられます）。",
+      "AIエンジンの接続（APIキー）は、STANDAGE の管理者が管理コンソールで行います。接続済みなのに「未接続」と出るときは、管理者にこのアカウントを「共有中」にしてもらってから「🔄 接続状態を再確認」を押します。"],
+    tips:[],acts:[{t:"稼働設定を開く",pg:"frates",f:"text:AI物流マンの稼働設定"}]}
+];
+/* 使い方の質問か（「どうすれば」「方法」「するには」など）。データの質問（「韓国向けのレーンはある？」「未対応の依頼は？」）は今までどおり */
+const V422_CUE=/(どう|どのよう|どの様|いかに)に?(すれば|したら|やって|やれば|すると|やると|する[のん]?|やる[のん]?|進め|使え|操作)|方法|手順|やり方|仕方|使い方|操作のしかた|どこ(で|から|に|を)(登録|入れ|入力|追加|設定|取り?込|アップ|見|確か|変え|消|招待)|(する|やる|できる|入れる|出す|見る|変える|消す|外す|決める|頼む|招待する|登録する|追加する|取り?込む|更新する|削除する|直す|つなぐ|接続する)には|[うくぐすつぬぶむる]には[。？?！!]*$|したい(んだ|んです|のです|です)?(が|けど|けれど)?[。？?！!]*$|方を(教え|知り)|how (do|can|to)|where (do|can) i/i;
+const V422_SHORT=/^.{0,16}(登録|追加|取り?込み?|アップロード|招待|削除|更新)(したい|する|の仕方|方法|手順)?[？?。]?$/;
+const V422_HELP=/^(AI物流マンの)?(使い方|ヘルプ|help)(を(教えて|見せて)|は)?[？?。]?$|何ができ|なにができ|何を聞け|どんなこと(が|を)(でき|聞け)/i;
+function v422Topic(q){ let best=null, bs=0;
+  V422G.forEach(t=>{ if(t.need&&!t.need.test(q)) return; let s=0; t.kw.forEach(([re,w])=>{ if(re.test(q)) s+=w; }); if(s>bs){ bs=s; best=t; } });
+  return best; }
+function v422Howto(q){ q=String(q||"").replace(/\s+/g," ").trim(); if(!q||q.length>200) return null;
+  if(V422_HELP.test(q)) return {menu:1};
+  if(!(V422_CUE.test(q)||V422_SHORT.test(q))) return null;
+  const t=v422Topic(q); return t?{t,q}:null; }
+/* 質問の仕向地（国・港）を拾って、手入力の「仕向港」に入れる */
+function v422Pod(q){ try{ q=String(q||""); const P=(typeof FWD_POD!=="undefined"&&FWD_POD)||{};
+  const pod=[...new Set(((typeof FWDB!=="undefined"&&FWDB&&FWDB.rates)||[]).map(r=>r.pod).filter(Boolean))].find(p=>p.length>=2&&q.includes(p));
+  if(pod) return pod; const c=Object.keys(P).find(k=>q.includes(k)); return c?(P[c]||c):""; }catch(e){ return ""; } }
+
+/* ── ② 答え（ガイドから。番号つきの手順・その画面を開くボタン・根拠） ── */
+function v422E(s){ return (typeof esc==="function")?esc(String(s==null?"":s)):String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function v422Btn(a,q,first){ const pod=a.pod?v422Pod(q):"";
+  return `<button type="button" class="btn${first?"":" g"}" data-fwdgo="${v422E(a.pg)}"${a.f?` data-fwdfocus="${v422E(a.f)}"`:""}${pod?` data-fwdpod="${v422E(pod)}"`:""}>${v422E(a.t)}${pod?`（${v422E(pod)}）`:""}</button>`; }
+function v422Refs(pgNm){ return `<details class="v33refs"><summary>根拠（1）<span class="v33lv v33lv-good">✓ 確認済みを含む</span></summary><ol><li><span class="v33refn">1</span><span class="v33lv v33lv-good">✓ 貿易クラウドの操作ガイド</span> 「${v422E(pgNm)}」の画面</li></ol></details>`; }
+function v422Answer(g){
+  if(g.menu){ return `<div class="v422g"><b>AI物流マンに聞ける使い方</b><p>知りたい操作を押すと、手順とその画面を開くボタンを出します。データのこと（「韓国向けのレーンはある？」「未対応の依頼は？」など）も、そのまま聞いてください。</p>
+    <div class="v422act">${V422G.map(t=>`<button type="button" class="btn g" data-fwdask="${v422E(t.ex)}">${v422E(t.nm)}</button>`).join("")}</div></div>`; }
+  const t=g.t, pgNm=V422G_PG[t.pg]||"";
+  return `<div class="v422g"><b>${v422E(t.nm)}</b>（「${v422E(pgNm)}」の画面）<ol>${t.steps.map(s=>`<li>${v422E(s)}</li>`).join("")}</ol>`+
+    (t.tips.length?`<ul class="v422tips">${t.tips.map(s=>`<li>${v422E(s)}</li>`).join("")}</ul>`:"")+
+    `<div class="v422act">${t.acts.map((a,i)=>v422Btn(a,g.q,i===0)).join("")}</div>${v422Refs(pgNm)}</div>`; }
+function v422Foot(){ return `<div style="margin-top:6px;font-size:9.5px;color:var(--ink-3)">${v422E("操作ガイドから回答（実画面の見出し・ボタン名どおり。実AIは使っていません）")}</div>`; }
+if(typeof fwdAsk==="function"){ const __fa422=fwdAsk; fwdAsk=async function(v){
+  const q=String(v||"").trim(); let g=null; try{ g=q?v422Howto(q):null; }catch(e){ g=null; }
+  if(!g||typeof FWDB==="undefined"||!FWDB) return __fa422.apply(this,arguments);
+  FWDB.chat=FWDB.chat||[];
+  FWDB.chat.push({w:"u",t:(typeof mdU==="function"?mdU(v422E(q)):v422E(q)),ts:Date.now()});
+  FWDB.chat.push({w:"a",t:v422Answer(g)+v422Foot(),ts:Date.now()});
+  FWDB.chat=FWDB.chat.slice(-60);
+  if(typeof fwdSave==="function") fwdSave();
+  try{ if(typeof logU==="function") logU("fwd","AI物流マンに質問（使い方）:"+q.slice(0,30)); }catch(e){}
+  if(typeof fwdRender==="function") fwdRender(); }; }
+/* 内蔵エンジン（実AI未接続）のあいさつに、使い方の例を足す */
+if(typeof fwdBrain==="function"){ const __fb422=fwdBrain; fwdBrain=function(q){ const r=__fb422.apply(this,arguments);
+  try{ if(r&&typeof r.a==="string"&&/^AI物流マンです。/.test(r.a)) r.a=r.a.replace("・「未対応の依頼は？」<br>","・「未対応の依頼は？」<br>・「ルート（レーン）を登録するには？」（画面の使い方も手順で答えます）<br>"); }catch(e){} return r; }; }
+
+/* ── ③ 実AIに聞くとき：ガイドを根拠の節として渡す。答えに画面名が出たら、その画面を開くボタン ── */
+function v422GuideCtx(){ return V422G.map(t=>"- "+t.nm+"（画面「"+(V422G_PG[t.pg]||"")+"」）："+t.steps.join(" ")+(t.tips.length?" ※"+t.tips.join(" ※"):"")).join("\n"); }
+const V422_RULE=`
+【アプリの使い方の質問（v21.42.2）】
+・「どうすれば」「方法」「手順」など、貿易クラウドの操作を聞かれたら、「貿易クラウドの操作ガイド」の節を根拠に、画面名・ボタン名を「」でそのまま示して、番号つきの手順で答えてください（文の終わりに節の番号）。操作ガイドにある操作は「判断できません」にしないでください。
+・操作ガイドに無い操作は、作らずに「この画面には無い操作です」と答え、近い画面の名前を示してください。`;
+if(typeof fwdContext==="function"){ const __fc422=fwdContext; fwdContext=function(){ const s=__fc422.apply(this,arguments);
+  try{ if(typeof V33ANS==="undefined"||!V33ANS.chat) return s; const n=(V33ANS.map||[]).length+1;
+    V33ANS.map=(V33ANS.map||[]).concat([{n,h:"貿易クラウドの操作ガイド（物流会社の画面）",k:"guide",b:"✓ 貿易クラウドの操作ガイド",ok:1}]);
+    return s+"\n## [S"+n+"] 貿易クラウドの操作ガイド（物流会社の画面と操作）\n"+v422GuideCtx()+"\n"+V422_RULE; }catch(e){ return s; } }; }
+function v422FwdOn(){ try{ return (typeof FWDON!=="undefined"&&FWDON)||(typeof v33Mode==="function"&&v33Mode()==="fwd"); }catch(e){ return false; } }
+function v422PgBtns(txt){ const t=String(txt||""), hit=[];
+  Object.entries(V422G_PG).forEach(([pg,nm])=>{ const loose=nm.length>=5&&!/^AI物流マンに相談$/.test(nm); if(t.includes("「"+nm+"」")||(loose&&t.includes(nm))||(pg==="fagg"&&/「相見積・AI物流マンの推奨」/.test(t))) hit.push(pg); });
+  return hit.slice(0,3).map(pg=>`<button type="button" class="btn g" data-fwdgo="${pg}">「${v422E(V422G_PG[pg])}」を開く</button>`).join(""); }
+if(typeof v33AnsDecorate==="function"){ const __ad422=v33AnsDecorate; v33AnsDecorate=function(a,txt){ let h=__ad422.apply(this,arguments);
+  try{ if(!v422FwdOn()) return h;
+    /* ④ 「判断できません」の下：荷主の画面（商品情報・資料）ではなく、物流会社の画面へ */
+    if(h.includes('class="v33cant-act"')){
+      return h.replace(/<div class="v33cant-act">[\s\S]*?<\/div>/,`<div class="v33cant-act"><button class="btn g" type="button" data-fwdgo="frates" data-fwdfocus="#frPol">${v422E("レートを登録する（物流レート管理）")}</button><button class="btn g" type="button" data-fwdgo="finbox">${v422E("見積受信箱を開く")}</button><button class="btn g" type="button" data-fwdask="使い方を教えて">${v422E("使い方の一覧")}</button></div>`); }
+    const b=v422PgBtns(txt); if(b) h+=`<div class="v422act">${b}</div>`; }catch(e){} return h; }; }
+
+/* ── ボタン：その画面を開き、入力欄・取り込みの枠を光らせる。右パネルは閉じる（パネルの外は暗い幕で触れないため。「AI物流マンの画面へ」と同じ。手順は会話に残る） ── */
+function v422Focus(sel,pod){ try{ let el=null;
+  if(/^text:/.test(sel||"")){ const k=sel.slice(5); el=[...document.querySelectorAll("#well button,#well h3,#well summary,#well .btn")].find(x=>(x.textContent||"").includes(k)&&(x.offsetParent||x.getClientRects().length)); }
+  else if(sel) el=document.querySelector(sel);
+  if(sel==="#frSearch"&&!el) el=[...document.querySelectorAll("#well input")].find(x=>/会社・港・備考/.test(x.placeholder||""))||document.querySelector("#well table");
+  if(pod){ const p=document.getElementById("frPod"); if(p&&!p.value) p.value=pod; }
+  if(!el) return; try{ el.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){ el.scrollIntoView(); }
+  const box=(el.matches&&el.matches("input,select,textarea"))?(el.closest(".rw")||el):el;
+  box.classList.remove("v422hl"); void box.offsetWidth; box.classList.add("v422hl"); setTimeout(()=>box.classList.remove("v422hl"),2600);
+  if(el.matches&&el.matches("input,select,textarea")) setTimeout(()=>{ try{ el.focus({preventScroll:true}); }catch(e){} },350); }catch(e){} }
+function v422Go(pg,sel,pod){ try{
+  const dw=document.getElementById("dw"); if(dw&&dw.dataset.open==="true"&&document.getElementById("dwfwdchat")&&typeof closeDW==="function") closeDW();
+  if(typeof fwdCur!=="undefined"&&pg&&V422G_PG[pg]){ fwdCur=pg; if(typeof fwdNav==="function") fwdNav(); if(typeof fwdRender==="function") fwdRender(); }
+  setTimeout(()=>v422Focus(sel,pod),120); }catch(e){} }
+function v422AskAgain(text){ try{
+  const dw=document.getElementById("dw"), dq=document.getElementById("dwfq"), dg=document.getElementById("dwfqgo");
+  if(dw&&dw.dataset.open==="true"&&dq&&dg){ dq.value=text; dg.click(); return; }
+  if(typeof fwdAsk==="function") fwdAsk(text); }catch(e){} }
+document.addEventListener("click",e=>{ const b=e.target&&e.target.closest&&e.target.closest("[data-fwdgo],[data-fwdask]"); if(!b) return;
+  if(!v422FwdOn()) return; e.preventDefault();
+  if(b.dataset.fwdask) return v422AskAgain(b.dataset.fwdask);
+  v422Go(b.dataset.fwdgo,b.dataset.fwdfocus||"",b.dataset.fwdpod||""); });
+(function(){ const st=document.createElement("style"); st.id="v422css"; st.textContent=`
+.v422g ol{margin:6px 0 4px;padding-left:1.4em}.v422g ol li{margin:3px 0;line-height:1.65}
+.v422g p{margin:4px 0 6px;line-height:1.65}.v422tips{margin:4px 0;padding-left:1.2em;font-size:11px;color:var(--ink-2)}.v422tips li{margin:2px 0;line-height:1.6}
+.v422act{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}.v422act .btn{font-size:11.5px}
+.v422hl{outline:3px solid var(--bl);outline-offset:3px;border-radius:6px;animation:v422p 1.3s ease-in-out 2}
+@keyframes v422p{0%,100%{outline-color:var(--bl)}50%{outline-color:transparent}}
+@media (prefers-reduced-motion:reduce){.v422hl{animation:none}}`; document.head.appendChild(st); })();
+(function(){
+  const R=[
+    ["ルート（レーン）を登録するには？","How do I register a route (lane)?","如何登记航线（线路）？","¿Cómo registro una ruta (trayecto)?"],
+    ["画面はこのまま、右側で完結します。レート表・見積依頼・履歴と、操作ガイド（使い方）を根拠に答えます。やり取りは「AI物流マンに相談」の画面と共通です。",
+     "Stay on this screen; everything happens in the side panel. Answers are based on your rate table, quote requests, history and the operating guide (how to use the app). The conversation is shared with the \"Ask AI Logistics\" screen.",
+     "停留在本页面，在右侧完成。以费率表・报价请求・历史和操作指南（使用方法）为依据回答。对话与「咨询AI物流专员」页面共享。",
+     "Sin salir de la pantalla: todo ocurre en el panel lateral. Responde según su tabla de tarifas, solicitudes de cotización, historial y la guía de uso. La conversación se comparte con la pantalla \"Consultar IA logística\"."],
+    ["レートを登録する（物流レート管理）","Register rates (Rate management)","登记费率（物流费率管理）","Registrar tarifas (gestión de tarifas)"],
+    ["見積受信箱を開く","Open the quote inbox","打开报价收件箱","Abrir la bandeja de cotizaciones"],
+    ["使い方の一覧","How-to list","使用方法一览","Lista de instrucciones"]
+  ];
+  try{ if(typeof I18N!=="undefined"&&I18N&&I18N.dict) R.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){}
+})();
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
