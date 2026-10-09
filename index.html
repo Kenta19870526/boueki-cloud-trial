@@ -1028,7 +1028,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="d40ad6e4ea50";
+const BC20_BUILD="e084bd5dffd1";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -40917,6 +40917,146 @@ function v45SmpPatch(id){ if(v45On()||!v45SmpOn()) return; const r=(FWDB.reqs||[
     {re:/^✓ 貴社で仮押さえ(?:・(.+))?$/,en:(m)=>"✓ Held with you"+(m[1]?" · "+m[1]:""),zh:(m)=>"✓ 已由贵司暂订"+(m[1]?"・"+m[1]:""),es:(m)=>"✓ Reservado con ustedes"+(m[1]?" · "+m[1]:"")},
     {re:/^一部を貴社で仮押さえ（(\d+)\/(\d+)か国）$/,en:"Partly held with you ($1/$2 countries)",zh:"部分由贵司暂订（$1/$2国）",es:"Parcialmente reservado con ustedes ($1/$2 países)"},
     {re:/^💬 やり取りの記録（貴社に関わる分・(\d+)件）$/,en:"💬 Exchange log (your part · $1)",zh:"💬 往来记录（与贵司相关・$1条）",es:"💬 Registro (su parte · $1)"}); }catch(e){}
+})();
+
+/* ═══ v21.46（2026-10-09）見本だけの国も物流会社へ（同期サーバー v2.17 と組み）・物流会社の画面の直し ═══════════════
+   ① 見本の国：荷主の見積で、本物の物流会社のレートが無い区間は内蔵の見本（架空の3社）で埋める（v21.45）。v2.16 ではその国が「見積あり」の扱いで、
+      どの物流会社にも届かず、本物の物流会社の社名が見本と同じ（デモ物流株式会社）だと見本の見積がその会社に届いた。
+      大森さんの決め（10/9）：見本だけの国も「どこも見積を出せなかった国」と同じに扱い、荷主を伏せて全物流会社へ届ける。
+      届け先はサーバー（v2.17）が決める（l.smp／o.smp の国は見本の社名で届けず、未登録の区間として渡す）。この層は荷主の画面の判定を社名から印に：
+      見本の会社を指名できないのは見本の国・見本の見積だけ（本物の物流会社が見本と同じ社名でも、その会社の見積からは指名できる）
+   ② 物流レート管理でレート表を取り込んだ結果（緑の枠 #fwdupst）が約3.5秒で消えた：送った後の取り込み直し（syncPullFwd）で画面を描き直していた
+      → 同期の取り込みで描き直すときは、枠の中身を引き継ぐ
+   ③ AI物流マンの内蔵の答え（「香港向けの推奨はどの会社？」「未対応の依頼は？」）：知識の層（fwdKbAsk）が依頼の一覧で答え、推奨は他社・他社に決定の
+      国にも自社名と金額が並んだ（サーバーが渡す見積は自社の分だけのため）→ 本物の物流会社では、区間ごとの位置（2社中2位・推奨は他社）と依頼ごとの
+      状況（貴社の回答・他社に決定・貴社で仮押さえ・レーン未登録）で答える。実AIに渡す材料（fwdContext）の依頼の行も同じ形に
+   ④ 見積の窓のやり取りの記録のアバター「AI商社」「AI物流」の文字が28pxの丸からはみ出した → 2行（AI／商社）の丸に（荷主の窓も同じ）
+   ⑤ AI物流マンの使い方の答え（操作ガイド V422G）と要確認のタスクの説明の「レーン未登録で止まっていた見積依頼にも自動で見積が付きます」：v21.45 からは
+      物流会社の画面では計算し直さず、荷主が次に画面を開いたときに見積が届く。その形に（同期サーバーが新しい形〔f2〕のときだけ。古い形なら今までの文） */
+const V46={bg:0};
+function v46E(s){ return (typeof v45E==="function")?v45E(s):String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function v46N(x){ return (+x||0).toLocaleString(); }
+function v46F2(){ try{ return typeof v45On==="function"&&v45On()&&typeof v45Fv==="function"&&v45Fv(); }catch(e){ return false; } }
+function v46Real(){ try{ return typeof v45RealFwd==="function"&&v45RealFwd(); }catch(e){ return false; } }
+
+/* ── ① 荷主：見本の会社を指名できないのは、見本の国・見本の見積だけ（社名では判定しない） ── */
+try{ if(typeof V45_SMPCO!=="undefined"&&V45_SMPCO) Object.keys(V45_SMPCO).forEach(k=>{ delete V45_SMPCO[k]; }); }catch(e){}
+function v46SmpPick(id,cty,co){ try{ const r=((typeof FWDB!=="undefined"&&FWDB&&FWDB.reqs)||[]).find(x=>x.id===id); const l=r&&(r.legs||[]).find(x=>x.cty===cty); if(!l) return false;
+  if(l.smp) return true; const o=(l.offers||[]).find(x=>x&&x.co===co); return !!(o&&o.smp); }catch(e){ return false; } }
+if(typeof fwdRequoteForm==="function"){ const __rq46=fwdRequoteForm; fwdRequoteForm=function(id,cty,co){
+  try{ if(co&&typeof v45On==="function"&&!v45On()&&typeof v45SmpOn==="function"&&v45SmpOn()&&v46SmpPick(id,cty,co)){ if(typeof toast==="function") toast("見本の物流会社は指名できません。「回答のあった全社に相見積」で依頼してください"); co=""; } }catch(e){}
+  return __rq46.call(this,id,cty,co); }; }
+
+/* ── ② 同期の取り込みで描き直しても、レート表の取り込みの結果（緑の枠）を消さない ── */
+if(typeof syncPullFwd==="function"){ const __spf46=syncPullFwd; syncPullFwd=async function(){ V46.bg++; try{ return await __spf46.apply(this,arguments); } finally{ V46.bg--; } }; }
+if(typeof fwdRender==="function"){ const __fr46=fwdRender; fwdRender=function(){
+  let keep=""; try{ if(V46.bg>0){ const e=document.getElementById("fwdupst"); if(e&&e.innerHTML.trim()) keep=e.innerHTML; } }catch(e){}
+  const o=__fr46.apply(this,arguments);
+  try{ if(keep){ const e=document.getElementById("fwdupst"); if(e&&!e.innerHTML.trim()) e.innerHTML=keep; } }catch(e){}
+  try{ v46AfterRender(); }catch(e){}
+  return o; }; }
+
+/* ── ③ AI物流マンの内蔵の答え（本物の物流会社）：区間ごとの位置と、依頼ごとの状況 ── */
+function v46LegTxt(l){ const q=l.quote||{};
+  if(l.ok){ if(l.hold) return `<b>貴社で仮押さえ</b>（貴社の回答 ¥${v46N(q.total)}・約${+q.tt||0}日）`;
+    if(l.lost) return "<b>他社に決定</b>";
+    const pos=(+l.n||0)>1?`${+l.n}社中${+l.rank}位・${+l.gap>0?"最安との差 +"+(+l.gap)+"%":"最安"}・${l.recMine?"推奨は貴社":"推奨は他社"}`:"相見積なし（貴社のみ）";
+    return `貴社の回答 ¥${v46N(q.total)}・約${+q.tt||0}日（<b>${pos}</b>）`; }
+  if(l.other) return l.lost?"<b>他社に決定</b>（貴社のレートは未登録）":`他社のみ回答（${+l.n||0}社・貴社のレートは未登録）`;
+  return "レーン未登録";
+}
+function v46LegNg(l){ return !!l&&!l.ok&&!l.other&&!l.lost; }
+function v46ReqHtml(r){ const E=v46E, st=(typeof fwdReqStatus==="function")?fwdReqStatus(r):(r.status||"");
+  return `・${E(r.d||"")} <b>${E(r.id)}</b>（${E(r.co||"")}）${E(r.pol||"")}→${E(r.cty||"")}：${E(st)}${(r.legs||[]).map(l=>`<br>　・${E(l.cty)}：${v46LegTxt(l)}`).join("")}`; }
+function v46PosTxt(c){ return (+c.n||0)>1?`${+c.n}社中${+c.rank}位（最安との差 ${+c.gap>0?"+"+(+c.gap)+"%":"なし＝最安"}）・${c.rec?"推奨は貴社":"推奨は他社"}`:"相見積なし（貴社のみ）"; }
+function v46OwnRate(pod,mode){ try{ const M=s=>String(s||"").toUpperCase(); return (FWDB.rates||[]).filter(r=>r.pod===pod&&M(r.mode)===M(mode)&&(typeof fwdRateValid!=="function"||fwdRateValid(r)))
+  .sort((a,b)=>(typeof fwdRateJpy==="function"?fwdRateJpy(a)-fwdRateJpy(b):(+a.price||0)-(+b.price||0)))[0]||null; }catch(e){ return null; } }
+function v46Brain(q){
+  const s=String(q||""), E=v46E, R=FWDB.reqs||[], C=(FWDB.cmp&&FWDB.cmp.lanes)||[], nCos=(FWDB.cmp&&+FWDB.cmp.nCos)||1;
+  const base=`根拠：貴社のレート表 ${(FWDB.rates||[]).length}レーン／届いた見積依頼 ${R.length}件／区間ごとの位置（同期サーバーの集計${FWDB.cmp&&FWDB.cmp.at?"・"+E(FWDB.cmp.at):""}）（エンジン：内蔵）`;
+  const foot=`<br><span style="font-size:10.5px;color:var(--ink-3)">ほかの物流会社の社名・運賃は表示しません。</span>`;
+  const ngFoot=`<br><b>レーン未登録の区間は、「物流レート管理」でその区間のレートを登録すると、荷主が次に画面を開いたときに見積が届きます。</b>`;
+  /* 依頼の番号で聞かれた */
+  const m=s.match(/RQ-[A-Z0-9]{5,8}/i);
+  if(m){ const r=R.find(x=>String(x.id).toUpperCase()===m[0].toUpperCase()); if(!r) return {a:"該当する見積依頼がありません（貴社に届いた依頼だけを見ています）。",c:base};
+    return {a:v46ReqHtml(r)+(r.rv?"":`<br><span style="font-size:10.5px;color:var(--ink-3)">${r.open?"どの物流会社も見積を出せなかった区間の依頼です。荷主の社名・品目・発注書番号は表示しません。":"荷主の社名・発注書番号は、貴社で仮押さえ・指名されると表示されます。"}</span>`)+((r.legs||[]).some(v46LegNg)?ngFoot:"")+foot+`<p class="nn" style="margin-top:5px">詳細は見積受信箱の「交渉記録」で確認できます。</p>`,c:base}; }
+  /* 相見積・推奨：区間ごとの貴社の位置 */
+  if(/推奨|おすすめ|お勧め|相見積|どの会社|どこが安い|最安|何社|参加|順位/.test(s)){
+    const P=(typeof FWD_POD!=="undefined"&&FWD_POD)||{};
+    const ctyHit=Object.keys(P).find(c=>s.includes(c))||(s.includes("米国")?"アメリカ":null);
+    const podHit=[...new Set((FWDB.rates||[]).map(r=>r.pod).filter(Boolean))].find(p=>s.includes(p));
+    const key=podHit||(ctyHit&&P[ctyHit])||ctyHit;
+    if(key){ const nm=ctyHit||podHit, inKey=p=>!!p&&(p===key||String(p).includes(key)||(!!ctyHit&&p===ctyHit));
+      const hit=C.filter(c=>inKey(c.pod));
+      const own=[]; const seen=new Set(); (FWDB.rates||[]).forEach(r=>{ if(!inKey(r.pod)) return; const k=r.pod+"|"+String(r.mode||"").toUpperCase(); if(seen.has(k)) return; seen.add(k); own.push({pod:r.pod,mode:String(r.mode||"").toUpperCase()}); });
+      const rq=R.filter(r=>(r.legs||[]).some(l=>(ctyHit&&l.cty===ctyHit)||inKey(l.pod)));
+      const rqHtml=rq.length?`<br><br><b>${E(nm)}向けの見積依頼（${rq.length}件）</b>：<br>`+rq.slice(0,5).map(r=>{ const ls=(r.legs||[]).filter(l=>(ctyHit&&l.cty===ctyHit)||inKey(l.pod)); return `・<b>${E(r.id)}</b>（${E(r.co||"")}）：${ls.map(l=>(ls.length>1?E(l.cty)+" ":"")+v46LegTxt(l)).join("／")}`; }).join("<br>"):"";
+      if(!own.length) return {a:`<b>${E(nm)}向け</b>の貴社のレーンは未登録です。「物流レート管理」から登録すると、相見積と推奨の対象になります。`+rqHtml+(rq.some(r=>(r.legs||[]).some(v46LegNg))?ngFoot:"")+foot,c:base};
+      const lines=own.map(L=>{ const c=hit.find(x=>x.pod===L.pod&&x.mode===L.mode), rt=v46OwnRate(L.pod,L.mode);
+        return `・${E(L.pod)}（${E(L.mode)}）：${c?"登録 "+(+c.n)+"社／":""}貴社の運賃 ${rt?E(rt.cur||"¥")+v46N(rt.price)+E(rt.unit||"")+"・約"+(+rt.tt||0)+"日":"（有効なレートなし）"}／<b>${c?v46PosTxt(c):"集計待ち（次の同期で出ます）"}</b>`; });
+      return {a:`<b>${E(nm)}向け</b>の相見積の中の貴社の位置（標準2m³・希望納期なしの目安）：<br>`+lines.join("<br>")+rqHtml+(rq.some(r=>(r.legs||[]).some(v46LegNg))?ngFoot:"")+
+        `<br><span style="font-size:10.5px;color:var(--ink-3)">順位は価格・所要日数・有効期限の総合点の順です。荷主の依頼では、数量・輸送形態・希望納期を加味して依頼ごとに計算します。ほかの物流会社の社名・運賃は表示しません。</span>`,c:base}; }
+    const multi=C.filter(c=>(+c.n||0)>1), recN=multi.filter(c=>c.rec).length;
+    return {a:`参加物流会社は<b>${nCos}社</b>（社名は非公開）。貴社の区間 ${C.length}本のうち、2社以上が登録している区間は<b>${multi.length}本</b>${multi.length?`（貴社が推奨 ${recN}本）：<br>`+multi.slice(0,8).map(c=>`・${E(c.pod)}（${E(c.mode)}）<b>${v46PosTxt(c)}</b>`).join("<br>"):"。まだ同じ区間に他社の登録がありません。"}<br><span style="font-size:10.5px;color:var(--ink-3)">詳しくは「相見積・AI推奨」の画面（相見積の中の貴社の位置）で確認できます。ほかの物流会社の社名・運賃は表示しません。</span>`,c:base};
+  }
+  /* 依頼の一覧・未対応 */
+  if(/依頼|受信|未対応|要確認|案件|見積の状況|仮押さえ/.test(s)){
+    const st=r=>(typeof fwdReqStatus==="function")?fwdReqStatus(r):"";
+    const ng=R.filter(r=>(r.legs||[]).some(v46LegNg)), held=R.filter(r=>(r.legs||[]).some(l=>l.hold)), lost=R.filter(r=>/他社に決定/.test(st(r)));
+    if(!R.length) return {a:"まだ見積依頼は届いていません。荷主の相見積に貴社のレートが入った依頼・貴社を指名した依頼と、どの物流会社も見積を出せなかった区間の依頼（荷主は非公開）が届きます。",c:base};
+    const want=/未対応|要確認|未登録|まだ|対応が必要/.test(s), list=want?ng:R;
+    const head=`受信した見積依頼は<b>${R.length}件</b>（レーン未登録の区間がある依頼 <b>${ng.length}件</b>・貴社で仮押さえ ${held.length}件・他社に決定 ${lost.length}件）。`;
+    if(want&&!list.length) return {a:head+"<br>レーン未登録で止まっている依頼はありません。",c:base};
+    return {a:head+(want?"<br>レーン未登録の区間がある依頼：":"")+"<br>"+list.slice(0,6).map(v46ReqHtml).join("<br>")+(list.length>6?`<br>ほか ${list.length-6}件`:"")+(ng.length?ngFoot:"")+foot,c:base};
+  }
+  return null;
+}
+if(typeof fwdBrain==="function"){ const __br46=fwdBrain; fwdBrain=function(q){ try{ if(v46Real()&&typeof FWDB!=="undefined"&&FWDB){ const a=v46Brain(q); if(a) return a; } }catch(e){} return __br46.apply(this,arguments); }; }
+/* 実AIに渡す材料：依頼の行を、自社の回答・順位・他社に決定の形に（他社の社名・金額は元から無い）。参加社数は非公開の言い方に */
+function v46Plain(h){ return String(h||"").replace(/<br>/g," ").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'"); }
+function v46CtxSec(s,head,body){ const i=s.indexOf(head); if(i<0) return s; const nl=s.indexOf("\n",i); if(nl<0) return s; const nx=s.indexOf("\n## ",nl); return s.slice(0,nl+1)+body+(nx<0?"":s.slice(nx)); }
+if(typeof fwdContext==="function"){ const __cx46=fwdContext; fwdContext=function(){ let s=__cx46.apply(this,arguments);
+  try{ if(!v46Real()) return s; const R=FWDB.reqs||[], nCos=(FWDB.cmp&&+FWDB.cmp.nCos)||1;
+    const line=r=>v46Plain(`${r.d||""} ${r.id}（${r.co||""}）${r.pol||""}→${r.cty||""}／${r.item||"品目は非公開"}／状況：${(typeof fwdReqStatus==="function")?fwdReqStatus(r):""}`)+(r.legs||[]).map(l=>"\n　- "+v46Plain(l.cty+"："+v46LegTxt(l))).join("");
+    s=v46CtxSec(String(s),"## 荷主からの見積依頼",(R.slice(0,10).map(line).join("\n")||"（まだ受信なし）"));
+    s=v46CtxSec(s,"## 見積依頼の詳細",(R.slice(0,8).map(r=>"・"+line(r)+(r.toCo?"\n　（貴社を指名）":"")+(r.cargo?"\n　貨物："+v46Plain(r.cargo):"")).join("\n")||"（依頼なし）"));
+    s=s.replace(/参加物流会社 \d+社（[^）\n]*）/,"参加物流会社 "+nCos+"社（他社の社名は非公開）");
+    return s+"\n## 依頼の見方\n「貴社の回答」は貴社のレートからの自動見積。「n社中m位」は相見積の中の貴社の順位、「推奨は他社」は AI物流マンの推奨がほかの物流会社。「他社に決定」の国の決定先・金額は分からない。「レーン未登録」は貴社のレートが無い区間（登録すると、荷主が次に画面を開いたときに見積が届く）。"; }catch(e){ return s; } }; }
+
+/* ── ④ 見積の窓のアバター：2行の丸に（文字がはみ出さない） ── */
+function v46Avatars(){ const pn=document.getElementById("pn"); if(!pn) return;
+  pn.querySelectorAll('span[style*="width:28px;height:28px;border-radius:50%"]').forEach(sp=>{ if(sp.dataset.v46av) return; const m=/^AI(物流|商社)$/.exec(String(sp.textContent||"").trim()); if(!m) return;
+    sp.dataset.v46av="1"; sp.classList.add("v46av"); sp.setAttribute("data-noi18n","1"); sp.setAttribute("aria-label","AI"+m[1]); sp.innerHTML=`<span class="v46av-t">AI<br>${m[1]}</span>`; }); }
+if(typeof openFwdQuote==="function"){ const __oq46=openFwdQuote; openFwdQuote=function(){ const o=__oq46.apply(this,arguments); try{ v46Avatars(); }catch(e){} return o; }; }
+
+/* ── ⑤ 使い方の答え・要確認のタスクの説明：計算し直すのは荷主の画面（次に開いたとき） ── */
+const V46G=[
+  ["lane",3,"登録したレーンは右の「登録済みレート」に出ます。AI物流マンは次の見積からこのレートを使います。レーン未登録で止まっていた見積依頼には、荷主が次に画面を開いたときに見積が届きます（物流会社の画面では計算し直しません）。"],
+  ["update",1,"同じ区間（仕出港・仕向港・形態が同じ）のレートは、新しく登録したものに置き換わります（同期の後）。要らなくなった区間のレートは、「登録済みレート」の行の「削除」で外します。"],
+  ["inbox",0,"「見積受信箱」に、荷主からの見積依頼が届きます。届くのは、貴社のレートが相見積に入った依頼・貴社を指名した依頼と、どの物流会社も見積を出せなかった区間の依頼（荷主は非公開）です。貴社のレートで見積を出せる国には、AI物流マンが自動で回答します。"],
+  ["inbox",1,"見積を出せなかった依頼（レーン未登録）は、上の「要確認のタスク」に出ます。「レートを登録」で「物流レート管理」へ進み、その区間のレートを登録すると、荷主が次に画面を開いたときに見積が届きます。対応が済んだら「済み」を押します。"],
+  ["agg",0,"「相見積・AI推奨」（題は「相見積の中の貴社の位置」）で、貴社のレートを登録した区間ごとに、登録している物流会社の数・貴社の順位・最安との差・AI物流マンの推奨が貴社かを見られます（標準2m³・希望納期なしの目安。ほかの物流会社の社名・運賃は出ません）。",1],
+  ["agg",1,"港湾ストや航路の混雑などは「情勢メモ（AI物流マンの推奨に反映）」に、対象（国・港名）・内容・遅延見込み（日）・影響度を入れて「情勢メモを登録」を押します。荷主が次に画面を開いたときに、該当する区間の推奨とAI見積に反映されます。"]];
+const V46G0=new Map();
+function v46GuideSet(){ try{ if(typeof V422G==="undefined"||!Array.isArray(V422G)) return; const f2=v46F2(), real=v46Real();
+  V46G.forEach(([id,i,txt,onlyReal])=>{ const t=V422G.find(x=>x.id===id); if(!t||!Array.isArray(t.steps)) return; const k=id+":"+i; if(!V46G0.has(k)) V46G0.set(k,t.steps[i]);
+    t.steps[i]=(f2&&(!onlyReal||real))?txt:V46G0.get(k); }); }catch(e){} }
+if(typeof v422Answer==="function"){ const __va46=v422Answer; v422Answer=function(){ v46GuideSet(); return __va46.apply(this,arguments); }; }
+if(typeof v422GuideCtx==="function"){ const __vg46=v422GuideCtx; v422GuideCtx=function(){ v46GuideSet(); return __vg46.apply(this,arguments); }; }
+const V46_TASK0="AI物流マンが見積を出せなかった依頼です。レートを登録すると、自動で見積が付きます。";
+const V46_TASK1="AI物流マンが見積を出せなかった依頼です。その区間のレートを登録すると、荷主が次に画面を開いたときに見積が届きます。";
+function v46AfterRender(){ if(!v46F2()) return; const T=(typeof v33T==="function")?v33T:(x=>x);
+  const old=T(V46_TASK0); document.querySelectorAll("#well .v33fwtask p.v33mute").forEach(p=>{ const t=String(p.textContent||"").trim(); if(t===V46_TASK0||t===old) p.textContent=T(V46_TASK1); }); }
+
+/* ── 見た目と英中西 ── */
+(function(){ try{ const st=document.createElement("style"); st.id="v46css"; st.textContent=`#pn .v46av{width:34px!important;height:34px!important;padding:0!important;overflow:hidden}
+#pn .v46av .v46av-t{display:block;font-size:9px;line-height:1.12;text-align:center;letter-spacing:0;white-space:nowrap}`; document.head.appendChild(st); }catch(e){} })();
+(function(){
+  const R=[
+    ["見本の物流会社は指名できません。「回答のあった全社に相見積」で依頼してください","Sample forwarders cannot be named. Please request from all forwarders that quoted.","不能指定样本物流公司。请选择“向所有已报价的公司询价”。","No se puede designar a transitarios de muestra. Solicite a todos los que cotizaron."],
+    [V46_TASK1,"AI Logistics could not quote these requests. Once you register a rate for the lane, the quote reaches the shipper the next time they open the screen.","AI物流专员无法报价的请求。登记该线路的费率后，货主下次打开画面时会收到报价。","La IA logística no pudo cotizar estas solicitudes. Al registrar una tarifa para el trayecto, la cotización llegará cuando el cargador vuelva a abrir la pantalla."],
+  ];
+  try{ if(typeof I18N!=="undefined"&&I18N&&I18N.dict) R.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){}
 })();
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
