@@ -1028,7 +1028,7 @@ body.locked .pg-ft{display:none}
 
 <script>
 "use strict";
-const BC20_BUILD="78d65a1bc8c9";
+const BC20_BUILD="d40ad6e4ea50";
 const BC20_SYNC_URL="https://script.google.com/macros/s/AKfycbxw23_UfyVvAgo3uERncVvXosCkoAH9t5h1wyrw4XjHg_yxRUu-HZkgKyNvgUL2W1nrJA/exec";
 /* ═══════════ 3商材のデモデータ（すべて架空） ═══════════ */
 const PRODUCTS = {
@@ -40363,6 +40363,561 @@ function v43ScrubGone(force){ try{
   if(ch&&typeof asave==="function") asave(); return ch; }catch(e){ return 0; } }
 if(typeof v17TombAdd==="function"){ const __ta431=v17TombAdd; v17TombAdd=function(type){ const r=__ta431.apply(this,arguments); if(type==="ten") setTimeout(()=>v43ScrubGone(true),0); return r; }; }
 if(typeof syncSnapshot==="function"){ const __sn431=syncSnapshot; syncSnapshot=function(){ try{ v43ScrubGone(false); }catch(e){} return __sn431.apply(this,arguments); }; }
+
+/* ═══ v21.44（2026-10-09）物流会社：依頼ページの回答（確認待ち）を開いて、案件に反映する入口 ═══════════════
+   問題（2026-10-08 物流会社版はじめてガイドの作成で発見）：荷主が依頼ページに答えると、回答はログインの6秒後（と2分ごと）に自動で取り込まれ
+     「確認待ち」（v33 の aq）に入る。承認すれば V33AQ.apply.cs で案件に入る作りはあったが、物流会社の画面には確認待ちを開く入口が無かった。
+     ・ベル：物流会社には商品（PID）が無いので「商品情報を登録すると…」だけ。「受信箱を開く」は荷主の受信箱で、物流会社には何も出ない。数字も 0
+     ・依頼ページの「回答を確かめる」：自動で取り込み済みのため「新しい回答はありません」とだけ出る
+     ・取り込みのトースト「（受信箱から確かめられます）」も物流会社には当てはまらない
+   対応（物流会社の画面だけ。荷主の画面と動きは変えない）：
+     ① 確認待ちの窓（物流会社向け）：回答ごとのまとまりに「反映先の案件」と「案件を開く」・「今の値」は案件にいま入っている値・
+        「この回答をまとめて案件に反映（n件）」（荷主の出荷情報は1項目ずつ「要確認」なので、推奨のまとめての承認が出なかった）
+     ② 入口：見積受信箱・依頼ページ・案件の上に「荷主の回答が届いています（確認待ち n件）」＋「回答を確かめる」／依頼ページの行と
+        案件の見出しに「確認待ち n件」の札とボタン（反映が済んだ依頼は「反映済み」＋「案件を開く」）／左のメニュー「依頼ページ」と
+        スマホの下のタブ「案件」に件数
+     ③ ベル：物流会社の知らせ（確認待ち・要確認のタスク・未担当の見積依頼）と、その画面を開くボタン。数字は急ぎ（確認待ち・期限の来たタスク）だけ
+     ④ 依頼ページの「回答を確かめる」：新しい回答を取り込んだあと、確認待ちがあれば窓を開く
+     ⑤ 取り込みの知らせ：「荷主の回答が届きました（確認待ち n件）」＋「回答を確かめる」ボタン（画面の下の帯）
+     ⑥ 「＋ 新しい依頼」から作るときも「回答を入れる案件」を選べる（前は案件の画面から頼んだときだけ反映先があった）。
+        反映先の無い回答は、確認待ちの窓で案件を選んでから反映する
+     ⑦ 物流会社の画面では、提出されたファイルは承認でこの端末に保存（ダウンロード）して案件のメモに書類名を残す。
+        自由な質問の答え・「そのほかのご連絡」は案件のメモに残す（前は物流会社の画面からは見えない「ドキュメント」「メモ」に入っていた）
+   取り込んだ回答には依頼の印（tgt.rq）を付ける。前の版で取り込んだ印の無い回答は、案件（tgt.cs）か「相手・依頼の名前」で依頼と結び付ける */
+var V44={rq:"",quiet:0,form:null};
+function v44On(){ try{ return typeof FWDON!=="undefined"&&!!FWDON; }catch(e){ return false; } }
+function v44Pend(f){ try{ return v33AqPending(x=>x.src==="req"&&(!f||f(x))); }catch(e){ return []; } }
+function v44RqOf(x){ const t=(x&&x.tgt)||{}; return t.rq?v33One("rq",t.rq):null; }
+function v44CsOf(x){ const t=(x&&x.tgt)||{}; if(t.cs) return t.cs; const r=v44RqOf(x); return (r&&r.cs)||""; }
+/* その依頼の回答か（前の版で取り込んだ印の無いものは、案件か「相手・依頼の名前」で） */
+function v44ForRq(x,rq){ const t=(x&&x.tgt)||{}; if(!rq) return false; if(t.rq) return t.rq===rq.id; if(x.src!=="req") return false;
+  if(rq.cs) return t.cs===rq.cs; return !t.cs&&String(x.srcLabel||"")===((rq.toCo||rq.toName||"")+"・"+(rq.title||"")).slice(0,200); }
+function v44ForCs(x,cs){ return !!cs&&v44CsOf(x)===cs; }
+function v44Case(cs){ try{ return cs?(v33Cases().find(c=>v33CsId(c.key)===cs)||null):null; }catch(e){ return null; } }
+function v44CaseNm(c){ const T=v33T; return c?((c.co?T(c.co):T("（荷主名なし）"))+" ・ "+(c.no?T("案件")+" "+c.no:T("案件番号なし"))):""; }
+/* 「：」は日本語だけ全角。社名は表示中の言語に（見本の会社は訳がある・実在の社名はそのまま） */
+function v44Colon(){ return v33Ja()?"：":": "; }
+function v44Who(L){ const s=[...new Set(L.map(x=>String(x.srcLabel||"").split("・")[0]||((x.tgt||{}).co)||"").filter(Boolean))].map(n=>v33T(n)); return s.slice(0,2).join(v33Ja()?"、":", ")+(s.length>2?" …":""); }
+function v44Go(pg){ try{ closeDW(); }catch(e){} try{ v33SheetClose(); }catch(e){} try{ fwdCur=pg; fwdNav(); fwdRender(); if(typeof v33SpTabs==="function") v33SpTabs(); }catch(e){} }
+function v44OpenCase(cs){ v44Go("fcase"); setTimeout(()=>{ try{ const b=document.querySelector(`#well [data-csed="${CSS.escape(cs)}"]`); const s=b&&b.closest("section"); if(!s) return;
+  s.scrollIntoView({behavior:"smooth",block:"start"}); s.classList.add("v44hl"); setTimeout(()=>s.classList.remove("v44hl"),2600); }catch(e){} },80); }
+/* 画面の下の帯（「元に戻す」と同じ場所・見た目）にボタンつきの知らせ */
+function v44Bar(msg,label,fn,ms){ let bar=document.getElementById("undobar"); if(!bar){ bar=document.createElement("div"); bar.id="undobar"; bar.setAttribute("role","status"); document.body.appendChild(bar); }
+  bar.innerHTML=`<span>${v33Esc(msg)}</span><button class="btn g" type="button" id="v44bargo">${v33Esc(label)}</button>`; bar.hidden=false;
+  document.getElementById("v44bargo").onclick=()=>{ bar.hidden=true; try{ fn(); }catch(e){} };
+  const hide=()=>{ bar.hidden=true; }; try{ if(typeof UX17!=="undefined"){ clearTimeout(UX17.undoT); UX17.undoT=setTimeout(hide,ms||12000); return; } }catch(e){} setTimeout(hide,ms||12000); }
+
+/* ── ① 確認待ちの窓（物流会社向け） ── */
+const V44_INTRO="荷主が依頼ページで答えた内容です。項目ごとに確かめて「承認」すると、案件の B/L・出荷の情報に入ります。「今の値」は、いま案件に入っている値です。承認するまで、案件の情報は変わりません。";
+function v44View(x){ const t=x.tgt||{}, y=Object.assign({},x);
+  if(t.kind==="cs"){ const cs=v44CsOf(x), c=cs?(v33One("cs",cs)||{}):{}; y.cur=c[t.key]==null?"":String(c[t.key]);
+    /* 項目名は依頼のひな形（4言語）から表示中の言語で（前は日本語の名前を辞書で訳すだけで「品名（英語）」などが残った） */
+    try{ const q=((V33_RQK.shipper||{}).q||[]).find(z=>z.map==="cs:"+t.key); if(q&&!v33Ja()) y.tgt=Object.assign({},t,{label:RQP.pick(q.label,I18N.lang)}); }catch(e){} }
+  else if(t.kind==="rqfile") y.why=v33T("承認すると、この端末に保存（ダウンロード）して、案件のメモに書類名を残します");
+  else if(t.kind==="rqlog") y.why=v33T("承認すると、案件のメモに残ります");
+  return y; }
+function v44AqOpen(filter){ const E=v33Esc, T=v33T;
+  const draw=()=>{ const L=v44Pend(filter);
+    if(!L.length){ v33SheetClose(); v33Toast("確認待ちはすべて片付きました"); v44Refresh(); return; }
+    const pb=document.querySelector("#v33sheet.v44aq .v33sh-bd"), top=pb?pb.scrollTop:0;   /* 承認のたびに描き直す：見ていた位置のまま */
+    const el=v33Sheet({title:"確認待ち（荷主の回答）",wide:1,html:`<p class="v33p v33mute">${E(T(V44_INTRO))}</p>${v33AqListHtml(L.map(v44View))}`,onClose:()=>v44Refresh()});
+    el.classList.add("v44aq"); v44Decorate(el,L,draw); v33AqBindAll(el,()=>draw());
+    if(top){ const bd=el.querySelector(".v33sh-bd"); const back=()=>{ if(bd) bd.scrollTop=top; }; back(); setTimeout(back,60); } };
+  draw(); }
+/* まとまり（1通の回答）ごとに：反映先の案件・案件を開く・まとめて反映。反映先が無ければ案件を選ぶ */
+function v44Decorate(el,L,redraw){ const E=v33Esc, T=v33T;
+  el.querySelectorAll("section[data-aqg]").forEach(sec=>{ const g=sec.dataset.aqg, G=L.filter(x=>x.grp===g); if(!G.length) return;
+    const cs=(G.map(v44CsOf).find(Boolean))||"", c=v44Case(cs), act=G.filter(x=>x.mode!=="s");
+    const box=document.createElement("div"); box.className="v44case";
+    if(c) box.innerHTML=`<span>${E(T("反映先")+v44Colon())}<b>${E(v44CaseNm(c))}</b></span>${act.length>1?`<button class="btn" type="button" data-v44all="${E(g)}">${E(T("この回答をまとめて案件に反映"))}${E(v33Paren(v33N(act.length)))}</button>`:""}<button class="btn g" type="button" data-v44cs="${E(cs)}">${E(T("案件を開く"))}</button>`;
+    else { const C=v33Cases(); box.innerHTML=`<label>${E(T("反映先の案件"))} <select class="v33in" data-v44sel="${E(g)}"><option value="">${E(T("（案件を選んでください）"))}</option>${C.map(k=>`<option value="${E(v33CsId(k.key))}">${E(v44CaseNm(k))}</option>`).join("")}</select></label><span class="v33mute">${E(T("案件を選ぶと、この回答を反映できます"))}</span>`; }
+    const h=sec.querySelector(".v33aqg-h"); if(h) h.insertAdjacentElement("afterend",box); else sec.prepend(box); });
+  el.querySelectorAll("[data-v44cs]").forEach(b=>b.onclick=()=>{ v33SheetClose(); v44OpenCase(b.dataset.v44cs); });
+  el.querySelectorAll("[data-v44all]").forEach(b=>b.onclick=()=>{ b.disabled=true; let n=0;
+    v44Pend(x=>x.grp===b.dataset.v44all&&x.mode!=="s").forEach(x=>{ if(v33AqDecide(x.id,"ok")) n++; });
+    if(n) toast(T("案件に反映しました")+v33Paren(v33N(n))); try{ fwdRender(); }catch(e){} redraw(); });
+  el.querySelectorAll("[data-v44sel]").forEach(s=>s.onchange=()=>{ const cs=s.value; if(!cs) return; const g=s.dataset.v44sel; const G=v44Pend(x=>x.grp===g); const rqs=new Set();
+    G.forEach(x=>{ v33Put("aq",x.id,{tgt:Object.assign({},x.tgt,{cs})},true); const r=v44RqOf(x)||v33List("rq",r=>v44ForRq(x,r))[0]; if(r) rqs.add(r.id); });
+    rqs.forEach(id=>{ const r=v33One("rq",id); if(r&&!r.cs) v33Put("rq",id,{cs},true); });
+    v33Save(v33Get()); toast(T("反映先の案件を決めました")+v44Colon()+v44CaseNm(v44Case(cs))); redraw(); }); }
+/* 承認の反映（物流会社の画面）：案件の無い回答は先に案件を選ぶ・ファイルは端末に保存・記録は案件のメモへ */
+(function(){ const A=V33AQ.apply;
+  const cs0=A.cs; A.cs=function(tg){ if(v44On()&&!tg.cs) return v33T("先に「反映先の案件」を選んでください"); return cs0.apply(this,arguments); };
+  const lg0=A.rqlog; A.rqlog=function(tg,v){ if(!v44On()) return lg0.apply(this,arguments);
+    const cs=tg.cs||((v33One("rq",tg.rq)||{}).cs)||""; if(!cs) return v33T("先に「反映先の案件」を選んでください");
+    const c=v33One("cs",cs)||{}; const line=(tg.label||v33T("回答"))+"："+v+(tg.who?v33Paren(tg.who):"");
+    v33Put("cs",cs,{note:c.note?c.note+" ／ "+line:line}); try{ fwdRender(); }catch(e){} return true; };
+  const fl0=A.rqfile; A.rqfile=function(tg,v,x){ if(!v44On()) return fl0.apply(this,arguments);
+    const cs=tg.cs||((v33One("rq",tg.rq)||{}).cs)||"";
+    (async()=>{ try{ const rq=v33One("rq",tg.rq); if(!rq) throw new Error(v33T("依頼が見つかりません")); let buf=null;
+        if(rq.srv&&v33RqSrv()){ const r=await syncCall("req_fget",{kid:SYNC.kid,id:tg.rq,fid:tg.fid},{timeout:240000}); if(!r||!r.ok) throw new Error((r&&r.msg)||v33T("読み込めませんでした")); buf=await RQC.decBuf(await RQC.key(rq.key),r.blob); }
+        else { const lf=(V33RQL.files[tg.rq]||{})[tg.fid]; if(!lf) throw new Error(v33T("この端末にファイルがありません")); buf=lf.buf; }
+        const f=new File([buf],tg.name||"file",{type:tg.type||"application/octet-stream"}); const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; a.rel="noopener";
+        document.body.appendChild(a); a.click(); setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} },5000);
+        if(cs){ const c=v33One("cs",cs)||{}; const line=v33T("書類")+"："+f.name+v33Paren(v33T("依頼ページ")+" "+v33Ymd(Date.now())); v33Put("cs",cs,{note:c.note?c.note+" ／ "+line:line}); try{ fwdRender(); }catch(e){} }
+        toast(v33T("この端末に保存しました（ダウンロード）")+v44Colon()+f.name); }
+      catch(e){ toast(v33T("ファイルを保存できませんでした")+v44Colon()+String(e&&e.message||e).slice(0,60)); } })();
+    return true; }; })();
+/* 取り込んだ回答（案件の項目）に依頼の印を付ける：依頼の行・案件と正しく結び付けるため */
+if(typeof v33RqImport==="function"){ const __imp44=v33RqImport; v33RqImport=function(x){ V44.rq=(x&&x.id)||""; try{ return __imp44.apply(this,arguments); }finally{ V44.rq=""; } }; }
+if(typeof v33AqAdd==="function"){ const __add44=v33AqAdd; v33AqAdd=function(op,src,lab,items){ try{ if(V44.rq&&src==="req") (items||[]).forEach(it=>{ if(it&&it.tgt&&it.tgt.kind==="cs"&&!it.tgt.rq) it.tgt=Object.assign({},it.tgt,{rq:V44.rq}); }); }catch(e){} return __add44.apply(this,arguments); }; }
+
+/* ── ② 入口：画面の上の知らせ・依頼の行・案件の見出し・左のメニュー・スマホの下のタブ ── */
+function v44BannerHtml(where){ const L=v44Pend(); if(!L.length) return ""; const E=v33Esc, T=v33T;
+  return `<div class="v44bn" role="status" data-v44bn="${E(where)}"><span class="v44bn-ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg></span><div class="v44bn-m"><b>${E(T("荷主の回答が届いています"))}${E(v33Paren(T("確認待ち")+" "+v33N(L.length)))}</b><span>${E(v44Who(L))} ・ ${E(T("中身を確かめて承認すると、案件の B/L・出荷の情報に入ります。"))}</span></div><button class="btn" type="button" data-v44open>${E(T("回答を確かめる"))}</button></div>`; }
+function v44Pill(n){ return `<span class="v33lv v33lv-warn v44pill">${v33Esc(v33T("確認待ち"))} ${v33Esc(v33N(n))}</span>`; }
+/* 画面の上の知らせ（見積受信箱・案件は見出しの下、依頼ページは一覧の上）。件数が変わったらこれだけ描き直せる */
+function v44Banner(w,pg){ w.querySelectorAll(".v44bn").forEach(x=>x.remove()); const bn=v44BannerHtml(pg); if(!bn) return "";
+  const at=pg==="frq"?w.querySelector(".v33rq"):(pg==="fcase"||pg==="finbox")?w.querySelector(".ph"):null; if(!at) return "";
+  at.insertAdjacentHTML(pg==="frq"?"beforebegin":"afterend",bn); w.querySelectorAll("[data-v44open]").forEach(b=>b.onclick=()=>v44AqOpen()); return bn; }
+/* 回答を取り込んだあと（ログインの後・2分ごと）：開いている画面を描き直す。入力中・窓を開いているときは知らせと数字だけ */
+function v44Soft(){ if(!v44On()) return; const pg=(typeof fwdCur!=="undefined"&&fwdCur)||"finbox"; const w=document.getElementById("well");
+  if(w&&/^(finbox|frq|fcase)$/.test(pg)){ const a=document.activeElement, typing=a&&a.closest&&a.closest("#well")&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+    if(!typing&&!document.getElementById("v33sheet")){ try{ fwdRender(); }catch(e){} return; } try{ v44Banner(w,pg); }catch(e){} }
+  v44Badges(); }
+function v44Page(){ if(!v44On()) return; const w=document.getElementById("well"); if(!w) return; const E=v33Esc, T=v33T; const pg=(typeof fwdCur!=="undefined"&&fwdCur)||"finbox";
+  v44Banner(w,pg);
+  if(pg==="frq"){
+    w.querySelectorAll(".v33rq li.v33li").forEach(li=>{ const cp=li.querySelector("[data-rqcopy]"); if(!cp||li.dataset.v44) return; li.dataset.v44="1"; const rq=v33One("rq",cp.dataset.rqcopy); if(!rq) return;
+      const P=v44Pend(x=>v44ForRq(x,rq)); const done=!P.length&&+rq.imported>0&&v33List("aq",x=>(x.st==="ok"||x.st==="edited")&&v44ForRq(x,rq)).length>0;   /* 全部「却下」なら出さない */
+      if(P.length){ cp.insertAdjacentHTML("beforebegin",`${v44Pill(P.length)}<button class="btn" type="button" data-v44rq="${E(rq.id)}">${E(T("回答を確かめる"))}</button>`); }
+      else if(done&&rq.cs){ cp.insertAdjacentHTML("beforebegin",`${v33Lv("ok","反映済み")}<button class="btn g" type="button" data-v44cs="${E(rq.cs)}">${E(T("案件を開く"))}</button>`); } });
+    /* 「回答を確かめる」：新しい回答を取り込んで、確認待ちがあれば窓を開く（前は取り込み済みだと「新しい回答はありません」だけ） */
+    const pb=document.getElementById("v33rqpoll"); if(pb) pb.onclick=async()=>{ pb.disabled=true; V44.quiet=1; try{ await v33RqPoll(true); }catch(e){} finally{ V44.quiet=0; pb.disabled=false; }
+      if(v44Pend().length) v44AqOpen(); else { v33Toast("新しい回答はありません"); try{ fwdRender(); }catch(e){} } }; }
+  else if(pg==="fcase"){
+    w.querySelectorAll("section.v33case").forEach(sec=>{ const ed=sec.querySelector("[data-csed]"); if(!ed||sec.dataset.v44) return; sec.dataset.v44="1"; const cs=ed.dataset.csed; v44CaseMore(sec,cs); const P=v44Pend(x=>v44ForCs(x,cs)); if(!P.length) return;
+      const h=sec.querySelector(".v33case-h"); if(h) h.insertAdjacentHTML("beforeend",v44Pill(P.length));
+      const row=ed.closest(".v33row"); if(row) row.insertAdjacentHTML("afterbegin",`<button class="btn" type="button" data-v44csq="${E(cs)}">${E(T("回答を確かめて反映する"))}</button>`); }); }
+  w.querySelectorAll("[data-v44rq]").forEach(b=>b.onclick=()=>{ const rq=v33One("rq",b.dataset.v44rq); v44AqOpen(x=>v44ForRq(x,rq)); });
+  w.querySelectorAll("[data-v44csq]").forEach(b=>b.onclick=()=>{ const cs=b.dataset.v44csq; v44AqOpen(x=>v44ForCs(x,cs)); });
+  w.querySelectorAll(".v33rq [data-v44cs]").forEach(b=>b.onclick=()=>v44OpenCase(b.dataset.v44cs)); }
+/* 案件のカードに HSコード・梱包も（v21.33 のカードは入力欄にあるのに表示しなかった＝承認しても見えなかった）。値があるときだけ、品名・数量の下に */
+function v44CaseMore(sec,cs){ const r=v33One("cs",cs)||{}, dl=sec.querySelector(".v33dl"), E=v33Esc, T=v33T; if(!dl) return;
+  [["品名","hs","HSコード"],["数量","pack","梱包"]].forEach(([after,k,label])=>{ if(!r[k]||dl.querySelector(`[data-v44k="${k}"]`)) return; const html=`<dt data-v44k="${k}">${E(T(label))}</dt><dd>${E(r[k])}</dd>`;
+    const at=[...dl.querySelectorAll("dt")].find(d=>d.textContent===T(after)); if(at&&at.nextElementSibling) at.nextElementSibling.insertAdjacentHTML("afterend",html);
+    else { const emp=dl.querySelector("dd.v33mute"); if(emp) emp.remove(); dl.insertAdjacentHTML("beforeend",html); } }); }
+function v44Badges(){ if(!v44On()) return; const n=v44Pend().length;
+  try{ const b=document.querySelector('#nav [data-fp="frq"]'); if(b){ let s=b.querySelector(".v33nb"); if(!s){ s=document.createElement("span"); s.className="v33nb"; b.appendChild(s); } s.textContent=n>99?"99+":String(n); s.hidden=!n; s.setAttribute("aria-label",v33T("確認待ち")+" "+v33N(n)); } }catch(e){}
+  try{ const t=document.querySelector('#tabbar [data-tb="fcase"] .tbi'); if(t){ t.querySelectorAll(".v44tbn").forEach(x=>x.remove()); if(n) t.insertAdjacentHTML("beforeend",`<i class="tbn v44tbn">${n>9?"9+":n}</i>`); } }catch(e){}
+  try{ if(typeof notifBadge==="function") notifBadge(); }catch(e){} }
+function v44Refresh(){ if(!v44On()) return; try{ fwdRender(); }catch(e){} v44Badges(); }
+if(typeof fwdRender==="function"){ const __fr44=fwdRender; fwdRender=function(){ const r=__fr44.apply(this,arguments); try{ v44Page(); v44Badges(); }catch(e){ console.warn("v44 page",e); } return r; }; }
+if(typeof fwdNav==="function"){ const __fn44=fwdNav; fwdNav=function(){ const r=__fn44.apply(this,arguments); try{ v44Badges(); }catch(e){} return r; }; }
+if(typeof v33SpTabs==="function"){ const __sp44=v33SpTabs; v33SpTabs=function(){ const r=__sp44.apply(this,arguments); try{ v44Badges(); }catch(e){} return r; }; }
+V33.onChange.push(()=>{ try{ v44Badges(); }catch(e){} });
+
+/* ── ③ ベル（物流会社）：知らせとボタン。数字は急ぎだけ（確認待ち・期限の来た要確認のタスク） ── */
+function v44Notifs(){ const T=v33T, out=[]; if(!v44On()) return out;
+  const L=v44Pend(); if(L.length) out.push({key:"f44aq:"+L.length,ic:"✅",t:T("確認待ち（荷主の回答）")+" "+v33N(L.length),d:v44Who(L)+" ・ "+T("承認すると案件に入ります"),btn:T("回答を確かめる"),go:()=>{ try{ closeDW(); }catch(e){} v44AqOpen(); },ex:1});
+  try{ const R=(typeof FWDB!=="undefined"&&FWDB.reqs)||[]; const tk=R.map(r=>v33FaOf(r.id)).filter(a=>a.task&&!a.task.done); const od=tk.filter(a=>v33DaysTo(a.task.due)<=0).length;
+    if(tk.length) out.push({key:"f44tk:"+tk.length+":"+od,ic:"⏰",t:T("要確認のタスク")+" "+v33N(tk.length),d:od?T("期限切れ・今日が期限")+" "+v33N(od):T("レートを登録すると、自動で見積が付きます。"),btn:T("見積受信箱を開く"),go:()=>{ V33FW.f="rv"; v44Go("finbox"); },ex:od>0?1:0});
+    const un=R.filter(r=>v33FwdState(r)==="none").length; if(un) out.push({key:"f44un:"+un,ic:"📥",t:T("未担当の見積依頼")+" "+v33N(un),d:T("担当を決めると、メンバーで分担できます"),btn:T("見積受信箱を開く"),go:()=>{ V33FW.f="none"; v44Go("finbox"); },ex:0}); }catch(e){}
+  return out; }
+function v44Bell(){ const E=v33Esc, T=v33T, L=v44Notifs(), db=notifDB();
+  openDW(`<div class="dwhead"><h3>🔔 ${E(T("通知"))}</h3></div>
+    <div class="v33ntbar" id="v33ntbar"><span>${E(T("物流会社の知らせです。急ぎのもの（確認待ち・期限の来た要確認のタスク）だけ、ベルの数字に出します。"))}</span><button class="btn" type="button" data-v44nt="finbox">${E(T("見積受信箱を開く"))}</button></div>
+    ${L.length?L.map((n,i)=>`<div class="nf" style="align-items:center"><span class="d" style="background:${n.ex&&!db.seen[n.key]?"var(--or)":"var(--line)"}"></span><div style="flex:1;min-width:0"><b>${n.ic} ${E(n.t)}</b><br><span style="color:var(--ink-2)">${E(n.d)}</span></div><button class="btn${n.ex&&!db.seen[n.key]?"":" g"}" type="button" style="flex:none" data-v44nf="${i}">${E(n.btn)} →</button></div>`).join("")
+      :`<p class="nn" style="padding:14px 0">🎉 ${E(T("いま対応が必要な知らせはありません。"))}</p>`}`);
+  const pn=document.getElementById("pn")||document;
+  pn.querySelectorAll("[data-v44nf]").forEach(b=>b.onclick=()=>{ const n=L[+b.dataset.v44nf]; if(!n) return; const d=notifDB(); d.seen[n.key]=1; notifSave(d); n.go(); v44Badges(); });
+  const ib=pn.querySelector("[data-v44nt]"); if(ib) ib.onclick=()=>v44Go("finbox"); }
+if(typeof openNotif==="function"){ const __on44=openNotif; openNotif=function(){ if(v44On()) return v44Bell(); return __on44.apply(this,arguments); }; }
+if(typeof notifUnread==="function"){ const __nu44=notifUnread; notifUnread=function(){ if(!v44On()) return __nu44.apply(this,arguments); const db=notifDB(); return v44Notifs().filter(n=>n.ex&&!db.seen[n.key]); }; }
+if(typeof notifBadge==="function"){ const __nb44=notifBadge; notifBadge=function(){ if(!v44On()) return __nb44.apply(this,arguments); const el=document.getElementById("belln"); if(!el) return; const n=notifUnread().length; el.textContent=String(n); el.style.display=n?"":"none"; }; }
+
+/* ── ⑤ 取り込みの知らせ（物流会社）：「受信箱から確かめられます」ではなく、その場で開けるボタンつきに ── */
+if(typeof v33Toast==="function"){ const __vt44=v33Toast; v33Toast=function(m){ try{ if(v44On()&&/^(依頼ページの)?回答 \d+件を確認待ちに入れました/.test(String(m||""))){ if(V44.quiet) return; try{ v44Soft(); }catch(e){}
+    const n=v44Pend().length; if(n){ setTimeout(()=>v44Bar(v33T("荷主の回答が届きました")+v33Paren(v33T("確認待ち")+" "+v33N(n)),v33T("回答を確かめる"),()=>v44AqOpen()),0); return; } } }catch(e){} return __vt44.apply(this,arguments); }; }
+
+/* ── ⑥ 「＋ 新しい依頼」：回答を入れる案件を選ぶ（物流会社） ── */
+if(typeof v33RqForm==="function"){ const __rf44=v33RqForm; v33RqForm=function(o){ o=o||{}; V44.form=o; return __rf44.call(this,o); }; }
+if(typeof v33Sheet==="function"){ const __sh44=v33Sheet; v33Sheet=function(o){ const el=__sh44.apply(this,arguments); try{ if(o&&o.title==="新しい依頼"&&v44On()&&V44.form) v44FormCase(el,V44.form); }catch(e){ console.warn("v44 form",e); } return el; }; }
+function v44FormCase(el,o){ const E=v33Esc, T=v33T; const co=el.querySelector("#rqco"); if(!co||el.querySelector("#rqcs44")) return; const C=v33Cases();
+  co.closest("label").insertAdjacentHTML("beforebegin",`<label>${E(T("回答を入れる案件"))}<select class="v33in" id="rqcs44"><option value="">${E(T("（案件を選ばない）"))}</option>${C.map(c=>{ const id=v33CsId(c.key); return `<option value="${E(id)}"${o.cs===id?" selected":""}>${E(v44CaseNm(c))}</option>`; }).join("")}</select></label>`);
+  const s=el.querySelector("#rqcs44"); s.onchange=()=>{ o.cs=s.value; const c=v44Case(s.value); if(c&&!co.value.trim()){ co.value=c.co||""; o.toCo=co.value; } }; }
+
+/* 見た目 */
+(function(){ const st=document.createElement("style"); st.id="v44css"; st.textContent=`
+.v44bn{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;border:1px solid var(--bl);background:var(--bl-soft);border-radius:var(--r2);padding:12px 14px;margin:0 0 14px}
+.v44bn-ic{color:var(--bl);line-height:0}.v44bn-m{flex:1 1 280px;min-width:0;display:grid;gap:3px}.v44bn-m b{font-size:15px}.v44bn-m span{font-size:13px;color:var(--ink-2);line-height:1.6;overflow-wrap:anywhere}
+.v44case{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:6px 0 10px;padding:8px 10px;border-radius:var(--r2);background:var(--sunk);font-size:13.5px}
+.v44case label{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-weight:700}.v44case select{max-width:100%;width:auto}
+.v33case{scroll-margin-top:84px}
+.v44hl{outline:3px solid var(--bl);outline-offset:3px;border-radius:8px;transition:outline-color .4s}
+.v44pill{margin-right:2px}
+@media (max-width:820px){.v44bn .btn{flex:1 1 100%}.v44case .btn{flex:1 1 100%}.v44case label,.v44case select{width:100%}}`; document.head.appendChild(st); })();
+
+/* お知らせ（📰 新機能と改善） */
+try{ if(typeof S30_NEWS!=="undefined"&&Array.isArray(S30_NEWS)&&!S30_NEWS.some(x=>x&&x[1]==="v21.44")) S30_NEWS.unshift(["2026-10","v21.44","物流会社：荷主の回答（依頼ページ）を確かめて、案件に反映",
+  ["荷主が依頼ページに答えると、見積受信箱・依頼ページ・案件の上に「荷主の回答が届いています（確認待ち）」が出ます。ベルにも出ます",
+   "「回答を確かめる」で項目ごとに確かめて承認すると、案件の品名・数量・総重量・出荷できる日などに入ります。まとめて反映もできます",
+   "「＋ 新しい依頼」から作るときも、回答を入れる案件を選べます"]]); }catch(e){}
+
+/* ── 英・中・西 ── */
+try{ if(typeof v30I18n==="function") v30I18n([
+  ["荷主の回答が届いています","Answers from shippers have arrived","已收到货主的回答","Han llegado respuestas de los cargadores"],
+  ["荷主の回答が届きました","An answer from a shipper has arrived","收到了货主的回答","Ha llegado una respuesta de un cargador"],
+  ["中身を確かめて承認すると、案件の B/L・出荷の情報に入ります。","Review and approve to add it to the case's B/L and shipment info.","确认内容并批准后，将写入案件的提单・出货信息。","Revise y apruebe para añadirlo a la información de B/L y envío del caso."],
+  ["確認待ち（荷主の回答）","Pending approval (shipper answers)","待确认（货主的回答）","Pendiente de aprobación (respuestas de cargadores)"],
+  [V44_INTRO,"These are the shipper's answers on the request page. Check each item and click \"Approve\" to add it to the case's B/L and shipment info. \"Current value\" is what the case has now. Nothing in the case changes until you approve.",
+   "这是货主在请求页面上填写的内容。逐项确认并点击「批准」后，将写入案件的提单・出货信息。「当前值」是案件中现有的值。批准之前，案件的信息不会改变。",
+   "Son las respuestas del cargador en la página de solicitud. Revise cada elemento y pulse \"Aprobar\" para añadirlo a la información de B/L y envío del caso. \"Valor actual\" es lo que tiene ahora el caso. Nada cambia en el caso hasta que apruebe."],
+  ["反映先","Apply to","写入","Aplicar a"],["反映先の案件","Case to apply to","写入的案件","Caso de destino"],["（案件を選んでください）","(Select a case)","（请选择案件）","(Seleccione un caso)"],
+  ["案件を選ぶと、この回答を反映できます","Select a case to apply this answer.","选择案件后即可写入此回答。","Seleccione un caso para aplicar esta respuesta."],
+  ["この回答をまとめて案件に反映","Apply this whole answer to the case","将此回答全部写入案件","Aplicar toda esta respuesta al caso"],
+  ["案件を開く","Open the case","打开案件","Abrir el caso"],["案件に反映しました","Applied to the case","已写入案件","Aplicado al caso"],
+  ["反映先の案件を決めました","Case selected","已选择写入的案件","Caso seleccionado"],
+  ["先に「反映先の案件」を選んでください","Select the \"Case to apply to\" first","请先选择「写入的案件」","Primero seleccione el \"Caso de destino\""],
+  ["回答を確かめて反映する","Review answers and apply","确认回答并写入","Revisar respuestas y aplicar"],["反映済み","Applied","已写入","Aplicado"],
+  ["回答を入れる案件","Case for the answers","回答写入的案件","Caso para las respuestas"],["（案件を選ばない）","(No case)","（不选择案件）","(Sin caso)"],
+  ["承認すると、この端末に保存（ダウンロード）して、案件のメモに書類名を残します","Approve to save it to this device (download) and note the file name in the case.","批准后保存到此设备（下载），并在案件备注中记录文件名。","Al aprobar, se guarda en este dispositivo (descarga) y se anota el nombre del archivo en el caso."],
+  ["承認すると、案件のメモに残ります","Approve to keep it in the case notes.","批准后保存在案件备注中。","Al aprobar, se guarda en las notas del caso."],
+  ["この端末に保存しました（ダウンロード）","Saved to this device (downloaded)","已保存到此设备（下载）","Guardado en este dispositivo (descargado)"],
+  ["ファイルを保存できませんでした","Could not save the file","无法保存文件","No se pudo guardar el archivo"],["書類","Document","文件","Documento"],
+  ["依頼が見つかりません","Request not found","找不到请求","No se encontró la solicitud"],["読み込めませんでした","Could not load","无法读取","No se pudo cargar"],["この端末にファイルがありません","The file is not on this device","此设备上没有该文件","El archivo no está en este dispositivo"],
+  ["承認すると案件に入ります","Approve to add to the case","批准后写入案件","Apruebe para añadirlo al caso"],
+  ["期限切れ・今日が期限","Overdue or due today","已过期・今天到期","Vencidas o vencen hoy"],
+  ["レートを登録すると、自動で見積が付きます。","Register the rates and a quote is added automatically.","登记费率后，将自动附上报价。","Registre las tarifas y se añadirá la cotización automáticamente."],
+  ["未担当の見積依頼","Unassigned quote requests","未分配的报价请求","Solicitudes de cotización sin asignar"],
+  ["担当を決めると、メンバーで分担できます","Assign them to share the work among members","分配负责人后，可在成员之间分工","Asígnelas para repartir el trabajo entre los miembros"],
+  ["物流会社の知らせです。急ぎのもの（確認待ち・期限の来た要確認のタスク）だけ、ベルの数字に出します。","Notices for your logistics company. Only urgent ones (pending approvals and review tasks that are due) are counted on the bell.","这是物流公司的通知。只有紧急事项（待确认・已到期的需确认任务）会显示在铃铛的数字上。","Avisos de su empresa logística. Solo los urgentes (pendientes de aprobación y tareas por revisar vencidas) se cuentan en la campana."],
+  ["いま対応が必要な知らせはありません。","Nothing needs your attention right now.","目前没有需要处理的通知。","Por ahora no hay nada que atender."],
+  ["物流会社：荷主の回答（依頼ページ）を確かめて、案件に反映","Logistics: review shipper answers (request pages) and apply them to cases","物流公司：确认货主的回答（请求页面）并写入案件","Logística: revise las respuestas de los cargadores (páginas de solicitud) y aplíquelas a los casos"],
+  ["荷主が依頼ページに答えると、見積受信箱・依頼ページ・案件の上に「荷主の回答が届いています（確認待ち）」が出ます。ベルにも出ます","When a shipper answers a request page, \"Answers from shippers have arrived (pending approval)\" appears at the top of the quote inbox, request pages and cases, and on the bell.","货主在请求页面回答后，报价收件箱・请求页面・案件的上方会显示「已收到货主的回答（待确认）」，铃铛中也会显示。","Cuando un cargador responde, aparece \"Han llegado respuestas de los cargadores (pendiente)\" arriba de la bandeja de cotizaciones, las páginas de solicitud y los casos, y en la campana."],
+  ["「回答を確かめる」で項目ごとに確かめて承認すると、案件の品名・数量・総重量・出荷できる日などに入ります。まとめて反映もできます","Use \"Check for answers\" to review and approve each item; it goes into the case's description, quantity, gross weight, cargo ready date and more. You can also apply them all at once.","通过「确认回答」逐项确认并批准后，将写入案件的品名・数量・毛重・货物备妥日期等。也可以一次全部写入。","Con \"Revisar respuestas\" apruebe cada elemento y se añadirá a la descripción, cantidad, peso bruto, fecha de mercancía lista, etc. del caso. También puede aplicarlas todas a la vez."],
+  ["「＋ 新しい依頼」から作るときも、回答を入れる案件を選べます","When you create one from \"+ New request\", you can also choose the case for the answers.","从「＋ 新请求」创建时，也可以选择回答写入的案件。","Al crearla desde \"+ Nueva solicitud\" también puede elegir el caso para las respuestas."]
+]); }catch(e){}
+
+/* ═══ v21.45（2026-10-09）物流会社モードの共有データを物流会社ごとに（同期サーバー v2.16 と組みで動く） ═══════════════
+   問題（2026-10-08 物流会社版はじめてガイドの作成で確認）：物流の共有データ（fwd.json）が1つで、物流会社アカウントには
+     全荷主の見積依頼（社名・商品・仕向国・発注書番号）・他社のレート・相見積の金額・推奨の理由・ほかの物流会社の AI 相談と
+     操作の履歴まで届き、他社のレートの行も消せた。新しい端末が作る見本レートが共有データに混ざり、同じ区間を上書きした。
+   決め（2026-10-09 大森さん）：物流会社には自社の順位と差だけ／依頼は相見積に入った会社と指名先だけ（荷主の社名は仮押さえ・
+     指名の後。どこも見積を出せなかった国は荷主を伏せて区間・数量だけ全社へ）／見本は本物の物流会社のレートが無い区間だけ
+     「見本」（仮押さえ・指名は不可）／共通の体験用コードと本番の世界は分ける。
+   関所は同期サーバー（v2.16）：端末には削った形だけが届き、物流会社の保存は自社の分だけが残る。この層は、その形を受けて動く：
+     ① 取り込み（fwdMerge）：サーバーの新しい形（f2）なら、古い控え（全社の共有データ）を一度だけ捨てて取り直す。物流会社＝
+        自社のレート・情勢メモ・履歴・相談と届いた依頼だけ／荷主＝同じ世界のレートと自社の依頼（削除の印 reqDel も）
+     ② 送信（syncPushFwd）：物流会社は自社の行と箱だけ、荷主は自社の依頼と削除の印だけを送る（他社の分を送らない）
+     ③ 物流会社の画面：自社の行だけの表・会社名は台帳の名前で固定・見積の窓は自社の回答と順位（他社の社名・金額は出さない）・
+        相見積・AI推奨の画面は「区間ごとの自社の位置」・やり取りの記録は自社に関わる分だけを組み立て直す・案件の印は仮押さえの
+        前後で変わらないもの（ck）・レートを足しても物流会社の端末では依頼を計算し直さない（他社のレートが要るため。荷主の端末が
+        次に開いた時に見直す）
+     ④ 荷主の画面：本物の物流会社のレートが無い区間だけ、内蔵の見本（3社・架空）で見積を出し「見本」の札。仮押さえ・指名は不可。
+        物流会社のレートが変わったら、次に開いた時に自社の依頼を見直して送る
+   サーバーが v2.15（古い形）のときは、今までどおりに動く（FWDB.f2l が無い）。 */
+const V45={reeval:0};
+const V45_SMPCO={"デモ物流株式会社":1,"サンプル海運（デモ）":1,"エアシー・ロジ（デモ）":1};
+const V45_SMP_MSG="見本のレート（架空の物流会社）のため、仮押さえ・指名はできません。本物の物流会社のレートが登録されると、自動で見積が届きます。";
+const V45_SMP_NOTE="見本のレート（架空の物流会社）です。この区間に本物の物流会社のレートが登録されると、自動で見積が届きます。仮押さえ・指名はできません。";
+function v45E(s){ return (typeof esc==="function")?esc(s):String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function v45On(){ return typeof FWDON!=="undefined"&&!!FWDON; }
+function v45Srv(){ return typeof FWDB!=="undefined"&&!!FWDB&&FWDB.f2l===1; }
+function v45Fv(){ return v45Srv()&&FWDB.fv===1; }
+function v45RealFwd(){ return v45On()&&v45Fv()&&FWDB.w==="real"; }
+function v45SmpOn(){ return !v45On()&&v45Srv()&&FWDB.fv!==1&&FWDB.smp===1; }
+function v45Me(){ try{ return String((typeof SYNC!=="undefined"&&SYNC&&SYNC.kid)||""); }catch(e){ return ""; } }
+function v45MyCo(){ return String((typeof FWDB!=="undefined"&&FWDB&&FWDB.profile&&FWDB.profile.co)||""); }
+function v45Fx(){ try{ return (typeof ddpFx==="function")?(+ddpFx().rates.USD||150):150; }catch(e){ return 150; } }
+function v45RateSig(rs,ss){ try{ return (rs||[]).map(r=>[r.co,r.pol,r.pod,r.mode,r.price,r.cur,r.tt,r.valid].join(",")).sort().join(";")+"#"+(ss||[]).map(x=>[x.id,x.delay,x.risk].join(",")).sort().join(";"); }catch(e){ return ""; } }
+
+/* ── ① 取り込み ── */
+function v45Merge(loc,rem){
+  const me=v45Me(); if(!loc||typeof loc!=="object") loc={};
+  const legacy=loc.f2l!==1;
+  if(legacy) loc=rem.fv?{}:{reqs:(loc.reqs||[]).filter(r=>r&&r.kid&&r.kid===me),reqDel:loc.reqDel||[]};   /* 古い控え（全社の共有データ）は捨てる。荷主は自社の依頼だけ残す */
+  const at=Math.max(+loc._at||0,+rem._at||0);
+  if(rem.fv===1){
+    const fk=rem.fk, key=r=>[r.co||"",r.pol,r.pod,r.mode].join("|");
+    const del={}; [].concat(loc.rateDel||[],rem.rateDel||[]).forEach(x=>{ if(x&&x.k&&(!del[x.k]||del[x.k]<(+x.t||0))) del[x.k]=+x.t||0; });
+    const m={}; (rem.rates||[]).forEach(r=>{ if(r) m[key(r)]=r; });
+    (loc.rates||[]).forEach(r=>{ if(!r||r.fk!==fk) return; const k=key(r), o=m[k]; if(!o||(+r.at||0)>(+o.at||0)) m[k]=r; });   /* まだ送っていない自社の行 */
+    const sdel={}; [].concat(loc.situDel||[],rem.situDel||[]).forEach(x=>{ if(x&&x.k&&(!sdel[x.k]||sdel[x.k]<(+x.t||0))) sdel[x.k]=+x.t||0; });
+    const sm={}; (rem.situ||[]).forEach(x=>{ if(x&&x.id) sm[x.id]=x; }); (loc.situ||[]).forEach(x=>{ if(x&&x.id&&x.fk===fk&&!sm[x.id]) sm[x.id]=x; });
+    const hs=new Set(), hist=[].concat(loc.hist||[],rem.hist||[]).filter(h=>{ if(!h) return false; const k=(h.t||0)+"|"+(h.d||""); if(hs.has(k)) return false; hs.add(k); return true; }).sort((a,b)=>(b.t||0)-(a.t||0)).slice(0,200);
+    const cs=new Set(), chat=[].concat(rem.chat||[],loc.chat||[]).filter(c=>{ if(!c) return false; const k=(c.w==="u"?"u":"a")+"|"+(c.ts||0)+"|"+String(c.t||"").slice(0,80); if(cs.has(k)) return false; cs.add(k); return true; }).sort((a,b)=>(a.ts||0)-(b.ts||0)).slice(-80);
+    setTimeout(()=>{ try{ if(v45On()&&typeof fwdNav==="function") fwdNav(); }catch(e){} },0);   /* 取り込みの後に左上（会社名）を描き直す（初回の取り込みは描き直さない作りのため） */
+    return {v:1,f2l:1,fv:1,w:rem.w,fk,_at:at,seed2:1,profile:rem.profile||{co:""},plan:rem.plan||loc.plan||"",cmp:rem.cmp||null,
+      rates:Object.values(m).filter(r=>!(del[key(r)]&&del[key(r)]>(+r.at||0))),rateDel:Object.keys(del).map(k=>({k,t:del[k]})).slice(-300),
+      situ:Object.values(sm).filter(x=>!(sdel[x.id]&&sdel[x.id]>(+x.at||0))).sort((a,b)=>(+b.at||0)-(+a.at||0)),situDel:Object.keys(sdel).map(k=>({k,t:sdel[k]})).slice(-100),
+      reqs:(rem.reqs||[]).slice(),hist,chat};   /* 依頼は物流会社が書かない＝サーバーの形のまま */
+  }
+  const dels={}; [].concat(loc.reqDel||[],rem.reqDel||[]).forEach(x=>{ if(x&&x.id&&(!dels[x.id]||dels[x.id]<(+x.t||0))) dels[x.id]=+x.t||0; });
+  const reqs={}; (rem.reqs||[]).forEach(r=>{ if(r&&r.id) reqs[r.id]=r; });
+  (loc.reqs||[]).forEach(r=>{ if(!r||!r.id) return; if(r.kid&&me&&r.kid!==me) return; const o=reqs[r.id]; if(!o||(r._m||0)>=(o._m||0)) reqs[r.id]=r; });
+  if(legacy||v45RateSig(loc.rates,loc.situ)!==v45RateSig(rem.rates,rem.situ)){ V45.reeval=1; setTimeout(v45Reeval,0); }
+  return {v:1,f2l:1,w:rem.w,smp:rem.smp?1:0,_at:at,seed2:1,profile:rem.profile||{co:""},rates:(rem.rates||[]).slice(),situ:(rem.situ||[]).slice(),rateDel:[],situDel:[],hist:[],chat:[],
+    reqs:Object.values(reqs).filter(r=>!dels[r.id]).sort((a,b)=>String(b.d).localeCompare(String(a.d))||String(b.id).localeCompare(String(a.id))),
+    reqDel:Object.keys(dels).map(id=>({id,t:dels[id]})).slice(-500)};
+}
+/* 荷主：物流会社のレート・情勢メモが変わったら、自社の依頼（仮押さえ済みの国は据え置き）を見直して送る */
+function v45Reeval(){ try{ if(!V45.reeval) return; V45.reeval=0; if(v45On()||!v45Srv()||FWDB.fv===1||!(FWDB.reqs||[]).length) return;
+    const n=fwdReevalPending(); if(n){ fwdSave(); if(typeof toast==="function") toast("物流会社のレートが更新されたため、見積 "+n+"件を見直しました"); } }catch(e){} }
+if(typeof fwdMerge==="function"){ const __fm45=fwdMerge; fwdMerge=function(loc,rem){ if(rem&&rem.f2===1) return v45Merge(loc,rem); return __fm45.apply(this,arguments); }; }
+/* サーバーに為替（USD）を渡す（物流会社の位置の計算で US$ 建てのレートを円にする） */
+if(typeof syncCall==="function"){ const __sc45=syncCall; syncCall=function(op,body){ try{ if(op==="pull"&&body&&body.ns==="fwd"&&body.fx==null) body.fx=v45Fx(); }catch(e){} return __sc45.apply(this,arguments); }; }
+/* 同期がつながる端末は見本を自分で作らない（見本は荷主の見積の中だけで使う） */
+if(typeof fwdLoad==="function"){ const __fl45=fwdLoad; fwdLoad=function(){ let had=true; try{ had=!!localStorage.getItem(FWDKEY); }catch(e){}
+  if(!had&&typeof syncUrl==="function"&&syncUrl()){ FWDB={v:1,profile:{co:""},rates:[],reqs:[],hist:[],chat:[],situ:[],seed2:1}; try{ localStorage.setItem(FWDKEY,JSON.stringify(FWDB)); }catch(e){} return; }
+  return __fl45.apply(this,arguments); }; }
+
+/* ── ② 送信 ── */
+function v45Stamp(){ if(!v45On()||!v45Fv()) return; const fk=FWDB.fk, real=FWDB.w==="real", co=v45MyCo(), now=Date.now();
+  (FWDB.rates||[]).forEach(r=>{ if(r&&!r.fk){ r.fk=fk; if(real&&co) r.co=co; if(!r.at) r.at=now; } });
+  (FWDB.situ||[]).forEach(x=>{ if(x&&!x.fk){ x.fk=fk; if(real&&co) x.co=co; } }); }
+if(typeof fwdSave==="function"){ const __fs45=fwdSave; fwdSave=function(){ try{ v45Stamp(); }catch(e){} return __fs45.apply(this,arguments); }; }
+if(typeof syncPushFwd==="function"){ const __pf45=syncPushFwd; syncPushFwd=async function(){
+  if(!SYNC.on||typeof FWDB==="undefined"||!FWDB) return;
+  if(FWDB.f2l!==1) return __pf45.apply(this,arguments);   /* サーバーが古い形（v2.15）のとき */
+  try{ v45Stamp(); }catch(e){}
+  const fv=FWDB.fv===1, me=v45Me();
+  const body=fv?{v:1,f2:1,rates:(FWDB.rates||[]).filter(r=>r&&r.fk===FWDB.fk),rateDel:FWDB.rateDel||[],situ:(FWDB.situ||[]).filter(x=>x&&x.fk===FWDB.fk),situDel:FWDB.situDel||[],
+      hist:(FWDB.hist||[]).slice(0,200),chat:(FWDB.chat||[]).slice(-80),profile:FWDB.profile||{},plan:FWDB.plan||""}
+    :{v:1,f2:1,reqs:(FWDB.reqs||[]).filter(r=>r&&(!r.kid||r.kid===me)),reqDel:FWDB.reqDel||[]};
+  (body.reqs||[]).forEach(r=>{ if(!r._m) r._m=Date.now(); });
+  const r=await syncCall("push",{ns:"fwd",base:SYNC.ver.fwd,blob:JSON.stringify(body),at:Date.now(),dev:syncDev(),kid:SYNC.kid||""});
+  if(r&&r.ok){ const nv=r.ver||SYNC.ver.fwd, ch=nv!==SYNC.ver.fwd; SYNC.ver.fwd=nv; SYNC.fwdDirty=0;
+    if(fv&&ch) setTimeout(()=>{ try{ if(!SYNC.fwdDirty) syncPullFwd(false); }catch(e){} },800); }   /* サーバーが付けた印・会社名を受け取り直す */
+  return r; }; }
+
+/* ── ③ 物流会社の画面 ── */
+/* レートを足しても物流会社の端末では依頼を計算し直さない（他社のレートが無いため。荷主の端末が次に開いた時に見直す） */
+if(typeof fwdReevalPending==="function"){ const __re45=fwdReevalPending; fwdReevalPending=function(){ if(v45On()&&v45Fv()) return 0; return __re45.apply(this,arguments); }; }
+/* 依頼の状況（物流会社から見た言い方） */
+if(typeof fwdReqStatus==="function"){ const __rs45=fwdReqStatus; fwdReqStatus=function(r){
+  if(r&&r.fv===1&&v45On()){ if(r.open) return "未登録の区間（荷主は非公開）";
+    const L=r.legs||[], own=L.filter(l=>l.ok), held=own.filter(l=>l.hold);
+    if(held.length) return held.length===own.length?"貴社で仮押さえ":"一部を貴社で仮押さえ（"+held.length+"/"+own.length+"か国）";
+    if(own.length&&own.every(l=>l.lost)) return "他社に決定";
+    if(own.length) return own.some(l=>l.lost)?"一部は他社に決定":"回答済み（荷主が検討中）";
+    return L.some(l=>l.lost)?"他社に決定":"レーン未登録"; }
+  return __rs45.apply(this,arguments); }; }
+if(typeof fwdReqRec==="function"){ const __rr45=fwdReqRec; fwdReqRec=function(r){
+  if(r&&r.fv===1&&v45RealFwd()){ const L=(r.legs||[]).filter(l=>l.ok&&(+l.n||0)>1); if(!L.length) return "";
+    return `<br><span style="font-size:9.5px;color:var(--ink-3)">${L.map(l=>`<span>${v45E(l.cty)}</span> <span>${+l.n}社中${+l.rank}位</span>`).join("／")}</span>`; }
+  return __rr45.apply(this,arguments); }; }
+/* 案件の印：仮押さえの前後で変わらないもの（サーバーの ck）。荷主の社名は仮押さえの後に表示が変わるだけ */
+if(typeof v33CaseKey==="function"){ const __ck45=v33CaseKey; v33CaseKey=function(r){ if(r&&r.fv===1&&r.ck) return ("k:"+(r.sk||"")+"|"+r.ck).slice(0,120); return __ck45.apply(this,arguments); }; }
+/* 自社のレートでこの区間に回答できるか（未登録の依頼の案内） */
+function v45OwnCan(r,l){ try{ const co=FWDB.w==="real"?v45MyCo():""; const rs=fwdRatesFor(l.pod||l.cty,r.mode,co||undefined)||[]; const x=rs[0]||(l.cty&&l.cty!==l.pod?(fwdRatesFor(l.cty,r.mode,co||undefined)||[])[0]:null);
+  if(!x) return null; const q=fwdQuoteCalc(x,+r.cbm||2); return {lane:q.lane+"・"+q.mode,total:q.total}; }catch(e){ return null; } }
+/* やり取りの記録（貴社に関わる分だけを組み立て直す。他社の名前・金額は入れない） */
+function v45Synth(r){ const E=v45E, out=[];
+  out.push({f:"商",t:`見積のご依頼：仕出 <b>${E(r.pol||"")}</b>／仕向 <b>${E(r.cty||"")}</b>${r.item?"／貨物 <b>"+E(r.item)+"</b>"+(r.cat?"（"+E(r.cat)+"）":""):""}／${+r.cbm||0}m³ ${E(r.mode||"LCL")}${r.etd?"／希望納期 "+E(r.etd):""}${r.toCo?"／<b>貴社を指名</b>":""}`});
+  if(r.requote&&r.note) out.push({f:"商",t:"再見積の要望："+E(r.note)});
+  (r.legs||[]).forEach(l=>{ const q=l.quote;
+    if(l.ok&&q) out.push({f:"物",t:`${E(l.cty)}：貴社のレート（${E(q.lane||"")}・${E(q.mode||"")}）から <b>¥${(+q.total||0).toLocaleString()}</b>・約${+q.tt||0}日 を自動でご回答${(+l.n||0)>1?"（相見積 "+l.n+"社中 "+l.rank+"位）":""}`});
+    else if(!l.ok&&!l.other) out.push({f:"物",t:`${E(l.cty)}：貴社のレート表に該当する区間がありません（レーン未登録）`}); });
+  (r.legs||[]).forEach(l=>{ if(l.hold) out.push({f:"商",t:`${E(l.cty)} 向けを貴社で仮押さえします${l.holdAt?"（"+E(l.holdAt)+"）":""}。本予約の際に改めてご連絡します。`}); else if(l.lost) out.push({f:"商",t:`${E(l.cty)} 向けは他社に決定しました。`}); });
+  return out; }
+function v45OpenQuote(r){
+  const E=v45E, legs=r.legs||[], own=legs.filter(l=>l.ok), st=fwdReqStatus(r), num=x=>(+x||0).toLocaleString();
+  const brk=q=>q.courier?`運賃（小包・最小重量帯基準）¥${num(q.freight)}／諸掛・書類費は運賃込み`
+    :`${/AIR/i.test(q.mode)?"航空運賃":"海上運賃"} ¥${num(q.freight)}（${E(q.unit||"")}${q.basis?"・"+E(q.basis):""}）＋ THC等諸掛 ¥${num(q.thc)} ＋ 書類費 ¥${num(q.doc)}`;
+  const pos=l=>(+l.n||0)>1?`<span class="p ${+l.rank===1?"hi":"lo"}" style="font-size:9.5px">${+l.n}社中${+l.rank}位</span> <span class="nn" style="margin:0">${+l.gap>0?"最安との差 +"+(+l.gap)+"%":"最安"}</span>${l.recMine?' <span class="p rec" style="font-size:9px">🤖 AI物流マンの推奨は貴社</span>':' <span class="p lo" style="font-size:9px">推奨は他社</span>'}`
+    :`<span class="p lo" style="font-size:9.5px">相見積なし（貴社のみ）</span>`;
+  const dec=l=>l.hold?`<span class="p hi" style="font-size:9.5px">✓ 貴社で仮押さえ${l.holdAt?"・"+E(l.holdAt):""}</span>`:l.lost?`<span class="p mid" style="font-size:9.5px">他社に決定</span>`:`<span class="p on" style="font-size:9.5px">荷主が検討中</span>`;
+  const okCard=l=>{ const q=l.quote||{}; return `<div class="fwdleg ${l.hold?"held":""}">
+      <div class="rw" style="justify-content:space-between;gap:8px;align-items:center"><div style="min-width:0"><b style="font-size:12.5px">${E(l.cty)}</b> <span style="font-size:10.5px;color:var(--ink-3)">${E(q.lane||"")}・${E(q.mode||"")}・約${+q.tt||0}日</span></div>
+        <div class="rw" style="gap:8px;flex:none"><span class="tot n">¥${num(q.total)}</span>${dec(l)}</div></div>
+      <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">${brk(q)}／有効期限 ${E(q.valid||"")}</div>
+      <div class="rw" style="margin-top:6px;gap:6px;align-items:center;flex-wrap:wrap">${pos(l)}</div>
+      ${(l.situ||[]).length?`<p class="nn" style="margin-top:4px">情勢メモ：${l.situ.map(E).join("／")}</p>`:""}</div>`; };
+  const ngCard=l=>{ const can=l.other?null:v45OwnCan(r,l); return `<div class="fwdleg" style="border-style:dashed;border-color:var(--warn)">
+      <div class="rw" style="justify-content:space-between;gap:8px;align-items:center"><b style="font-size:12.5px">${E(l.cty)}</b><span class="p mid" style="font-size:9.5px">${l.other?"他社のみ回答":"レーン未登録"}</span></div>
+      <div style="font-size:10.5px;color:var(--ink-2);margin-top:4px;line-height:1.6">${l.other?`この国は ${+l.n||0}社が回答しています（貴社のレートは未登録）。${l.lost?"荷主は他社に決定しました。":""}`:"どの物流会社もまだ見積を出せていない区間です。"}
+        ${can?`<br><b style="color:var(--good)">貴社のレート（${E(can.lane)}・目安 ¥${num(can.total)}）で回答できます。</b>荷主が次に画面を開いたときに見積が届きます。`
+          :`<br>レート表に「${E(r.pol||"")} → ${E(l.pod||l.cty)}（${E(r.mode||"LCL")}）」を登録すると、荷主が次に画面を開いたときに見積が届きます。`}</div>
+      ${can?"":`<div class="rw" style="margin-top:7px"><button type="button" class="btn g v45goRates" style="padding:4px 10px;font-size:11px">物流レート管理を開く</button></div>`}</div>`; };
+  const msgs=v45Synth(r);
+  const chat=msgs.map(m=>`<div style="display:flex;gap:8px;margin:8px 0;${m.f==="物"?"flex-direction:row-reverse":""}"><span style="width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:8px;font-weight:800;background:${m.f==="物"?"var(--bl)":"var(--or)"};color:#fff">${m.f==="物"?"AI物流":"AI商社"}</span><div style="max-width:86%;padding:7px 10px;border-radius:10px;font-size:11.5px;line-height:1.7;background:${m.f==="物"?"var(--bl-soft)":"var(--or-soft)"}">${m.t}</div></div>`).join("");
+  openDW(`<div class="dwhead"><h3>🚚 AI見積 ${E(r.id)} <span class="p ${/仮押さえ/.test(st)?"hi":own.length?"on":"mid"}">${E(st)}</span>${r.requote?' <span class="p or" style="font-size:9px">🔁 再見積</span>':""}</h3></div>
+    <div class="dwbody" style="display:block;overflow-y:auto;padding:12px 18px 16px">
+    <p class="nn" style="margin:0">${E(r.co||"")}／<b>${E(r.pol||"")} → ${E(r.cty||"")}</b>／${r.item?E(r.item)+"・":""}${+r.cbm||0}m³ ${E(r.mode||"")}${r.etd?"／希望納期 "+E(r.etd):""}${r.d?"／依頼日 "+E(r.d):""}</p>
+    ${r.rv?"":`<div class="v45note">${r.open?"どの物流会社も見積を出せなかった区間の依頼です。荷主の社名・品目・発注書番号は表示しません。":"荷主の社名・発注書番号・案件番号は、貴社で仮押さえされるか、貴社が指名されると表示されます。"}</div>`}
+    <p class="lbl" style="margin-top:12px">国ごとの見積（貴社の回答）</p>
+    ${legs.map(l=>l.ok?okCard(l):ngCard(l)).join("")||'<p class="nn">見積はまだありません。</p>'}
+    <details class="fwdx"><summary>💬 やり取りの記録（貴社に関わる分・${msgs.length}件）</summary><div>${chat}</div></details>
+    ${(r.cargo||r.poNo||(r.docs||[]).length)?`<details class="fwdx"><summary>📦 荷主から共有された貨物情報${r.caseNo?"（案件 "+E(r.caseNo)+"）":""}</summary><div style="font-size:11px;line-height:1.7">${r.cargo?"貨物："+E(r.cargo)+"<br>":""}${r.poNo?"発注書："+E(r.poNo)+"／":""}${r.etd?"希望納期："+E(r.etd)+"／":""}${r.term?"条件："+E(r.term):""}${(r.docs||[]).length?"<br>船積書類："+r.docs.map(E).join("・"):""}</div></details>`:""}
+    <p class="nn" style="margin-top:10px">${FWDB.w==="real"?"ほかの物流会社の社名・金額は表示しません（荷主には相見積もり一覧として表示されます）。順位は価格・所要日数・有効期限などから AI物流マンが付けた総合点の順です。":"体験用のアカウントです。見本の3社の回答をまとめて表示しています。"}</p>
+    <div class="rw" style="margin-top:12px;gap:6px"><button type="button" class="btn g v45close">閉じる</button></div></div>`);
+  const pn=document.getElementById("pn"); if(pn) pn.classList.add("dwr");
+  if(typeof dwChrome==="function") dwChrome();
+  document.querySelectorAll("#pn .v45close").forEach(b=>b.addEventListener("click",()=>closeDW()));
+  document.querySelectorAll("#pn .v45goRates").forEach(b=>b.addEventListener("click",()=>{ closeDW(); fwdCur="frates"; fwdNav(); fwdRender(); }));
+}
+/* 相見積・AI推奨の画面（本物の物流会社）：区間ごとの自社の位置（社数・順位・最安との差・推奨か） */
+function v45AggHtml(){
+  const E=v45E, C=(FWDB.cmp&&FWDB.cmp.lanes)||[], nCos=(FWDB.cmp&&+FWDB.cmp.nCos)||1, rates=FWDB.rates||[], situReg=FWDB.situ||[];
+  const expired=rates.filter(r=>!fwdRateValid(r)).length, M=s=>String(s||"").toUpperCase();
+  const lanes=[]; const seen=new Set(); rates.forEach(r=>{ const k=r.pod+"|"+M(r.mode); if(seen.has(k)) return; seen.add(k); lanes.push({pod:r.pod,mode:M(r.mode)}); });
+  const multi=C.filter(c=>c.n>1), recN=multi.filter(c=>c.rec).length;
+  const rows=lanes.map(L=>{ const c=C.find(x=>x.pod===L.pod&&x.mode===L.mode);
+    const mine=rates.filter(r=>r.pod===L.pod&&M(r.mode)===L.mode&&fwdRateValid(r)).sort((a,b)=>fwdRateJpy(a)-fwdRateJpy(b))[0];
+    const cty=(typeof FWD_POD!=="undefined"&&Object.keys(FWD_POD).find(k=>FWD_POD[k]===L.pod))||"";
+    const situ=(typeof fwdSituFor==="function")?fwdSituFor(cty||L.pod,L.pod).map(x=>(x.src==="内蔵"?"":x.src+"：")+x.t):[];
+    return `<tr><td><b>${E(L.pod)}</b>${cty&&cty!==L.pod?` <span style="font-size:9.5px;color:var(--ink-3)">${E(cty)}</span>`:""}<br><span class="p ${/LCL/.test(L.mode)?"on":"or"}" style="font-size:8.5px">${E(L.mode)}</span></td>
+      <td class="num">${mine?`${E(mine.cur)}${(+mine.price||0).toLocaleString()}<span style="font-size:9px;color:var(--ink-3)">${E(mine.unit||"")}</span><br><span style="font-size:9.5px;color:var(--ink-3)">約${+mine.tt||0}日</span>`:`<span class="nn">有効なレートなし</span>`}</td>
+      <td class="num">${c?`<b>${+c.n}</b>社`:"—"}</td>
+      <td class="num">${!c?`<span class="nn">集計待ち</span>`:c.n>1?`<span class="p ${c.rank===1?"hi":"lo"}">${+c.n}社中${+c.rank}位</span>`:`<span class="p lo">貴社のみ</span>`}</td>
+      <td class="num">${c&&c.n>1?(+c.gap>0?`+${+c.gap}%`:`<b style="color:var(--good)">最安</b>`):"—"}</td>
+      <td>${!c?"—":c.n>1?(c.rec?'<span class="p rec">🤖 貴社を推奨</span>':'<span class="p lo">推奨は他社</span>'):'<span class="p lo">相見積なし</span>'}</td>
+      <td style="font-size:10px;color:var(--ink-2);max-width:220px">${situ.length?situ.map(E).join("<br>"):"—"}</td></tr>`; }).join("");
+  return `<div class="ph"><div><div class="rw" style="margin-bottom:3px"><span class="lt">🚚 物流会社モード</span></div>
+    <h1>相見積の中の貴社の位置</h1>
+    <p class="cando"><b>この画面でできること：</b>貴社のレートを登録した区間ごとに、同じ区間に登録している物流会社の数と、AI物流マンの総合点での<b>貴社の順位・最安との差</b>が分かります。ほかの物流会社の社名・運賃は表示しません。</p></div>
+    <div class="rw"><span class="p ${fwdReady()?"hi":"lo"}" title="AI物流マンの稼働状態">🤖 ${E(fwdEngLabel())}</span>
+      <button class="btn g" onclick="fwdCur='frates';fwdNav();fwdRender()">レート管理へ</button></div></div>
+  <div class="g4" style="margin-bottom:11px">
+    ${[["参加物流会社",nCos+"<small>社</small>","有効なレートを登録している会社（社名は非公開）"],
+       ["貴社の区間",lanes.length+"<small>本</small>","レートを登録した区間・形態"],
+       ["推奨されている区間",recN+"<small>/"+multi.length+"本</small>","2社以上の区間のうち、貴社が推奨"],
+       ["有効期限切れ",expired+"<small>本</small>","推奨・見積の対象外"]]
+      .map(([l,v,d])=>`<div class="c"><p class="lbl">${l}</p><div class="kv n">${v}</div><div class="kd">${d}</div></div>`).join("")}
+  </div>
+  <div class="c" style="margin-bottom:11px"><h3>区間ごとの貴社の位置</h3>
+    <p class="nn">順位は<b>標準2m³・希望納期なし</b>で計算した目安です（価格・所要日数・有効期限の総合点）。荷主の依頼では、数量・輸送形態・希望納期を加味して依頼ごとに計算し直します。荷主の画面では各社の運賃が相見積もり一覧として並びます。</p>
+    ${lanes.length?`<div class="tw" style="margin-top:10px;max-height:none"><table><thead><tr><th>区間・形態</th><th class="num">貴社の運賃</th><th class="num">登録社数</th><th class="num">貴社の順位</th><th class="num">最安との差</th><th>AI物流マンの推奨</th><th>情勢メモ</th></tr></thead><tbody>${rows}</tbody></table></div>`
+      :`<p class="nn" style="margin-top:8px">レートが未登録です。「物流レート管理」から登録してください。</p>`}
+  </div>
+  <div class="g2" style="align-items:start">
+    <div class="c"><h3>情勢メモ（AI物流マンの推奨に反映）</h3>
+      <p class="nn">港湾ストや航路の混雑など、所要日数や逼迫度に影響する情報を登録すると、該当区間の推奨（遅延見込みの加算・最速案への加点）に反映され、荷主のAI見積にも表示されます。</p>
+      <div class="g2" style="gap:6px;margin-top:9px">
+        <input class="sel" id="fsReg" placeholder="対象（国・港名。例：アメリカ／ロサンゼルス）">
+        <input class="sel" id="fsT" placeholder="内容（例：港湾ストで滞留、+5日見込み）">
+        <input class="sel n" id="fsDelay" type="number" min="0" max="60" placeholder="遅延見込み（日）">
+        <select class="sel" id="fsRisk"><option value="0">影響度：注意</option><option value="1">影響度：逼迫（最速案を優先）</option></select></div>
+      <div class="rw" style="margin-top:7px"><button class="btn" id="fsAdd">情勢メモを登録</button></div>
+      <p class="lbl" style="margin-top:12px">登録済み（${situReg.length}件）</p>
+      ${situReg.length?situReg.map(x=>`<div class="rw" style="justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line-2);font-size:11px"><span><b>${E(x.reg)}</b>：${E(x.t)}${x.delay?`（+${+x.delay}日）`:""}${x.risk?' <span class="p mid" style="font-size:8.5px">逼迫</span>':""}<br><span style="font-size:9.5px;color:var(--ink-3)">${E(x.d)}</span></span><button class="btn g" style="padding:2px 8px;font-size:10px;flex:none" data-fsdel="${E(x.id)}">削除</button></div>`).join("")
+        :`<p class="nn">まだありません。</p>`}</div>
+    <div class="stk">
+      <div class="c"><h3>推奨の考え方（透明・再現可能）</h3>
+        <div style="margin-top:8px;font-size:11px;color:var(--ink-2);line-height:1.75">
+          ・価格 ${FWD_W.price}点：最安を満点に、合計金額の比で配点<br>・所要日数 ${FWD_W.tt}点：最速を満点に、日数の比で配点（情勢メモの遅延見込みを加算）<br>・有効期限 ${FWD_W.valid}点：30日以上で満点、7日未満は減点<br>・希望納期に間に合わない案は −${FWD_W.late}（通関・カット余裕3日込み）<br>・要望と違う輸送形態は −${FWD_W.mode}<br>
+          <span style="color:var(--ink-3)">同点なら安い方→速い方。荷主は推奨と違う会社も選べます。</span></div></div>
+      <div class="c"><h3>表示のきまり</h3>
+        <div style="margin-top:8px;font-size:11px;color:var(--ink-2);line-height:1.75">・ほかの物流会社の社名・運賃・情勢メモは表示しません（貴社の分も他社には見えません）<br>・見積依頼は、貴社が相見積に入った依頼と、貴社を指名した依頼が届きます<br>・荷主の社名・発注書番号は、貴社で仮押さえ・指名されると表示されます<br>・どの物流会社も見積を出せなかった区間の依頼は、荷主を伏せて届きます</div></div>
+    </div>
+  </div>`;
+}
+if(typeof fwdAggHtml==="function"){ const __ag45=fwdAggHtml; fwdAggHtml=function(){ if(v45RealFwd()) return v45AggHtml(); return __ag45.apply(this,arguments); }; }
+/* AI物流マン（内蔵の答え・接続AIの材料）：区間の集計に自社の位置を入れる。他社の社名・運賃は無い */
+if(typeof fwdLaneAgg==="function"){ const __la45=fwdLaneAgg; fwdLaneAgg=function(){ const base=__la45.apply(this,arguments); if(!v45RealFwd()) return base;
+  const C=(FWDB.cmp&&FWDB.cmp.lanes)||[], me=v45MyCo();
+  return base.map(x=>{ const c=C.find(y=>y.pod===x.pod&&y.mode===String(x.mode||"").toUpperCase()); if(!c) return x;
+    return Object.assign({},x,{n:c.n,cos:[me],rec:c.n>1?(c.rec?me:"（他社）"):me,recTotal:c.tot,recWhy:c.n>1?[c.n+"社中"+c.rank+"位（最安との差 "+(c.gap>0?"+"+c.gap+"%":"なし＝最安")+"）"]:["相見積なし（貴社のみ）"]}); }); }; }
+if(typeof fwdLaneAggText==="function"){ const __lt45=fwdLaneAggText; fwdLaneAggText=function(){ if(!v45RealFwd()) return __lt45.apply(this,arguments);
+  return fwdLaneAgg().slice(0,25).map(x=>`${x.pod} ${x.mode}：登録 ${x.n}社（他社の社名・運賃は非公開）／貴社の運賃 ¥${(+x.min||0).toLocaleString()}${x.unit||""}・所要${x.ttMin}日／${(x.recWhy||[]).join("・")}／AI物流マンの推奨 ${x.rec||"—"}`).join("\n")||"（レートなし）"; }; }
+if(typeof fwdContext==="function"){ const __cx45=fwdContext; fwdContext=function(){ const s=__cx45.apply(this,arguments); if(!v45RealFwd()) return s;
+  const n=(FWDB.cmp&&+FWDB.cmp.nCos)||1;
+  return String(s).replace(/参加 \d+社）/,"参加 "+n+"社・他社の社名と運賃は非公開）")+"\n## 表示のきまり\nほかの物流会社の社名・運賃・情勢メモは見えない（推測で答えない）。荷主の社名は貴社で仮押さえ・指名された依頼だけ。「荷主（非公開）」の依頼の荷主は分からない、と答える。"; }; }
+if(typeof fwdBrain==="function"){ const __br45=fwdBrain; fwdBrain=function(){ const o=__br45.apply(this,arguments); try{ if(o&&o.a&&v45RealFwd()){ const n=(FWDB.cmp&&+FWDB.cmp.nCos)||1; o.a=String(o.a).replace(/参加物流会社は<b>\d+社<\/b>（[^）]*）/,"参加物流会社は<b>"+n+"社</b>（社名は非公開）"); } }catch(e){} return o; }; }
+/* 見積の窓：物流会社は貴社の回答の形で（本物の物流会社・どこも出せなかった依頼）。荷主は見本の札 */
+if(typeof openFwdQuote==="function"){ const __oq45=openFwdQuote; openFwdQuote=function(id){
+  try{ if(v45On()&&v45Fv()){ const r=(FWDB.reqs||[]).find(x=>x.id===id); if(r&&(r.open||FWDB.w==="real")) return v45OpenQuote(r);
+      if(r&&r.fv===1&&!(r.msgs||[]).length) r.msgs=v45Synth(r); } }catch(e){}
+  const out=__oq45.apply(this,arguments); try{ v45SmpPatch(id); }catch(e){} return out; }; }
+/* 物流会社の左上の会社名は、アカウントの会社名（取り込み前の古い控えの「デモ物流株式会社」を出さない） */
+if(typeof fwdNav==="function"){ const __nv45=fwdNav; fwdNav=function(){ try{ if(v45On()&&typeof FWDB!=="undefined"&&FWDB&&typeof fwdCo==="function"){ const c=fwdCo(); if(c){ FWDB.profile=FWDB.profile||{}; FWDB.profile.co=c; } } }catch(e){} return __nv45.apply(this,arguments); }; }
+/* 描いた後の直し：会社名の欄（本物の物流会社は台帳の名前で固定）・空の受信箱の案内・画面の下のきまり */
+function v45AfterRender(){ if(!v45On()||!v45Fv()) return; const real=FWDB.w==="real";
+  const ft=document.getElementById("ft");
+  if(ft) ft.innerHTML=`<b>物流会社モードについて</b>　${real?"レート表は荷主の見積にだけ使われ、ほかの物流会社には見えません（削除・変更も貴社の行だけ）。見積依頼は、貴社が相見積に入った依頼と貴社を指名した依頼が届きます。荷主の社名・発注書番号は、貴社で仮押さえ・指名されると表示されます。どの物流会社も見積を出せなかった区間の依頼は、荷主を伏せて届きます。"
+    :"体験用の物流会社アカウントです。見本の3社のレートで相見積を体験できます。荷主の社名は仮押さえ・指名の後に表示されます。"}AI物流マンとの相談と操作履歴は、貴社のアカウントだけが見られます。実際の予約・手配は行われません。Copyright © 2026, STANDAGE, Inc.`;
+  if(!real) return;
+  const co=document.getElementById("frCo");
+  if(co&&!co.dataset.v45){ co.dataset.v45="1"; co.value=v45MyCo()||co.value; co.readOnly=true; co.title="貴社の会社名（アカウントの登録名）で登録されます";
+    const row=co.parentElement; const hint=row&&[...row.querySelectorAll(".nn")].find(x=>/複数社/.test(x.textContent)); if(hint) hint.textContent="アカウントの会社名で登録されます"; }
+  const w=document.getElementById("well");
+  if(w) [...w.querySelectorAll("div")].forEach(d=>{ const f=d.firstChild; if(f&&f.nodeType===3&&/まだ依頼がありません/.test(f.textContent)&&/荷主アカウント（例：TRIAL-2026）/.test(d.textContent)) d.innerHTML="まだ依頼がありません。<br><b style=\"color:var(--ink-2)\">荷主が「出荷を進める」からAI見積を依頼し、貴社のレートが相見積に入ると、ここに届きます。</b><br>どの物流会社も見積を出せなかった区間の依頼も、荷主を伏せて届きます。"; });
+}
+if(typeof fwdRender==="function"){ const __fr45=fwdRender; fwdRender=function(){ const o=__fr45.apply(this,arguments); try{ v45AfterRender(); }catch(e){} return o; }; }
+
+/* ── ④ 荷主の画面：本物の物流会社のレートが無い区間だけ、内蔵の見本で見積（「見本」の札・仮押さえと指名は不可） ── */
+function v45Samples(){ const vd=(typeof v422DefValid==="function")?v422DefValid():(String((typeof TODAYS!=="undefined"&&TODAYS)||new Date().toISOString()).slice(0,4)+"-12-31");
+  try{ return fwdSeedRates().concat(fwdSeedRates2()).map(r=>Object.assign({},r,{valid:vd,smp:1})); }catch(e){ return []; } }
+/* 本物の物流会社のどの港名でも見積が出ないときだけ、見本で組み立て直す（港名の言い換え〔基隆／台湾〕で本物より先に見本を拾わない） */
+if(typeof fwdLegBuild==="function"){ const __lb45=fwdLegBuild; fwdLegBuild=function(cty,pod,mode,cbm,etd,coFilter){ const l=__lb45.apply(this,arguments);
+  try{ if(l&&!l.ok&&!coFilter&&v45SmpOn()){ const keep=FWDB.rates; let s=null; try{ FWDB.rates=v45Samples(); s=__lb45.apply(this,arguments); } finally{ FWDB.rates=keep; }
+      if(s&&s.ok){ s.smp=1; (s.offers||[]).forEach(o=>{ o.smp=1; }); return s; } }
+    if(l) l.smp=0; }catch(e){} return l; }; }
+function v45LegSmp(id,cty){ try{ const r=(FWDB.reqs||[]).find(x=>x.id===id); const l=r&&(r.legs||[]).find(x=>x.cty===cty); return !!(l&&l.smp); }catch(e){ return false; } }
+if(typeof fwdHoldLeg==="function"){ const __hl45=fwdHoldLeg; fwdHoldLeg=function(id,cty,on){ if(on&&!v45On()&&v45LegSmp(id,cty)){ if(typeof toast==="function") toast(V45_SMP_MSG); return; } return __hl45.apply(this,arguments); }; }
+if(typeof fwdPickOffer==="function"){ const __po45=fwdPickOffer; fwdPickOffer=function(id,cty,co,hold){ if(hold&&!v45On()&&v45LegSmp(id,cty)){ if(typeof toast==="function") toast(V45_SMP_MSG); return; } return __po45.apply(this,arguments); }; }
+if(typeof fwdHoldAll==="function"){ const __ha45=fwdHoldAll; fwdHoldAll=function(id){
+  try{ if(!v45On()){ fwdLoad(); const r=(FWDB.reqs||[]).find(x=>x.id===id); if(r&&(r.legs||[]).some(l=>l.smp)){
+    let n=0; (r.legs||[]).forEach(l=>{ if(l.ok&&!l.hold&&!l.smp){ l.hold=1; l.holdAt=TODAYS; l.holdCo=l.sel||l.co||l.rec||""; n++; } });
+    if(!n){ if(typeof toast==="function") toast(V45_SMP_MSG); return; }
+    r.status=fwdReqStatus(r); fwdHist("仮押さえ（見本以外の提案国）："+r.id); fwdSave(); openFwdQuote(id); if(typeof render==="function") render();
+    if(typeof toast==="function") toast("見本以外の"+n+"か国を仮押さえしました（"+r.id+"）"); return; } } }catch(e){}
+  return __ha45.apply(this,arguments); }; }
+if(typeof fwdRequoteForm==="function"){ const __rq45=fwdRequoteForm; fwdRequoteForm=function(id,cty,co){ if(co&&!v45On()&&v45SmpOn()&&V45_SMPCO[co]){ if(typeof toast==="function") toast("見本の物流会社は指名できません。「回答のあった全社に相見積」で依頼してください"); co=""; } return __rq45.call(this,id,cty,co); }; }
+if(typeof fwdLegLine==="function"){ const __ll45=fwdLegLine; fwdLegLine=function(l){ const s=__ll45.apply(this,arguments); return (l&&l.smp)?s+"（見本）":s; }; }
+if(typeof fwdMsgsLocal==="function"){ const __ml45=fwdMsgsLocal; fwdMsgsLocal=function(req){ const m=__ml45.apply(this,arguments);
+  try{ if(req&&(req.legs||[]).some(l=>l.smp)&&m[0]&&!req.toCo) m[0].t=String(m[0].t).replace(/参加物流会社（\d+社）の相見積で/,"見本の物流会社（架空の3社）の相見積で"); }catch(e){} return m; }; }
+if(typeof fwdInlineHtml==="function"){ const __in45=fwdInlineHtml; fwdInlineHtml=function(){ const s=__in45.apply(this,arguments);
+  try{ if(v45SmpOn()) return String(s).replace(/<\/div>\s*$/,`<p class="nn" style="margin:5px 0 0">本物の物流会社のレートが無い区間は、<b>見本の3社（架空）</b>で見積の流れを体験できます（「見本」の札・仮押さえと指名はできません）。</p></div>`); }catch(e){} return s; }; }
+if(typeof fwdCompareHtml==="function"){ const __cm45=fwdCompareHtml; fwdCompareHtml=function(r,l){ const s=__cm45.apply(this,arguments); return (l&&l.smp&&!v45On())?`<p class="nn v45smpnote" style="margin:4px 0">${V45_SMP_NOTE}</p>`+s:s; }; }
+function v45SmpPatch(id){ if(v45On()||!v45SmpOn()) return; const r=(FWDB.reqs||[]).find(x=>x.id===id); if(!r) return; const pn=document.getElementById("pn"); if(!pn) return;
+  const cards=[...pn.querySelectorAll(".fwdleg")];
+  (r.legs||[]).forEach((l,i)=>{ const c=cards[i]; if(!c||!l.smp) return; c.classList.add("v45smp");
+    const b=c.querySelector("b"); if(b&&!c.querySelector(".v45smpchip")) b.insertAdjacentHTML("afterend",' <span class="p mid v45smpchip" style="font-size:9px">見本</span>');
+    c.querySelectorAll("button").forEach(btn=>{ if(/仮押さえ/.test(btn.textContent)&&!/解除/.test(btn.textContent)){ btn.disabled=true; btn.title=V45_SMP_MSG; } });
+    if(!c.querySelector(":scope > .v45smpnote")) c.insertAdjacentHTML("beforeend",`<p class="nn v45smpnote" style="margin-top:6px">${V45_SMP_NOTE}</p>`); });   /* 相見積もり一覧（畳まれることがある）の外にも出す */
+  if((r.legs||[]).length&&(r.legs||[]).filter(l=>l.ok).every(l=>l.smp)) pn.querySelectorAll("button").forEach(btn=>{ if(/すべて仮押さえ/.test(btn.textContent)) btn.disabled=true; });
+  /* 「📋 まとめ」の表（v17.8）：見本の国の行に札、表の上に案内 */
+  let any=false;
+  (r.legs||[]).forEach(l=>{ if(!l.smp) return; any=true; pn.querySelectorAll("tr.fqrow").forEach(tr=>{ if(tr.dataset.fqgo!==l.cty||tr.querySelector(".v45smpchip")) return; const td=tr.children[1]; if(td) td.insertAdjacentHTML("afterbegin",'<span class="p mid v45smpchip" style="font-size:9px">見本</span> '); }); });
+  if(any){ const tb=pn.querySelector("tr.fqrow"); const tw=tb&&tb.closest(".tw"); if(tw&&!(tw.previousElementSibling&&tw.previousElementSibling.classList.contains("v45smpnote"))) tw.insertAdjacentHTML("beforebegin",`<p class="nn v45smpnote" style="margin:4px 0 6px">${V45_SMP_NOTE}</p>`); } }
+
+/* ── 見た目と英中西 ── */
+(function(){ try{ const st=document.createElement("style"); st.textContent=`.v45note{margin-top:8px;padding:8px 11px;border:1px dashed var(--line);border-radius:var(--r2);background:var(--surface-2);font-size:11px;line-height:1.7;color:var(--ink-2)}
+.fwdleg.v45smp{background:var(--surface-2)}`; document.head.appendChild(st); }catch(e){} })();
+(function(){
+  const R=[
+    ["見本","Sample","样本","Muestra"],
+    [V45_SMP_MSG,"These are sample rates (fictitious forwarders), so they cannot be held or named. Quotes arrive automatically once a real forwarder registers rates.","这是样本费率（虚构的物流公司），无法暂订或指定。真实物流公司登记费率后会自动收到报价。","Son tarifas de muestra (transitarios ficticios): no se pueden reservar ni designar. Las cotizaciones llegan solas cuando un transitario real registre tarifas."],
+    [V45_SMP_NOTE,"Sample rates (fictitious forwarders). When a real forwarder registers rates for this lane, a quote arrives automatically. Holding and naming are not available.","样本费率（虚构的物流公司）。真实物流公司登记该线路的费率后会自动收到报价。无法暂订或指定。","Tarifas de muestra (transitarios ficticios). Cuando un transitario real registre tarifas para este trayecto, llegará una cotización automáticamente. No se puede reservar ni designar."],
+    ["貴社で仮押さえ","Held with you","已由贵司暂订","Reservado con ustedes"],
+    ["他社に決定","Awarded to another forwarder","已选择其他公司","Adjudicado a otro transitario"],
+    ["一部は他社に決定","Partly awarded to others","部分已选择其他公司","Parcialmente adjudicado a otros"],
+    ["回答済み（荷主が検討中）","Quoted (shipper is deciding)","已报价（货主考虑中）","Cotizado (el cargador está decidiendo)"],
+    ["未登録の区間（荷主は非公開）","Unregistered lane (shipper undisclosed)","未登记线路（货主不公开）","Trayecto sin tarifa (cargador no revelado)"],
+    ["荷主が検討中","Shipper is deciding","货主考虑中","El cargador está decidiendo"],
+    ["他社のみ回答","Only others quoted","仅其他公司报价","Solo cotizaron otros"],
+    ["相見積なし（貴社のみ）","No competing quotes (only you)","无比价（仅贵司）","Sin cotizaciones competidoras (solo ustedes)"],
+    ["🤖 AI物流マンの推奨は貴社","🤖 AI Logistics recommends you","🤖 AI物流专员推荐贵司","🤖 La IA logística les recomienda"],
+    ["推奨は他社","Another forwarder is recommended","推荐的是其他公司","Se recomienda a otro"],
+    ["最安","Lowest","最低价","Más barato"],
+    ["国ごとの見積（貴社の回答）","Quotes by country (your answers)","各国报价（贵司的回复）","Cotizaciones por país (sus respuestas)"],
+    ["物流レート管理を開く","Open rate management","打开物流费率管理","Abrir gestión de tarifas"],
+    ["どの物流会社も見積を出せなかった区間の依頼です。荷主の社名・品目・発注書番号は表示しません。","No forwarder could quote this lane yet. The shipper's name, item and PO number are not shown.","这是没有任何物流公司能报价的线路的请求。不显示货主名称・品名・订单号。","Ningún transitario pudo cotizar este trayecto. No se muestran el nombre del cargador, el artículo ni el n.º de pedido."],
+    ["荷主の社名・発注書番号・案件番号は、貴社で仮押さえされるか、貴社が指名されると表示されます。","The shipper's name, PO number and case number appear once the shipper holds with you or names you.","货主名称・订单号・案件号在由贵司暂订或指定贵司后显示。","El nombre del cargador, el n.º de pedido y el de caso aparecen cuando reserven con ustedes o les designen."],
+    ["相見積の中の貴社の位置","Your position among competing quotes","贵司在比价中的位置","Su posición entre las cotizaciones"],
+    ["区間ごとの貴社の位置","Your position by lane","各线路中贵司的位置","Su posición por trayecto"],
+    ["貴社の運賃","Your rate","贵司运费","Su tarifa"],["登録社数","Forwarders","登记公司数","Transitarios"],["貴社の順位","Your rank","贵司排名","Su puesto"],["最安との差","vs. lowest","与最低价之差","vs. la más barata"],
+    ["AI物流マンの推奨","AI Logistics recommendation","AI物流专员推荐","Recomendación de la IA logística"],
+    ["🤖 貴社を推奨","🤖 Recommends you","🤖 推荐贵司","🤖 Les recomienda"],["貴社のみ","Only you","仅贵司","Solo ustedes"],["相見積なし","No competing quotes","无比价","Sin competencia"],["集計待ち","Pending","待统计","Pendiente"],
+    ["有効なレートなし","No valid rate","无有效费率","Sin tarifa vigente"],["参加物流会社","Participating forwarders","参与的物流公司","Transitarios participantes"],
+    ["有効なレートを登録している会社（社名は非公開）","With valid rates (names not shown)","登记了有效费率的公司（不公开名称）","Con tarifas vigentes (nombres no visibles)"],
+    ["貴社の区間","Your lanes","贵司的线路","Sus trayectos"],["レートを登録した区間・形態","Lanes and modes with your rates","已登记费率的线路・方式","Trayectos y modos con sus tarifas"],
+    ["推奨されている区間","Lanes where you are recommended","被推荐的线路","Trayectos en que les recomiendan"],["2社以上の区間のうち、貴社が推奨","Among lanes with 2+ forwarders","在2家以上的线路中推荐贵司","Entre trayectos con 2+ transitarios"],
+    ["表示のきまり","What is shown","显示规则","Qué se muestra"],
+    ["アカウントの会社名で登録されます","Registered under your account's company name","以账户的公司名称登记","Se registra con el nombre de su cuenta"],
+    ["物流会社モードについて","About forwarder mode","关于物流公司模式","Acerca del modo transitario"],
+  ];
+  try{ if(typeof I18N!=="undefined"&&I18N&&I18N.dict) R.forEach(r=>{ ["en","zh","es"].forEach((l,i)=>{ if(r[i+1]&&I18N.dict[l]) I18N.dict[l][r[0]]=r[i+1]; }); }); }catch(e){}
+  try{ if(typeof I18N!=="undefined"&&I18N&&Array.isArray(I18N.pat)) I18N.pat.push(
+    {re:/^荷主（非公開）・([A-Z0-9]{4})$/,en:"Shipper (undisclosed) · $1",zh:"货主（不公开）・$1",es:"Cargador (no revelado) · $1"},
+    {re:/^(\d+)社中(\d+)位$/,en:"#$2 of $1",zh:"$1家中第$2",es:"$2.º de $1"},
+    {re:/^最安との差 \+([\d.]+)%$/,en:"+$1% vs. lowest",zh:"比最低价高 $1%",es:"+$1% vs. la más barata"},
+    {re:/^✓ 貴社で仮押さえ(?:・(.+))?$/,en:(m)=>"✓ Held with you"+(m[1]?" · "+m[1]:""),zh:(m)=>"✓ 已由贵司暂订"+(m[1]?"・"+m[1]:""),es:(m)=>"✓ Reservado con ustedes"+(m[1]?" · "+m[1]:"")},
+    {re:/^一部を貴社で仮押さえ（(\d+)\/(\d+)か国）$/,en:"Partly held with you ($1/$2 countries)",zh:"部分由贵司暂订（$1/$2国）",es:"Parcialmente reservado con ustedes ($1/$2 países)"},
+    {re:/^💬 やり取りの記録（貴社に関わる分・(\d+)件）$/,en:"💬 Exchange log (your part · $1)",zh:"💬 往来记录（与贵司相关・$1条）",es:"💬 Registro (su parte · $1)"}); }catch(e){}
+})();
 
 /* ═══ 読み込みのいちばん最後に動かすもの（v21.36 から。新しい層は、このファイルより前に入れる）
    ・再読み込み（F5）で見ていた画面と位置に戻す（v21.35 の v35Restore）＝全部の画面と描画の包みが揃ってから */
