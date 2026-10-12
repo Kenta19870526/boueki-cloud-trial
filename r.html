@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>貿易クラウド2.0 は新しいアドレスに移りました</title>
+<script>
+(function(){
+  var NEW = "https://standage-boueki2.github.io/boueki-cloud-trial/";
+  var BASE = "/boueki-cloud-trial/";
+  var rest = location.pathname.replace(/^\/boueki-cloud-trial\/?/, "").replace(/^\/+/, "");
+  if (rest === "index.html") rest = "";
+  var to = NEW + rest + location.search + location.hash;
+  window.__to = to;
+  var done = false;
+  function go(){ if (done) return; done = true; try { location.replace(to); } catch (e) { location.href = to; } }
+  var jobs = [];
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){
+        return Promise.all(rs.filter(function(r){ return String(r.scope || "").indexOf(location.origin + BASE) === 0; })
+          .map(function(r){ return r.unregister(); }));
+      }));
+  } catch (e) {}
+  try {
+    if (window.caches && caches.keys)
+      jobs.push(caches.keys().then(function(ks){
+        return Promise.all(ks.filter(function(k){ return /^bc20-/.test(k); }).map(function(k){ return caches.delete(k); }));
+      }));
+  } catch (e) {}
+  if (jobs.length && typeof Promise !== "undefined") { Promise.all(jobs).then(go, go); setTimeout(go, 600); } else go();
+})();
+</script>
+<style>body{font:15px/1.8 "Noto Sans JP",system-ui,sans-serif;margin:0;padding:40px 20px;background:#F6F7F9;color:#1A1A1A;text-align:center}a{color:#0064BF;font-weight:700;word-break:break-all}</style>
+</head><body>
+<p>貿易クラウド2.0 は新しいアドレスに移りました。自動で移らないときは、次のリンクを開いてください。</p>
+<p><a id="go" href="https://standage-boueki2.github.io/boueki-cloud-trial/" rel="noreferrer">https://standage-boueki2.github.io/boueki-cloud-trial/</a></p>
+<p style="font-size:13px;color:#46566D">新しいアドレスでは、もう一度ログインしてください（データはそのまま使えます）。</p>
+<script>try{ if (window.__to) { var a = document.getElementById("go"); a.href = window.__to; } }catch(e){}</script>
+</body></html>
